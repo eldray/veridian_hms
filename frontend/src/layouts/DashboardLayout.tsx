@@ -196,19 +196,25 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="h-2.5 w-24 rounded mx-auto" style={{ background: 'var(--border-color)' }} />
               </div>
             ) : (
-              <div className="text-center min-w-0">
-                <p
-                  className="text-[13px] font-bold leading-tight tracking-tight truncate"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {hospital?.name || 'Veridian Hospital'}
-                </p>
-                <p
-                  className="text-[10px] leading-tight mt-0.5 font-medium tracking-wide uppercase truncate"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
-                  {hospital?.nhisFacilityType || 'Medical Center'}&nbsp;·&nbsp;{hospital?.nhisFacilityCode || 'GHS-ACC-001'}
-                </p>
+              <div className="flex items-center gap-2 min-w-0">
+                {/* Hospital logo from Settings — sits beside the hospital name. */}
+                {(hospital?.imageUrl || hospital?.logoUrl) && (
+                  <img
+                    src={(hospital.imageUrl || hospital.logoUrl) as string}
+                    alt={hospital?.name ? `${hospital.name} logo` : 'Hospital logo'}
+                    className="rounded-md object-cover shrink-0"
+                    style={{ width: 26, height: 26 }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
+                <div className="text-center sm:text-left min-w-0">
+                  <p className="text-[13px] font-bold leading-tight tracking-tight truncate" style={{ color: 'var(--text-primary)' }}>
+                    {hospital?.name || 'Veridian Hospital'}
+                  </p>
+                  <p className="text-[10px] leading-tight mt-0.5 font-medium tracking-wide uppercase truncate" style={{ color: 'var(--text-tertiary)' }}>
+                    {hospital?.nhisFacilityType || 'Medical Center'}&nbsp;·&nbsp;{hospital?.nhisFacilityCode || 'GHS-ACC-001'}
+                  </p>
+                </div>
               </div>
             )}
           </div>

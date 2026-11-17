@@ -38,14 +38,11 @@ const formatCurrency = (amount: unknown): string => {
 };
 
 // ============ STATUS BADGE ============
-// Three statuses this screen renders have no entry in Badge's shared STATUS_TONES,
-// so only those keep a local tone; everything else resolves through statusTone().
 const LOCAL_STATUS_TONES: Record<string, Accent> = {
   prescribed: 'purple',
   requested: 'yellow',
   scheduled: 'cyan',
 };
-
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const key = status?.toLowerCase() ?? '';
   return (
@@ -61,24 +58,16 @@ const Table: React.FC<{ heads: string[]; children: React.ReactNode }> = ({ heads
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead className={TH_ROW}>
-          <tr>
-            {heads.map(h => (
-              <th key={h} className={cn(TH, 'px-3 py-2')}>
-                {h}
-              </th>
-            ))}
-          </tr>
+          <tr>{heads.map(h => (<th key={h} className={cn(TH, 'px-3 py-2')}>{h}</th>))}</tr>
         </thead>
         <tbody>{children}</tbody>
       </table>
     </div>
   </div>
 );
-
 const TdPrimary: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <td className={cn(TD, 'px-3 py-2 text-xs font-medium whitespace-normal')}>{children}</td>
 );
-
 const Td: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
   <td className={cn(TD_MUTED, 'px-3 py-2 text-xs whitespace-normal', className)}>{children}</td>
 );
@@ -110,51 +99,35 @@ export default function PatientDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
-
   const { currentPatient, fetchPatient, deletePatient } = usePatientStore();
   const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
   const { getInsuranceProviders } = useInsuranceStore();
-
-  const [activeTab, setActiveTab] = useState<
-    'profile' | 'documents' | 'attendances' | 'medical-records' | 'overview' |
-    'diagnoses' | 'medications' | 'lab-tests' | 'procedures' | 'vitals' | 'billing'
-  >('overview');
+  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'attendances' | 'medical-records' | 'overview' | 'diagnoses' | 'medications' | 'lab-tests' | 'procedures' | 'vitals' | 'billing'>('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Attendance | null>(null);
   const [showMedicalDetails, setShowMedicalDetails] = useState(false);
-  const [stats, setStats] = useState({
-    totalVisits: 0, completedVisits: 0, pendingVisits: 0,
-    totalMedications: 0, totalLabTests: 0,
-  });
+  const [stats, setStats] = useState({ totalVisits: 0, completedVisits: 0, pendingVisits: 0, totalMedications: 0, totalLabTests: 0 });
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
-
+  const [imageFailed, setImageFailed] = useState(false);
   const { getDocumentsByEntity, downloadDocument } = useDocumentStore();
-
   const patient = useMemo(() => {
     if (!currentPatient) return null;
     if (currentPatient.data) return currentPatient.data;
     if (currentPatient.success && currentPatient.data) return currentPatient.data;
     return currentPatient;
   }, [currentPatient]);
-
-  const getPatientFullName = (p: any) =>
-    p?.name || p?.fullName || `${p?.surname || ''} ${p?.otherNames || ''}`.trim();
-
+  const getPatientFullName = (p: any) => p?.name || p?.fullName || `${p?.surname || ''} ${p?.otherNames || ''}`.trim();
   const patientAttendances = useMemo(() => {
     if (!patient || !attendances.length) return [];
     const patientId = patient.id;
-    const filtered = attendances.filter((a: any) =>
-      a.patientId === patientId ||
-      a.patient?.id === patientId ||
-      a.Patient?.id === patientId
-    );
+    const filtered = attendances.filter((a: any) => a.patientId === patientId || a.patient?.id === patientId || a.Patient?.id === patientId);
     return filtered.map((att: any) => ({
       ...att,
       diagnoses: att.diagnoses ?? att.AttendanceDiagnosis ?? [],
@@ -166,212 +139,119 @@ export default function PatientDetails() {
       servicesRendered: att.servicesRendered ?? att.ServiceRendered ?? [],
     }));
   }, [attendances, patient]);
-
   const aggregate = (key: string) => {
     const out: any[] = [];
     patientAttendances.forEach(att => {
       if (att[key]?.length) {
-        out.push(...att[key].map((x: any) => ({
-          ...x,
-          attendanceId: att.id,
-          attendanceDate: att.dateTime || att.createdAt,
-          attendanceNumber: att.attendanceNumber,
-        })));
+        out.push(...att[key].map((x: any) => ({ ...x, attendanceId: att.id, attendanceDate: att.dateTime || att.createdAt, attendanceNumber: att.attendanceNumber })));
       }
     });
     return out.sort((a, b) => new Date(b.attendanceDate).getTime() - new Date(a.attendanceDate).getTime());
   };
-
   const allDiagnoses = useMemo(() => aggregate('diagnoses'), [patientAttendances]);
   const allMedications = useMemo(() => aggregate('medications'), [patientAttendances]);
   const allLabTests = useMemo(() => aggregate('labTests'), [patientAttendances]);
   const allProcedures = useMemo(() => aggregate('procedures'), [patientAttendances]);
-
   const enhancedStats = useMemo(() => {
     const totalVisits = patientAttendances.length;
     const completedVisits = patientAttendances.filter(a => a.status === 'completed').length;
-    const pendingVisits = patientAttendances.filter(a =>
-      ['pending', 'active', 'in-progress'].includes(a.status)
-    ).length;
+    const pendingVisits = patientAttendances.filter(a => ['pending', 'active', 'in-progress'].includes(a.status)).length;
     const admittedVisits = patientAttendances.filter(a => a.status === 'admitted').length;
     const totalBilled = patientAttendances.reduce((s, a) => s + (a.totalBill || 0), 0);
     const totalPaid = patientAttendances.reduce((s, a) => s + (a.paidAmount || 0), 0);
-    return {
-      totalVisits, completedVisits, pendingVisits, admittedVisits,
-      totalBilled, totalPaid, outstanding: totalBilled - totalPaid,
-    };
+    return { totalVisits, completedVisits, pendingVisits, admittedVisits, totalBilled, totalPaid, outstanding: totalBilled - totalPaid };
   }, [patientAttendances]);
-
-  // One batched request for every visit on this patient (the server chunks at 100 ids).
-  // This used to fire one GET per visit, so a 40-visit patient cost 40 requests every time
-  // the history was opened, and the four-GET window made the page crawl.
   const loadAllVitals = async () => {
     const byVisit = new Map<string, Attendance>(patientAttendances.map((att) => [att.id, att] as [string, Attendance]));
     try {
       const rows = await getVitalsForEncounters(patientAttendances.map((att) => att.id));
-      const all = (Array.isArray(rows) ? rows : [])
-        .filter((v: any) => byVisit.has(v.attendanceId))
-        .map((v: any) => {
-          const att = byVisit.get(v.attendanceId)!;
-          return {
-            ...v,
-            attendanceId: att.id,
-            attendanceDate: att.dateTime || att.createdAt,
-            attendanceNumber: att.attendanceNumber,
-          };
-        });
+      const all = (Array.isArray(rows) ? rows : []).filter((v: any) => byVisit.has(v.attendanceId)).map((v: any) => {
+        const att = byVisit.get(v.attendanceId)!;
+        return { ...v, attendanceId: att.id, attendanceDate: att.dateTime || att.createdAt, attendanceNumber: att.attendanceNumber };
+      });
       setVitalsList(all.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()));
-    } catch (e) {
-      console.error('Vitals batch load error', e);
-      setVitalsList([]);
-    }
+    } catch (e) { console.error('Vitals batch load error', e); setVitalsList([]); }
   };
-
   const latestVitals = vitalsList[0] || null;
-
   const hasAbnormalVitals = useMemo(() => {
     if (!latestVitals) return false;
     try {
       const bp = latestVitals.bloodPressure;
-      if (bp) {
-        const [sys] = String(bp).split('/').map(Number);
-        if (sys > 140 || sys < 90) return true;
-      }
+      if (bp) { const [sys] = String(bp).split('/').map(Number); if (sys > 140 || sys < 90) return true; }
       if (latestVitals.temperature != null && (latestVitals.temperature > 38 || latestVitals.temperature < 35)) return true;
       if (latestVitals.pulse != null && (latestVitals.pulse > 100 || latestVitals.pulse < 60)) return true;
       if (latestVitals.spo2 != null && latestVitals.spo2 < 95) return true;
     } catch { /* noop */ }
     return false;
   }, [latestVitals]);
-
   const loadData = async () => {
-    if (!id) {
-      toastError('Error', 'No patient ID provided');
-      setIsLoading(false);
-      return;
-    }
-    setIsLoading(true);
-    setRefreshing(true);
+    if (!id) { toastError('Error', 'No patient ID provided'); setIsLoading(false); return; }
+    setIsLoading(true); setRefreshing(true);
     try {
       const fetched = await fetchPatient(id);
-      if (fetched) {
-        await Promise.all([getAttendances({ patientId: id }), getInsuranceProviders()]);
-      }
+      if (fetched) { await Promise.all([getAttendances({ patientId: id }), getInsuranceProviders()]); }
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Could not load patient data';
       toastError('Load failed', msg);
       if (err.response?.status === 404) navigate('/dashboard/patients');
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
+    } finally { setIsLoading(false); setRefreshing(false); }
   };
-
   const loadDocuments = async () => {
     if (!patient?.id) return;
     setDocumentsLoading(true);
-    try {
-      const docs = await getDocumentsByEntity('Patient', patient.id);
-      setDocuments(docs);
-    } catch (e) {
-      console.error('Failed to load documents:', e);
-    } finally {
-      setDocumentsLoading(false);
-    }
+    try { const docs = await getDocumentsByEntity('Patient', patient.id); setDocuments(docs); }
+    catch (e) { console.error('Failed to load documents:', e); }
+    finally { setDocumentsLoading(false); }
   };
-
   useEffect(() => { loadData(); }, [id, refreshTrigger]);
-
+  useEffect(() => { setImageFailed(false); }, [id]);
   useEffect(() => {
     const totalVisits = patientAttendances.length;
     const completedVisits = patientAttendances.filter(a => a.status === 'completed').length;
-    const pendingVisits = patientAttendances.filter(a =>
-      ['pending', 'active', 'in-progress'].includes(a.status)
-    ).length;
+    const pendingVisits = patientAttendances.filter(a => ['pending', 'active', 'in-progress'].includes(a.status)).length;
     const totalMedications = patientAttendances.reduce((s, a) => s + (a.medications?.length || 0), 0);
     const totalLabTests = patientAttendances.reduce((s, a) => s + (a.labTests?.length || 0), 0);
     setStats({ totalVisits, completedVisits, pendingVisits, totalMedications, totalLabTests });
   }, [patientAttendances]);
-
-  useEffect(() => {
-    if (patientAttendances.length > 0) loadAllVitals();
-  }, [patientAttendances]);
-
-  useEffect(() => {
-    if ((activeTab === 'documents' || activeTab === 'overview') && patient?.id) loadDocuments();
-  }, [activeTab, patient?.id]);
-
+  useEffect(() => { if (patientAttendances.length > 0) loadAllVitals(); }, [patientAttendances]);
+  useEffect(() => { if ((activeTab === 'documents' || activeTab === 'overview') && patient?.id) loadDocuments(); }, [activeTab, patient?.id]);
   const handleAttendanceSuccess = async () => {
     setShowAttendanceModal(false);
     try {
       await getAttendances({ patientId: patient?.id || id });
-      setActiveTab('attendances');
-      setRefreshTrigger(p => p + 1);
+      setActiveTab('attendances'); setRefreshTrigger(p => p + 1);
       success('Check-in complete', 'New visit created');
-    } catch {
-      toastError('Refresh failed', 'Could not update visit list');
-    }
+    } catch { toastError('Refresh failed', 'Could not update visit list'); }
   };
-
   const handleEdit = () => navigate(`/dashboard/patients/register?edit=true&id=${patient?.id}`);
   const handleNewAttendance = () => setShowAttendanceModal(true);
-
   const handleDeletePatient = async () => {
     if (!patient?.id) return;
-    try {
-      await deletePatient(patient.id);
-      success('Patient Deleted', 'Patient record has been removed');
-      navigate('/dashboard/patients');
-    } catch (err: any) {
-      toastError('Delete Failed', err.message || 'Failed to delete patient');
-    }
+    try { await deletePatient(patient.id); success('Patient Deleted', 'Patient record has been removed'); navigate('/dashboard/patients'); }
+    catch (err: any) { toastError('Delete Failed', err.message || 'Failed to delete patient'); }
   };
-
-  const viewMedicalDetails = (attendance: Attendance) => {
-    setSelectedAttendance(attendance);
-    setShowMedicalDetails(true);
-  };
-
+  const viewMedicalDetails = (attendance: Attendance) => { setSelectedAttendance(attendance); setShowMedicalDetails(true); };
   const handleDownloadDocument = async (doc: GeneratedDocument) => {
     try {
       const blob = await downloadDocument(doc.id);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      link.download = `${doc.template?.code || 'document'}-${doc.entityId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      link.href = url; link.download = `${doc.template?.code || 'document'}-${doc.entityId}.pdf`;
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       success('Download started', 'Document is being downloaded');
-    } catch {
-      toastError('Download Failed', 'Could not download document');
-    }
+    } catch { toastError('Download Failed', 'Could not download document'); }
   };
-
   const handlePrintDocument = async (doc: GeneratedDocument) => {
-    // Opened synchronously from the click so pop-up blockers allow it; the tab
-    // is pointed at the blob URL once the authenticated download finishes.
     const printWindow = window.open('', '_blank');
     try {
       const blob = await downloadDocument(doc.id);
       const url = window.URL.createObjectURL(blob);
-      if (!printWindow) {
-        window.URL.revokeObjectURL(url);
-        toastError('Print Blocked', 'Allow pop-ups for this site to print documents');
-        return;
-      }
-      printWindow.opener = null;
-      printWindow.location.href = url;
-      printWindow.addEventListener('load', () => {
-        window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
-      }, { once: true });
-    } catch {
-      printWindow?.close();
-      toastError('Print Failed', 'Could not open document for printing');
-    }
+      if (!printWindow) { window.URL.revokeObjectURL(url); toastError('Print Blocked', 'Allow pop-ups for this site to print documents'); return; }
+      printWindow.opener = null; printWindow.location.href = url;
+      printWindow.addEventListener('load', () => { window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000); }, { once: true });
+    } catch { printWindow?.close(); toastError('Print Failed', 'Could not open document for printing'); }
   };
-
   const getDocumentIcon = (templateType: string) => {
     switch (templateType) {
       case 'receipt': return <Receipt className="w-3.5 h-3.5" />;
@@ -382,46 +262,21 @@ export default function PatientDetails() {
       default: return <FileText className="w-3.5 h-3.5" />;
     }
   };
-
   const getDocumentTypeLabel = (templateType: string): string => {
-    const labels: Record<string, string> = {
-      receipt: 'Payment Receipt',
-      prescription: 'Prescription',
-      lab_result: 'Lab Result',
-      discharge_summary: 'Discharge Summary',
-      referral_letter: 'Referral Letter',
-      admission_letter: 'Admission Letter',
-      scan_report: 'Scan Report',
-      nhia_claim_form: 'NHIS Claim Form',
-    };
+    const labels: Record<string, string> = { receipt: 'Payment Receipt', prescription: 'Prescription', lab_result: 'Lab Result', discharge_summary: 'Discharge Summary', referral_letter: 'Referral Letter', admission_letter: 'Admission Letter', scan_report: 'Scan Report', nhia_claim_form: 'NHIS Claim Form' };
     return labels[templateType] || 'Document';
   };
-
   const formatDate = (d: string) => {
-    try {
-      if (!d) return '—';
-      const dt = new Date(d);
-      if (isNaN(dt.getTime())) return 'Invalid';
-      return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    } catch { return '—'; }
+    try { if (!d) return '—'; const dt = new Date(d); if (isNaN(dt.getTime())) return 'Invalid'; return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+    catch { return '—'; }
   };
-
   const formatDateTime = (d: string) => {
-    try {
-      if (!d) return '—';
-      const dt = new Date(d);
-      if (isNaN(dt.getTime())) return 'Invalid';
-      return dt.toLocaleString('en-US', {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      });
-    } catch { return '—'; }
+    try { if (!d) return '—'; const dt = new Date(d); if (isNaN(dt.getTime())) return 'Invalid'; return dt.toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+    catch { return '—'; }
   };
-
   const canEdit = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
   const canCreateAttendance = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
   const canDelete = hasRole(['admin']);
-
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: Activity, count: 0 },
     { id: 'profile' as const, label: 'Profile', icon: Users, count: 0 },
@@ -435,8 +290,6 @@ export default function PatientDetails() {
     { id: 'billing' as const, label: 'Billing', icon: DollarSign, count: 0 },
     { id: 'documents' as const, label: 'Docs', icon: File, count: documents.length },
   ];
-
-  // ============ LOADING ============
   if (isLoading && !refreshing) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
@@ -448,8 +301,6 @@ export default function PatientDetails() {
       </div>
     );
   }
-
-  // ============ NOT FOUND ============
   if (!patient) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
@@ -458,18 +309,8 @@ export default function PatientDetails() {
             <AlertCircle className="w-6 h-6 text-[var(--icon-red-text)]" />
           </div>
           <h2 className="text-base font-bold text-[var(--text-primary)] mb-1">Patient Not Found</h2>
-          <p className="text-xs text-[var(--text-secondary)] mb-5">
-            The patient record does not exist or has been removed.
-          </p>
-          <Button
-            variant="soft"
-            accent="cyan"
-            size="sm"
-            icon={ArrowLeft}
-            onClick={() => navigate('/dashboard/patients')}
-          >
-            Back to Patients
-          </Button>
+          <p className="text-xs text-[var(--text-secondary)] mb-5">The patient record does not exist or has been removed.</p>
+          <Button variant="soft" accent="cyan" size="sm" icon={ArrowLeft} onClick={() => navigate('/dashboard/patients')}>Back to Patients</Button>
         </div>
       </div>
     );
@@ -478,8 +319,6 @@ export default function PatientDetails() {
   // ============ MAIN ============
   return (
     <div className="space-y-4 p-4 lg:p-6 max-w-[1600px] mx-auto">
-
-      {/* ============ HEADER ============ */}
       <PageHeader
         title="Patient Details"
         meta={`Record #${patient.folderNumber || patient.id?.slice(-8)}`}
@@ -488,87 +327,71 @@ export default function PatientDetails() {
         backTo="/dashboard/patients"
         actions={(
           <>
-            <Button size="sm" icon={RefreshCw} loading={refreshing} onClick={loadData}>
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-
-            {canCreateAttendance && (
-              <Button size="sm" variant="soft" accent="green" icon={Calendar} onClick={handleNewAttendance}>
-                <span className="hidden sm:inline">New Visit</span>
-              </Button>
-            )}
-
-            {canEdit && (
-              <Button size="sm" variant="soft" accent="cyan" icon={Edit} onClick={handleEdit}>
-                <span className="hidden sm:inline">Edit</span>
-              </Button>
-            )}
-
-            {canDelete && (
-              <Button size="sm" variant="dangerSoft" icon={Trash2} onClick={() => setDeleteConfirm(true)}>
-                <span className="hidden sm:inline">Delete</span>
-              </Button>
-            )}
+            <Button size="sm" icon={RefreshCw} loading={refreshing} onClick={loadData}><span className="hidden sm:inline">Refresh</span></Button>
+            {canCreateAttendance && (<Button size="sm" variant="soft" accent="green" icon={Calendar} onClick={handleNewAttendance}><span className="hidden sm:inline">New Visit</span></Button>)}
+            {canEdit && (<Button size="sm" variant="soft" accent="cyan" icon={Edit} onClick={handleEdit}><span className="hidden sm:inline">Edit</span></Button>)}
+            {canDelete && (<Button size="sm" variant="dangerSoft" icon={Trash2} onClick={() => setDeleteConfirm(true)}><span className="hidden sm:inline">Delete</span></Button>)}
           </>
         )}
       />
 
-      {/* ============ PATIENT HERO CARD ============ */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-12 h-12 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center shrink-0">
-              <Users className="w-6 h-6 text-[var(--icon-cyan-text)]" />
+      {/* ============ PATIENT HERO CARD — REDESIGNED ============ */}
+      <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+        <div className="h-1 bg-[var(--icon-cyan-text)]/70" />
+        <div className="flex flex-wrap items-center gap-3 px-3 pt-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--icon-cyan-bg)]">
+            {patient.imageUrl && !imageFailed ? (
+              <img src={patient.imageUrl} alt={getPatientFullName(patient) || 'Patient photo'} className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
+            ) : (<Users className="h-6 w-6 text-[var(--icon-cyan-text)]" />)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="truncate text-xl font-bold leading-tight text-[var(--text-primary)]">{getPatientFullName(patient)}</h2>
+              <Badge tone={patient.gender?.toLowerCase() === 'male' ? 'cyan' : patient.gender?.toLowerCase() === 'female' ? 'purple' : 'neutral'} size="sm">{patient.gender || 'Unknown'}</Badge>
+              <Badge tone="green" size="sm">{patient.paymentMode || 'Cash'}</Badge>
+              {hasAbnormalVitals && (<Badge tone="red" size="sm" dot>Abnormal vitals</Badge>)}
+              {enhancedStats.outstanding > 0 && (<Badge tone="yellow" size="sm">Outstanding {formatCurrency(enhancedStats.outstanding)}</Badge>)}
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold text-[var(--text-primary)] truncate leading-tight">
-                  {getPatientFullName(patient)}
-                </h2>
-                <Badge
-                  tone={
-                    patient.gender?.toLowerCase() === 'male'
-                      ? 'cyan'
-                      : patient.gender?.toLowerCase() === 'female'
-                        ? 'purple'
-                        : 'neutral'
-                  }
-                  size="sm"
-                >
-                  {patient.gender || 'Unknown'}
-                </Badge>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-[11px] text-[var(--text-secondary)]">
-                <span className="inline-flex items-center gap-1">
-                  <FileText className="w-3 h-3 text-[var(--text-tertiary)]" />
-                  {patient.folderNumber || 'No folder'}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-[var(--text-tertiary)]" />
-                  {patient.ageDisplay || `${patient.age || 'N/A'} yrs`}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Phone className="w-3 h-3 text-[var(--text-tertiary)]" />
-                  {patient.contact || 'N/A'}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <CreditCard className="w-3 h-3 text-[var(--text-tertiary)]" />
-                  {patient.paymentMode || 'Cash'}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-[var(--text-tertiary)]" />
-                  Reg. {formatDate(patient.createdAt)}
-                </span>
-              </div>
-              {patient.address && (
-                <p className="text-[11px] text-[var(--text-tertiary)] mt-1 inline-flex items-center gap-1 truncate">
-                  <MapPin className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{patient.address}</span>
-                </p>
-              )}
-            </div>
+            <p className="mt-1 truncate text-xs text-[var(--text-tertiary)]">{patient.address || 'No address on file'}</p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Folder #</p>
+            <p className="text-lg font-bold leading-tight text-[var(--text-primary)]">{patient.folderNumber || '—'}</p>
+            <p className="text-[11px] text-[var(--text-tertiary)]">Reg. {formatDate(patient.createdAt)}</p>
           </div>
         </div>
+        <dl className="mt-3 grid grid-cols-2 divide-y divide-[var(--border-color)] border-t border-[var(--border-color)] bg-[var(--bg-main)]/40 sm:grid-cols-3 sm:divide-y-0 lg:grid-cols-6 lg:divide-x">
+          <div className="px-3 py-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Age</dt>
+            <dd className="mt-0.5 truncate text-sm font-semibold text-[var(--text-primary)]">{patient.ageDisplay || `${patient.age || 'N/A'} yrs`}</dd>
+            <dd className="truncate text-[11px] text-[var(--text-tertiary)]">DOB {formatDate(patient.dateOfBirth)}</dd>
+          </div>
+          <div className="px-3 py-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Gender</dt>
+            <dd className="mt-0.5 truncate text-sm font-semibold capitalize text-[var(--text-primary)]">{patient.gender || 'Unknown'}</dd>
+            <dd className="truncate text-[11px] text-[var(--text-tertiary)]">Record #{patient.id?.slice(-8)}</dd>
+          </div>
+          <div className="px-3 py-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Contact</dt>
+            <dd className="mt-0.5 truncate text-sm font-semibold text-[var(--text-primary)]">{patient.contact || 'No contact'}</dd>
+            <dd className="truncate text-[11px] text-[var(--text-tertiary)]">{patient.additionalInfo?.email || 'No email on file'}</dd>
+          </div>
+          <div className="px-3 py-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Payment</dt>
+            <dd className="mt-0.5 truncate text-sm font-semibold text-[var(--text-primary)]">{patient.paymentMode || 'Cash'}</dd>
+            <dd className="truncate text-[11px] text-[var(--text-tertiary)]">{patient.additionalInfo?.nhisNumber ? `NHIS ${patient.additionalInfo.nhisNumber}` : 'No scheme number'}</dd>
+          </div>
+          <div className="px-3 py-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Address</dt>
+            <dd className="mt-0.5 truncate text-sm font-semibold text-[var(--text-primary)]">{patient.address || 'Not recorded'}</dd>
+            <dd className="truncate text-[11px] text-[var(--text-tertiary)]">Home address</dd>
+          </div>
+          <div className="px-3 py-2">
+            <dt className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Registered</dt>
+            <dd className="mt-0.5 truncate text-sm font-semibold text-[var(--text-primary)]">{formatDate(patient.createdAt)}</dd>
+            <dd className="truncate text-[11px] text-[var(--text-tertiary)]">{enhancedStats.totalVisits} visit{enhancedStats.totalVisits === 1 ? '' : 's'} on file</dd>
+          </div>
+        </dl>
       </div>
 
       {/* ============ STATS BAR ============ */}
@@ -586,42 +409,21 @@ export default function PatientDetails() {
         <div className="border-b border-[var(--border-color)] overflow-x-auto scrollbar-thin">
           <nav className="flex gap-1 p-2 min-w-max">
             {tabs.map(tab => {
-              const Icon = tab.icon;
-              const active = activeTab === tab.id;
+              const Icon = tab.icon; const active = activeTab === tab.id;
               return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${
-                    active
-                      ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
-                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {tab.label}
-                  {tab.count > 0 && (
-                    <span className={`ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                      active ? 'bg-[var(--icon-cyan-text)]/15 text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-tertiary)]'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  )}
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-all ${active ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'}`}>
+                  <Icon className="w-3.5 h-3.5" />{tab.label}
+                  {tab.count > 0 && (<span className={`ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold ${active ? 'bg-[var(--icon-cyan-text)]/15 text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-tertiary)]'}`}>{tab.count}</span>)}
                 </button>
               );
             })}
           </nav>
         </div>
-
         <div className="p-4">
-          {/* ============ OVERVIEW ============ */}
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Patient Info */}
               <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
-                <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" /> Patient Info
-                </h3>
+                <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-3 flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" /> Patient Info</h3>
                 <InfoRow label="Full Name" value={getPatientFullName(patient)} />
                 <InfoRow label="Folder #" value={patient.folderNumber || 'N/A'} />
                 <InfoRow label="Gender" value={patient.gender || 'N/A'} />
@@ -630,92 +432,38 @@ export default function PatientDetails() {
                 <InfoRow label="Contact" value={patient.contact || 'N/A'} />
                 <InfoRow label="Payment" value={patient.paymentMode || 'Cash'} />
               </div>
-
-              {/* Latest Vitals */}
               <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide flex items-center gap-1.5">
-                    <Heart className="w-3.5 h-3.5 text-[var(--icon-red-text)]" /> Latest Vitals
-                  </h3>
-                  {hasAbnormalVitals && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">
-                      <AlertTriangle className="w-3 h-3" /> Abnormal
-                    </span>
-                  )}
+                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide flex items-center gap-1.5"><Heart className="w-3.5 h-3.5 text-[var(--icon-red-text)]" /> Latest Vitals</h3>
+                  {hasAbnormalVitals && (<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]"><AlertTriangle className="w-3 h-3" /> Abnormal</span>)}
                 </div>
                 {latestVitals ? (
                   <>
                     <div className="grid grid-cols-2 gap-2">
-                      {latestVitals.bloodPressure && (
-                        <div className="bg-[var(--bg-card)] rounded-md p-2 border border-[var(--border-color)]">
-                          <p className="text-[10px] text-[var(--text-tertiary)] uppercase">BP</p>
-                          <p className="text-sm font-bold text-[var(--text-primary)]">{latestVitals.bloodPressure}</p>
-                          <p className="text-[10px] text-[var(--text-tertiary)]">mmHg</p>
-                        </div>
-                      )}
-                      {latestVitals.temperature && (
-                        <div className="bg-[var(--bg-card)] rounded-md p-2 border border-[var(--border-color)]">
-                          <p className="text-[10px] text-[var(--text-tertiary)] uppercase">Temp</p>
-                          <p className="text-sm font-bold text-[var(--text-primary)]">{latestVitals.temperature}°</p>
-                          <p className="text-[10px] text-[var(--text-tertiary)]">Celsius</p>
-                        </div>
-                      )}
-                      {latestVitals.pulse && (
-                        <div className="bg-[var(--bg-card)] rounded-md p-2 border border-[var(--border-color)]">
-                          <p className="text-[10px] text-[var(--text-tertiary)] uppercase">Pulse</p>
-                          <p className="text-sm font-bold text-[var(--text-primary)]">{latestVitals.pulse}</p>
-                          <p className="text-[10px] text-[var(--text-tertiary)]">bpm</p>
-                        </div>
-                      )}
-                      {latestVitals.spo2 && (
-                        <div className="bg-[var(--bg-card)] rounded-md p-2 border border-[var(--border-color)]">
-                          <p className="text-[10px] text-[var(--text-tertiary)] uppercase">SpO₂</p>
-                          <p className="text-sm font-bold text-[var(--text-primary)]">{latestVitals.spo2}%</p>
-                          <p className="text-[10px] text-[var(--text-tertiary)]">Oxygen</p>
-                        </div>
-                      )}
+                      {latestVitals.bloodPressure && (<div className="bg-[var(--bg-card)] rounded-md p-2 border border-[var(--border-color)]"><p className="text-[10px] text-[var(--text-tertiary)] uppercase">BP</p><p className="text-sm font-bold text-[var(--text-primary)]">{latestVitals.bloodPressure}</p><p className="text-[10px] text-[var(--text-tertiary)]">mmHg</p></div>)}
+                      {latestVitals.temperature && (<div className="bg-[var(--bg-card)] rounded-md p-2 border border-[var(--border-color)]"><p className="text-[10px] text-[var(--text-tertiary)] uppercase">Temp</p><p className="text-sm font-bold text-[var(--text-primary)]">{latestVitals.temperature}°</p><p className="text-[10px] text-[var(--text-tertiary)]">Celsius</p></div>)}
+                      {latestVitals.pulse && (<div className="bg-[var(--bg-card)] rounded-md p-2 border border-[var(--border-color)]"><p className="text-[10px] text-[var(--text-tertiary)] uppercase">Pulse</p><p className="text-sm font-bold text-[var(--text-primary)]">{latestVitals.pulse}</p><p className="text-[10px] text-[var(--text-tertiary)]">bpm</p></div>)}
+                      {latestVitals.spo2 && (<div className="bg-[var(--bg-card)] rounded-md p-2 border border-[var(--border-color)]"><p className="text-[10px] text-[var(--text-tertiary)] uppercase">SpO₂</p><p className="text-sm font-bold text-[var(--text-primary)]">{latestVitals.spo2}%</p><p className="text-[10px] text-[var(--text-tertiary)]">Oxygen</p></div>)}
                     </div>
-                    <p className="text-[10px] text-[var(--text-tertiary)] mt-3 text-center">
-                      Recorded {formatDateTime(latestVitals.recordedAt)}
-                    </p>
+                    <p className="text-[10px] text-[var(--text-tertiary)] mt-3 text-center">Recorded {formatDateTime(latestVitals.recordedAt)}</p>
                   </>
-                ) : (
-                  <p className="text-xs text-[var(--text-tertiary)] text-center py-4">No vitals recorded</p>
-                )}
+                ) : (<p className="text-xs text-[var(--text-tertiary)] text-center py-4">No vitals recorded</p>)}
               </div>
-
-              {/* Financial */}
               <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
-                <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                  <DollarSign className="w-3.5 h-3.5 text-[var(--icon-green-text)]" /> Financial
-                </h3>
+                <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-3 flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-[var(--icon-green-text)]" /> Financial</h3>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-md p-2.5 border border-[var(--border-color)]">
-                    <span className="text-xs text-[var(--text-secondary)]">Billed</span>
-                    <span className="text-sm font-bold text-[var(--text-primary)]">{formatCurrency(enhancedStats.totalBilled)}</span>
-                  </div>
-                  <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-md p-2.5 border border-[var(--border-color)]">
-                    <span className="text-xs text-[var(--text-secondary)]">Paid</span>
-                    <span className="text-sm font-bold text-[var(--icon-green-text)]">{formatCurrency(enhancedStats.totalPaid)}</span>
-                  </div>
-                  <div className="flex items-center justify-between bg-[var(--icon-yellow-bg)] rounded-md p-2.5 border border-[var(--icon-yellow-text)]/20">
-                    <span className="text-xs font-semibold text-[var(--icon-yellow-text)]">Outstanding</span>
-                    <span className="text-sm font-bold text-[var(--icon-yellow-text)]">{formatCurrency(enhancedStats.outstanding)}</span>
-                  </div>
+                  <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-md p-2.5 border border-[var(--border-color)]"><span className="text-xs text-[var(--text-secondary)]">Billed</span><span className="text-sm font-bold text-[var(--text-primary)]">{formatCurrency(enhancedStats.totalBilled)}</span></div>
+                  <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-md p-2.5 border border-[var(--border-color)]"><span className="text-xs text-[var(--text-secondary)]">Paid</span><span className="text-sm font-bold text-[var(--icon-green-text)]">{formatCurrency(enhancedStats.totalPaid)}</span></div>
+                  <div className="flex items-center justify-between bg-[var(--icon-yellow-bg)] rounded-md p-2.5 border border-[var(--icon-yellow-text)]/20"><span className="text-xs font-semibold text-[var(--icon-yellow-text)]">Outstanding</span><span className="text-sm font-bold text-[var(--icon-yellow-text)]">{formatCurrency(enhancedStats.outstanding)}</span></div>
                 </div>
               </div>
             </div>
           )}
-
-          {/* ============ PROFILE ============ */}
           {activeTab === 'profile' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
-                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                    <Users className="h-4 w-4 text-[var(--icon-cyan-text)]" />
-                    Basic information
-                  </h3>
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]"><Users className="h-4 w-4 text-[var(--icon-cyan-text)]" /> Basic information</h3>
                   <InfoRow label="Full Name" value={getPatientFullName(patient)} />
                   <InfoRow label="Folder Number" value={patient.folderNumber || 'N/A'} />
                   <InfoRow label="Gender" value={patient.gender || 'N/A'} />
@@ -723,105 +471,43 @@ export default function PatientDetails() {
                   <InfoRow label="Age" value={patient.ageDisplay || `${patient.age || 'N/A'} years`} />
                 </div>
                 <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
-                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
-                    <MapPin className="h-4 w-4 text-[var(--icon-cyan-text)]" />
-                    Contact information
-                  </h3>
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]"><MapPin className="h-4 w-4 text-[var(--icon-cyan-text)]" /> Contact information</h3>
                   <InfoRow label="Contact" value={patient.contact || 'N/A'} />
                   <InfoRow label="Address" value={patient.address || 'No address'} />
-                  {patient.additionalInfo?.email && (
-                    <InfoRow label="Email" value={patient.additionalInfo.email} />
-                  )}
+                  {patient.additionalInfo?.email && (<InfoRow label="Email" value={patient.additionalInfo.email} />)}
                 </div>
               </div>
               <CompactAdditionalInfo patient={patient} />
             </div>
           )}
 
-          {/* ============ ATTENDANCES ============ */}
           {activeTab === 'attendances' && (
             <div>
               {patientAttendances.length === 0 ? (
-                <EmptyState
-                  icon={Calendar}
-                  title="No visits yet"
-                  hint="This patient has no recorded visits."
-                  action={canCreateAttendance && (
-                    <Button size="sm" variant="soft" accent="green" icon={Calendar} onClick={handleNewAttendance}>
-                      Create First Visit
-                    </Button>
-                  )}
-                />
+                <EmptyState icon={Calendar} title="No visits yet" hint="This patient has no recorded visits." action={canCreateAttendance && (<Button size="sm" variant="soft" accent="green" icon={Calendar} onClick={handleNewAttendance}>Create First Visit</Button>)} />
               ) : (
                 <div className="space-y-2.5">
                   {patientAttendances.map(att => (
-                    <div
-                      key={att.id}
-                      className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:border-[var(--icon-cyan-text)] transition-colors"
-                    >
+                    <div key={att.id} className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:border-[var(--icon-cyan-text)] transition-colors">
                       <div className="p-3">
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-9 h-9 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center shrink-0">
-                              <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                            </div>
+                            <div className="w-9 h-9 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center shrink-0"><Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" /></div>
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-sm font-semibold text-[var(--text-primary)]">
-                                  {att.attendanceNumber || `Visit ${formatDate(att.dateTime)}`}
-                                </span>
-                                <StatusBadge status={att.status} />
-                              </div>
-                              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[var(--text-tertiary)]">
-                                <span>{formatDateTime(att.dateTime || att.createdAt)}</span>
-                                <span>•</span>
-                                <span className="capitalize">{att.attendanceType?.replace(/_/g, ' ')}</span>
-                                <span>•</span>
-                                <span className="capitalize">{att.paymentMode}</span>
-                              </div>
+                              <div className="flex items-center gap-2 flex-wrap"><span className="text-sm font-semibold text-[var(--text-primary)]">{att.attendanceNumber || `Visit ${formatDate(att.dateTime)}`}</span><StatusBadge status={att.status} /></div>
+                              <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[var(--text-tertiary)]"><span>{formatDateTime(att.dateTime || att.createdAt)}</span><span>•</span><span className="capitalize">{att.attendanceType?.replace(/_/g, ' ')}</span><span>•</span><span className="capitalize">{att.paymentMode}</span></div>
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <LinkButton
-                              size="xs"
-                              variant="soft"
-                              accent="cyan"
-                              icon={Eye}
-                              to={`/dashboard/attendance/${att.id}`}
-                            >
-                              View
-                            </LinkButton>
-                            <Button
-                              size="xs"
-                              variant="soft"
-                              accent="purple"
-                              icon={Stethoscope}
-                              onClick={() => viewMedicalDetails(att)}
-                            >
-                              Summary
-                            </Button>
+                            <LinkButton size="xs" variant="soft" accent="cyan" icon={Eye} to={`/dashboard/attendance/${att.id}`}>View</LinkButton>
+                            <Button size="xs" variant="soft" accent="purple" icon={Stethoscope} onClick={() => viewMedicalDetails(att)}>Summary</Button>
                           </div>
                         </div>
-
                         <div className="mt-2.5 pt-2.5 border-t border-[var(--border-color)] flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
-                          <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
-                            <Pill className="w-3 h-3 text-[var(--icon-green-text)]" />
-                            Meds: <span className="font-semibold text-[var(--text-primary)]">{att.medications?.length || 0}</span>
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
-                            <FlaskConical className="w-3 h-3 text-[var(--icon-purple-text)]" />
-                            Labs: <span className="font-semibold text-[var(--text-primary)]">{att.labTests?.length || 0}</span>
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
-                            <Scissors className="w-3 h-3 text-[var(--icon-yellow-text)]" />
-                            Procedures: <span className="font-semibold text-[var(--text-primary)]">{att.procedures?.length || 0}</span>
-                          </span>
-                          {att.totalBill > 0 && (
-                            <span className="inline-flex items-center gap-1 ml-auto text-[var(--text-secondary)]">
-                              <DollarSign className="w-3 h-3 text-[var(--icon-green-text)]" />
-                              Bill: <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(att.totalBill)}</span>
-                            </span>
-                          )}
+                          <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]"><Pill className="w-3 h-3 text-[var(--icon-green-text)]" /> Meds: <span className="font-semibold text-[var(--text-primary)]">{att.medications?.length || 0}</span></span>
+                          <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]"><FlaskConical className="w-3 h-3 text-[var(--icon-purple-text)]" /> Labs: <span className="font-semibold text-[var(--text-primary)]">{att.labTests?.length || 0}</span></span>
+                          <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]"><Scissors className="w-3 h-3 text-[var(--icon-yellow-text)]" /> Procedures: <span className="font-semibold text-[var(--text-primary)]">{att.procedures?.length || 0}</span></span>
+                          {att.totalBill > 0 && (<span className="inline-flex items-center gap-1 ml-auto text-[var(--text-secondary)]"><DollarSign className="w-3 h-3 text-[var(--icon-green-text)]" /> Bill: <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(att.totalBill)}</span></span>)}
                         </div>
                       </div>
                     </div>
@@ -830,51 +516,21 @@ export default function PatientDetails() {
               )}
             </div>
           )}
-
-          {/* ============ MEDICAL RECORDS ============ */}
           {activeTab === 'medical-records' && (
             <div>
-              {patientAttendances.length === 0 ? (
-                <EmptyState icon={Stethoscope} title="No medical records" hint="No records found for this patient." />
-              ) : (
+              {patientAttendances.length === 0 ? (<EmptyState icon={Stethoscope} title="No medical records" hint="No records found for this patient." />) : (
                 <div className="space-y-2.5">
                   {patientAttendances.map(att => (
                     <div key={att.id} className="border border-[var(--border-color)] rounded-lg overflow-hidden">
-                      <button
-                        onClick={() => viewMedicalDetails(att)}
-                        className="w-full bg-[var(--bg-main)] px-3 py-2.5 flex items-center justify-between hover:bg-[var(--bg-card)] transition-colors text-left"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-md bg-[var(--icon-cyan-bg)] flex items-center justify-center">
-                            <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold text-[var(--text-primary)]">
-                              {formatDateTime(att.dateTime || att.createdAt)}
-                            </p>
-                            <p className="text-[10px] text-[var(--text-tertiary)]">
-                              {att.attendanceType?.replace(/_/g, ' ')} • {att.attendanceNumber}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={att.status} />
-                          <ChevronRight className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
-                        </div>
+                      <button onClick={() => viewMedicalDetails(att)} className="w-full bg-[var(--bg-main)] px-3 py-2.5 flex items-center justify-between hover:bg-[var(--bg-card)] transition-colors text-left">
+                        <div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-md bg-[var(--icon-cyan-bg)] flex items-center justify-center"><Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" /></div>
+                          <div><p className="text-xs font-semibold text-[var(--text-primary)]">{formatDateTime(att.dateTime || att.createdAt)}</p><p className="text-[10px] text-[var(--text-tertiary)]">{att.attendanceType?.replace(/_/g, ' ')} • {att.attendanceNumber}</p></div></div>
+                        <div className="flex items-center gap-2"><StatusBadge status={att.status} /><ChevronRight className="w-3.5 h-3.5 text-[var(--text-tertiary)]" /></div>
                       </button>
                       <div className="px-3 py-2 grid grid-cols-3 gap-2 text-[11px] border-t border-[var(--border-color)]">
-                        <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
-                          <Pill className="w-3 h-3 text-[var(--icon-green-text)]" />
-                          Meds: <span className="font-semibold text-[var(--text-primary)]">{att.medications?.length || 0}</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
-                          <FlaskConical className="w-3 h-3 text-[var(--icon-purple-text)]" />
-                          Labs: <span className="font-semibold text-[var(--text-primary)]">{att.labTests?.length || 0}</span>
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
-                          <Microscope className="w-3 h-3 text-[var(--icon-yellow-text)]" />
-                          Scans: <span className="font-semibold text-[var(--text-primary)]">{att.scans?.length || 0}</span>
-                        </span>
+                        <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]"><Pill className="w-3 h-3 text-[var(--icon-green-text)]" /> Meds: <span className="font-semibold text-[var(--text-primary)]">{att.medications?.length || 0}</span></span>
+                        <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]"><FlaskConical className="w-3 h-3 text-[var(--icon-purple-text)]" /> Labs: <span className="font-semibold text-[var(--text-primary)]">{att.labTests?.length || 0}</span></span>
+                        <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]"><Microscope className="w-3 h-3 text-[var(--icon-yellow-text)]" /> Scans: <span className="font-semibold text-[var(--text-primary)]">{att.scans?.length || 0}</span></span>
                       </div>
                     </div>
                   ))}
@@ -882,63 +538,36 @@ export default function PatientDetails() {
               )}
             </div>
           )}
-
-          {/* ============ DIAGNOSES ============ */}
           {activeTab === 'diagnoses' && (
-            allDiagnoses.length === 0 ? (
-              <EmptyState icon={Stethoscope} title="No diagnoses recorded" />
-            ) : (
+            allDiagnoses.length === 0 ? (<EmptyState icon={Stethoscope} title="No diagnoses recorded" />) : (
               <Table heads={['Diagnosis', 'ICD-10', 'Type', 'Visit Date', '']}>
                 {allDiagnoses.map((d, i) => (
                   <tr key={i} className={TR}>
                     <TdPrimary>{d.Diagnosis?.name || d.diagnosis?.name || d.icdCode}</TdPrimary>
                     <Td className="font-mono text-[11px]">{d.icdCode || d.Diagnosis?.icdCode || d.diagnosis?.icdCode}</Td>
-                    <Td>
-                      <Badge tone={d.diagnosisType === 'primary' ? 'green' : 'blue'} size="xs">
-                        {d.diagnosisType === 'primary' ? 'Primary' : 'Secondary'}
-                      </Badge>
-                    </Td>
+                    <Td><Badge tone={d.diagnosisType === 'primary' ? 'green' : 'blue'} size="xs">{d.diagnosisType === 'primary' ? 'Primary' : 'Secondary'}</Badge></Td>
                     <Td>{formatDate(d.attendanceDate)}</Td>
-                    <Td>
-                      <Link to={`/dashboard/attendance/${d.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">
-                        View →
-                      </Link>
-                    </Td>
+                    <Td><Link to={`/dashboard/attendance/${d.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">View →</Link></Td>
                   </tr>
                 ))}
               </Table>
             )
           )}
-
-          {/* ============ MEDICATIONS ============ */}
           {activeTab === 'medications' && (
-            allMedications.length === 0 ? (
-              <EmptyState icon={Pill} title="No medications prescribed" />
-            ) : (
+            allMedications.length === 0 ? (<EmptyState icon={Pill} title="No medications prescribed" />) : (
               <Table heads={['Medication', 'Dosage', 'Frequency', 'Duration', 'Status', '']}>
                 {allMedications.map((m, i) => (
                   <tr key={i} className={TR}>
-                    <TdPrimary>{m.name}</TdPrimary>
-                    <Td>{m.dosage || '—'}</Td>
-                    <Td>{m.frequency || '—'}</Td>
-                    <Td>{m.duration || '—'}</Td>
+                    <TdPrimary>{m.name}</TdPrimary><Td>{m.dosage || '—'}</Td><Td>{m.frequency || '—'}</Td><Td>{m.duration || '—'}</Td>
                     <Td><StatusBadge status={m.status} /></Td>
-                    <Td>
-                      <Link to={`/dashboard/attendance/${m.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">
-                        View →
-                      </Link>
-                    </Td>
+                    <Td><Link to={`/dashboard/attendance/${m.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">View →</Link></Td>
                   </tr>
                 ))}
               </Table>
             )
           )}
-
-          {/* ============ LAB TESTS ============ */}
           {activeTab === 'lab-tests' && (
-            allLabTests.length === 0 ? (
-              <EmptyState icon={FlaskConical} title="No lab tests requested" />
-            ) : (
+            allLabTests.length === 0 ? (<EmptyState icon={FlaskConical} title="No lab tests requested" />) : (
               <Table heads={['Test', 'Status', 'Request Date', 'Result', '']}>
                 {allLabTests.map((t, i) => (
                   <tr key={i} className={TR}>
@@ -946,184 +575,71 @@ export default function PatientDetails() {
                     <Td><StatusBadge status={t.status} /></Td>
                     <Td>{formatDate(t.requestedAt || t.createdAt)}</Td>
                     <Td>{t.result ? (typeof t.result === 'object' ? 'Available' : t.result) : 'Pending'}</Td>
-                    <Td>
-                      <Link to={`/dashboard/attendance/${t.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">
-                        View →
-                      </Link>
-                    </Td>
+                    <Td><Link to={`/dashboard/attendance/${t.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">View →</Link></Td>
                   </tr>
                 ))}
               </Table>
             )
           )}
-
-          {/* ============ PROCEDURES ============ */}
           {activeTab === 'procedures' && (
-            allProcedures.length === 0 ? (
-              <EmptyState icon={Scissors} title="No procedures scheduled" />
-            ) : (
+            allProcedures.length === 0 ? (<EmptyState icon={Scissors} title="No procedures scheduled" />) : (
               <Table heads={['Procedure', 'Scheduled', 'Status', '']}>
                 {allProcedures.map((p, i) => (
                   <tr key={i} className={TR}>
                     <TdPrimary>{p.ProcedureTemplate?.name || p.ServiceCatalog?.name || p.name || '—'}</TdPrimary>
                     <Td>{p.scheduledDate ? formatDate(p.scheduledDate) : '—'}</Td>
                     <Td><StatusBadge status={p.status} /></Td>
-                    <Td>
-                      <Link to={`/dashboard/attendance/${p.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">
-                        View →
-                      </Link>
-                    </Td>
+                    <Td><Link to={`/dashboard/attendance/${p.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">View →</Link></Td>
                   </tr>
                 ))}
               </Table>
             )
           )}
-
-          {/* ============ VITALS ============ */}
           {activeTab === 'vitals' && (
-            vitalsList.length === 0 ? (
-              <EmptyState icon={Heart} title="No vitals recorded" />
-            ) : (
+            vitalsList.length === 0 ? (<EmptyState icon={Heart} title="No vitals recorded" />) : (
               <div className="space-y-4">
-                {vitalsList.length > 1 && (
-                  <div className="bg-[var(--bg-main)] rounded-lg p-3 h-[340px] border border-[var(--border-color)]">
-                    <VitalsTrendGraph vitals={vitalsList} isAntenatal={false} />
-                  </div>
-                )}
+                {vitalsList.length > 1 && (<div className="bg-[var(--bg-main)] rounded-lg p-3 h-[340px] border border-[var(--border-color)]"><VitalsTrendGraph vitals={vitalsList} isAntenatal={false} /></div>)}
                 <Table heads={['Date', 'BP', 'Temp', 'Pulse', 'Resp', 'SpO₂', 'Weight', 'BMI', '']}>
                   {vitalsList.map((v, i) => (
                     <tr key={i} className={TR}>
-                      <Td>{formatDateTime(v.recordedAt)}</Td>
-                      <Td>{v.bloodPressure || '—'}</Td>
-                      <Td>{v.temperature ? `${v.temperature}°C` : '—'}</Td>
-                      <Td>{v.pulse || '—'}</Td>
-                      <Td>{v.respiration || '—'}</Td>
-                      <Td>{v.spo2 ? `${v.spo2}%` : '—'}</Td>
-                      <Td>{v.weight ? `${v.weight}kg` : '—'}</Td>
-                      <Td>{v.bmi || '—'}</Td>
-                      <Td>
-                        <Link to={`/dashboard/attendance/${v.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">
-                          View →
-                        </Link>
-                      </Td>
+                      <Td>{formatDateTime(v.recordedAt)}</Td><Td>{v.bloodPressure || '—'}</Td><Td>{v.temperature ? `${v.temperature}°C` : '—'}</Td>
+                      <Td>{v.pulse || '—'}</Td><Td>{v.respiration || '—'}</Td><Td>{v.spo2 ? `${v.spo2}%` : '—'}</Td>
+                      <Td>{v.weight ? `${v.weight}kg` : '—'}</Td><Td>{v.bmi || '—'}</Td>
+                      <Td><Link to={`/dashboard/attendance/${v.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">View →</Link></Td>
                     </tr>
                   ))}
                 </Table>
               </div>
             )
           )}
-
-          {/* ============ BILLING ============ */}
           {activeTab === 'billing' && (
             <div className="max-w-md mx-auto space-y-3">
-              <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)] text-center">
-                <p className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">Total Billed</p>
-                <p className="text-xl font-bold text-[var(--text-primary)] mt-1">{formatCurrency(enhancedStats.totalBilled)}</p>
-              </div>
-              <div className="bg-[var(--icon-green-bg)] rounded-lg p-4 border border-[var(--icon-green-text)]/20 text-center">
-                <p className="text-[10px] uppercase tracking-wide text-[var(--icon-green-text)]">Total Paid</p>
-                <p className="text-xl font-bold text-[var(--icon-green-text)] mt-1">{formatCurrency(enhancedStats.totalPaid)}</p>
-              </div>
-              <div className="bg-[var(--icon-yellow-bg)] rounded-lg p-4 border border-[var(--icon-yellow-text)]/20 text-center">
-                <p className="text-[10px] uppercase tracking-wide text-[var(--icon-yellow-text)]">Outstanding</p>
-                <p className="text-xl font-bold text-[var(--icon-yellow-text)] mt-1">{formatCurrency(enhancedStats.outstanding)}</p>
-              </div>
-              <Button
-                variant="soft"
-                accent="cyan"
-                fullWidth
-                icon={TrendingUp}
-                onClick={() => navigate(`/dashboard/billing/patient/${patient.id}`)}
-              >
-                View Detailed Billing
-              </Button>
+              <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)] text-center"><p className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">Total Billed</p><p className="text-xl font-bold text-[var(--text-primary)] mt-1">{formatCurrency(enhancedStats.totalBilled)}</p></div>
+              <div className="bg-[var(--icon-green-bg)] rounded-lg p-4 border border-[var(--icon-green-text)]/20 text-center"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-green-text)]">Total Paid</p><p className="text-xl font-bold text-[var(--icon-green-text)] mt-1">{formatCurrency(enhancedStats.totalPaid)}</p></div>
+              <div className="bg-[var(--icon-yellow-bg)] rounded-lg p-4 border border-[var(--icon-yellow-text)]/20 text-center"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-yellow-text)]">Outstanding</p><p className="text-xl font-bold text-[var(--icon-yellow-text)] mt-1">{formatCurrency(enhancedStats.outstanding)}</p></div>
+              <Button variant="soft" accent="cyan" fullWidth icon={TrendingUp} onClick={() => navigate(`/dashboard/billing/patient/${patient.id}`)}>View Detailed Billing</Button>
             </div>
           )}
-
-          {/* ============ DOCUMENTS ============ */}
           {activeTab === 'documents' && (
             <div>
-              {documentsLoading ? (
-                <div className="text-center py-10">
-                  <Loader className="w-6 h-6 text-[var(--icon-cyan-text)] animate-spin mx-auto mb-2" />
-                  <p className="text-xs text-[var(--text-tertiary)]">Loading documents…</p>
-                </div>
-              ) : documents.length === 0 ? (
-                <EmptyState
-                  icon={File}
-                  title="No documents found"
-                  hint="Documents appear here when generated (receipts, prescriptions, lab results, etc.)"
-                />
-              ) : (
+              {documentsLoading ? (<div className="text-center py-10"><Loader className="w-6 h-6 text-[var(--icon-cyan-text)] animate-spin mx-auto mb-2" /><p className="text-xs text-[var(--text-tertiary)]">Loading documents…</p></div>)
+              : documents.length === 0 ? (<EmptyState icon={File} title="No documents found" hint="Documents appear here when generated (receipts, prescriptions, lab results, etc.)" />)
+              : (
                 <div className="space-y-3">
-                  {Array.from(
-                    documents.reduce((map, doc) => {
-                      const key = doc.entityId;
-                      if (!map.has(key)) map.set(key, []);
-                      map.get(key)!.push(doc);
-                      return map;
-                    }, new Map<string, GeneratedDocument[]>()).entries()
-                  ).map(([entityId, docs]) => {
+                  {Array.from(documents.reduce((map, doc) => { const key = doc.entityId; if (!map.has(key)) map.set(key, []); map.get(key)!.push(doc); return map; }, new Map<string, GeneratedDocument[]>()).entries()).map(([entityId, docs]) => {
                     const att = patientAttendances.find(a => a.id === entityId);
-                    const displayName = att
-                      ? `${att.attendanceNumber || 'Visit'} - ${formatDate(att.dateTime || att.createdAt)}`
-                      : `Group ${entityId.slice(-8)}`;
+                    const displayName = att ? `${att.attendanceNumber || 'Visit'} - ${formatDate(att.dateTime || att.createdAt)}` : `Group ${entityId.slice(-8)}`;
                     return (
                       <div key={entityId} className="border border-[var(--border-color)] rounded-lg overflow-hidden">
-                        <div className="bg-[var(--bg-main)] px-3 py-2 border-b border-[var(--border-color)] flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
-                          <span className="text-xs font-semibold text-[var(--text-primary)]">{displayName}</span>
-                          {att && (
-                            <span className="text-[10px] text-[var(--text-tertiary)] ml-auto">
-                              {formatDateTime(att.dateTime || att.createdAt)}
-                            </span>
-                          )}
-                        </div>
+                        <div className="bg-[var(--bg-main)] px-3 py-2 border-b border-[var(--border-color)] flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" /><span className="text-xs font-semibold text-[var(--text-primary)]">{displayName}</span>{att && (<span className="text-[10px] text-[var(--text-tertiary)] ml-auto">{formatDateTime(att.dateTime || att.createdAt)}</span>)}</div>
                         <div className="divide-y divide-[var(--border-color)]">
                           {docs.map(doc => (
                             <div key={doc.id} className="px-3 py-2.5 hover:bg-[var(--bg-main)] transition-colors flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
-                                  doc.template?.templateType === 'receipt' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
-                                    : doc.template?.templateType === 'prescription' ? 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]'
-                                      : doc.template?.templateType === 'lab_result' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]'
-                                        : doc.template?.templateType === 'discharge_summary' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                                          : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
-                                }`}>
-                                  {getDocumentIcon(doc.template?.templateType || '')}
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="text-xs font-semibold text-[var(--text-primary)]">
-                                      {getDocumentTypeLabel(doc.template?.templateType || '')}
-                                    </span>
-                                    <span className="text-[10px] text-[var(--text-tertiary)]">
-                                      {doc.template?.name || 'Document'}
-                                    </span>
-                                  </div>
-                                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
-                                    {formatDate(doc.generatedAt)} • {doc.generatedBy?.fullName || 'System'}
-                                  </p>
-                                </div>
+                                <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${doc.template?.templateType === 'receipt' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : doc.template?.templateType === 'prescription' ? 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]' : doc.template?.templateType === 'lab_result' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]' : doc.template?.templateType === 'discharge_summary' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>{getDocumentIcon(doc.template?.templateType || '')}</div>
+                                <div className="min-w-0"><div className="flex items-center gap-1.5 flex-wrap"><span className="text-xs font-semibold text-[var(--text-primary)]">{getDocumentTypeLabel(doc.template?.templateType || '')}</span><span className="text-[10px] text-[var(--text-tertiary)]">{doc.template?.name || 'Document'}</span></div><p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{formatDate(doc.generatedAt)} • {doc.generatedBy?.fullName || 'System'}</p></div>
                               </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <Button
-                                  size="xs"
-                                  variant="soft"
-                                  accent="cyan"
-                                  icon={Download}
-                                  onClick={() => handleDownloadDocument(doc)}
-                                >
-                                  Download
-                                </Button>
-                                <Button
-                                  size="xs"
-                                  icon={Printer}
-                                  onClick={() => handlePrintDocument(doc)}
-                                >
-                                  Print
-                                </Button>
-                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0"><Button size="xs" variant="soft" accent="cyan" icon={Download} onClick={() => handleDownloadDocument(doc)}>Download</Button><Button size="xs" icon={Printer} onClick={() => handlePrintDocument(doc)}>Print</Button></div>
                             </div>
                           ))}
                         </div>
@@ -1137,246 +653,168 @@ export default function PatientDetails() {
         </div>
       </div>
 
-      {/* ============ DELETE MODAL ============ */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-[var(--bg-card)] rounded-xl p-5 max-w-sm w-full border border-[var(--border-color)]">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 bg-[var(--icon-red-bg)] rounded-lg flex items-center justify-center">
-                <Trash2 className="w-4 h-4 text-[var(--icon-red-text)]" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-[var(--text-primary)]">Delete Patient</h3>
-                <p className="text-[11px] text-[var(--text-tertiary)]">This action cannot be undone.</p>
-              </div>
-            </div>
-            <p className="text-xs text-[var(--text-secondary)] mb-4">
-              Are you sure you want to delete <strong className="text-[var(--text-primary)]">{getPatientFullName(patient)}</strong>?
-              All patient records and visits will be permanently removed.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="dangerSoft"
-                className="flex-1"
-                onClick={handleDeletePatient}
-              >
-                Delete
-              </Button>
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => setDeleteConfirm(false)}
-              >
-                Cancel
-              </Button>
-            </div>
+            <div className="flex items-center gap-3 mb-4"><div className="w-9 h-9 bg-[var(--icon-red-bg)] rounded-lg flex items-center justify-center"><Trash2 className="w-4 h-4 text-[var(--icon-red-text)]" /></div><div><h3 className="text-sm font-bold text-[var(--text-primary)]">Delete Patient</h3><p className="text-[11px] text-[var(--text-tertiary)]">This action cannot be undone.</p></div></div>
+            <p className="text-xs text-[var(--text-secondary)] mb-4">Are you sure you want to delete <strong className="text-[var(--text-primary)]">{getPatientFullName(patient)}</strong>? All patient records and visits will be permanently removed.</p>
+            <div className="flex gap-2"><Button variant="dangerSoft" className="flex-1" onClick={handleDeletePatient}>Delete</Button><Button variant="secondary" className="flex-1" onClick={() => setDeleteConfirm(false)}>Cancel</Button></div>
           </div>
         </div>
       )}
-
-      {/* ============ MEDICAL DETAILS MODAL ============ */}
       {showMedicalDetails && selectedAttendance && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--bg-card)] rounded-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-[var(--border-color)]">
-            <div className="px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between shrink-0">
-              <div>
-                <h2 className="text-sm font-bold text-[var(--text-primary)]">Medical Records</h2>
-                <p className="text-[11px] text-[var(--text-tertiary)]">
-                  Visit: {formatDateTime(selectedAttendance.dateTime || selectedAttendance.createdAt)}
-                </p>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setShowMedicalDetails(false); setSelectedAttendance(null); }}>
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-[var(--border-color)] shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* ===== HEADER ===== */}
+            <div className="shrink-0 border-b border-[var(--border-color)]">
+              <div className="flex items-start justify-between gap-3 px-4 pt-4 sm:px-5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--icon-purple-bg)]"><Stethoscope className="h-5 w-5 text-[var(--icon-purple-text)]" /></div>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-base font-bold leading-tight text-[var(--text-primary)]">Visit Summary</h2>
+                    <p className="truncate text-xs text-[var(--text-tertiary)]">{getPatientFullName(patient)} · {selectedAttendance.attendanceNumber || 'Visit'} · {formatDateTime(selectedAttendance.dateTime || selectedAttendance.createdAt)}</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close" onClick={() => { setShowMedicalDetails(false); setSelectedAttendance(null); }} />
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                iconOnly
-                icon={X}
-                aria-label="Close"
-                onClick={() => { setShowMedicalDetails(false); setSelectedAttendance(null); }}
-              />
+              <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
+                <StatusBadge status={selectedAttendance.status} />
+                <Badge tone="neutral" size="sm" dot>{(selectedAttendance.attendanceType || 'Visit').replace(/_/g, ' ')}</Badge>
+                <Badge tone="neutral" size="sm" dot>{selectedAttendance.paymentMode || 'Cash'}</Badge>
+                {selectedAttendance.totalBill > 0 && (<Badge tone="green" size="sm">Bill {formatCurrency(selectedAttendance.totalBill)}</Badge>)}
+                <div className="ml-auto flex items-center gap-1.5">
+                  <LinkButton size="xs" variant="soft" accent="cyan" icon={Eye} to={`/dashboard/attendance/${selectedAttendance.id}`}>Open full visit</LinkButton>
+                </div>
+              </div>
             </div>
-
-            <div className="p-4 space-y-4 overflow-y-auto">
-              {selectedAttendance.diagnoses?.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                    <Stethoscope className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" /> Diagnoses
-                  </h3>
-                  <div className="space-y-1.5">
-                    {selectedAttendance.diagnoses.map((d: any, i: number) => (
-                      <div key={i} className="bg-[var(--bg-main)] rounded-md p-2.5 border border-[var(--border-color)]">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-medium text-[var(--text-primary)]">
-                            {d.Diagnosis?.name || d.diagnosis?.name || d.icdCode}
-                          </p>
-                          {d.diagnosisType === 'primary' && (
-                            <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
-                              Primary
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
-                          ICD-10: {d.icdCode || d.Diagnosis?.icdCode || d.diagnosis?.icdCode}
+            {/* ===== BODY ===== */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+              {/* Count strip */}
+              <div className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+                {[
+                  { label: 'Diagnoses', n: selectedAttendance.diagnoses?.length || 0, icon: Stethoscope, cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
+                  { label: 'Meds', n: selectedAttendance.medications?.length || 0, icon: Pill, cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
+                  { label: 'Labs', n: selectedAttendance.labTests?.length || 0, icon: FlaskConical, cls: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]' },
+                  { label: 'Procedures', n: selectedAttendance.procedures?.length || 0, icon: Scissors, cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
+                  { label: 'Scans', n: selectedAttendance.scans?.length || 0, icon: Microscope, cls: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]' },
+                  { label: 'Vitals', n: selectedAttendance.vitals?.length || 0, icon: Heart, cls: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' },
+                ].map(c => (
+                  <div key={c.label} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)]/40 px-2.5 py-2 text-center">
+                    <c.icon className={`mx-auto h-4 w-4 ${c.cls} rounded`} />
+                    <p className="mt-1 text-sm font-bold leading-none text-[var(--text-primary)]">{c.n}</p>
+                    <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-tertiary)]">{c.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {/* Diagnoses */}
+                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)]/30 p-3">
+                  <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)]"><Stethoscope className="h-3.5 w-3.5 text-[var(--icon-cyan-text)]" /> Diagnoses</h3>
+                  {selectedAttendance.diagnoses?.length ? (
+                    <ul className="space-y-1.5">{selectedAttendance.diagnoses.map((d: any, i: number) => (
+                      <li key={i} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2">
+                        <div className="flex items-center justify-between gap-2"><span className="truncate text-xs font-semibold text-[var(--text-primary)]">{d.Diagnosis?.name || d.diagnosis?.name || d.icdCode}</span>{d.diagnosisType === 'primary' && (<Badge tone="cyan" size="xs">Primary</Badge>)}</div>
+                        <p className="mt-0.5 font-mono text-[10px] text-[var(--text-tertiary)]">ICD-10 · {d.icdCode || d.Diagnosis?.icdCode || d.diagnosis?.icdCode || '—'}</p>
+                        {d.notes && <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">{d.notes}</p>}
+                      </li>))}
+                    </ul>
+                  ) : (<p className="text-xs text-[var(--text-tertiary)]">No diagnosis recorded for this visit.</p>)}
+                </section>
+                {/* Medications */}
+                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)]/30 p-3">
+                  <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)]"><Pill className="h-3.5 w-3.5 text-[var(--icon-green-text)]" /> Medications</h3>
+                  {selectedAttendance.medications?.length ? (
+                    <ul className="space-y-1.5">{selectedAttendance.medications.map((m: Medication, i: number) => (
+                      <li key={i} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2">
+                        <div className="flex items-center justify-between gap-2"><span className="truncate text-xs font-semibold text-[var(--text-primary)]">{m.name}</span><StatusBadge status={m.status} /></div>
+                        <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{[m.dosage, m.frequency, m.duration].filter(Boolean).join(' · ') || 'No dosage info'}</p>
+                        {m.instructions && (<p className="mt-1 text-[11px] leading-relaxed text-[var(--text-tertiary)]">Instructions: {m.instructions}</p>)}
+                      </li>))}
+                    </ul>
+                  ) : (<p className="text-xs text-[var(--text-tertiary)]">No medication prescribed for this visit.</p>)}
+                </section>
+                {/* Lab Tests */}
+                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)]/30 p-3">
+                  <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)]"><FlaskConical className="h-3.5 w-3.5 text-[var(--icon-purple-text)]" /> Lab Tests</h3>
+                  {selectedAttendance.labTests?.length ? (
+                    <ul className="space-y-1.5">{selectedAttendance.labTests.map((lt: LabTest, i: number) => (
+                      <li key={i} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2">
+                        <div className="flex items-center justify-between gap-2"><span className="truncate text-xs font-semibold text-[var(--text-primary)]">{lt.LabTestTemplate?.name || lt.ServiceCatalog?.name || 'Lab Test'}</span><StatusBadge status={lt.status} /></div>
+                        {lt.result ? (<p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">Result: {typeof lt.result === 'object' ? JSON.stringify(lt.result) : lt.result}</p>) : (<p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">Result pending</p>)}
+                      </li>))}
+                    </ul>
+                  ) : (<p className="text-xs text-[var(--text-tertiary)]">No lab test requested for this visit.</p>)}
+                </section>
+                {/* Procedures */}
+                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)]/30 p-3">
+                  <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)]"><Scissors className="h-3.5 w-3.5 text-[var(--icon-yellow-text)]" /> Procedures</h3>
+                  {selectedAttendance.procedures?.length ? (
+                    <ul className="space-y-1.5">{selectedAttendance.procedures.map((pr: Procedure, i: number) => (
+                      <li key={i} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2">
+                        <div className="flex items-center justify-between gap-2"><span className="truncate text-xs font-semibold text-[var(--text-primary)]">{pr.ProcedureTemplate?.name || pr.name}</span><StatusBadge status={pr.status} /></div>
+                        {pr.performedAt && <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">Performed {formatDate(pr.performedAt)}</p>}
+                        {pr.notes && <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">{pr.notes}</p>}
+                      </li>))}
+                    </ul>
+                  ) : (<p className="text-xs text-[var(--text-tertiary)]">No procedure for this visit.</p>)}
+                </section>
+                {/* Scans */}
+                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)]/30 p-3">
+                  <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)]"><Microscope className="h-3.5 w-3.5 text-[var(--icon-blue-text)]" /> Scans & Imaging</h3>
+                  {selectedAttendance.scans?.length ? (
+                    <ul className="space-y-1.5">{selectedAttendance.scans.map((s: Scan, i: number) => (
+                      <li key={i} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2">
+                        <div className="flex items-center justify-between gap-2"><span className="truncate text-xs font-semibold text-[var(--text-primary)]">{getScanDisplayName(s)}</span><StatusBadge status={s.status} /></div>
+                        <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{s.bodyPart || 'General'} · {humanScanModality(s)}{s.imageUrls?.length ? ` · ${s.imageUrls.length} image${s.imageUrls.length === 1 ? '' : 's'}` : ''}</p>
+                        {s.findings && <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">Findings: {s.findings}</p>}
+                      </li>))}
+                    </ul>
+                  ) : (<p className="text-xs text-[var(--text-tertiary)]">No scan for this visit.</p>)}
+                </section>
+                {/* Vitals */}
+                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)]/30 p-3">
+                  <h3 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)]"><Heart className="h-3.5 w-3.5 text-[var(--icon-red-text)]" /> Vitals</h3>
+                  {selectedAttendance.vitals?.length ? (
+                    <ul className="space-y-1.5">{selectedAttendance.vitals.map((v: Vitals, i: number) => (
+                      <li key={i} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2">
+                        <p className="text-[10px] font-medium text-[var(--text-tertiary)]">{formatDateTime(v.recordedAt)}</p>
+                        <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-[var(--text-secondary)]">
+                          {v.bloodPressure && <span><span className="text-[var(--text-tertiary)]">BP</span> <b className="text-[var(--text-primary)]">{v.bloodPressure}</b></span>}
+                          {v.temperature && <span><span className="text-[var(--text-tertiary)]">Temp</span> <b className="text-[var(--text-primary)]">{v.temperature}°C</b></span>}
+                          {v.pulse && <span><span className="text-[var(--text-tertiary)]">Pulse</span> <b className="text-[var(--text-primary)]">{v.pulse} bpm</b></span>}
+                          {v.spo2 && <span><span className="text-[var(--text-tertiary)]">SpO₂</span> <b className="text-[var(--text-primary)]">{v.spo2}%</b></span>}
+                          {v.weight && <span><span className="text-[var(--text-tertiary)]">Weight</span> <b className="text-[var(--text-primary)]">{v.weight} kg</b></span>}
+                          {v.bmi && <span><span className="text-[var(--text-tertiary)]">BMI</span> <b className="text-[var(--text-primary)]">{v.bmi}</b></span>}
                         </p>
-                        {d.notes && <p className="text-[11px] text-[var(--text-secondary)] mt-1">{d.notes}</p>}
-                      </div>
-                    ))}
-                  </div>
+                      </li>))}
+                    </ul>
+                  ) : (<p className="text-xs text-[var(--text-tertiary)]">No vitals recorded for this visit.</p>)}
                 </section>
+              </div>
+              {/* Complaints + Notes — full width at the bottom */}
+              {(selectedAttendance.complaints || selectedAttendance.medicalNotes) && (
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {selectedAttendance.complaints && (
+                    <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)]/30 p-3"><h3 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)]">Chief Complaints</h3><p className="text-xs leading-relaxed text-[var(--text-secondary)]">{selectedAttendance.complaints}</p></section>
+                  )}
+                  {selectedAttendance.medicalNotes && (
+                    <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)]/30 p-3"><h3 className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[var(--text-primary)]">Clinical Notes</h3><p className="text-xs leading-relaxed text-[var(--text-secondary)]">{selectedAttendance.medicalNotes}</p></section>
+                  )}
+                </div>
               )}
-
-              {selectedAttendance.medications?.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                    <Pill className="w-3.5 h-3.5 text-[var(--icon-green-text)]" /> Medications
-                  </h3>
-                  <div className="space-y-1.5">
-                    {selectedAttendance.medications.map((m: Medication, i: number) => (
-                      <div key={i} className="bg-[var(--bg-main)] rounded-md p-2.5 border border-[var(--border-color)]">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-medium text-[var(--text-primary)]">{m.name}</p>
-                          <StatusBadge status={m.status} />
-                        </div>
-                        <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                          {m.dosage} • {m.frequency} • {m.duration}
-                        </p>
-                        {m.instructions && (
-                          <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">Instructions: {m.instructions}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </section>
+              {!(selectedAttendance.diagnoses?.length || selectedAttendance.medications?.length || selectedAttendance.labTests?.length || selectedAttendance.procedures?.length || selectedAttendance.scans?.length || selectedAttendance.vitals?.length || selectedAttendance.complaints || selectedAttendance.medicalNotes) && (
+                <div className="mt-3 rounded-xl border border-dashed border-[var(--border-color)] p-6 text-center"><Stethoscope className="mx-auto h-6 w-6 text-[var(--text-tertiary)]" /><p className="mt-2 text-xs font-medium text-[var(--text-primary)]">Nothing recorded for this visit yet</p><p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">Open the full visit to add diagnoses, meds, labs or notes.</p></div>
               )}
-
-              {selectedAttendance.labTests?.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                    <FlaskConical className="w-3.5 h-3.5 text-[var(--icon-purple-text)]" /> Lab Tests
-                  </h3>
-                  <div className="space-y-1.5">
-                    {selectedAttendance.labTests.map((t: LabTest, i: number) => (
-                      <div key={i} className="bg-[var(--bg-main)] rounded-md p-2.5 border border-[var(--border-color)]">
-                        <p className="text-xs font-medium text-[var(--text-primary)]">
-                          {t.LabTestTemplate?.name || t.ServiceCatalog?.name || 'Lab Test'}
-                        </p>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className="text-[11px] text-[var(--text-secondary)]">
-                            Status: <span className="font-medium">{t.status}</span>
-                          </span>
-                        </div>
-                        {t.result && (
-                          <p className="text-[11px] text-[var(--text-secondary)] mt-1">
-                            {typeof t.result === 'object' ? JSON.stringify(t.result) : t.result}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {selectedAttendance.procedures?.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                    <Scissors className="w-3.5 h-3.5 text-[var(--icon-yellow-text)]" /> Procedures
-                  </h3>
-                  <div className="space-y-1.5">
-                    {selectedAttendance.procedures.map((p: Procedure, i: number) => (
-                      <div key={i} className="bg-[var(--bg-main)] rounded-md p-2.5 border border-[var(--border-color)]">
-                        <p className="text-xs font-medium text-[var(--text-primary)]">
-                          {p.ProcedureTemplate?.name || p.name}
-                        </p>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className="text-[11px] text-[var(--text-secondary)]">Status: {p.status}</span>
-                          {p.performedAt && (
-                            <span className="text-[10px] text-[var(--text-tertiary)]">
-                              Performed: {formatDate(p.performedAt)}
-                            </span>
-                          )}
-                        </div>
-                        {p.notes && <p className="text-[11px] text-[var(--text-secondary)] mt-1">Notes: {p.notes}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {selectedAttendance.scans?.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                    <Microscope className="w-3.5 h-3.5 text-[var(--icon-blue-text)]" /> Scans & Imaging
-                  </h3>
-                  <div className="space-y-1.5">
-                    {selectedAttendance.scans.map((s: Scan, i: number) => (
-                      <div key={i} className="bg-[var(--bg-main)] rounded-md p-2.5 border border-[var(--border-color)]">
-                        <p className="text-xs font-medium text-[var(--text-primary)]">
-                          {getScanDisplayName(s)} - {s.bodyPart || 'General'}
-                          <span className="text-[var(--text-tertiary)]"> · {humanScanModality(s)}</span>
-                        </p>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className="text-[11px] text-[var(--text-secondary)]">Status: {s.status}</span>
-                          {s.imageUrls && s.imageUrls.length > 0 && (
-                            <button className="text-[10px] text-[var(--icon-cyan-text)] hover:underline font-medium">
-                              View Images ({s.imageUrls.length})
-                            </button>
-                          )}
-                        </div>
-                        {s.findings && <p className="text-[11px] text-[var(--text-secondary)] mt-1">Findings: {s.findings}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {selectedAttendance.vitals?.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                    <Heart className="w-3.5 h-3.5 text-[var(--icon-red-text)]" /> Vitals
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {selectedAttendance.vitals.map((v: Vitals, i: number) => (
-                      <div key={i} className="bg-[var(--bg-main)] rounded-md p-2.5 border border-[var(--border-color)]">
-                        <p className="text-[10px] text-[var(--text-tertiary)]">{formatDateTime(v.recordedAt)}</p>
-                        {v.bloodPressure && <p className="text-[11px] font-medium text-[var(--text-primary)]">BP: {v.bloodPressure}</p>}
-                        {v.temperature && <p className="text-[11px] text-[var(--text-secondary)]">Temp: {v.temperature}°C</p>}
-                        {v.pulse && <p className="text-[11px] text-[var(--text-secondary)]">Pulse: {v.pulse} bpm</p>}
-                        {v.spo2 && <p className="text-[11px] text-[var(--text-secondary)]">SpO₂: {v.spo2}%</p>}
-                        {v.weight && v.height && <p className="text-[11px] text-[var(--text-secondary)]">BMI: {v.bmi}</p>}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {selectedAttendance.complaints && (
-                <section>
-                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-2">Chief Complaints</h3>
-                  <p className="text-[11px] text-[var(--text-secondary)] bg-[var(--bg-main)] rounded-md p-2.5 border border-[var(--border-color)]">
-                    {selectedAttendance.complaints}
-                  </p>
-                </section>
-              )}
-              {selectedAttendance.medicalNotes && (
-                <section>
-                  <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-2">Clinical Notes</h3>
-                  <p className="text-[11px] text-[var(--text-secondary)] bg-[var(--bg-main)] rounded-md p-2.5 border border-[var(--border-color)]">
-                    {selectedAttendance.medicalNotes}
-                  </p>
-                </section>
-              )}
+            </div>
+            {/* ===== FOOTER ===== */}
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--border-color)] bg-[var(--bg-main)]/40 px-4 py-3 sm:px-5">
+              <p className="text-[11px] text-[var(--text-tertiary)]">Summary for one visit — full history lives in the tabs above.</p>
+              <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => { setShowMedicalDetails(false); setSelectedAttendance(null); }}>Close</Button><LinkButton size="sm" variant="soft" accent="cyan" icon={Eye} to={`/dashboard/attendance/${selectedAttendance.id}`}>Open full visit</LinkButton></div>
             </div>
           </div>
         </div>
       )}
-
-      {/* ============ ATTENDANCE MODAL ============ */}
-      {showAttendanceModal && (
-        <NewAttendanceModal
-          patientId={patient.id}
-          onSuccess={handleAttendanceSuccess}
-          onClose={() => setShowAttendanceModal(false)}
-        />
-      )}
+{showAttendanceModal && (<NewAttendanceModal patientId={patient.id} onSuccess={handleAttendanceSuccess} onClose={() => setShowAttendanceModal(false)} />)}
     </div>
   );
 }

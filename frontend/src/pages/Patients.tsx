@@ -20,6 +20,40 @@ import {
 type DateFilterType = 'all' | 'today' | 'yesterday' | 'custom';
 type SortKey = 'newest' | 'name' | 'lastVisit' | 'balance';
 
+// ── Patient avatar ─────────────────────────────────────────────────────────
+// Shows patient.imageUrl when present, falls back to the generic user icon.
+// The onError fallback guards against a stale URL (re-uploaded image, moved
+// CDN path) so a dead link never leaves a broken <img> in a blue tile.
+const PatientAvatar: React.FC<{ patient: any; size?: 'sm' | 'md' | 'lg' }> = ({ patient, size = 'md' }) => {
+  const box = size === 'sm' ? 'w-8 h-8' : size === 'lg' ? 'w-12 h-12' : 'w-10 h-10';
+  const icon = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-6 h-6' : 'w-5 h-5';
+  const url = patient?.imageUrl || patient?.photoUrl || patient?.photo || '';
+  const name = patient?.fullName || patient?.name || `${patient?.surname || ''} ${patient?.otherNames || ''}`.trim();
+  return (
+    <div className={`${box} rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center shrink-0 overflow-hidden`}>
+      {url ? (
+        <img
+          src={url}
+          alt={name || 'Patient photo'}
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+            const parent = (e.currentTarget as HTMLImageElement).parentElement;
+            if (parent && !parent.querySelector('svg')) {
+              const span = document.createElement('span');
+              span.className = icon + ' text-[var(--icon-cyan-text)]';
+              span.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+              parent.appendChild(span);
+            }
+          }}
+        />
+      ) : (
+        <User className={icon + ' text-[var(--icon-cyan-text)]'} />
+      )}
+    </div>
+  );
+};
+
 export default function Patients() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
@@ -273,7 +307,7 @@ export default function Patients() {
               <div key={id} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center shrink-0"><User className="w-5 h-5 text-[var(--icon-cyan-text)]" /></div>
+                    <PatientAvatar patient={patient} />
                     <div className="min-w-0"><p className="font-semibold text-[var(--text-primary)] truncate">{getPatientFullName(patient)}</p><p className="text-xs text-[var(--text-secondary)] font-mono">#{patient.folderNumber || id.slice(0, 8)} • {getSexLabel(patient)} • {getAgeLabel(patient)}</p></div>
                   </div>
                   <Badge tone={st.tone} size="sm">{st.label}</Badge>
@@ -302,7 +336,7 @@ export default function Patients() {
             <tbody>{paginatedPatients.map(patient => {
               const id = getPatientId(patient); const last = getLastAttendance(patient); const st = getVisitStatus(patient); const bal = getBalance(patient);
               return (<tr key={id} className={TR}>
-                <td className={TD}><p className="font-semibold text-[var(--text-primary)]">{getPatientFullName(patient)}</p></td>
+                <td className={TD}><div className="flex items-center gap-2.5"><PatientAvatar patient={patient} size="sm" /><p className="font-semibold text-[var(--text-primary)]">{getPatientFullName(patient)}</p></div></td>
                 <td className={TD}>{getAgeLabel(patient)}</td>
                 <td className={TD}><Badge tone={getSexTone(patient)} size="sm">{getSexLabel(patient)}</Badge></td>
                 <td className={TD_MUTED}>{last ? new Date(last.dateTime).toLocaleDateString() : 'Never'}</td>
@@ -326,7 +360,7 @@ export default function Patients() {
             <tbody>{paginatedPatients.map(patient => {
               const id = getPatientId(patient); const last = getLastAttendance(patient); const st = getVisitStatus(patient); const bal = getBalance(patient);
               return (<tr key={id} className={TR}>
-                <td className={`${TD} sticky left-0 z-10 bg-[var(--bg-card)] border-r border-[var(--border-color)]`}><div className="flex items-center gap-2.5"><div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center shrink-0"><User className="w-4 h-4 text-[var(--icon-cyan-text)]" /></div><p className="font-semibold text-[var(--text-primary)] whitespace-nowrap">{getPatientFullName(patient)}</p></div></td>
+                <td className={`${TD} sticky left-0 z-10 bg-[var(--bg-card)] border-r border-[var(--border-color)]`}><div className="flex items-center gap-2.5"><PatientAvatar patient={patient} size="sm" /><p className="font-semibold text-[var(--text-primary)] whitespace-nowrap">{getPatientFullName(patient)}</p></div></td>
                 <td className={TD}><span className="font-mono text-xs">{patient.folderNumber || id.slice(0, 8)}</span></td>
                 <td className={TD}>{getAgeLabel(patient)}</td>
                 <td className={TD}><Badge tone={getSexTone(patient)} size="sm">{getSexLabel(patient)}</Badge></td>
@@ -354,7 +388,7 @@ export default function Patients() {
             const id = getPatientId(patient); const last = getLastAttendance(patient); const st = getVisitStatus(patient); const bal = getBalance(patient);
             return (
               <div key={id} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all group">
-                <div className="flex items-start justify-between mb-3"><div className="flex items-center gap-3 min-w-0"><div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center"><User className="w-5 h-5 text-[var(--icon-cyan-text)]" /></div><div className="min-w-0"><h3 className="font-semibold text-[var(--text-primary)] text-sm truncate">{getPatientFullName(patient)}</h3><p className="text-xs text-[var(--text-secondary)] font-mono">#{patient.folderNumber || id.slice(0, 8)}</p></div></div><Badge tone={st.tone} size="sm">{st.label}</Badge></div>
+                <div className="flex items-start justify-between mb-3"><div className="flex items-center gap-3 min-w-0"><PatientAvatar patient={patient} /><div className="min-w-0"><h3 className="font-semibold text-[var(--text-primary)] text-sm truncate">{getPatientFullName(patient)}</h3><p className="text-xs text-[var(--text-secondary)] font-mono">#{patient.folderNumber || id.slice(0, 8)}</p></div></div><Badge tone={st.tone} size="sm">{st.label}</Badge></div>
                 <dl className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-[var(--bg-main)] rounded-lg p-2"><dt className="text-[var(--text-tertiary)]">Age / Sex</dt><dd className="font-semibold text-[var(--text-primary)]">{getAgeLabel(patient)} • {getSexLabel(patient)}</dd></div>
                   <div className="bg-[var(--bg-main)] rounded-lg p-2"><dt className="text-[var(--text-tertiary)]">Contact</dt><dd className="font-medium text-[var(--text-primary)] truncate">{patient.contact || '—'}</dd></div>

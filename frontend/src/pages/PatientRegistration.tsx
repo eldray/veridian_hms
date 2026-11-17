@@ -443,8 +443,6 @@ export default function PatientRegistration() {
         otherNames: formData.otherNames,
         gender: formData.gender,
         dateOfBirth: normalizedDateOfBirth,
-        age: ageData.years,
-        ageInMonths: ageData.months,
         contact: formData.contact,
         address: formData.address,
         residenceCommunity: formData.residenceCommunity.trim() || null,
