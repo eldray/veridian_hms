@@ -63,14 +63,6 @@ const calculateAge = (dateOfBirth: string): number => {
   return Math.max(0, age);
 };
 
-const initials = (name: string) =>
-  name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? '')
-    .join('');
-
 const formatDate = (dateString: string) => {
   if (!dateString) return '—';
   try {
@@ -784,13 +776,6 @@ export default function Admissions() {
                     const isDischarged = !!admission.dischargeDate;
                     const stayDays = getLengthOfStay(admission);
 
-                    const avatarBg =
-                      admission.displayType === 'day_surgery'
-                        ? 'var(--icon-purple-bg)'
-                        : admission.displayType === 'detention'
-                        ? 'var(--icon-orange-bg)'
-                        : 'var(--icon-green-bg)';
-
                     return (
                       <tr key={admission.id} className={TR}>
                         <td className={TD}>
@@ -983,13 +968,6 @@ export default function Admissions() {
               const bedNumber = rowBedNumber(admission);
               const isDischarged = !!admission.dischargeDate;
               const stayDays = getLengthOfStay(admission);
-
-              const avatarBg =
-                admission.displayType === 'day_surgery'
-                  ? 'var(--icon-purple-bg)'
-                  : admission.displayType === 'detention'
-                  ? 'var(--icon-orange-bg)'
-                  : 'var(--icon-green-bg)';
 
               return (
                 <div
