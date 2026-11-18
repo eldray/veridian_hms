@@ -19,7 +19,6 @@ import {
   History,
   RefreshCw,
   Scissors,
-  User,
   Users,
 } from 'lucide-react';
 import {
