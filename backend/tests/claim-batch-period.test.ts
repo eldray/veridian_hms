@@ -290,7 +290,7 @@ describe('claim batches are only generated for a month that has ended', () => {
     const { service } = atDate('2026-11-02T09:00:00');
     await expect(service.generateBatch({
       insuranceType: 'nhis', periodYear: 2026, periodMonth: 11, insuranceProviderId: 'nhis-a',
-    } as any, 'user-1')).rejects.toThrow(/November 2026 has not ended yet[\\s\\S]*batch October 2026 instead/);
+    } as any, 'user-1')).rejects.toThrow(/November 2026 has not ended yet[\s\S]*batch October 2026 instead/);
   });
 
   it('refuses a future month', async () => {
@@ -304,7 +304,7 @@ describe('claim batches are only generated for a month that has ended', () => {
     const { service } = atDate('2026-01-15T09:00:00');
     await expect(service.generateBatch({
       insuranceType: 'nhis', periodYear: 2026, periodMonth: 1, insuranceProviderId: 'nhis-a',
-    } as any, 'user-1')).rejects.toThrow(/January 2026 has not ended yet[\\s\\S]*batch December 2025 instead/);
+    } as any, 'user-1')).rejects.toThrow(/January 2026 has not ended yet[\s\S]*batch December 2025 instead/);
   });
 
   it('requires an explicit NHIS provider so each scheme gets its own monthly batch', async () => {
