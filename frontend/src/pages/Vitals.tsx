@@ -33,7 +33,6 @@ import {
   CheckCircle,
   AlertTriangle,
   Heart,
-  User,
   Baby,
   History,
   Eye,
