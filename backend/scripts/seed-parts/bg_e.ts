@@ -232,9 +232,12 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
 
   // ── CLAIM BATCHES ────────────────────────────────────────
   const finalized = b.claims.filter((c) => c.status === 'finalized' && c.finalizedAt);
+  const attendanceByKey = new Map(b.attendances.map((attendance) => [attendance.key, attendance]));
   const groups = new Map<string, GeneratedClaim[]>();
   for (const claim of finalized) {
-    const d = claim.finalizedAt!;
+    // Claim batch periods follow the encounter's service month, not the later
+    // date on which the claim happened to be finalized.
+    const d = attendanceByKey.get(claim.attendanceKey)?.dateTime ?? claim.finalizedAt!;
     const key = `${claim.insuranceType}-${d.getFullYear()}-${d.getMonth() + 1}`;
     const list = groups.get(key) || [];
     list.push(claim);
