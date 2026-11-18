@@ -56,7 +56,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
     return this.findManyWithPagination({
       where, page, limit: Math.min(limit, 1000), orderBy: { billDate: 'desc' },
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
+        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true } },
         CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, dateTime: true } },
         BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } },
@@ -69,7 +69,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
     return this.getModel().findUnique({
       where: { id },
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
+        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, contact: true } },
         CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, dateTime: true } },
         BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } },
@@ -422,7 +422,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
     const bill = await this.getModel().findUnique({
       where: { id: billId },
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
+        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true } },
         CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
         BillLineItem: {
@@ -813,7 +813,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
           status
         },
         include: {
-          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
+          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true } },
           CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
           Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
           BillLineItem: {
