@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { createHash, randomBytes } from 'crypto';
+import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { UserService } from './UserService';
 import { AuthRequest } from '../../middleware/authMiddleware';
@@ -14,9 +16,11 @@ const ADMIN_LIKE_ROLES = ['admin', 'super_admin', 'hr_officer'];
 
 export class UserController extends BaseController {
   private service: UserService;
+  private prisma: PrismaClient;
 
   constructor(prisma: any) {
     super();
+    this.prisma = prisma;
     this.service = new UserService(prisma);
   }
 
@@ -93,6 +97,56 @@ export class UserController extends BaseController {
     const { newPassword } = req.body;
     const user = await this.service.resetUserPassword(req.params.id, newPassword, this.actorOf(req));
     return this.ok(res, user, 'Password reset. The member of staff must sign in again everywhere.');
+  });
+
+  listPasswordResetRequests = this.asyncHandler(async (_req: AuthRequest, res: Response) => {
+    const requests = await this.prisma.passwordResetRequest.findMany({
+      where: { status: { in: ['pending', 'approved'] } },
+      orderBy: { requestedAt: 'desc' },
+      include: { },
+    });
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: requests.map((r: any) => r.userId) } },
+      select: { id: true, username: true, fullName: true, role: true, department: { select: { name: true } } },
+    });
+    const byId = new Map(users.map((u: any) => [u.id, u]));
+    return this.ok(res, requests.map((request: any) => ({
+      id: request.id, status: request.status, requestedAt: request.requestedAt,
+      reviewedAt: request.reviewedAt, expiresAt: request.expiresAt,
+      user: byId.get(request.userId) || null,
+    })), 'Password reset requests retrieved');
+  });
+
+  approvePasswordReset = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const request = await this.prisma.passwordResetRequest.findUnique({ where: { id: req.params.requestId } });
+    if (!request || request.status !== 'pending') return this.notFound(res, 'Pending password reset request');
+    const target = await this.prisma.user.findUnique({ where: { id: request.userId }, select: { id: true, role: true, isActive: true } });
+    if (!target || !target.isActive) return this.notFound(res, 'Active user');
+    if (['admin', 'super_admin'].includes(String(target.role).toLowerCase()) && String(req.user?.role).toLowerCase() !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'Only Super Admin can approve a password reset for an administrator account' });
+    }
+    const code = randomBytes(5).toString('hex').toUpperCase();
+    const codeHash = createHash('sha256').update(code).digest('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    await this.prisma.passwordResetRequest.update({
+      where: { id: request.id },
+      data: { status: 'approved', reviewedAt: new Date(), reviewedById: req.user!.userId, codeHash, expiresAt },
+    });
+    return this.ok(res, { requestId: request.id, resetCode: code, expiresAt }, 'Reset approved. Give this one-time code to the verified staff member in person.');
+  });
+
+  rejectPasswordReset = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const request = await this.prisma.passwordResetRequest.findUnique({ where: { id: req.params.requestId } });
+    if (!request || request.status !== 'pending') return this.notFound(res, 'Pending password reset request');
+    const target = await this.prisma.user.findUnique({ where: { id: request.userId }, select: { role: true } });
+    if (target && ['admin', 'super_admin'].includes(String(target.role).toLowerCase()) && String(req.user?.role).toLowerCase() !== 'super_admin') {
+      return res.status(403).json({ success: false, message: 'Only Super Admin can reject a password reset request for an administrator account' });
+    }
+    await this.prisma.passwordResetRequest.update({
+      where: { id: request.id },
+      data: { status: 'rejected', reviewedAt: new Date(), reviewedById: req.user!.userId, codeHash: null, expiresAt: null },
+    });
+    return this.ok(res, null, 'Password reset request rejected');
   });
 
   getMyPermissions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
