@@ -486,12 +486,12 @@ export function formatCell(value: unknown, kind: Exclude<ColumnValue, 'auto'>, c
     }
     case 'money': {
       const asNumber = toNumber(value);
-      if (asNumber === null) return String(value);
+      if (asNumber === null) return safeValueText(value);
       return `${currency} ${asNumber.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
     case 'percent': {
       const asNumber = toNumber(value);
-      if (asNumber === null) return String(value);
+      if (asNumber === null) return safeValueText(value);
       return `${Math.round(asNumber * 10) / 10}%`;
     }
     default: {
