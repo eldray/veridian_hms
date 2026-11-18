@@ -213,8 +213,17 @@ export const seedBills = async (
 
     // ── Payments against whatever the patient still owes ──
     const payableAfterWaiver = Math.max(0, money(toNumber(generated.patientPayable)));
-    const targetBalance = Math.max(0, money(toNumber(generated.balance)));
-    const payAmount = plan.status === 'cancelled' ? 0 : money(Math.min(targetBalance, payableAfterWaiver * plan.paymentFraction));
+    // Re-read the persisted balance immediately before collection. The waiver workflow
+    // and bill repository are authoritative; a stale in-memory bill must never make the
+    // seed submit more than the database will accept.
+    const currentBillForPayment = await prisma.bill.findUnique({
+      where: { id: generated.id },
+      select: { balance: true, status: true },
+    });
+    const targetBalance = Math.max(0, money(toNumber(currentBillForPayment?.balance)));
+    const payAmount = plan.status === 'cancelled' || currentBillForPayment?.status === 'cancelled'
+      ? 0
+      : money(Math.min(targetBalance, payableAfterWaiver * plan.paymentFraction));
     let paidAmount = toNumber(generated.paidAmount);
     if (payAmount > 0) {
       try {
@@ -239,7 +248,9 @@ export const seedBills = async (
         stats['payments'] = (stats['payments'] ?? 0) + 1;
         generated = await prisma.bill.findUnique({ where: { id: generated.id } });
       } catch (error: any) {
-        note(`payment rejected: ${String(error?.message).slice(0, 40)}`);
+        const reason = `payment rejected: ${String(error?.message).replace(/\\s+/g, ' ').slice(0, 100)}`;
+        note(reason);
+        console.warn(`   ⚠️ ${reason} (bill ${generated.billNumber}; attempted ${payAmount.toFixed(2)}; balance before payment ${targetBalance.toFixed(2)})`);
       }
     }
 
