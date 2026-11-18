@@ -25,7 +25,7 @@ export const createSettingsRoutes = () => {
 
   // Facility identity is needed across clinical, billing and document screens.
   // Authentication is applied to the router; writes remain admin-only.
-  router.get('/hospital', settingsController.getHospitalDetails);
+  router.get('/hospital', settingsController.getHospitalProfileForStaff);
 
   router.put(
     '/hospital',
