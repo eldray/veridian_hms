@@ -2255,7 +2255,16 @@ const emitEncounter = (
   // ── CLAIM for an insured encounter that was billed
   const claimChance = paymentMode === 'nhis' ? COUNTS.claimsPerNHISAttendance
     : paymentMode === 'private_insurance' ? 0.6 : paymentMode === 'corporate' ? 0.4 : 0;
-  if (att.insuranceType && patient && chance(claimChance) && status !== 'cancelled') {
+  // Claims must represent a completed, clinically coded encounter. Pending/admitted
+  // visits may have only a provisional diagnosis (or no diagnosis yet), and the
+  // claims service correctly refuses to generate a payable claim without a primary
+  // diagnosis. Keep those visits out of the claim plan instead of counting expected
+  // validation failures as rejected seed rows.
+  const hasPrimaryDiagnosis = b.diagnoses.some(
+    (diagnosis) => diagnosis.attendanceKey === key && diagnosis.diagnosisType === 'primary',
+  );
+  const claimableEncounter = status !== 'cancelled' && status !== 'pending' && status !== 'admitted';
+  if (att.insuranceType && patient && claimableEncounter && hasPrimaryDiagnosis && chance(claimChance)) {
     const finalized = chance(0.75);
     const createdAt = att.finalizedAt ? new Date(att.finalizedAt) : addMinutes(dateTime, intBetween(60, 1440));
     const claimKey = `clm-${b.claims.length + 1}`;
