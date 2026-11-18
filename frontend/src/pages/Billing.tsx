@@ -482,6 +482,7 @@ const handlePrintStatement = async (billId: string) => {
       meta={`${filteredBills.length} bill(s) · Total: ${formatCurrency(stats.totalAmount)} · Waivers: ${formatCurrency(stats.totalWaiverAmount)}`}
       icon={DollarSign}
       accent="yellow"
+      backTo="/dashboard"
       actions={(
         <>
           <Button variant="secondary" icon={FileText} onClick={() => navigate('/dashboard/estimates')}>
