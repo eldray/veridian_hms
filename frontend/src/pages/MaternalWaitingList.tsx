@@ -392,11 +392,7 @@ export default function MaternalWaitingList() {
                 <div className="px-4 pb-4 flex-1 space-y-3">
                   {/* Patient */}
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--icon-green-bg)] border border-[var(--border-color)] flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-[var(--icon-green-text)]">
-                        {initials(name) || <User className="w-4 h-4" />}
-                      </span>
-                    </div>
+                    <PatientAvatar patient={patient.patient} size="md" className="rounded-xl" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-[var(--text-primary)] truncate">{name}</p>
                       <p className="text-[10px] text-[var(--text-tertiary)] font-mono">
@@ -497,11 +493,7 @@ export default function MaternalWaitingList() {
                     >
                       <td className={TD}>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center flex-shrink-0">
-                            <span className="text-[10px] font-bold text-[var(--icon-green-text)]">
-                              {initials(name) || <User className="w-3.5 h-3.5" />}
-                            </span>
-                          </div>
+                          <PatientAvatar patient={patient.patient} size="sm" className="rounded-full" />
                           <div className="min-w-0">
                             <p className="font-semibold text-sm text-[var(--text-primary)] truncate">{name}</p>
                             <p className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1.5">
