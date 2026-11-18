@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/UserManagement.tsx — THE ONLY User Management page.
 // MERGED: this file now contains everything that used to live in two places:
 //   1. This page (Directory + Payslips + Documents)
@@ -125,6 +126,7 @@ const SHIFT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
 type TabId = 'directory' | 'payslips' | 'documents' | 'shifts' | 'leaves';
 
 export default function UserManagement() {
+  const goBack = useSmartBack('/dashboard');
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>('directory');
 
@@ -370,7 +372,7 @@ export default function UserManagement() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-[var(--bg-main)]"><ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" /></button>
+          <button onClick={goBack} className="p-2 rounded-lg hover:bg-[var(--bg-main)]"><ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" /></button>
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2"><Hospital className="w-5 h-5 text-[var(--icon-cyan-text)]" />HR &amp; User Management</h1>
             <p className="text-sm text-[var(--text-secondary)]">Users, payroll, documents, shifts and leave</p>
