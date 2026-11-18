@@ -79,7 +79,7 @@ export default function Counter() {
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      <PageHeader title="Counter" subtitle="Walk-in sales, lab and scan requests for customers outside the patient register" icon={Store} accent="cyan"
+      <PageHeader title="Counter" subtitle="Walk-in sales, lab and scan requests for customers outside the patient register" icon={Store} accent="cyan" backTo="/dashboard"
         meta={<>{totalTickets} ticket(s){listParams.text ? ` matching “${listParams.text}”` : ''}{activeCard ? ` · filtered by ${activeCard.label.toLowerCase()}` : ''} · a ticket is a visit of its own: it orders, results, hands over stock and raises a bill without a folder number.</>}
         actions={<><Button variant="secondary" icon={RefreshCw} loading={loadingList} disabled={loadingList} onClick={() => { loadTickets(listParams, sortKey); loadSummary(); }}>{loadingList ? 'Refreshing...' : 'Refresh'}</Button><Button variant="soft" accent="cyan" icon={Store} onClick={() => navigate('/dashboard/counter/new')}>New counter</Button></>} />
       {listError && (<div role="alert" className="flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-4 py-3 text-sm text-[var(--icon-red-text)]"><AlertCircle className="h-4 w-4 shrink-0" /><span>Could not load the counter tickets: {listError}</span></div>)}
