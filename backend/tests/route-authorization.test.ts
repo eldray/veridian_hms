@@ -109,6 +109,17 @@ describe('route authorization coverage', () => {
     expect(unprotected).toEqual([]);
   });
 
+  it('redacts dashboard metrics the authenticated role cannot access', () => {
+    const controller = read(path.join(modulesDir, 'dashboard', 'DashboardController.ts'));
+    expect(controller).toMatch(/const canViewFinance = isAdmin \|\| role === 'accounts'/);
+    expect(controller).toMatch(/visibleStats\.pendingBills = 0/);
+    expect(controller).toMatch(/visibleStats\.pendingClaims = 0/);
+    expect(controller).toMatch(/visibleStats\.totalRevenue = 0/);
+    expect(controller).toMatch(/visibleStats\.lowStockItems = 0/);
+    expect(controller).toMatch(/visibleStats\.topDiagnoses = \[\]/);
+    expect(controller).toMatch(/topDiagnoses: \[\.\.\.stats\.topDiagnoses\]/);
+  });
+
   it('restricts facility-wide billing reports to finance and administrators', () => {
     const source = read(path.join(modulesDir, 'billing', 'BillingRoutes.ts'));
     expect(source).toMatch(/router\.get\('\/invoices',\s*requireRole\(FINANCIAL_READERS\)/);
