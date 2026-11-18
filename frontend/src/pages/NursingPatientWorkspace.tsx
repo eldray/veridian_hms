@@ -399,7 +399,7 @@ export default function NursingPatientWorkspace() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/nursing')}
+            onClick={goBack}
             className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
