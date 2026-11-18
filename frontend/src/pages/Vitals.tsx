@@ -23,6 +23,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useToast } from '../store/toastStore';
 import {
   HeartPulse,
@@ -205,7 +206,8 @@ export default function VitalsWaitingList() {
           name: patient.patient?.name,
           folderNumber: patient.patient?.folderNumber,
           age: patient.patient?.age,
-          gender: patient.patient?.gender
+          gender: patient.patient?.gender,
+          imageUrl: patient.patient?.imageUrl
         },
         attendanceId: patient.attendanceId,
         isAntenatal: patient.isAntenatal,
@@ -447,9 +449,13 @@ export default function VitalsWaitingList() {
                   >
                     <td className={TD}>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 shrink-0 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                        </div>
+                        <PatientAvatar
+                          imageUrl={patient.patient?.imageUrl}
+                          name={patient.patient?.name}
+                          size="sm"
+                          className="rounded-full bg-[var(--icon-cyan-bg)]"
+                          fallbackClassName="text-[var(--icon-cyan-text)]"
+                        />
                         <span className="font-medium text-[var(--text-primary)] text-sm truncate" title={patient.patient?.name}>
                           {patient.patient?.name}
                         </span>
