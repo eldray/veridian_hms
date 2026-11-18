@@ -191,7 +191,8 @@ export default function UserManagement() {
   const { success, error: toastError } = useToast();
 
   const canManageUsers = hasRole(['admin', 'super_admin', 'hr_officer']);
-  const canResetPasswords = hasRole(['admin', 'super_admin']); // HR may edit but may not hand out a new password
+  const canAdministerAccounts = hasRole(['admin', 'super_admin']);
+  const canResetPasswords = canAdministerAccounts; // HR may view staff records but cannot create, edit core accounts, deactivate or reset passwords
 
   useEffect(() => { if (canManageUsers) getAllUsers(); }, [canManageUsers, getAllUsers]);
   useEffect(() => {
@@ -381,7 +382,7 @@ export default function UserManagement() {
         <div className="flex items-center gap-3">
           <button onClick={() => getAllUsers()} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm text-[var(--text-primary)]"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh</button>
           {activeTab === 'directory' && (
-            <button onClick={() => setShowRegisterModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"><Plus className="w-4 h-4" /> Add User</button>
+            {canAdministerAccounts && <button onClick={() => setShowRegisterModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"><Plus className="w-4 h-4" /> Add User</button>}
           )}
         </div>
       </div>
@@ -480,9 +481,9 @@ export default function UserManagement() {
                           <td className="px-3 py-3 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button onClick={() => navigate(`/dashboard/users/${user.id}`)} className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-all" title="Open full profile (account + HR + payslips)"><FileText className="w-3.5 h-3.5" /></button>
-                              {(user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (<button onClick={() => setEditingUser(user)} className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)]" title="Quick edit account"><Edit className="w-3.5 h-3.5" /></button>)}
+                              {canAdministerAccounts && (!['admin', 'super_admin'].includes(user.role) || currentUser?.role === 'super_admin') && (<button onClick={() => setEditingUser(user)} className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)]" title="Quick edit account"><Edit className="w-3.5 h-3.5" /></button>)}
                               {canResetPasswords && user.id !== currentUser?.id && (user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (<button onClick={() => openPasswordReset(user)} className="p-1.5 text-[var(--icon-orange-text)] border border-[var(--icon-orange-text)] rounded-lg hover:bg-[var(--icon-orange-bg)]" title="Reset password (signs the account out everywhere)"><KeyRound className="w-3.5 h-3.5" /></button>)}
-                              {user.isActive && user.id !== currentUser?.id && (user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (<button onClick={() => setDeactivatingUser(user)} className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]" title="Deactivate account"><Ban className="w-3.5 h-3.5" /></button>)}
+                              {canAdministerAccounts && user.isActive && user.id !== currentUser?.id && (!['admin', 'super_admin'].includes(user.role) || currentUser?.role === 'super_admin') && (<button onClick={() => setDeactivatingUser(user)} className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]" title="Deactivate account"><Ban className="w-3.5 h-3.5" /></button>)}
                             </div>
                           </td>
                         </tr>
