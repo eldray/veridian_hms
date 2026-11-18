@@ -283,59 +283,69 @@ export class ClaimBatchService extends BaseService {
       );
     }
 
-    // A previous batch of ANY family for this payer/month is a duplicate. This
-    // also prevents a new monthly batch from being created alongside legacy
-    // family-split batches.
-    const existing = await this.repo.findExistingBatch(
+    // Serialize generation by payer + service month. The database's composite
+    // unique key includes nullable columns, and PostgreSQL treats NULLs as distinct;
+    // the advisory lock closes that race for NHIS/private rows with no corporate account.
+    const payerMonthLock = [
+      'claim-batch',
       insuranceType,
+      insuranceProviderId ?? 'no-provider',
+      corporateAccountId ?? 'no-account',
       periodYear,
       periodMonth,
-      insuranceProviderId,
-      corporateAccountId,
-    );
-    if (existing) {
-      const periodLabel = `${PERIOD_MONTH_NAMES[periodMonth - 1]} ${periodYear}`;
-      const isLegacyFamilyBatch = Boolean(existing.claimFamily && existing.claimFamily !== 'ALL');
-      throw new ConflictError(
-        isLegacyFamilyBatch
-          ? `A legacy ${insuranceType} ${existing.claimFamily} batch already exists for this payer in ${periodLabel} (${existing.batchNumber}). Its submission and payment history will not be merged automatically; reconcile the existing batch before creating a single monthly batch.`
-          : `A ${insuranceType} monthly batch already exists for this payer in ${periodLabel} (${existing.batchNumber}). Delete it if it is still unfinalized, or reconcile the existing monthly submission.`,
-      );
-    }
-
-    const totalAmount = batchClaims.reduce(
-      (sum, claim) => sum.plus(claim.totalClaimAmount),
-      new Prisma.Decimal(0),
-    );
+    ].join(':');
     const batchNumber = getCounterService().nextBatchNumber();
-    const batch = await this.prisma.claimBatch.create({
-      data: {
-        batchNumber,
-        insuranceType,
-        insuranceProviderId,
-        corporateAccountId,
-        claimFamily: 'ALL',
-        periodYear,
-        periodMonth,
-        totalClaims: batchClaims.length,
-        totalAmount,
-        status: 'generated',
-        description: input.description ?? null,
-        createdById: userId,
-        claims: { connect: batchClaims.map((claim) => ({ id: claim.id })) },
-      },
-      include: {
-        insuranceProvider: true,
-        corporateAccount: true,
-        createdBy: { select: { id: true, fullName: true, username: true } },
-        claims: {
-          include: {
-            Patient: true,
-            Attendance: { include: { Admission: true } },
-            items: { orderBy: { itemNumber: 'asc' } },
+    const batch = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${payerMonthLock}))`;
+      const existing = await tx.claimBatch.findFirst({
+        where: {
+          insuranceType: insuranceType as any,
+          periodYear,
+          periodMonth,
+          insuranceProviderId: insuranceProviderId ?? null,
+          corporateAccountId: corporateAccountId ?? null,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (existing) {
+        const periodLabel = `${PERIOD_MONTH_NAMES[periodMonth - 1]} ${periodYear}`;
+        const isLegacyFamilyBatch = Boolean(existing.claimFamily && existing.claimFamily !== 'ALL');
+        throw new ConflictError(
+          isLegacyFamilyBatch
+            ? `A legacy ${insuranceType} ${existing.claimFamily} batch already exists for this payer in ${periodLabel} (${existing.batchNumber}). Its submission and payment history will not be merged automatically; reconcile the existing batch before creating a single monthly batch.`
+            : `A ${insuranceType} monthly batch already exists for this payer in ${periodLabel} (${existing.batchNumber}). Delete it if it is still unfinalized, or reconcile the existing monthly submission.`,
+        );
+      }
+
+      return tx.claimBatch.create({
+        data: {
+          batchNumber,
+          insuranceType,
+          insuranceProviderId,
+          corporateAccountId,
+          claimFamily: 'ALL',
+          periodYear,
+          periodMonth,
+          totalClaims: batchClaims.length,
+          totalAmount,
+          status: 'generated',
+          description: input.description ?? null,
+          createdById: userId,
+          claims: { connect: batchClaims.map((claim) => ({ id: claim.id })) },
+        },
+        include: {
+          insuranceProvider: true,
+          corporateAccount: true,
+          createdBy: { select: { id: true, fullName: true, username: true } },
+          claims: {
+            include: {
+              Patient: true,
+              Attendance: { include: { Admission: true } },
+              items: { orderBy: { itemNumber: 'asc' } },
+            },
           },
         },
-      },
+      });
     });
 
     this.logInfo('Monthly claim batch generated', {
