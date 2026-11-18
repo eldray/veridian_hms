@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/AdmissionDetails.tsx — Redesigned: top action bar, Antenatal-style sections
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function AdmissionDetails() {
+  const goBack = useSmartBack('/dashboard/admissions');
   const { id } = useParams();
   const navigate = useNavigate();
   const {
@@ -210,7 +212,7 @@ export default function AdmissionDetails() {
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Admission Not Found</h2>
           <p className="text-sm text-[var(--text-secondary)] mb-5">The admission record could not be located.</p>
           <button
-            onClick={() => navigate('/dashboard/admissions')}
+            onClick={goBack}
             className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-semibold transition-all"
           >
             Back to Admissions
@@ -234,7 +236,7 @@ export default function AdmissionDetails() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/admissions')}
+            onClick={goBack}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
               text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium"
           >
