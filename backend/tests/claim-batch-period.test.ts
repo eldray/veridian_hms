@@ -102,6 +102,12 @@ describe('claim batch month totals', () => {
       .mockResolvedValueOnce(claimAggregate(3, '1200.50'))
       .mockResolvedValueOnce(claimAggregate(2, '300.25'))
       .mockResolvedValueOnce(claimAggregate(1, '0.00'));
+    // NHIS preview now independently verifies that these aggregate rows have a priced G-DRG.
+    findMany.mockResolvedValueOnce([
+      nhisClaim('nhis-1', 'MEDI', '500.00'),
+      nhisClaim('nhis-2', 'OPDC', '400.00'),
+      nhisClaim('nhis-3', 'ASUR', '300.50'),
+    ]);
 
     const summary = await service.eligibleForPeriod(2026, 9);
 
@@ -122,6 +128,7 @@ describe('claim batch month totals', () => {
       .mockResolvedValueOnce(claimAggregate(1, '900'))
       .mockResolvedValueOnce(claimAggregate(1, '900'))
       .mockResolvedValueOnce(claimAggregate(1, '900'));
+    findMany.mockResolvedValueOnce([nhisClaim('nhis-1', 'MEDI', '900')]);
 
     const summary = await service.eligibleForPeriod(2026, 9);
     expect(summary.overall.totalAmount).toBe(2700);
