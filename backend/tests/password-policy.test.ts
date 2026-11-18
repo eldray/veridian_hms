@@ -235,3 +235,18 @@ describe('forgot password', () => {
     expect(missing.repository.updateUser).not.toHaveBeenCalled();
   });
 });
+
+
+describe('refresh-token logout', () => {
+  it('revokes the exact supplied refresh token without requiring an access token', async () => {
+    const service = new AuthService({} as any);
+    const repository = { deleteRefreshToken: vi.fn().mockResolvedValue(undefined) };
+    (service as any).repository = repository;
+
+    const result = await service.logout('expired-access-session-refresh-token');
+
+    expect(result).toEqual({ success: true });
+    expect(repository.deleteRefreshToken).toHaveBeenCalledWith('expired-access-session-refresh-token');
+    expect(repository.deleteRefreshTokenForUser).not.toHaveBeenCalled();
+  });
+});
