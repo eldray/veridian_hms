@@ -59,6 +59,7 @@ import {
   type GeneratedAppointmentPlan, type GeneratedFamilyPlan,
 } from './testSeed/operations.js';
 import { seedPatients, type PatientRecords } from './testSeed/patients.js';
+import { seedAvatarImages } from './testSeed/avatars.js';
 import { seedLeaveRequests, seedPayroll, seedShifts, seedStaffDocuments } from './testSeed/people.js';
 import { seedProcedures } from './testSeed/procedures.js';
 import { StockLedger } from './testSeed/stockLedger.js';
@@ -140,9 +141,20 @@ const ensureDepartments = async (): Promise<Map<string, string>> => {
 const seedTestUsers = async (deptMap: Map<string, string>): Promise<GeneratedUser[]> => {
   console.log('👥 Creating users...');
   const generated = generateUsers();
+  const existingUsers = await prisma.user.findMany({
+    where: { username: { in: generated.map((user) => user.username) } },
+    select: { username: true, imageUrl: true },
+  });
+  const existingImageByUsername = new Map(existingUsers.map((user) => [user.username, user.imageUrl]));
+  const avatarByUsername = await seedAvatarImages(
+    'users',
+    generated.filter((user) => !existingImageByUsername.get(user.username)).map((user) => user.username),
+  );
 
   for (const u of generated) {
     const departmentId = u.departmentName ? deptMap.get(u.departmentName) ?? null : null;
+    // Existing uploaded staff portraits always win; demo seeding only fills an empty image field.
+    const imageUrl = existingImageByUsername.get(u.username) || avatarByUsername.get(u.username) || null;
     await prisma.user.upsert({
       where: { username: u.username },
       create: {
@@ -156,9 +168,16 @@ const seedTestUsers = async (deptMap: Map<string, string>): Promise<GeneratedUse
         licenseNumber: u.licenseNumber,
         specialization: u.specialization,
         departmentId,
+        imageUrl,
         isActive: true,
       },
-      update: { role: u.role as UserRole, seniority: u.seniority as Seniority, departmentId, isActive: true },
+      update: {
+        role: u.role as UserRole,
+        seniority: u.seniority as Seniority,
+        departmentId,
+        ...(imageUrl ? { imageUrl } : {}),
+        isActive: true,
+      },
     });
   }
 
