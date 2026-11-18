@@ -451,7 +451,7 @@ describe('claim batches are only generated for a month that has ended', () => {
 
     await expect(service.generateBatch({
       insuranceType: 'nhis', periodYear: 2026, periodMonth: 10, insuranceProviderId: 'nhis-a',
-    } as any, 'user-1')).rejects.toThrow(/A nhis batch already exists for this payer in October 2026/);
+    } as any, 'user-1')).rejects.toThrow(/A legacy nhis MEDI batch already exists for this payer in October 2026/);
     expect(created).toHaveLength(0);
     expect(prisma.claimBatch.findFirst.mock.calls[0][0].where).not.toHaveProperty('claimFamily');
   });
