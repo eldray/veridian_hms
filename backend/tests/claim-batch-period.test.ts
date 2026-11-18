@@ -97,7 +97,7 @@ describe('claim batch month selection', () => {
 
 describe('claim batch month totals', () => {
   it('reports each payer bucket and the month overall from the database counts', async () => {
-    const { service, aggregate } = makeRepo();
+    const { service, aggregate, findMany } = makeRepo();
     aggregate
       .mockResolvedValueOnce(claimAggregate(3, '1200.50'))
       .mockResolvedValueOnce(claimAggregate(2, '300.25'))
@@ -123,7 +123,7 @@ describe('claim batch month totals', () => {
   });
 
   it('adds batch amounts as money, never as text', async () => {
-    const { service, aggregate } = makeRepo();
+    const { service, aggregate, findMany } = makeRepo();
     aggregate
       .mockResolvedValueOnce(claimAggregate(1, '900'))
       .mockResolvedValueOnce(claimAggregate(1, '900'))
