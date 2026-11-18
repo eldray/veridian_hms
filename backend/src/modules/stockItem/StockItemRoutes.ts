@@ -8,6 +8,12 @@ export const createStockItemRoutes = () => {
   // ✅ Global Auth: All routes require authentication
   router.use(protect);
 
+  // Stock catalogue entries include pricing and stock information. Keep reads
+  // within operational, clinical and finance roles; HR has no stock workflow.
+  const STOCK_CATALOG_READERS = [
+    'admin', 'super_admin', 'accounts', 'pharmacist', 'doctor', 'nurse', 'midwife', 'records', 'lab_tech', 'sonographer',
+  ];
+
   // ==========================================
   // 1. SPECIFIC ROUTES (MUST BE BEFORE /:id)
   // ==========================================
@@ -21,7 +27,7 @@ export const createStockItemRoutes = () => {
   router.get('/reports/requisition-summary', requireRole(['admin', 'pharmacist']), stockItemController.getRequisitionSummary);
 
   // Alerts & Categories
-  router.get('/categories', stockItemController.getCategories);
+  router.get('/categories', requireRole(STOCK_CATALOG_READERS), stockItemController.getCategories);
   router.get('/low-stock', requireRole(['admin', 'pharmacist']), stockItemController.getLowStockAlerts);
   router.get('/expiring-batches', requireRole(['admin', 'pharmacist']), stockItemController.getExpiringBatches);
 
@@ -29,9 +35,9 @@ export const createStockItemRoutes = () => {
   // 2. DYNAMIC ID ROUTES
   // ==========================================
 
-  router.get('/', stockItemController.getAll);
+  router.get('/', requireRole(STOCK_CATALOG_READERS), stockItemController.getAll);
   router.post('/', requireRole(['admin', 'pharmacist']), stockItemController.create);
-  router.get('/:id', stockItemController.getById);
+  router.get('/:id', requireRole(STOCK_CATALOG_READERS), stockItemController.getById);
   router.put('/:id', requireRole(['admin', 'pharmacist']), stockItemController.update);
   router.delete('/:id', requireRole(['admin']), stockItemController.delete);
 
