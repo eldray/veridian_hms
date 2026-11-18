@@ -427,12 +427,14 @@ export interface ShellOptions {
   /** CSS page size, e.g. 'A4', 'A4 landscape'. */
   pageSize?: string;
   printLabel?: string;
+  /** Replaces 'Confidential patient information' in the page footer (e.g. for staff documents). */
+  footerNote?: string;
 }
 
 /** Wraps a body in the full HTML document: stylesheet, page footer, Print / Close buttons. */
 export const pageShell = (o: ShellOptions): string => {
   const printed = fmtDateTime(new Date());
-  const footerLeft = `${o.hospital.name}${o.footerRef ? ` · ${o.footerRef}` : ''} · Confidential patient information · Printed ${printed}`
+  const footerLeft = `${o.hospital.name}${o.footerRef ? ` · ${o.footerRef}` : ''} · ${o.footerNote ?? 'Confidential patient information'} · Printed ${printed}`
     .replace(/["\\]/g, '')
     .slice(0, 140);
   return `<!DOCTYPE html>

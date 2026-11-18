@@ -11,6 +11,7 @@ directories:
 # Electron shell files (inside app.asar)
 files:
   - main.cjs
+  - pki.cjs
   - preload.js
   - setup-preload.cjs
   - setup.html

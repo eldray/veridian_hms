@@ -16,6 +16,7 @@ import { initCounterService } from './services/CounterService';
 import prisma from './core/database/prisma.client';
 import { toHttpError } from './utils/httpError';
 import { startupGate, trackSeedProgress } from './middleware/startupGate';
+import { parseListenConfig, startListeners } from './utils/listen';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -231,9 +232,12 @@ const startServer = async () => {
   // loaded by bootstrap.mjs from the setup screen, not from here.
   const shouldRunSeed = !isDesktopApp && (process.env.NODE_ENV === 'development' || process.env.RUN_SEED === 'true');
 
+  const listenConfig = parseListenConfig(process.env);
+
   const onListening = () => {
     console.log(`🏥 Hospital Management System API running on port ${PORT}`);
-    console.log(`📚 API Documentation: http://localhost:${PORT}/api/health`);
+    console.log(`📚 API Documentation: ${listenConfig.tls ? 'https' : 'http'}://localhost:${PORT}/api/health`);
+    console.log(`🔒 Transport: ${listenConfig.tls ? 'TLS' : 'plain HTTP'} on ${listenConfig.hosts ? listenConfig.hosts.join(', ') : 'all interfaces (development)'}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌱 Auto-seeding: ${shouldRunSeed ? 'enabled' : 'disabled'}`);
     if (shouldRunSeed) console.log('⏳ Demo data is being prepared: the API answers 503 until that finishes.');
@@ -245,18 +249,15 @@ const startServer = async () => {
     }
   };
 
-  // Desktop app binds to 127.0.0.1 only (HOST is set by main.cjs). In dev, keep Node's default
-  // dual-stack bind so `localhost` (IPv4 or IPv6) keeps working for the Vite proxy / ngrok.
+  // Where and how to listen comes from the environment the desktop shell sets (see utils/listen.ts): this PC's own
+  // address plus only the network adapter(s) the administrator chose, and TLS whenever other PCs can reach it. The
+  // desktop app refuses plain HTTP anywhere but loopback. In development, with nothing set, Node's default
+  // dual-stack bind is kept so `localhost` (IPv4 or IPv6) keeps working for the Vite proxy / ngrok.
   // Listening happens BEFORE the (slow) dev seed so clients get a 503 with progress instead of a refused
   // connection; startupGate keeps every API call out until the seed is done.
-  const httpServer = process.env.HOST
-    ? app.listen(Number(PORT), process.env.HOST, onListening)
-    : app.listen(PORT, onListening);
-
-  httpServer.on('error', (err: NodeJS.ErrnoException) => {
-    console.error(`🚨 Could not start HTTP server on port ${PORT}: ${err.code || ''} ${err.message}`);
-    process.exit(1);
-  });
+  const listeners = startListeners(app, listenConfig);
+  await listeners.ready; // a busy port or an unbindable address ends the start-up with a clear message
+  onListening();
 
   if (shouldRunSeed) {
     console.log('🔧 Running database initialization...');
@@ -289,7 +290,7 @@ const startServer = async () => {
       process.exit(1);
     }, 10_000);
     forceExit.unref();
-    httpServer.close(async () => {
+    listeners.close().then(async () => {
       try {
         await prisma.$disconnect();
       } catch (error) {

@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { SELECT } from './ui';
 
-export type PrintableDoc = 'prescription' | 'lab';
+export type PrintableDoc = 'prescription';
 export type PrintFormat = 'a4' | 'slip';
 
 const key = (doc: PrintableDoc) => `print.format.${doc}`;

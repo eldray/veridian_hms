@@ -1,31 +1,30 @@
 // src/pages/UserProfile.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useAuthStore } from '../store/authStore';
 import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
 import { useNavigate } from 'react-router-dom';
 import {
-  ChevronLeft, Save, User, Mail, Phone, IdCard, Stethoscope, Lock, Eye, EyeOff,
+  ChevronLeft, ChevronRight, Save, User, Mail, Phone, IdCard, Stethoscope, Lock, Eye, EyeOff,
   Shield, Briefcase, Calendar, Activity, CheckCircle, AlertCircle, TrendingUp,
   GraduationCap, AtSign, Building2, Clock, CalendarPlus, FileText, X,
-  Check, Ban, Download, DollarSign, Info,
+  Check, Ban, Download, DollarSign, Info, Camera, Trash2, Grid3X3, List,
 } from 'lucide-react';
 
-const SENIORITY_CONFIG: Record<string, { label: string; color: string; icon: any; level: number }> = {
-  TRAINEE:   { label: 'Trainee',        color: 'bg-purple-100 text-purple-700 border-purple-200', icon: GraduationCap, level: 0 },
-  JUNIOR:    { label: 'Junior Staff',   color: 'bg-blue-100 text-blue-700 border-blue-200',       icon: User,          level: 1 },
-  SENIOR:    { label: 'Senior Staff',   color: 'bg-orange-100 text-orange-700 border-orange-200', icon: TrendingUp,    level: 2 },
-  PRINCIPAL: { label: 'Principal',      color: 'bg-amber-100 text-amber-700 border-amber-200',    icon: Shield,        level: 3 },
+const AVATAR_FIELD = 'avatarUrl';
+const SENIORITY_CONFIG: Record<string, { label: string; cls: string; icon: any; level: number }> = {
+  TRAINEE:   { label: 'Trainee',      cls: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-bg)]', icon: GraduationCap, level: 0 },
+  JUNIOR:    { label: 'Junior Staff', cls: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-bg)]',       icon: User,          level: 1 },
+  SENIOR:    { label: 'Senior Staff', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-bg)]',   icon: TrendingUp,    level: 2 },
+  PRINCIPAL: { label: 'Principal',    cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-bg)]',    icon: Shield,        level: 3 },
 };
-
 const SHIFT_TYPES = [
   { value: 'morning',   label: 'Morning (8:00 AM - 2:00 PM)' },
   { value: 'afternoon', label: 'Afternoon (2:00 PM - 8:00 PM)' },
   { value: 'night',     label: 'Night (8:00 PM - 8:00 AM)' },
   { value: 'on_call',   label: 'On Call (24h)' },
 ];
-
 const LEAVE_TYPES = [
   { value: 'annual',    label: 'Annual Leave',    color: 'blue'  },
   { value: 'sick',      label: 'Sick Leave',      color: 'green' },
@@ -34,942 +33,177 @@ const LEAVE_TYPES = [
   { value: 'emergency', label: 'Emergency Leave', color: 'red'   },
   { value: 'unpaid',    label: 'Unpaid Leave',    color: 'gray'  },
 ];
-
 const formatCedis = (v: number | string | undefined | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0);
   return `₵${(isNaN(n) ? 0 : n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
+const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
+const WEEK_START_OFFSET = 1;
+const startOfWeek = (d: Date): Date => { const copy = new Date(d); copy.setHours(0,0,0,0); const day = copy.getDay(); const diff = (day - WEEK_START_OFFSET + 7) % 7; copy.setDate(copy.getDate() - diff); return copy; };
+const addDays = (d: Date, n: number): Date => { const copy = new Date(d); copy.setDate(copy.getDate() + n); return copy; };
+const toKey = (d: Date): string => { const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return `${y}-${m}-${day}`; };
+const SHIFT_STYLE: Record<string, { chip: string; label: string; short: string }> = {
+  morning:   { chip: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-bg)]',   label: 'Morning',   short: 'M' },
+  afternoon: { chip: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-bg)]', label: 'Afternoon', short: 'A' },
+  night:     { chip: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-bg)]', label: 'Night',     short: 'N' },
+  on_call:   { chip: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-bg)]',       label: 'On Call',   short: 'OC' },
+};
+const fmtTime = (iso: string) => { try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }); } catch { return '—'; } };
 
 export default function UserProfile() {
   const navigate = useNavigate();
   const { user: authUser, hasRole } = useAuthStore();
-  const {
-    getFullProfile, updateFullProfile, currentFullProfile,
-    getShifts, shifts,
-    getLeaves, leaves, createLeave, deleteLeave,
-    getMyPayslips, myPayslips,
-    getMyDocuments, myDocuments,
-    isLoading,
-  } = useUserStore();
+  const { getFullProfile, updateFullProfile, currentFullProfile, getShifts, shifts, getLeaves, leaves, createLeave, deleteLeave, getMyPayslips, myPayslips, getMyDocuments, myDocuments, isLoading } = useUserStore();
   const { success, error } = useToast();
-
   const canManageShifts = hasRole(['admin', 'super_admin', 'hr_officer']);
-
-  const [activeTab, setActiveTab] = useState<
-    'profile' | 'hr' | 'payslips' | 'documents' | 'shifts' | 'leaves' | 'password'
-  >('profile');
-
+  const [activeTab, setActiveTab] = useState<'profile' | 'hr' | 'payslips' | 'documents' | 'shifts' | 'leaves' | 'password'>('profile');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileForm, setProfileForm] = useState({ fullName: '', email: '', phone: '' });
   const [passwordData, setPasswordData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-
   const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [newLeave, setNewLeave] = useState({
-    leaveType: 'annual',
-    startDate: '',
-    endDate: '',
-    reason: '',
-  });
-
-  useEffect(() => {
-    if (authUser?.id) {
-      getFullProfile(authUser.id).catch(() => {});
-      getShifts({ userId: authUser.id }).catch(() => {});
-      getLeaves({ userId: authUser.id }).catch(() => {});
-      getMyPayslips().catch(() => {});
-      getMyDocuments().catch(() => {});
-    }
-  }, [authUser?.id]);
-
-  useEffect(() => {
-    if (currentFullProfile) {
-      setProfileForm({
-        fullName: currentFullProfile.fullName || '',
-        email: currentFullProfile.email || '',
-        phone: currentFullProfile.phone || '',
-      });
-    }
-  }, [currentFullProfile]);
-
+  const [newLeave, setNewLeave] = useState({ leaveType: 'annual', startDate: '', endDate: '', reason: '' });
+  const [shiftsView, setShiftsView] = useState<'timetable' | 'list'>('timetable');
+  const [weekAnchor, setWeekAnchor] = useState<Date>(() => startOfWeek(new Date()));
+  useEffect(() => { if (authUser?.id) { getFullProfile(authUser.id).catch(() => {}); getShifts({ userId: authUser.id }).catch(() => {}); getLeaves({ userId: authUser.id }).catch(() => {}); getMyPayslips().catch(() => {}); getMyDocuments().catch(() => {}); } }, [authUser?.id]);
+  useEffect(() => { if (currentFullProfile) setProfileForm({ fullName: currentFullProfile.fullName || '', email: currentFullProfile.email || '', phone: currentFullProfile.phone || '' }); }, [currentFullProfile]);
   const userShifts = shifts.filter((s) => s.userId === authUser?.id);
   const userLeaves = leaves.filter((l) => l.userId === authUser?.id);
-
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!authUser?.id) return;
-    setIsSaving(true);
-    try {
-      await updateFullProfile(authUser.id, { user: profileForm });
-      success('Profile Updated', 'Your profile has been updated');
-      await getFullProfile(authUser.id);
-    } catch (err: any) {
-      error('Update Failed', err?.response?.data?.message || 'Could not update profile');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      error('Password Mismatch', 'New passwords do not match');
-      return;
-    }
-    if (passwordData.newPassword.length < 6) {
-      error('Invalid Password', 'New password must be at least 6 characters');
-      return;
-    }
-    try {
-      const { changePassword } = useAuthStore.getState();
-      await changePassword(passwordData.currentPassword, passwordData.newPassword);
-      success('Password Changed', 'Your password has been updated');
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (err: any) {
-      error('Password Change Failed', err?.response?.data?.message || 'Failed to change password');
-    }
-  };
-
-  const handleCreateLeave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const startDate = new Date(newLeave.startDate);
-    const endDate = new Date(newLeave.endDate);
-    if (startDate > endDate) {
-      error('Invalid Dates', 'Start date cannot be after end date');
-      return;
-    }
-    try {
-      await createLeave({
-        leaveType: newLeave.leaveType,
-        startDate: newLeave.startDate,
-        endDate: newLeave.endDate,
-        reason: newLeave.reason || undefined,
-      });
-      success('Leave Submitted', 'Your leave request has been submitted');
-      setShowLeaveModal(false);
-      setNewLeave({ leaveType: 'annual', startDate: '', endDate: '', reason: '' });
-      if (authUser?.id) await getLeaves({ userId: authUser.id });
-    } catch (err: any) {
-      error('Failed', err?.response?.data?.message || 'Could not submit leave request');
-    }
-  };
-
-  const handleCancelLeave = async (leaveId: string) => {
-    if (!(await confirmDialog({ title: 'Cancel leave request', message: 'Cancel this leave request?', confirmText: 'Cancel request' }))) return;
-    try {
-      await deleteLeave(leaveId);
-      success('Leave Cancelled', 'Your leave request has been cancelled');
-      if (authUser?.id) await getLeaves({ userId: authUser.id });
-    } catch (err: any) {
-      error('Failed', err?.response?.data?.message || 'Could not cancel leave');
-    }
-  };
-
-  const getLeaveStatusBadge = (status: string) => {
-    const config: Record<string, { color: string; icon: any }> = {
-      pending:   { color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-      approved:  { color: 'bg-green-100 text-green-700',  icon: Check },
-      rejected:  { color: 'bg-red-100 text-red-700',      icon: Ban },
-      cancelled: { color: 'bg-gray-100 text-gray-700',    icon: X },
-    };
-    const c = config[status] || config.pending;
-    const Icon = c.icon;
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${c.color}`}>
-        <Icon className="w-3 h-3" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
-
-  const getLeaveTypeLabel = (type: string) =>
-    LEAVE_TYPES.find((t) => t.value === type)?.label || type;
-
-  const getShiftTypeLabel = (type: string) =>
-    SHIFT_TYPES.find((t) => t.value === type)?.label || type;
-
-  const getRoleBadge = (role: string) => {
-    const config: Record<string, { bg: string; text: string; icon: JSX.Element }> = {
-      super_admin:  { bg: 'bg-red-100',    text: 'text-red-700',    icon: <Shield className="w-3 h-3" /> },
-      admin:        { bg: 'bg-purple-100', text: 'text-purple-700', icon: <Shield className="w-3 h-3" /> },
-      hr_officer:   { bg: 'bg-indigo-100', text: 'text-indigo-700', icon: <Shield className="w-3 h-3" /> },
-      doctor:       { bg: 'bg-blue-100',   text: 'text-blue-700',   icon: <Stethoscope className="w-3 h-3" /> },
-      nurse:        { bg: 'bg-green-100',  text: 'text-green-700',  icon: <Activity className="w-3 h-3" /> },
-      midwife:      { bg: 'bg-pink-100',   text: 'text-pink-700',   icon: <Activity className="w-3 h-3" /> },
-      lab_tech:     { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: <Briefcase className="w-3 h-3" /> },
-      pharmacist:   { bg: 'bg-cyan-100',   text: 'text-cyan-700',   icon: <Briefcase className="w-3 h-3" /> },
-      accounts:     { bg: 'bg-indigo-100', text: 'text-indigo-700', icon: <Briefcase className="w-3 h-3" /> },
-      records:      { bg: 'bg-gray-100',   text: 'text-gray-700',   icon: <Briefcase className="w-3 h-3" /> },
-      sonographer:  { bg: 'bg-orange-100', text: 'text-orange-700', icon: <Briefcase className="w-3 h-3" /> },
-    };
-    const c = config[role] || config.records;
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-        {c.icon}
-        {role?.replace(/_/g, ' ').toUpperCase()}
-      </span>
-    );
-  };
-
-  const getSeniorityBadge = (seniority: string) => {
-    const config = SENIORITY_CONFIG[seniority] || SENIORITY_CONFIG.JUNIOR;
-    const Icon = config.icon;
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${config.color}`}>
-        <Icon className="w-3 h-3" />
-        {config.label}
-      </span>
-    );
-  };
-
-  if (!authUser) {
-    return (
-      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-[var(--border-color)]">
-          <User className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-3" />
-          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Please Log In</h2>
-          <p className="text-sm text-[var(--text-secondary)] mb-6">You need to be logged in to view your profile.</p>
-          <button
-            onClick={() => navigate('/login')}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-          >
-            Go to Login
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const p = currentFullProfile;
-  const sp = p?.staffProfile;
-  const seniorityValue = p?.seniority || authUser.seniority || 'JUNIOR';
-
+  const handleProfileSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (!authUser?.id) return; setIsSaving(true); try { await updateFullProfile(authUser.id, { user: profileForm }); success('Profile Updated', 'Your profile has been updated'); await getFullProfile(authUser.id); } catch (err: any) { error('Update Failed', err?.response?.data?.message || 'Could not update profile'); } finally { setIsSaving(false); } };
+  const handleAvatarSelected = async (file: File | null) => { if (!file || !authUser?.id) return; if (!file.type.startsWith('image/')) { error('Invalid file', 'Please choose an image file.'); return; } if (file.size > 2 * 1024 * 1024) { error('Too large', 'Please choose an image under 2 MB.'); return; } setIsUploadingAvatar(true); try { const dataUrl: string = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || '')); reader.onerror = reject; reader.readAsDataURL(file); }); await updateFullProfile(authUser.id, { user: { [AVATAR_FIELD]: dataUrl } as any }); await getFullProfile(authUser.id); success('Photo updated', 'Your profile photo has been saved.'); } catch (err: any) { error('Upload failed', err?.response?.data?.message || 'Could not save the photo.'); } finally { setIsUploadingAvatar(false); if (fileInputRef.current) fileInputRef.current.value = ''; } };
+  const handleRemoveAvatar = async () => { if (!authUser?.id) return; if (!(await confirmDialog({ title: 'Remove photo', message: 'Remove your profile photo?', confirmText: 'Remove' }))) return; setIsUploadingAvatar(true); try { await updateFullProfile(authUser.id, { user: { [AVATAR_FIELD]: null } as any }); await getFullProfile(authUser.id); success('Photo removed', 'Your profile photo has been cleared.'); } catch (err: any) { error('Failed', err?.response?.data?.message || 'Could not remove the photo.'); } finally { setIsUploadingAvatar(false); } };
+  const handlePasswordSubmit = async (e: React.FormEvent) => { e.preventDefault(); if (passwordData.newPassword !== passwordData.confirmPassword) { error('Password Mismatch', 'New passwords do not match'); return; } if (passwordData.newPassword.length < 6) { error('Invalid Password', 'New password must be at least 6 characters'); return; } try { const { changePassword } = useAuthStore.getState(); await changePassword(passwordData.currentPassword, passwordData.newPassword); success('Password Changed', 'Your password has been updated'); setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' }); } catch (err: any) { error('Password Change Failed', err?.response?.data?.message || 'Failed to change password'); } };
+  const handleCreateLeave = async (e: React.FormEvent) => { e.preventDefault(); const startDate = new Date(newLeave.startDate); const endDate = new Date(newLeave.endDate); if (startDate > endDate) { error('Invalid Dates', 'Start date cannot be after end date'); return; } try { await createLeave({ leaveType: newLeave.leaveType, startDate: newLeave.startDate, endDate: newLeave.endDate, reason: newLeave.reason || undefined }); success('Leave Submitted', 'Your leave request has been submitted'); setShowLeaveModal(false); setNewLeave({ leaveType: 'annual', startDate: '', endDate: '', reason: '' }); if (authUser?.id) await getLeaves({ userId: authUser.id }); } catch (err: any) { error('Failed', err?.response?.data?.message || 'Could not submit leave request'); } };
+  const handleCancelLeave = async (leaveId: string) => { if (!(await confirmDialog({ title: 'Cancel leave request', message: 'Cancel this leave request?', confirmText: 'Cancel request' }))) return; try { await deleteLeave(leaveId); success('Leave Cancelled', 'Your leave request has been cancelled'); if (authUser?.id) await getLeaves({ userId: authUser.id }); } catch (err: any) { error('Failed', err?.response?.data?.message || 'Could not cancel leave'); } };
+  const getLeaveStatusBadge = (status: string) => { const config: Record<string, { cls: string; icon: any }> = { pending: { cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]', icon: Clock }, approved: { cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]', icon: Check }, rejected: { cls: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]', icon: Ban }, cancelled: { cls: 'bg-[var(--bg-main)] text-[var(--text-secondary)]', icon: X } }; const c = config[status] || config.pending; const Icon = c.icon; return (<span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${c.cls}`}><Icon className="w-3 h-3" />{status.charAt(0).toUpperCase() + status.slice(1)}</span>); };
+  const getLeaveTypeLabel = (type: string) => LEAVE_TYPES.find((t) => t.value === type)?.label || type;
+  const getShiftTypeLabel = (type: string) => SHIFT_TYPES.find((t) => t.value === type)?.label || type;
+  const getRoleBadge = (role: string) => { const config: Record<string, { cls: string; icon: JSX.Element }> = { super_admin: { cls: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]', icon: <Shield className="w-3 h-3" /> }, admin: { cls: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]', icon: <Shield className="w-3 h-3" /> }, hr_officer: { cls: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]', icon: <Shield className="w-3 h-3" /> }, doctor: { cls: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]', icon: <Stethoscope className="w-3 h-3" /> }, nurse: { cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]', icon: <Activity className="w-3 h-3" /> }, midwife: { cls: 'bg-[var(--icon-pink-bg)] text-[var(--icon-pink-text)]', icon: <Activity className="w-3 h-3" /> }, lab_tech: { cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]', icon: <Briefcase className="w-3 h-3" /> }, pharmacist: { cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]', icon: <Briefcase className="w-3 h-3" /> }, accounts: { cls: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]', icon: <Briefcase className="w-3 h-3" /> }, records: { cls: 'bg-[var(--bg-main)] text-[var(--text-secondary)]', icon: <Briefcase className="w-3 h-3" /> }, sonographer: { cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]', icon: <Briefcase className="w-3 h-3" /> } }; const c = config[role] || config.records; return (<span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${c.cls}`}>{c.icon}{role?.replace(/_/g, ' ').toUpperCase()}</span>); };
+  const getSeniorityBadge = (seniority: string) => { const config = SENIORITY_CONFIG[seniority] || SENIORITY_CONFIG.JUNIOR; const Icon = config.icon; return (<span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${config.cls}`}><Icon className="w-3 h-3" />{config.label}</span>); };
+  if (!authUser) return (<div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6"><div className="text-center bg-[var(--bg-card)] p-8 rounded-xl shadow-sm border border-[var(--border-color)]"><User className="w-12 h-12 text-[var(--text-secondary)] mx-auto mb-3" /><h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Please Log In</h2><p className="text-sm text-[var(--text-secondary)] mb-6">You need to be logged in to view your profile.</p><button onClick={() => navigate('/login')} className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium">Go to Login</button></div></div>);
+  const p = currentFullProfile; const sp = p?.staffProfile; const seniorityValue = p?.seniority || authUser.seniority || 'JUNIOR';
+  const avatarUrl = (p as any)?.[AVATAR_FIELD] || (p as any)?.imageUrl || (p as any)?.photoUrl || '';
+  const shiftsByDay = useMemo(() => { const map = new Map<string, any[]>(); for (const sh of userShifts) { const key = toKey(new Date(sh.shiftDate)); if (!map.has(key)) map.set(key, []); map.get(key)!.push(sh); } for (const list of map.values()) list.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()); return map; }, [userShifts]);
+  const weekDays: Date[] = Array.from({ length: 7 }, (_, i) => addDays(weekAnchor, i));
+  const weekRangeLabel = `${weekAnchor.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${addDays(weekAnchor, 6).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  const goPrevWeek = () => setWeekAnchor(d => addDays(d, -7)); const goNextWeek = () => setWeekAnchor(d => addDays(d, 7)); const goThisWeek = () => setWeekAnchor(startOfWeek(new Date()));
+  const todayKey = toKey(new Date());
+  const initials = (p?.fullName || authUser.fullName || '?').split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  const deptName = p?.department?.name || authUser.department?.name || '';
+  const email = p?.email || authUser.email || ''; const phone = p?.phone || authUser.phone || '';
+  const metaItems = [
+    { icon: AtSign, label: 'Username', value: p?.username || authUser.username },
+    ...(sp?.employeeId ? [{ icon: IdCard, label: 'Employee ID', value: sp.employeeId }] : []),
+    ...(deptName ? [{ icon: Building2, label: 'Department', value: deptName }] : []),
+    ...(p?.licenseNumber ? [{ icon: IdCard, label: 'Licence', value: p.licenseNumber }] : []),
+    ...(p?.specialization ? [{ icon: Stethoscope, label: 'Specialisation', value: p.specialization }] : []),
+  ];
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all duration-200 border border-[var(--border-color)]"
-          >
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-            <User className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">My Profile</h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-              Manage your account, shifts, and leave requests
-            </p>
-          </div>
-        </div>
+    <div className="w-full space-y-6 p-6">
+      {/* ── Page header ── */}
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]" aria-label="Back to dashboard"><ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" /></button>
+        <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center shrink-0"><User className="w-5 h-5 text-[var(--icon-cyan-text)]" /></div>
+        <div className="min-w-0"><h1 className="text-xl font-bold text-[var(--text-primary)] leading-tight">My Profile</h1><p className="text-sm text-[var(--text-secondary)] truncate">Manage your account, shifts, and leave requests</p></div>
       </div>
 
-      {/* Overview card */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[var(--icon-cyan-bg)] to-[var(--icon-cyan-text)] flex items-center justify-center shadow-sm">
-              <User className="w-6 h-6 text-white" />
+      {/* ── HERO / USER DETAILS ── */}
+      <section className="w-full overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+        {/* Top band — identity */}
+        <div className="flex flex-col gap-4 px-4 pt-4 pb-4 sm:flex-row sm:items-center sm:gap-5 sm:px-5 sm:pt-5">
+          <div className="flex items-start gap-4 min-w-0 flex-1">
+            <div className="relative shrink-0">
+              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl bg-[var(--icon-cyan-bg)] flex items-center justify-center overflow-hidden ring-1 ring-[var(--border-color)]">
+                {avatarUrl ? <img src={avatarUrl} alt={p?.fullName || authUser.fullName || 'Profile photo'} className="w-full h-full object-cover" /> : <span className="text-2xl sm:text-3xl font-bold text-[var(--icon-cyan-text)]">{initials}</span>}
+              </div>
+              <span className="absolute -bottom-1 -right-1 flex items-center gap-1 rounded-full border border-[var(--border-color)] bg-[var(--bg-card)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--icon-green-text)]"><span className="h-1.5 w-1.5 rounded-full bg-[var(--icon-green-text)]" />Active</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-semibold text-[var(--text-primary)] text-lg">
-                  {p?.fullName || authUser.fullName}
-                </h3>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                <h2 className="text-lg sm:text-xl font-bold leading-tight text-[var(--text-primary)] truncate">{p?.fullName || authUser.fullName}</h2>
                 {getRoleBadge(p?.role || authUser.role)}
                 {getSeniorityBadge(seniorityValue)}
               </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
-                  <AtSign className="w-3 h-3" /> Username:
-                </span>
-                <span className="text-xs font-mono bg-[var(--bg-main)] px-2 py-0.5 rounded text-[var(--text-primary)]">
-                  {p?.username || authUser.username}
-                </span>
-                {sp?.employeeId && (
-                  <>
-                    <span className="text-xs text-[var(--text-secondary)]">•</span>
-                    <span className="text-xs font-mono bg-[var(--bg-main)] px-2 py-0.5 rounded text-[var(--text-primary)]">
-                      {sp.employeeId}
-                    </span>
-                  </>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)] mt-1">
-                <span className="flex items-center gap-1">
-                  <Mail className="w-3 h-3" /> {p?.email || authUser.email || 'No email set'}
-                </span>
-                {(p?.phone || authUser.phone) && (
-                  <>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Phone className="w-3 h-3" /> {p?.phone || authUser.phone}
-                    </span>
-                  </>
-                )}
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Building2 className="w-3 h-3" /> {p?.department?.name || authUser.department?.name || 'No department'}
-                </span>
+              <p className="mt-1 text-sm text-[var(--text-secondary)] truncate">{deptName ? `${deptName} · ` : ''}{p?.specialization || 'Staff member'}{sp?.employmentType ? ` · ${sp.employmentType.replace(/_/g, ' ')}` : ''}</p>
+              {/* Contact row — one line on desktop, wraps cleanly on mobile */}
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[var(--text-secondary)]">
+                {email ? <span className="inline-flex items-center gap-1.5 min-w-0"><Mail className="w-3.5 h-3.5 shrink-0 text-[var(--icon-cyan-text)]" /><span className="truncate">{email}</span></span> : <span className="inline-flex items-center gap-1.5 text-[var(--text-tertiary)]"><Mail className="w-3.5 h-3.5" />No email set</span>}
+                {phone && <span className="inline-flex items-center gap-1.5"><Phone className="w-3.5 h-3.5 shrink-0 text-[var(--icon-green-text)]" />{phone}</span>}
+                {sp?.dateJoined && <span className="inline-flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 shrink-0 text-[var(--icon-purple-text)]" />Joined {new Date(sp.dateJoined).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="bg-green-50 px-3 py-1 rounded-full">
-              <span className="text-xs text-green-700 flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" /> Active Account
-              </span>
-            </div>
+          {/* Quick actions — top right, not buried */}
+          <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
+            <button onClick={() => setActiveTab('profile')} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all"><Camera className="w-3.5 h-3.5" />Change photo</button>
+            <button onClick={() => setActiveTab('password')} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-main)] transition-all"><Lock className="w-3.5 h-3.5" />Change password</button>
           </div>
         </div>
-      </div>
+        {/* Bottom strip — identity facts, one per cell, no stacked/bulky rows */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y sm:divide-y-0 divide-[var(--border-color)] border-t border-[var(--border-color)] bg-[var(--bg-main)]/40">
+          {metaItems.map(m => { const Icon = m.icon; return (<div key={m.label} className="flex items-center gap-2.5 px-3 py-2.5 sm:px-4 min-w-0"><Icon className="w-4 h-4 shrink-0 text-[var(--text-tertiary)]" /><div className="min-w-0"><p className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">{m.label}</p><p className="truncate text-xs font-semibold text-[var(--text-primary)]" title={String(m.value)}>{m.value}</p></div></div>); })}
+          <div className="flex items-center gap-2.5 px-3 py-2.5 sm:px-4 min-w-0"><Clock className="w-4 h-4 shrink-0 text-[var(--text-tertiary)]" /><div className="min-w-0"><p className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">This week</p><p className="truncate text-xs font-semibold text-[var(--text-primary)]">{userShifts.length} shift{userShifts.length === 1 ? '' : 's'} · {userLeaves.filter(l => l.status === 'pending').length} leave pending</p></div></div>
+        </div>
+      </section>
 
       {/* Tabs */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="border-b border-[var(--border-color)] px-4 overflow-x-auto">
-          <nav className="flex flex-nowrap gap-1 min-w-max">
-            {[
-              { id: 'profile',   label: 'Profile',        icon: User },
-              { id: 'hr',        label: 'HR Details',     icon: Briefcase },
-              { id: 'payslips',  label: 'My Payslips',    icon: DollarSign },
-              { id: 'documents', label: 'My Documents',   icon: FileText },
-              { id: 'shifts',    label: 'My Shifts',      icon: Clock },
-              { id: 'leaves',    label: 'Leave Requests', icon: FileText },
-              { id: 'password',  label: 'Security',       icon: Lock },
-            ].map((t) => {
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveTab(t.id as any)}
-                  className={`flex items-center gap-2 py-3 px-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-                    activeTab === t.id
-                      ? 'border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)]'
-                      : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {t.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
+      <div className="w-full bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className="border-b border-[var(--border-color)] px-4 overflow-x-auto"><nav className="flex flex-nowrap gap-1 min-w-max">
+          {[{ id: 'profile', label: 'Profile', icon: User }, { id: 'hr', label: 'HR Details', icon: Briefcase }, { id: 'payslips', label: 'My Payslips', icon: DollarSign }, { id: 'documents', label: 'My Documents', icon: FileText }, { id: 'shifts', label: 'My Shifts', icon: Clock }, { id: 'leaves', label: 'Leave Requests', icon: FileText }, { id: 'password', label: 'Security', icon: Lock }].map((t) => { const Icon = t.icon; return (<button key={t.id} onClick={() => setActiveTab(t.id as any)} className={`flex items-center gap-2 py-3 px-4 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === t.id ? 'border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)]' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}><Icon className="w-4 h-4" />{t.label}</button>); })}
+        </nav></div>
         <div className="p-6">
-          {/* PROFILE TAB */}
           {activeTab === 'profile' && (
             <form onSubmit={handleProfileSubmit} className="space-y-6">
+              <div className="bg-[var(--bg-main)] rounded-xl border border-[var(--border-color)] p-4 flex flex-wrap items-center gap-4">
+                <div className="relative"><div className="w-20 h-20 rounded-full bg-[var(--icon-cyan-bg)] flex items-center justify-center shadow-sm overflow-hidden">{avatarUrl ? <img src={avatarUrl} alt={p?.fullName || 'Profile photo'} className="w-full h-full object-cover" /> : <span className="text-xl font-bold text-[var(--icon-cyan-text)]">{initials}</span>}</div>{isUploadingAvatar && (<div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center"><div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" /></div>)}</div>
+                <div className="flex-1 min-w-[220px]"><p className="text-sm font-semibold text-[var(--text-primary)]">Profile photo</p><p className="text-xs text-[var(--text-secondary)] mt-0.5">Shown on your profile and next to your name elsewhere. JPG or PNG, max 2&nbsp;MB.</p><div className="flex flex-wrap gap-2 mt-3"><input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleAvatarSelected(e.target.files?.[0] || null)} /><button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploadingAvatar} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50"><Camera className="w-3.5 h-3.5" />{avatarUrl ? 'Change photo' : 'Upload photo'}</button>{avatarUrl && (<button type="button" onClick={handleRemoveAvatar} disabled={isUploadingAvatar} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card)] transition-all disabled:opacity-50"><Trash2 className="w-3.5 h-3.5" />Remove</button>)}</div></div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Username (read-only)</label>
-                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm font-mono">
-                    {p?.username || authUser.username}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
-                    <User className="w-3.5 h-3.5 inline mr-1 text-[var(--icon-cyan-text)]" />
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={profileForm.fullName}
-                    onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
-                    <Mail className="w-3.5 h-3.5 inline mr-1 text-green-500" /> Email Address
-                  </label>
-                  <input
-                    type="email"
-                    value={profileForm.email}
-                    onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
-                    <Phone className="w-3.5 h-3.5 inline mr-1 text-purple-500" /> Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={profileForm.phone}
-                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Role (read-only)</label>
-                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm capitalize">
-                    {(p?.role || authUser.role || '').replace(/_/g, ' ')}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Seniority (read-only)</label>
-                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm">
-                    {SENIORITY_CONFIG[seniorityValue]?.label || seniorityValue}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Department (read-only)</label>
-                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm">
-                    {p?.department?.name || '—'}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
-                    <IdCard className="w-3.5 h-3.5 inline mr-1" /> License Number (read-only)
-                  </label>
-                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm font-mono">
-                    {p?.licenseNumber || '—'}
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">
-                    <Stethoscope className="w-3.5 h-3.5 inline mr-1" /> Specialization (read-only)
-                  </label>
-                  <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm">
-                    {p?.specialization || '—'}
-                  </div>
-                </div>
+                <div><label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Username (read-only)</label><div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm font-mono">{p?.username || authUser.username}</div></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5"><User className="w-3.5 h-3.5 inline mr-1 text-[var(--icon-cyan-text)]" />Full Name *</label><input type="text" value={profileForm.fullName} onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm" required /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5"><Mail className="w-3.5 h-3.5 inline mr-1 text-[var(--icon-green-text)]" />Email Address</label><input type="email" value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm" /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5"><Phone className="w-3.5 h-3.5 inline mr-1 text-[var(--icon-purple-text)]" />Phone Number</label><input type="tel" value={profileForm.phone} onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm" /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Role (read-only)</label><div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm capitalize">{(p?.role || authUser.role || '').replace(/_/g, ' ')}</div></div>
+                <div><label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Seniority (read-only)</label><div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm">{SENIORITY_CONFIG[seniorityValue]?.label || seniorityValue}</div></div>
+                <div><label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Department (read-only)</label><div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm">{p?.department?.name || '—'}</div></div>
+                <div><label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5"><IdCard className="w-3.5 h-3.5 inline mr-1" />License Number (read-only)</label><div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm font-mono">{p?.licenseNumber || '—'}</div></div>
+                <div className="md:col-span-2"><label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5"><Stethoscope className="w-3.5 h-3.5 inline mr-1" />Specialization (read-only)</label><div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm">{p?.specialization || '—'}</div></div>
               </div>
-
-              <div className="flex items-center gap-3 pt-4 border-t border-[var(--border-color)]">
-                <button
-                  type="submit"
-                  disabled={isLoading || isSaving}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4" />
-                  {isLoading || isSaving ? 'Updating…' : 'Update Profile'}
-                </button>
-                <p className="text-xs text-[var(--text-tertiary)]">
-                  Role, seniority, department, license, and specialization are managed by HR.
-                </p>
-              </div>
+              <div className="flex items-center gap-3 pt-4 border-t border-[var(--border-color)]"><button type="submit" disabled={isLoading || isSaving} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"><Save className="w-4 h-4" />{isLoading || isSaving ? 'Updating…' : 'Update Profile'}</button><p className="text-xs text-[var(--text-tertiary)]">Role, seniority, department, license, and specialization are managed by HR.</p></div>
             </form>
           )}
-
-          {/* HR TAB */}
           {activeTab === 'hr' && (
-            <div className="space-y-4">
-              {!sp ? (
-                <div className="text-center py-12 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-                  <Briefcase className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-                  <p className="text-sm text-[var(--text-secondary)]">No HR record found for this account.</p>
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1">Contact HR if this is unexpected.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {[
-                    ['Employee ID',         sp.employeeId],
-                    ['Employment Type',     sp.employmentType?.replace(/_/g, ' ')],
-                    ['Date Joined',         sp.dateJoined ? new Date(sp.dateJoined).toLocaleDateString() : '—'],
-                    ['Job Grade',           sp.jobGrade ? `${sp.jobGrade.name} (${sp.jobGrade.code})` : '—'],
-                    ['Salary Step',         sp.salaryStep ? `Step ${sp.salaryStep.stepNumber}` : '—'],
-                    ['Base Salary',         sp.salaryStep ? formatCedis(sp.salaryStep.amount) : '—'],
-                    ['Next of Kin',         sp.nextOfKinName || '—'],
-                    ['Next of Kin Phone',   sp.nextOfKinPhone || '—'],
-                  ].map(([label, value]) => (
-                    <div key={label as string}>
-                      <label className="block text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
-                        {label}
-                      </label>
-                      <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
-                        {value || '—'}
-                      </div>
-                    </div>
-                  ))}
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
-                      Bio
-                    </label>
-                    <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] whitespace-pre-wrap min-h-[60px]">
-                      {sp.bio || '—'}
-                    </div>
-                  </div>
-                </div>
-              )}
-              <p className="text-xs text-[var(--text-tertiary)] pt-2 border-t border-[var(--border-color)]">
-                HR details are managed by administration. Contact HR to request changes.
-              </p>
-            </div>
+            <div className="space-y-4">{!sp ? (<div className="text-center py-12 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]"><Briefcase className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-sm text-[var(--text-secondary)]">No HR record found for this account.</p><p className="text-xs text-[var(--text-tertiary)] mt-1">Contact HR if this is unexpected.</p></div>) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">{[['Employee ID', sp.employeeId], ['Employment Type', sp.employmentType?.replace(/_/g, ' ')], ['Date Joined', sp.dateJoined ? new Date(sp.dateJoined).toLocaleDateString() : '—'], ['Job Grade', sp.jobGrade ? `${sp.jobGrade.name} (${sp.jobGrade.code})` : '—'], ['Salary Step', sp.salaryStep ? `Step ${sp.salaryStep.stepNumber}` : '—'], ['Base Salary', sp.salaryStep ? formatCedis(sp.salaryStep.amount) : '—'], ['Next of Kin', sp.nextOfKinName || '—'], ['Next of Kin Phone', sp.nextOfKinPhone || '—']].map(([label, value]) => (<div key={label as string}><label className="block text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-1">{label}</label><div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">{value || '—'}</div></div>))}<div className="md:col-span-2"><label className="block text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider mb-1">Bio</label><div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] whitespace-pre-wrap min-h-[64px]">{sp.bio || '—'}</div></div></div>)}
+              <p className="text-xs text-[var(--text-tertiary)] pt-2 border-t border-[var(--border-color)]">HR details are managed by administration. Contact HR to request changes.</p></div>
           )}
-
-          {/* PAYSLIPS TAB */}
-          {activeTab === 'payslips' && (
-            <div className="space-y-4">
-              {myPayslips.length === 0 ? (
-                <div className="text-center py-12 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-                  <DollarSign className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-                  <p className="text-sm text-[var(--text-secondary)]">No payslips yet.</p>
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                    Payslips appear here once HR runs payroll.
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                      <tr>
-                        <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Month</th>
-                        <th className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]">Base</th>
-                        <th className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]">Allowances</th>
-                        <th className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]">Deductions</th>
-                        <th className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]">Net Pay</th>
-                        <th className="px-4 py-3 text-center font-semibold text-[var(--text-secondary)]">Status</th>
-                        <th className="px-4 py-3 text-center font-semibold text-[var(--text-secondary)]">Payslip</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--border-color)]">
-                      {myPayslips.map((r) => (
-                        <tr key={r.id} className="hover:bg-[var(--bg-main)]">
-                          <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
-                            {String(r.month).padStart(2, '0')}/{r.year}
-                          </td>
-                          <td className="px-4 py-3 text-right">{formatCedis(r.baseSalary)}</td>
-                          <td className="px-4 py-3 text-right">{formatCedis(r.allowances)}</td>
-                          <td className="px-4 py-3 text-right">{formatCedis(r.deductions)}</td>
-                          <td className="px-4 py-3 text-right font-semibold text-[var(--text-primary)]">
-                            {formatCedis(r.netPay)}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                r.isPaid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                              }`}
-                            >
-                              {r.isPaid ? <Check className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                              {r.isPaid ? 'Paid' : 'Pending'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {r.payslipUrl ? (
-                              <a
-                                href={r.payslipUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[var(--icon-cyan-text)] hover:underline text-xs inline-flex items-center gap-1"
-                              >
-                                <Download className="w-3 h-3" /> Download
-                              </a>
-                            ) : (
-                              <span className="text-[var(--text-tertiary)] text-xs">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* DOCUMENTS TAB */}
-          {activeTab === 'documents' && (
-            <div className="space-y-3">
-              {myDocuments.length === 0 ? (
-                <div className="text-center py-12 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-                  <FileText className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-                  <p className="text-sm text-[var(--text-secondary)]">No documents on file.</p>
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                    Licenses and certificates uploaded by HR will appear here.
-                  </p>
-                </div>
-              ) : (
-                myDocuments.map((doc: any) => (
-                  <div
-                    key={doc.id}
-                    className="flex justify-between items-center p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]"
-                  >
-                    <div>
-                      <p className="font-medium text-[var(--text-primary)]">{doc.title || doc.type}</p>
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        {doc.expiryDate
-                          ? `Expires: ${new Date(doc.expiryDate).toLocaleDateString()}`
-                          : 'No expiry'}
-                      </p>
-                    </div>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                        doc.isVerified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                      }`}
-                    >
-                      {doc.isVerified ? 'Verified' : 'Pending'}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* SHIFTS TAB — read-only */}
+          {activeTab === 'payslips' && (<div className="space-y-4">{myPayslips.length === 0 ? (<div className="text-center py-12 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]"><DollarSign className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-sm text-[var(--text-secondary)]">No payslips yet.</p><p className="text-xs text-[var(--text-tertiary)] mt-1">Payslips appear here once HR runs payroll.</p></div>) : (<div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr><th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Month</th><th className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]">Base</th><th className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]">Allowances</th><th className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]">Deductions</th><th className="px-4 py-3 text-right font-semibold text-[var(--text-secondary)]">Net Pay</th><th className="px-4 py-3 text-center font-semibold text-[var(--text-secondary)]">Status</th><th className="px-4 py-3 text-center font-semibold text-[var(--text-secondary)]">Payslip</th></tr></thead><tbody className="divide-y divide-[var(--border-color)]">{myPayslips.map((r) => (<tr key={r.id} className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3 font-medium text-[var(--text-primary)]">{String(r.month).padStart(2, '0')}/{r.year}</td><td className="px-4 py-3 text-right">{formatCedis(r.baseSalary)}</td><td className="px-4 py-3 text-right">{formatCedis(r.allowances)}</td><td className="px-4 py-3 text-right">{formatCedis(r.deductions)}</td><td className="px-4 py-3 text-right font-semibold text-[var(--text-primary)]">{formatCedis(r.netPay)}</td><td className="px-4 py-3 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${r.isPaid ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>{r.isPaid ? <Check className="w-3 h-3" /> : <Clock className="w-3 h-3" />}{r.isPaid ? 'Paid' : 'Pending'}</span></td><td className="px-4 py-3 text-center">{r.payslipUrl ? (<a href={r.payslipUrl} target="_blank" rel="noreferrer" className="text-[var(--icon-cyan-text)] hover:underline text-xs inline-flex items-center gap-1"><Download className="w-3 h-3" />Download</a>) : (<span className="text-[var(--text-tertiary)] text-xs">—</span>)}</td></tr>))}</tbody></table></div>)}</div>)}
+          {activeTab === 'documents' && (<div className="space-y-3">{myDocuments.length === 0 ? (<div className="text-center py-12 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]"><FileText className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-sm text-[var(--text-secondary)]">No documents on file.</p><p className="text-xs text-[var(--text-tertiary)] mt-1">Licenses and certificates uploaded by HR will appear here.</p></div>) : (myDocuments.map((doc: any) => (<div key={doc.id} className="flex justify-between items-center p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]"><div><p className="font-medium text-[var(--text-primary)]">{doc.title || doc.type}</p><p className="text-xs text-[var(--text-secondary)]">{doc.expiryDate ? `Expires: ${new Date(doc.expiryDate).toLocaleDateString()}` : 'No expiry'}</p></div><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${doc.isVerified ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>{doc.isVerified ? 'Verified' : 'Pending'}</span></div>)))}</div>)}
           {activeTab === 'shifts' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center flex-wrap gap-2">
-                <div>
-                  <h3 className="text-lg font-semibold text-[var(--text-primary)]">My Shifts</h3>
-                  <p className="text-sm text-[var(--text-secondary)]">Your scheduled shifts</p>
-                </div>
-                {canManageShifts && (
-                  <span className="flex items-center gap-1 text-xs text-[var(--text-tertiary)]">
-                    <Info className="w-3 h-3" />
-                    Manage shifts from the Shifts page
-                  </span>
-                )}
-              </div>
-
-              <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg p-3 flex items-start gap-2">
-                <Info className="w-4 h-4 text-[var(--icon-cyan-text)] flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Shifts are scheduled by hospital administration. Contact your supervisor or HR if you need a change.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {userShifts.length === 0 ? (
-                  <div className="text-center py-8 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-                    <Clock className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-                    <p className="text-[var(--text-secondary)]">No shifts scheduled yet</p>
-                  </div>
-                ) : (
-                  userShifts.map((shift) => (
-                    <div
-                      key={shift.id}
-                      className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                                shift.shiftType === 'night'
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : shift.shiftType === 'morning'
-                                  ? 'bg-green-100 text-green-700'
-                                  : shift.shiftType === 'afternoon'
-                                  ? 'bg-orange-100 text-orange-700'
-                                  : 'bg-blue-100 text-blue-700'
-                              }`}
-                            >
-                              <Clock className="w-3 h-3" />
-                              {getShiftTypeLabel(shift.shiftType)}
-                            </span>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-sm text-[var(--text-primary)]">
-                              <Calendar className="w-4 h-4 inline mr-2 text-[var(--text-secondary)]" />
-                              {new Date(shift.shiftDate).toLocaleDateString('en-GB', {
-                                weekday: 'long',
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                              })}
-                            </p>
-                            <p className="text-sm text-[var(--text-primary)]">
-                              <Clock className="w-4 h-4 inline mr-2 text-[var(--text-secondary)]" />
-                              {new Date(shift.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{' '}
-                              -{' '}
-                              {new Date(shift.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            {shift.notes && (
-                              <p className="text-sm text-[var(--text-secondary)] mt-2">{shift.notes}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+            <div className="space-y-4"><div className="flex justify-between items-center flex-wrap gap-3"><div><h3 className="text-lg font-semibold text-[var(--text-primary)]">My Shifts</h3><p className="text-sm text-[var(--text-secondary)]">Your scheduled shifts</p></div><div className="flex items-center gap-2"><div className="inline-flex rounded-lg border border-[var(--border-color)] overflow-hidden"><button onClick={() => setShiftsView('timetable')} className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${shiftsView === 'timetable' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}><Grid3X3 className="w-3.5 h-3.5" />Timetable</button><button onClick={() => setShiftsView('list')} className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${shiftsView === 'list' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}><List className="w-3.5 h-3.5" />List</button></div></div></div>
+            {canManageShifts && (<div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg p-3 flex items-start gap-2"><Info className="w-4 h-4 text-[var(--icon-cyan-text)] flex-shrink-0 mt-0.5" /><p className="text-xs text-[var(--text-secondary)]">You can manage shifts for any staff member from the Shifts page.</p></div>)}
+            {shiftsView === 'timetable' ? (<div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-main)]"><div className="flex items-center gap-1"><button onClick={goPrevWeek} className="p-1.5 rounded-md hover:bg-[var(--bg-card)] text-[var(--text-secondary)]" aria-label="Previous week"><ChevronLeft className="w-4 h-4" /></button><span className="text-sm font-semibold text-[var(--text-primary)] px-2 min-w-[180px] text-center">{weekRangeLabel}</span><button onClick={goNextWeek} className="p-1.5 rounded-md hover:bg-[var(--bg-card)] text-[var(--text-secondary)]" aria-label="Next week"><ChevronRight className="w-4 h-4" /></button></div><button onClick={goThisWeek} className="text-xs font-medium px-2.5 py-1 rounded-md border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]">This week</button></div><div className="overflow-x-auto"><div className="min-w-[640px] grid grid-cols-7">{weekDays.map((day) => { const key = toKey(day); const dayShifts = shiftsByDay.get(key) || []; const isToday = key === todayKey; return (<div key={key} className={`border-r last:border-r-0 border-[var(--border-color)] ${isToday ? 'bg-[var(--icon-cyan-bg)]/30' : ''}`}><div className={`px-2 py-2 border-b border-[var(--border-color)] text-center ${isToday ? 'bg-[var(--icon-cyan-bg)]' : 'bg-[var(--bg-main)]'}`}><p className={`text-[10px] uppercase tracking-wider font-semibold ${isToday ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-tertiary)]'}`}>{day.toLocaleDateString('en-GB', { weekday: 'short' })}</p><p className={`text-sm font-bold ${isToday ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-primary)]'}`}>{day.getDate()}</p></div><div className="p-1.5 space-y-1.5 min-h-[72px]">{dayShifts.length === 0 ? (<p className="text-xs text-[var(--text-tertiary)] text-center pt-3">—</p>) : (dayShifts.map((s) => { const style = SHIFT_STYLE[s.shiftType] || SHIFT_STYLE.morning; return (<div key={s.id} className={`rounded-md border px-1.5 py-1 ${style.chip}`} title={`${style.label} · ${fmtTime(s.startTime)}–${fmtTime(s.endTime)}${s.notes ? ` · ${s.notes}` : ''}`}><p className="text-[10px] font-bold uppercase tracking-wide">{style.short}</p><p className="text-[10px] tabular-nums">{fmtTime(s.startTime)}–{fmtTime(s.endTime)}</p></div>); }))}</div></div>); })}</div></div><div className="px-3 py-2 border-t border-[var(--border-color)] bg-[var(--bg-main)] flex flex-wrap items-center gap-3 text-xs"><span className="text-[var(--text-tertiary)] font-medium uppercase tracking-wider">Legend</span>{Object.entries(SHIFT_STYLE).map(([key, s]) => (<span key={key} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${s.chip}`}><span className="font-bold">{s.short}</span> {s.label}</span>))}</div></div>) : (
+              <div className="space-y-3">{userShifts.length === 0 ? (<div className="text-center py-8 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]"><Clock className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-[var(--text-secondary)]">No shifts scheduled yet</p></div>) : (userShifts.map((shift) => (<div key={shift.id} className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]"><div className="flex justify-between items-start"><div className="flex-1"><div className="flex items-center gap-2 mb-2"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${shift.shiftType === 'night' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]' : shift.shiftType === 'morning' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : shift.shiftType === 'afternoon' ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]'}`}><Clock className="w-3 h-3" />{getShiftTypeLabel(shift.shiftType)}</span></div><div className="space-y-1"><p className="text-sm text-[var(--text-primary)]"><Calendar className="w-4 h-4 inline mr-2 text-[var(--text-secondary)]" />{new Date(shift.shiftDate).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p><p className="text-sm text-[var(--text-primary)]"><Clock className="w-4 h-4 inline mr-2 text-[var(--text-secondary)]" />{new Date(shift.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(shift.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>{shift.notes && (<p className="text-sm text-[var(--text-secondary)] mt-2">{shift.notes}</p>)}</div></div></div></div>)))}</div>)}
             </div>
           )}
-
-          {/* LEAVES TAB */}
           {activeTab === 'leaves' && (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-lg font-semibold text-[var(--text-primary)]">Leave Requests</h3>
-                  <p className="text-sm text-[var(--text-secondary)]">Submit and track your leave requests</p>
-                </div>
-                <button
-                  onClick={() => setShowLeaveModal(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-                >
-                  <CalendarPlus className="w-4 h-4" /> Request Leave
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {userLeaves.length === 0 ? (
-                  <div className="text-center py-8 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-                    <FileText className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-                    <p className="text-[var(--text-secondary)]">No leave requests yet</p>
-                    <button
-                      onClick={() => setShowLeaveModal(true)}
-                      className="mt-3 text-sm text-[var(--icon-cyan-text)] hover:underline"
-                    >
-                      Request leave
-                    </button>
-                  </div>
-                ) : (
-                  userLeaves.map((leave) => (
-                    <div
-                      key={leave.id}
-                      className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                                leave.leaveType === 'annual'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : leave.leaveType === 'sick'
-                                  ? 'bg-green-100 text-green-700'
-                                  : leave.leaveType === 'maternity'
-                                  ? 'bg-pink-100 text-pink-700'
-                                  : leave.leaveType === 'paternity'
-                                  ? 'bg-purple-100 text-purple-700'
-                                  : leave.leaveType === 'emergency'
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-gray-100 text-gray-700'
-                              }`}
-                            >
-                              {getLeaveTypeLabel(leave.leaveType)}
-                            </span>
-                            {getLeaveStatusBadge(leave.status)}
-                          </div>
-                          <div className="space-y-1 mt-2">
-                            <p className="text-sm text-[var(--text-primary)]">
-                              <Calendar className="w-4 h-4 inline mr-2 text-[var(--text-secondary)]" />
-                              {new Date(leave.startDate).toLocaleDateString()} -{' '}
-                              {new Date(leave.endDate).toLocaleDateString()}
-                            </p>
-                            <p className="text-sm text-[var(--text-primary)]">
-                              <Clock className="w-4 h-4 inline mr-2 text-[var(--text-secondary)]" />
-                              Total: {leave.totalDays} day{leave.totalDays !== 1 ? 's' : ''}
-                            </p>
-                            {leave.reason && (
-                              <p className="text-sm text-[var(--text-secondary)] mt-2">
-                                <FileText className="w-4 h-4 inline mr-2" />
-                                {leave.reason}
-                              </p>
-                            )}
-                            {(leave.approver || leave.approvedBy) && leave.status === 'approved' && (
-                              <p className="text-xs text-green-600 mt-2">
-                                Approved by: {(leave.approver || leave.approvedBy)?.fullName}
-                              </p>
-                            )}
-                            {leave.status === 'rejected' && (
-                              <p className="text-xs text-red-600 mt-2">Request was rejected</p>
-                            )}
-                          </div>
-                        </div>
-                        {leave.status === 'pending' && (
-                          <button
-                            onClick={() => handleCancelLeave(leave.id)}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Cancel request"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            <div className="space-y-4"><div className="flex justify-between items-center"><div><h3 className="text-lg font-semibold text-[var(--text-primary)]">Leave Requests</h3><p className="text-sm text-[var(--text-secondary)]">Submit and track your leave requests</p></div><button onClick={() => setShowLeaveModal(true)} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"><CalendarPlus className="w-4 h-4" />Request Leave</button></div>
+            <div className="space-y-3">{userLeaves.length === 0 ? (<div className="text-center py-8 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]"><FileText className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-[var(--text-secondary)]">No leave requests yet</p><button onClick={() => setShowLeaveModal(true)} className="mt-3 text-sm text-[var(--icon-cyan-text)] hover:underline">Request leave</button></div>) : (userLeaves.map((leave) => (<div key={leave.id} className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]"><div className="flex justify-between items-start"><div className="flex-1"><div className="flex items-center gap-2 mb-2 flex-wrap"><span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${leave.leaveType === 'annual' ? 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]' : leave.leaveType === 'sick' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : leave.leaveType === 'maternity' ? 'bg-[var(--icon-pink-bg)] text-[var(--icon-pink-text)]' : leave.leaveType === 'paternity' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]' : leave.leaveType === 'emergency' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>{getLeaveTypeLabel(leave.leaveType)}</span>{getLeaveStatusBadge(leave.status)}</div><div className="space-y-1 mt-2"><p className="text-sm text-[var(--text-primary)]"><Calendar className="w-4 h-4 inline mr-2 text-[var(--text-secondary)]" />{new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}</p><p className="text-sm text-[var(--text-primary)]"><Clock className="w-4 h-4 inline mr-2 text-[var(--text-secondary)]" />Total: {leave.totalDays} day{leave.totalDays !== 1 ? 's' : ''}</p>{leave.reason && (<p className="text-sm text-[var(--text-secondary)] mt-2"><FileText className="w-4 h-4 inline mr-2" />{leave.reason}</p>)}{(leave.approver || leave.approvedBy) && leave.status === 'approved' && (<p className="text-xs text-[var(--icon-green-text)] mt-2">Approved by: {(leave.approver || leave.approvedBy)?.fullName}</p>)}{leave.status === 'rejected' && (<p className="text-xs text-[var(--icon-red-text)] mt-2">Request was rejected</p>)}</div></div>{leave.status === 'pending' && (<button onClick={() => handleCancelLeave(leave.id)} className="p-1.5 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors" title="Cancel request"><X className="w-4 h-4" /></button>)}</div></div>)))}</div></div>
           )}
-
-          {/* PASSWORD TAB */}
           {activeTab === 'password' && (
-            <form onSubmit={handlePasswordSubmit} className="space-y-5 max-w-md">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
-                    Current Password *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showCurrentPassword ? 'text' : 'password'}
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm pr-10"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                    >
-                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
-                    New Password *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showNewPassword ? 'text' : 'password'}
-                      value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm pr-10"
-                      required
-                      minLength={6}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                    >
-                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
-                    Confirm New Password *
-                  </label>
-                  <input
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm"
-                    required
-                  />
-                  {passwordData.confirmPassword &&
-                    passwordData.newPassword !== passwordData.confirmPassword && (
-                      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        Passwords do not match
-                      </p>
-                    )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 pt-4 border-t border-[var(--border-color)]">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"
-                >
-                  <Lock className="w-4 h-4" />
-                  {isLoading ? 'Changing…' : 'Change Password'}
-                </button>
-              </div>
-            </form>
+            <form onSubmit={handlePasswordSubmit} className="space-y-5 max-w-md"><div className="space-y-4">
+              <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Current Password *</label><div className="relative"><input type={showCurrentPassword ? 'text' : 'password'} value={passwordData.currentPassword} onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm pr-10" required /><button type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">{showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+              <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">New Password *</label><div className="relative"><input type={showNewPassword ? 'text' : 'password'} value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm pr-10" required minLength={6} /><button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">{showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>
+              <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Confirm New Password *</label><input type="password" value={passwordData.confirmPassword} onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] text-sm" required />{passwordData.confirmPassword && passwordData.newPassword !== passwordData.confirmPassword && (<p className="text-xs text-[var(--icon-red-text)] mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />Passwords do not match</p>)}</div>
+            </div><div className="flex items-center gap-3 pt-4 border-t border-[var(--border-color)]"><button type="submit" disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"><Lock className="w-4 h-4" />{isLoading ? 'Changing…' : 'Change Password'}</button></div></form>
           )}
         </div>
       </div>
-
-      {/* LEAVE MODAL */}
       {showLeaveModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md border border-[var(--border-color)]">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-bold text-[var(--text-primary)]">Request Leave</h3>
-                <p className="text-sm text-[var(--text-secondary)]">Submit a leave request for approval</p>
-              </div>
-              <button
-                onClick={() => setShowLeaveModal(false)}
-                className="p-1 hover:bg-[var(--bg-main)] rounded-lg"
-              >
-                <X className="w-5 h-5 text-[var(--text-secondary)]" />
-              </button>
-            </div>
-            <form onSubmit={handleCreateLeave} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Leave Type *</label>
-                <select
-                  value={newLeave.leaveType}
-                  onChange={(e) => setNewLeave({ ...newLeave, leaveType: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm"
-                  required
-                >
-                  {LEAVE_TYPES.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Start Date *</label>
-                  <input
-                    type="date"
-                    value={newLeave.startDate}
-                    onChange={(e) => setNewLeave({ ...newLeave, startDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">End Date *</label>
-                  <input
-                    type="date"
-                    value={newLeave.endDate}
-                    onChange={(e) => setNewLeave({ ...newLeave, endDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Reason (Optional)</label>
-                <textarea
-                  value={newLeave.reason}
-                  onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm resize-none"
-                  placeholder="Please provide a reason for your leave request…"
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"
-                >
-                  Submit Request
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowLeaveModal(false)}
-                  className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md border border-[var(--border-color)]"><div className="flex items-center justify-between mb-4"><div><h3 className="text-lg font-bold text-[var(--text-primary)]">Request Leave</h3><p className="text-sm text-[var(--text-secondary)]">Submit a leave request for approval</p></div><button onClick={() => setShowLeaveModal(false)} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><X className="w-5 h-5 text-[var(--text-secondary)]" /></button></div><form onSubmit={handleCreateLeave} className="space-y-4"><div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Leave Type *</label><select value={newLeave.leaveType} onChange={(e) => setNewLeave({ ...newLeave, leaveType: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm" required>{LEAVE_TYPES.map((type) => (<option key={type.value} value={type.value}>{type.label}</option>))}</select></div><div className="grid grid-cols-2 gap-3"><div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Start Date *</label><input type="date" value={newLeave.startDate} onChange={(e) => setNewLeave({ ...newLeave, startDate: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm" required /></div><div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">End Date *</label><input type="date" value={newLeave.endDate} onChange={(e) => setNewLeave({ ...newLeave, endDate: e.target.value })} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm" required /></div></div><div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Reason (Optional)</label><textarea value={newLeave.reason} onChange={(e) => setNewLeave({ ...newLeave, reason: e.target.value })} rows={3} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm resize-none" placeholder="Please provide a reason for your leave request…" /></div><div className="flex gap-3 pt-4"><button type="submit" disabled={isLoading} className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium">Submit Request</button><button type="button" onClick={() => setShowLeaveModal(false)} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium">Cancel</button></div></form></div></div>
       )}
     </div>
   );

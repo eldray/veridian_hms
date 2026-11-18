@@ -1,12 +1,26 @@
 // src/utils/pdfTemplates/shiftRotaPDF.ts
+// Weekly duty rota: staff x 7 days, grouped by department, with a daily headcount row.
+// A4 landscape. Shifts are shown as letters (M/A/N/C) so they read on a black-and-white printer.
+import {
+  esc, human, fmtDate, fmtTime, resolveHospital, docTitle, section, signatures, note, pageShell,
+} from './printKit';
 
 interface RotaData {
   shifts: any[];
   weekStart: string;
   departments?: Array<{ id: string; name: string; color?: string | null }>;
   users?: Array<{ id: string; departmentId?: string | null }>;
-  departmentName?: string | null; // if set, single-department mode
+  departmentName?: string | null;
 }
+
+const SHIFT: Record<string, { letter: string; label: string; bg: string; fg: string }> = {
+  morning:   { letter: 'M', label: 'Morning',   bg: '#fef3c7', fg: '#92400e' },
+  afternoon: { letter: 'A', label: 'Afternoon', bg: '#dbeafe', fg: '#1e40af' },
+  night:     { letter: 'N', label: 'Night',     bg: '#e0e7ff', fg: '#3730a3' },
+  on_call:   { letter: 'C', label: 'On call',   bg: '#fce7f3', fg: '#9d174d' },
+};
+const keyOf = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export const generateShiftRotaHTML = (
   shifts: any[],
@@ -14,22 +28,10 @@ export const generateShiftRotaHTML = (
   hospital: any,
   extras?: Partial<RotaData>,
 ): string => {
+  const h = resolveHospital(hospital);
   const departments = extras?.departments ?? [];
   const users = extras?.users ?? [];
-  const singleDeptName = extras?.departmentName ?? null;
-
-  const escapeHtml = (text: any): string => {
-    if (text === null || text === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
-  };
-
-  const hospitalName = hospital?.name || 'Veridian Hospital';
-  const hospitalAddress = hospital?.address || '123 Medical Center Drive, Accra, Ghana';
-  const hospitalPhone = hospital?.phone || '+233-24-123-4567';
-  const hospitalEmail = hospital?.email || 'info@veridianhospital.gov.gh';
-  const hospitalCode = hospital?.nhisFacilityCode || 'GHS-ACC-001';
+  const single = extras?.departmentName ?? null;
 
   const start = new Date(weekStart);
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -37,518 +39,108 @@ export const generateShiftRotaHTML = (
     d.setDate(d.getDate() + i);
     return d;
   });
-  const end = days[6];
+  const deptName = new Map(departments.map((d) => [d.id, d.name]));
+  const userDept = new Map(users.map((u) => [u.id, u.departmentId ?? null]));
 
-  const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
-    d.toLocaleDateString('en-US', opts);
-
-  const toKey = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
-  const today = toKey(new Date());
-
-  // Dept lookup
-  const deptById = new Map<string, { name: string; color: string }>();
-  for (const d of departments) {
-    deptById.set(d.id, { name: d.name, color: d.color || '#0891b2' });
-  }
-  const userDeptById = new Map<string, string | null>();
-  for (const u of users) {
-    userDeptById.set(u.id, u.departmentId ?? null);
-  }
-
-  // Build grid
-  type Cell = { letter: string; shiftType: string; start: string; end: string; id: string };
-  const grid: Map<string, Map<string, Cell[]>> = new Map();
-  const staffMeta: Map<string, { name: string; role: string; departmentId: string | null }> = new Map();
-
-  for (const s of shifts) {
-    const userId = s.userId;
-    if (!userId) continue;
-
-    if (!staffMeta.has(userId)) {
-      staffMeta.set(userId, {
+  type Entry = { type: string; start: string; end: string };
+  const staff = new Map<string, { name: string; role: string; dept: string; cells: Map<string, Entry[]> }>();
+  for (const s of shifts || []) {
+    if (!s.userId) continue;
+    const dk = String(s.shiftDate || '').split('T')[0];
+    if (!dk) continue;
+    if (!staff.has(s.userId)) {
+      const did = userDept.get(s.userId) ?? null;
+      staff.set(s.userId, {
         name: s.user?.fullName || '—',
         role: s.user?.role || '',
-        departmentId: userDeptById.get(userId) ?? null,
+        dept: did ? deptName.get(did) || 'Other' : 'Unassigned',
+        cells: new Map(),
       });
     }
-    if (!grid.has(userId)) grid.set(userId, new Map());
-
-    const dateKey = (s.shiftDate || '').split('T')[0];
-    if (!dateKey) continue;
-
-    const cellMap = grid.get(userId)!;
-    if (!cellMap.has(dateKey)) cellMap.set(dateKey, []);
-
-    const letter =
-      s.shiftType === 'morning' ? 'M' :
-      s.shiftType === 'afternoon' ? 'A' :
-      s.shiftType === 'night' ? 'N' :
-      s.shiftType === 'on_call' ? 'C' : '?';
-
-    const startTime = s.startTime ? new Date(s.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-    const endTime = s.endTime ? new Date(s.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-
-    cellMap.get(dateKey)!.push({ letter, shiftType: s.shiftType, start: startTime, end: endTime, id: s.id });
-  }
-
-  // Group staff by department
-  const groups: Map<string, { name: string; color: string; rows: Array<{ id: string; name: string; role: string }> }> = new Map();
-
-  for (const [userId, meta] of staffMeta.entries()) {
-    const deptId = meta.departmentId ?? '__unassigned__';
-    const deptMeta = deptById.get(deptId);
-    const deptName = deptId === '__unassigned__' ? 'Unassigned' : (deptMeta?.name ?? 'Unknown Department');
-    const deptColor = deptId === '__unassigned__' ? '#94a3b8' : (deptMeta?.color ?? '#0891b2');
-
-    if (!groups.has(deptId)) {
-      groups.set(deptId, { name: deptName, color: deptColor, rows: [] });
-    }
-    groups.get(deptId)!.rows.push({
-      id: userId,
-      name: meta.name,
-      role: meta.role,
+    const m = staff.get(s.userId)!.cells;
+    if (!m.has(dk)) m.set(dk, []);
+    m.get(dk)!.push({
+      type: s.shiftType,
+      start: s.startTime ? fmtTime(s.startTime) : '',
+      end: s.endTime ? fmtTime(s.endTime) : '',
     });
   }
 
-  const orderedGroups = Array.from(groups.entries()).sort((a, b) => {
-    if (a[0] === '__unassigned__') return 1;
-    if (b[0] === '__unassigned__') return -1;
-    return a[1].name.localeCompare(b[1].name);
+  const groups = new Map<string, Array<{ id: string; name: string; role: string; cells: Map<string, Entry[]> }>>();
+  for (const [id, v] of staff) {
+    if (!groups.has(v.dept)) groups.set(v.dept, []);
+    groups.get(v.dept)!.push({ id, name: v.name, role: v.role, cells: v.cells });
+  }
+  const ordered = [...groups.entries()].sort(([a], [b]) => (a === 'Unassigned' ? 1 : b === 'Unassigned' ? -1 : a.localeCompare(b)));
+  const showGroups = !single && ordered.length > 1;
+
+  const cell = (entries?: Entry[]) => {
+    if (!entries?.length) return '<td class="r-off"></td>';
+    const chips = entries
+      .map((e) => {
+        const c = SHIFT[e.type] || { letter: '?', label: human(e.type), bg: '#f3f4f6', fg: '#374151' };
+        const t = e.start && e.end ? `<div style="font-size:6.5pt;font-weight:400">${esc(e.start)}–${esc(e.end)}</div>` : '';
+        return `<div style="background:${c.bg};color:${c.fg};border-radius:2px;margin:1px 0;padding:1px 0"><b>${c.letter}</b>${t}</div>`;
+      })
+      .join('');
+    return `<td style="text-align:center;padding:1px 2px">${chips}</td>`;
+  };
+
+  // Daily headcount by shift type
+  const countRow = days.map((d) => {
+    const k = keyOf(d);
+    const c: Record<string, number> = {};
+    for (const v of staff.values()) for (const e of v.cells.get(k) || []) c[e.type] = (c[e.type] || 0) + 1;
+    const parts = Object.entries(SHIFT).filter(([t]) => c[t]).map(([t, s]) => `${s.letter}${c[t]}`);
+    return `<td style="text-align:center;font-weight:600">${parts.join(' ') || '—'}</td>`;
   });
 
-  for (const [, g] of orderedGroups) {
-    g.rows.sort((a, b) => a.name.localeCompare(b.name));
-  }
+  const head = `<tr>
+    <th style="width:22%;text-align:left">Staff member</th>
+    ${days.map((d) => `<th style="text-align:center">${d.toLocaleDateString('en-GB', { weekday: 'short' })}<div style="font-weight:400">${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</div></th>`).join('')}
+  </tr>`;
 
-  const cellColorClass = (letter: string) => {
-    switch (letter) {
-      case 'M': return 'cell-morning';
-      case 'A': return 'cell-afternoon';
-      case 'N': return 'cell-night';
-      case 'C': return 'cell-oncall';
-      default:  return '';
-    }
-  };
+  const rowsHtml = ordered
+    .map(([name, rows]) => {
+      const bar = showGroups ? `<tr><td colspan="8" style="background:#f3f4f6;font-weight:700;font-size:8pt;letter-spacing:.05em;text-transform:uppercase">${esc(name)}</td></tr>` : '';
+      const body = rows
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((r) => `<tr><td><b>${esc(r.name)}</b>${r.role ? `<div class="muted" style="font-size:7pt">${esc(human(r.role))}</div>` : ''}</td>${days.map((d) => cell(r.cells.get(keyOf(d)))).join('')}</tr>`)
+        .join('');
+      return bar + body;
+    })
+    .join('');
 
-  const renderCell = (cells: Cell[] | undefined) => {
-    if (!cells || cells.length === 0) return '<td class="cell-empty"></td>';
-    const letters = cells.map((c) => c.letter).join('+');
-    const primary = cells[0].letter;
-    const title = cells.map((c) => `${c.shiftType}: ${c.start}–${c.end}`).join(' | ');
-    return `<td class="cell-filled ${cellColorClass(primary)}" title="${escapeHtml(title)}">${escapeHtml(letters)}</td>`;
-  };
+  const legend = Object.values(SHIFT)
+    .map((s) => `<span style="display:inline-block;margin-right:14px"><span style="display:inline-block;min-width:14px;text-align:center;background:${s.bg};color:${s.fg};font-weight:700;border-radius:2px;margin-right:4px">${s.letter}</span>${s.label}</span>`)
+    .join('');
 
-  const showGroupHeaders = !singleDeptName && orderedGroups.length > 1;
+  const title = single ? `Duty rota — ${single}` : 'Duty rota';
+  const range = `${fmtDate(days[0])} – ${fmtDate(days[6])}`;
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Shift Rota — Week of ${fmt(start, { month: 'short', day: 'numeric', year: 'numeric' })}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    @page { size: A4 landscape; margin: 12mm; }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f1f5f9;
-      padding: 24px;
-      color: #1e293b;
-    }
-    .page-container {
-      max-width: 1200px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.12);
-      overflow: hidden;
-    }
-    .header {
-      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-      color: white;
-      padding: 24px 32px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .header-left { display: flex; align-items: center; gap: 18px; }
-    .logo-placeholder {
-      width: 60px; height: 60px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 26px; font-weight: 700;
-      border: 2px solid rgba(255,255,255,0.3);
-    }
-    .hospital-info h1 { font-size: 20px; font-weight: 700; margin-bottom: 3px; }
-    .hospital-info p { font-size: 11.5px; opacity: 0.9; line-height: 1.4; }
-    .header-right { text-align: right; }
-    .document-badge {
-      background: rgba(255,255,255,0.2);
-      padding: 5px 16px;
-      border-radius: 20px;
-      font-weight: 600;
-      font-size: 11.5px;
-      letter-spacing: 0.5px;
-    }
-    .document-range {
-      font-size: 13px;
-      font-weight: 600;
-      margin-top: 6px;
-      opacity: 0.95;
-    }
-    .facility-code {
-      font-size: 11px;
-      opacity: 0.75;
-      margin-top: 3px;
-      font-family: monospace;
-    }
-    .content { padding: 24px 32px 32px; }
-
-    .meta-strip {
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 16px;
-      background: #f8fafc;
-      border-radius: 10px;
-      padding: 12px 18px;
-      margin-bottom: 20px;
-      border-left: 4px solid #3b82f6;
-      font-size: 12px;
-    }
-    .meta-item { display: flex; flex-direction: column; }
-    .meta-item .label {
-      font-size: 9.5px;
-      font-weight: 700;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .meta-item .value {
-      font-size: 13px;
-      font-weight: 600;
-      color: #0f172a;
-      margin-top: 1px;
-    }
-
-    table.rota {
-      width: 100%;
-      border-collapse: collapse;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      overflow: hidden;
-      font-size: 12px;
-    }
-    table.rota th {
-      background: #f1f5f9;
-      color: #475569;
-      font-weight: 700;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      padding: 10px 8px;
-      border-bottom: 2px solid #cbd5e1;
-      text-align: center;
-    }
-    table.rota th.staff-col {
-      text-align: left;
-      padding-left: 14px;
-      width: 22%;
-    }
-    table.rota th.today-col { background: #cffafe; color: #0e7490; }
-    table.rota th.weekend-col { background: #f1f5f9; color: #94a3b8; }
-
-    table.rota td {
-      padding: 6px 4px;
-      border-bottom: 1px solid #e2e8f0;
-      border-right: 1px solid #f1f5f9;
-      text-align: center;
-      font-weight: 600;
-      font-size: 11px;
-      height: 34px;
-    }
-    table.rota td.staff-cell {
-      text-align: left;
-      padding-left: 14px;
-      background: #fafbfc;
-      font-weight: 500;
-      font-size: 12px;
-      color: #0f172a;
-    }
-    table.rota td.staff-cell .role {
-      display: block;
-      font-size: 9.5px;
-      color: #94a3b8;
-      font-weight: 500;
-      text-transform: capitalize;
-      margin-top: 1px;
-    }
-    table.rota td.today-col { background: #f0fdff; }
-    table.rota td.weekend-col { background: #fafbfc; }
-    table.rota td.cell-empty { color: #cbd5e1; }
-    table.rota td.cell-filled { color: #0f172a; border-radius: 4px; }
-
-    td.cell-morning   { background: #d1fae5; color: #065f46; }
-    td.cell-afternoon { background: #fed7aa; color: #9a3412; }
-    td.cell-night     { background: #e9d5ff; color: #6b21a8; }
-    td.cell-oncall    { background: #bfdbfe; color: #1e40af; }
-
-    tr.dept-header-row td {
-      background: #f1f5f9;
-      border-top: 2px solid #cbd5e1;
-      border-bottom: 1px solid #cbd5e1;
-      padding: 6px 14px;
-      text-align: left;
-      font-weight: 700;
-      font-size: 10px;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      color: #334155;
-    }
-    tr.dept-header-row td .dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 6px;
-      vertical-align: middle;
-    }
-
-    .legend {
-      display: flex;
-      gap: 18px;
-      margin-top: 18px;
-      flex-wrap: wrap;
-      font-size: 11px;
-      color: #475569;
-    }
-    .legend-item { display: flex; align-items: center; gap: 6px; }
-    .legend-swatch {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border-radius: 4px;
-      font-weight: 700;
-      font-size: 10px;
-      text-align: center;
-      line-height: 16px;
-    }
-
-    .signatures {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 2px solid #e2e8f0;
-      flex-wrap: wrap;
-      gap: 24px;
-    }
-    .sig-box { min-width: 200px; text-align: center; }
-    .sig-line {
-      width: 200px; height: 1px; background: #94a3b8; margin: 28px auto 6px;
-    }
-    .sig-label {
-      font-size: 10.5px; color: #94a3b8;
-      text-transform: uppercase; letter-spacing: 0.4px;
-    }
-    .sig-name { font-size: 12px; font-weight: 600; color: #0f172a; margin-top: 3px; }
-
-    .footer {
-      margin-top: 24px;
-      padding-top: 16px;
-      border-top: 2px solid #e2e8f0;
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-      font-size: 11px;
-      color: #94a3b8;
-    }
-
-    .no-print {
-      padding: 20px 40px;
-      background: #f8fafc;
-      border-top: 1px solid #e2e8f0;
-      text-align: center;
-      display: flex; justify-content: center; gap: 12px;
-    }
-    .print-btn {
-      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-      color: white; border: none; padding: 12px 32px; border-radius: 10px;
-      font-size: 14px; font-weight: 600; cursor: pointer;
-    }
-    .close-btn {
-      background: #e2e8f0; color: #475569; border: none;
-      padding: 12px 32px; border-radius: 10px; font-size: 14px;
-      font-weight: 600; cursor: pointer;
-    }
-
-    @media print {
-      body { background: white; padding: 0; }
-      .page-container { box-shadow: none; border-radius: 0; max-width: 100%; }
-      .no-print { display: none !important; }
-      .header, .cell-morning, .cell-afternoon, .cell-night, .cell-oncall,
-      .document-badge, tr.dept-header-row td {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      table.rota { font-size: 10px; }
-      table.rota td { height: 28px; padding: 4px 2px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="page-container">
-    <div class="header">
-      <div class="header-left">
-        <div class="logo-placeholder">🏥</div>
-        <div class="hospital-info">
-          <h1>${escapeHtml(hospitalName)}</h1>
-          <p>${escapeHtml(hospitalAddress)}</p>
-          <p>Tel: ${escapeHtml(hospitalPhone)} &nbsp;|&nbsp; ${escapeHtml(hospitalEmail)}</p>
-        </div>
-      </div>
-      <div class="header-right">
-        <div class="document-badge">SHIFT ROTA${singleDeptName ? ' — DEPARTMENT' : ''}</div>
-        <div class="document-range">
-          ${fmt(start, { month: 'short', day: 'numeric' })} – ${fmt(end, { month: 'short', day: 'numeric', year: 'numeric' })}
-        </div>
-        <div class="facility-code">
-          ${singleDeptName ? escapeHtml(singleDeptName) : escapeHtml(hospitalCode)}
-        </div>
-      </div>
-    </div>
-
-    <div class="content">
-      <div class="meta-strip">
-        <div class="meta-item">
-          <span class="label">Week Beginning</span>
-          <span class="value">${fmt(start, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
-        </div>
-        <div class="meta-item">
-          <span class="label">Week Ending</span>
-          <span class="value">${fmt(end, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
-        </div>
-        ${singleDeptName ? `
-          <div class="meta-item">
-            <span class="label">Department</span>
-            <span class="value">${escapeHtml(singleDeptName)}</span>
-          </div>
-        ` : `
-          <div class="meta-item">
-            <span class="label">Departments</span>
-            <span class="value">${orderedGroups.length}</span>
-          </div>
-        `}
-        <div class="meta-item">
-          <span class="label">Total Staff</span>
-          <span class="value">${staffMeta.size}</span>
-        </div>
-        <div class="meta-item">
-          <span class="label">Total Shifts</span>
-          <span class="value">${shifts.length}</span>
-        </div>
-      </div>
-
-      <table class="rota">
-        <thead>
-          <tr>
-            <th class="staff-col">Staff Member</th>
-            ${days.map((d) => {
-              const key = toKey(d);
-              const cls = key === today ? 'today-col' : (d.getDay() === 0 || d.getDay() === 6) ? 'weekend-col' : '';
-              return `<th class="${cls}">
-                ${d.toLocaleDateString('en-US', { weekday: 'short' })}<br/>
-                <span style="font-size:13px;color:#0f172a;">${d.getDate()}</span>
-              </th>`;
-            }).join('')}
-          </tr>
-        </thead>
-        <tbody>
-          ${staffMeta.size === 0 ? `
-            <tr><td colspan="8" style="text-align:center;padding:24px;color:#94a3b8;font-style:italic;">No shifts scheduled for this week</td></tr>
-          ` : orderedGroups.map(([groupKey, group]) => `
-            ${showGroupHeaders ? `
-              <tr class="dept-header-row">
-                <td colspan="8">
-                  <span class="dot" style="background:${group.color};"></span>
-                  ${escapeHtml(group.name)}
-                  <span style="margin-left:8px;font-weight:500;color:#94a3b8;text-transform:none;letter-spacing:0;">· ${group.rows.length} staff</span>
-                </td>
-              </tr>
-            ` : ''}
-            ${group.rows.map((row) => {
-              const cellMap = grid.get(row.id) || new Map();
-              return `
-                <tr>
-                  <td class="staff-cell">
-                    ${escapeHtml(row.name)}
-                    <span class="role">${escapeHtml(row.role.replace(/_/g, ' '))}</span>
-                  </td>
-                  ${days.map((d) => {
-                    const key = toKey(d);
-                    const cls = key === today ? 'today-col' : (d.getDay() === 0 || d.getDay() === 6) ? 'weekend-col' : '';
-                    const cells = cellMap.get(key);
-                    const inner = renderCell(cells);
-                    return inner.replace('<td', `<td class="${cls}"`);
-                  }).join('')}
-                </tr>
-              `;
-            }).join('')}
-          `).join('')}
-        </tbody>
-      </table>
-
-      <div class="legend">
-        <div class="legend-item"><span class="legend-swatch cell-morning">M</span> Morning</div>
-        <div class="legend-item"><span class="legend-swatch cell-afternoon">A</span> Afternoon</div>
-        <div class="legend-item"><span class="legend-swatch cell-night">N</span> Night</div>
-        <div class="legend-item"><span class="legend-swatch cell-oncall">C</span> On Call</div>
-      </div>
-
-      <div class="signatures">
-        <div class="sig-box">
-          <div class="sig-line"></div>
-          <div class="sig-label">Prepared By</div>
-          <div class="sig-name">&nbsp;</div>
-        </div>
-        <div class="sig-box">
-          <div class="sig-line"></div>
-          <div class="sig-label">Approved By</div>
-          <div class="sig-name">&nbsp;</div>
-        </div>
-        <div class="sig-box">
-          <div class="sig-line"></div>
-          <div class="sig-label">Date</div>
-          <div class="sig-name">${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-        </div>
-      </div>
-
-      <div class="footer">
-        <div>
-          <p>Generated by ${escapeHtml(hospitalName)} — Shift Management</p>
-          <p style="font-size:10px;color:#cbd5e1;margin-top:2px;">This rota is subject to change. Contact administration for updates.</p>
-        </div>
-        <div style="text-align:right;">
-          <p>Generated: ${new Date().toLocaleString()}</p>
-          <p style="font-size:10px;color:#cbd5e1;margin-top:2px;">Ref: ROTA-${toKey(start)}</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="no-print">
-      <button class="print-btn" onclick="window.print()">🖨️ Print Rota</button>
-      <button class="close-btn" onclick="window.close()">✕ Close</button>
-    </div>
-  </div>
-</body>
-</html>
+  const body = `
+    ${docTitle(title, { ref: range, refLabel: 'Week', date: new Date(), dateLabel: 'Printed' })}
+    ${section('Week rota', `
+      <table class="data">
+        <thead>${head}</thead>
+        <tbody>${staff.size ? rowsHtml : `<tr><td colspan="8" class="muted" style="text-align:center;padding:16px">No shifts scheduled for this week</td></tr>`}</tbody>
+        ${staff.size ? `<tfoot><tr><td style="font-weight:700">On duty (headcount)</td>${countRow.join('')}</tr></tfoot>` : ''}
+      </table>`)}
+    <div class="text-block" style="margin:6px 0 8px;font-size:8pt">${legend}</div>
+    ${note('Shift changes must be agreed with the unit head and recorded before the shift. Staff on call must be reachable and able to report within the agreed time.')}
+    ${signatures([
+      { role: 'Prepared by (unit head)', plain: true },
+      { role: 'Approved by (Matron / Administrator)', plain: true },
+    ])}
   `;
+
+  return pageShell({
+    title: `${title} ${range}`,
+    hospital: h,
+    body,
+    footerRef: `Rota ${range}`,
+    footerNote: 'Staff record',
+    pageSize: 'A4 landscape',
+    printLabel: 'Print rota',
+  });
 };

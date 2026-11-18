@@ -29,41 +29,75 @@
     #msg.ok { display:block; background:rgba(6,118,71,.1); color:var(--ok); border:1px solid var(--ok); }
     #msg.busy { display:block; background:var(--card); color:var(--text); border:1px solid var(--border); }
     .hint { color:var(--muted); font-size:12px; margin-top:14px; line-height:1.45; }
+    [hidden] { display:none !important; }
+    .codebox { text-align:center; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 12px; margin:0 0 14px; }
+    .codebox .small { color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .code { font-family:Consolas, monospace; font-size:26px; font-weight:700; letter-spacing:.08em; color:var(--accent); }
+    .warnbox { background:rgba(180,35,24,.1); color:var(--err); border:1px solid var(--err); border-radius:6px; padding:10px 12px; margin:0 0 14px; line-height:1.4; }
   </style>
 </head>
 <body>
 <main>
   <h1>Connect to the server</h1>
-  <p class="lead">Enter the address of the PC where Veridian HMS Server is installed. Ask whoever set up the server, or use "Show address for other PCs" from its tray icon.</p>
+  <p class="lead">Enter the address of the PC where Veridian HMS Server is installed. The connection is always encrypted.</p>
+
   <form id="form" autocomplete="off">
     <fieldset>
       <legend>Server</legend>
-      <label>Server address<small>For example 192.168.1.10:5000</small><input id="url" placeholder="192.168.1.10:5000" required /></label>
+      <label>Server address<small>For example 192.168.1.10:5000. It is shown on the server PC under File &gt; Secure connection code.</small><input id="url" placeholder="192.168.1.10:5000" required /></label>
     </fieldset>
-    <div class="actions">
-      <button type="button" id="test">Test connection</button>
-      <button type="submit" id="save" class="primary">Save and connect</button>
-    </div>
+    <div class="actions"><button type="submit" id="connect" class="primary">Connect</button></div>
   </form>
+
+  <section id="confirm" hidden>
+    <div class="codebox"><div class="small">This server identifies itself with the code</div><div id="code" class="code"></div></div>
+    <div id="changed" class="warnbox" hidden></div>
+    <p class="lead">On the <b>server PC</b>, open <b>File &gt; Secure connection code</b>. It must show <b>exactly</b> this code. If it does not, choose "The codes are different": someone on the network may be intercepting the connection.</p>
+    <div class="actions">
+      <button type="button" id="no">The codes are different</button>
+      <button type="button" id="yes" class="primary">The codes match: trust this server</button>
+    </div>
+  </section>
+
   <div id="msg"></div>
+  <p class="hint">This only has to be done once on each PC. You can change the server later with File &gt; Server address.</p>
 </main>
+
 <script>
   const $ = (id) => document.getElementById(id);
   const api = window.clientSetupAPI;
-  function show(kind, text) { const m = $('msg'); m.className = kind; m.textContent = text; }
-  function setBusy(b) { ['test', 'save'].forEach((id) => ($(id).disabled = b)); }
-  api.get().then((s) => { if (s.serverUrl) $('url').value = s.serverUrl; });
-  $('test').addEventListener('click', async () => {
-    setBusy(true); show('busy', 'Testing connection...');
-    const r = await api.test($('url').value);
-    show(r.ok ? 'ok' : 'err', r.message);
-    setBusy(false);
-  });
+  function show(kind, text) { const m = $('msg'); m.className = kind || ''; m.textContent = text || ''; }
+  function busy(on) { for (const id of ['connect', 'yes', 'no']) $(id).disabled = on; }
+  function backToAddress() { $('confirm').hidden = true; $('form').hidden = false; $('url').focus(); }
+
+  api.get().then((s) => { if (s.serverUrl) $('url').value = s.serverUrl.replace(/^https:\/\//, ''); });
+
   $('form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    setBusy(true); show('busy', 'Saving...');
-    const r = await api.save($('url').value);
-    if (!r.ok) { show('err', r.message); setBusy(false); }
+    busy(true); show('busy', 'Connecting securely...');
+    const r = await api.pairStart($('url').value);
+    busy(false);
+    if (!r.ok) return show('err', r.message);
+    show('', '');
+    $('code').textContent = r.code;
+    $('changed').hidden = !r.previousCode;
+    if (r.previousCode) {
+      $('changed').textContent = 'WARNING: this address was paired before with a DIFFERENT code (' + r.previousCode + '). That is expected only if the server was reinstalled or its secure connection was reset. Otherwise someone may be intercepting the connection: choose "The codes are different".';
+    }
+    $('form').hidden = true; $('confirm').hidden = false;
+  });
+
+  $('no').addEventListener('click', async () => {
+    await api.pairCancel();
+    backToAddress();
+    show('err', 'Not trusted, and nothing was saved. If the codes really differ, do not connect: someone on the network may be intercepting the connection.');
+  });
+
+  $('yes').addEventListener('click', async () => {
+    busy(true); show('busy', 'Securing the connection...');
+    const r = await api.pairConfirm();
+    if (!r.ok) { busy(false); show('err', r.message); }
+    // on success the main process closes this window and connects
   });
 </script>
 </body>

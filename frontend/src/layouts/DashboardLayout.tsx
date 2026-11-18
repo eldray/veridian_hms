@@ -203,7 +203,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     src={(hospital.imageUrl || hospital.logoUrl) as string}
                     alt={hospital?.name ? `${hospital.name} logo` : 'Hospital logo'}
                     className="rounded-md object-cover shrink-0"
-                    style={{ width: 26, height: 26 }}
+                    style={{ width: 36, height: 36 }}
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                   />
                 )}

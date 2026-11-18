@@ -50,10 +50,15 @@
 
     <fieldset>
       <legend>Access from other computers (optional)</legend>
-      <label id="lanLabel" style="flex-direction:row;align-items:center;gap:8px"><input id="lan" type="checkbox" style="width:auto" /> Let other PCs on this network open Veridian HMS in their browser</label>
-      <label>App port<small>Other PCs use http://&lt;this PC's address&gt;:&lt;port&gt;. Windows will ask for administrator approval to open this port.</small><input id="appPort" type="number" value="5000" min="1024" max="65535" /></label>
+      <label id="lanLabel" style="flex-direction:row;align-items:center;gap:8px"><input id="lan" type="checkbox" style="width:auto" /> Let other PCs on this network use Veridian HMS (always encrypted)</label>
+      <div id="adapterBox">
+        <strong>Network connections that serve other PCs</strong>
+        <small>Only the connections ticked here listen for other PCs. A cable (Ethernet) is the safest choice; Wi-Fi is shared air, so it is off unless you tick it.</small>
+        <div id="adapters"></div>
+      </div>
+      <label>App port<small>Other PCs use https://&lt;this PC's address&gt;:&lt;port&gt;. Windows will ask for administrator approval to open this port, for this network only.</small><input id="appPort" type="number" value="5000" min="1024" max="65535" /></label>
       <small id="addresses"></small>
-      <small>Traffic on the network is not encrypted. Only enable this on a trusted, private network, and keep this PC switched on and Veridian HMS open while others use it.</small>
+      <small>Everything between PCs is encrypted. The first time another PC connects it shows a code that you compare with <b>File &gt; Secure connection code</b> on this PC. Keep this PC switched on and Veridian HMS open while others use it, and give it a fixed address (a DHCP reservation on the router).</small>
     </fieldset>
 
     <fieldset id="adminBox">
@@ -85,11 +90,39 @@
 
   window.setupAPI.onProgress((text) => show('busy', text));
 
+  let adapters = [];
+  const chosenAdapters = () => [...document.querySelectorAll('#adapters input:checked')].map((i) => i.value);
+  function renderAdapters(chosen) {
+    const box = $('adapters');
+    box.textContent = '';
+    if (!adapters.length) { box.textContent = 'No network connection was found on this PC.'; refreshAddresses(); return; }
+    for (const a of adapters) {
+      const label = document.createElement('label');
+      label.style.cssText = 'flex-direction:row;align-items:center;gap:8px;font-weight:400';
+      const input = document.createElement('input');
+      input.type = 'checkbox'; input.value = a.name; input.style.width = 'auto'; input.checked = chosen.has(a.name);
+      input.addEventListener('change', refreshAddresses);
+      const tags = [a.wireless ? 'Wi-Fi' : '', a.virtual ? 'virtual' : ''].filter(Boolean).join(', ');
+      label.append(input, document.createTextNode(` ${a.name}  (${a.addresses.join(', ')})${tags ? '  - ' + tags : ''}`));
+      box.appendChild(label);
+    }
+    refreshAddresses();
+  }
+  function refreshAddresses() {
+    const picked = adapters.filter((a) => chosenAdapters().includes(a.name)).flatMap((a) => a.addresses);
+    const port = $('appPort').value || 5000;
+    $('addresses').textContent = $('lan').checked && picked.length ? 'Other PCs will use: ' + picked.map((ip) => `https://${ip}:${port}`).join('   ') : '';
+    $('adapterBox').style.display = $('lan').checked ? '' : 'none';
+  }
+  $('lan').addEventListener('change', refreshAddresses);
+  $('appPort').addEventListener('input', refreshAddresses);
+
   window.setupAPI.getSettings().then((s) => {
     $('host').value = s.host; $('port').value = s.port; $('database').value = s.database; $('user').value = s.user;
     if (s.mode === 'server') { $('lan').checked = true; $('lan').disabled = true; $('lanLabel').firstChild && ($('lanLabel').lastChild.textContent = ' This is the hospital server: other PCs are always allowed'); }
     $('lan').checked = !!s.lan || s.mode === 'server'; $('appPort').value = s.appPort || 5000;
-    $('addresses').textContent = s.addresses && s.addresses.length ? 'This PC\'s address: ' + s.addresses.map((a) => 'http://' + a + ':' + ($('appPort').value || 5000)).join('   ') : '';
+    adapters = s.adapters || [];
+    renderAdapters(new Set(s.chosenAdapters || []));
     hasStoredPassword = s.hasPassword;
     needsAdmin = !s.bootstrapDone;
     $('pwhint').textContent = s.hasPassword ? 'Leave blank to keep the saved password.' : '';
@@ -114,7 +147,7 @@
       }
     }
     setBusy(true); show('busy', 'Working...');
-    const r = await window.setupAPI.save({ db: readDb(), adminPassword: $('adminPassword').value, network: { lan: $('lan').checked, port: Number($('appPort').value) } });
+    const r = await window.setupAPI.save({ db: readDb(), adminPassword: $('adminPassword').value, network: { lan: $('lan').checked, port: Number($('appPort').value), adapters: chosenAdapters() } });
     if (!r.ok) { show('err', r.message); setBusy(false); }
     // on success the main process closes this window
   });

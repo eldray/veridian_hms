@@ -61,7 +61,7 @@ export class UserService extends BaseService {
 
     // Super-admin accounts are privileged platform-level accounts and may only be created by a super admin.
     if (String(dto.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
-      throw new Error('Only super admins can create super-admin accounts');
+      throw new ForbiddenError('Only super admins can create super-admin accounts');
     }
 
     if (!VALID_ROLES.includes(dto.role as any)) {
@@ -169,12 +169,12 @@ export class UserService extends BaseService {
 
     // Admins have normal administrator powers, but cannot manage a super-admin account.
     if (targetRole === 'super_admin' && actorRole !== 'super_admin') {
-      throw new Error('Only super admins can modify a super-admin account');
+      throw new ForbiddenError('Only super admins can modify a super-admin account');
     }
 
     // Only a super admin may grant the super-admin role.
     if (String(updateData.role || '').toLowerCase() === 'super_admin' && actorRole !== 'super_admin') {
-      throw new Error('Only super admins can assign the super-admin role');
+      throw new ForbiddenError('Only super admins can assign the super-admin role');
     }
 
     // Nobody can change their own role via this endpoint — role changes
@@ -259,7 +259,7 @@ export class UserService extends BaseService {
     if (!existing) throw new Error('User not found');
 
     if (String(existing.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
-      throw new Error('Only super_admins can deactivate a super_admin');
+      throw new ForbiddenError('Only super_admins can deactivate a super_admin');
     }
 
     const deactivated = await this.repository.deactivateUser(userId);
@@ -572,7 +572,14 @@ export class UserService extends BaseService {
   // FULL PROFILE
   // ==========================================
 
+  // Which columns of the User row an actor may change through PATCH /:id/full-profile. The controller hands over
+  // req.body untouched, so these lists are the only thing between a request and prisma.user.update. Anything not
+  // listed is ignored: a password is changed only through the password routes, and never by writing the column.
   private readonly SELF_EDITABLE_USER_FIELDS = ['fullName', 'email', 'phone', 'imageUrl'];
+  // Staff data that HR may maintain as well as administrators.
+  private readonly STAFF_MANAGER_USER_FIELDS = ['licenseNumber', 'specialization', 'departmentId', 'headedDepartmentId'];
+  // What a person can do in the system. Account edits stay with administrators, so HR officers must not reach these.
+  private readonly ADMIN_ONLY_USER_FIELDS = ['role', 'seniority', 'isActive'];
 
   async getFullProfile(userId: string) {
     const profile = await this.repository.findFullProfile(userId);
@@ -586,8 +593,9 @@ export class UserService extends BaseService {
     actor: { userId: string; role: string; ipAddress?: string; userAgent?: string },
   ) {
     const isAdminLike = this.isAdminLike(actor.role);
+    const isAdmin = ['admin', 'super_admin'].includes(String(actor.role).toLowerCase());
     const isSelf = actor.userId === userId;
-    if (!isAdminLike && !isSelf) throw new Error('Not authorized to update this profile');
+    if (!isAdminLike && !isSelf) throw new ForbiddenError('Not authorized to update this profile');
 
     // Fetch previous state for audit
     const before = await this.repository.findFullProfile(userId);
@@ -600,14 +608,27 @@ export class UserService extends BaseService {
     const targetRole = String(target.role).toLowerCase();
     const actorRole = String(actor.role).toLowerCase();
     if (targetRole === 'super_admin' && actorRole !== 'super_admin') {
-      throw new Error('Only super admins can modify a super-admin account');
+      throw new ForbiddenError('Only super admins can modify a super-admin account');
     }
 
     if (payload.user && Object.keys(payload.user).length > 0) {
       const userUpdate: any = {};
       for (const [k, v] of Object.entries(payload.user)) {
         if (v === undefined) continue;
-        if (!isAdminLike && !this.SELF_EDITABLE_USER_FIELDS.includes(k)) continue;
+
+        const allowed =
+          this.SELF_EDITABLE_USER_FIELDS.includes(k) ||
+          (isAdminLike && this.STAFF_MANAGER_USER_FIELDS.includes(k)) ||
+          (isAdmin && this.ADMIN_ONLY_USER_FIELDS.includes(k));
+        if (!allowed) {
+          // The staff screen re-sends the whole form, including the role it did not change. That is not a change.
+          // A real change to a privilege by someone who may not make it is refused out loud, not dropped silently.
+          if (this.ADMIN_ONLY_USER_FIELDS.includes(k)) {
+            if (String(v) === String((target as any)[k])) continue;
+            throw new ForbiddenError(`Only administrators can change a staff member's ${k === 'isActive' ? 'active status' : k}`);
+          }
+          continue; // not editable here (a password, a token, an id, an unknown key)
+        }
 
         // Nobody but super_admin can escalate role to super_admin
         if (k === 'role' && String(v).toLowerCase() === 'super_admin' && actorRole !== 'super_admin') continue;
@@ -907,10 +928,10 @@ export class UserService extends BaseService {
     const isCancel = data.status === 'cancelled';
 
     if (isDecision && !isAdminLike) {
-      throw new Error('Only admins and HR can approve or reject leave requests');
+      throw new ForbiddenError('Only admins and HR can approve or reject leave requests');
     }
     if (isCancel && !isOwner && !isAdminLike) {
-      throw new Error('You can only cancel your own leave requests');
+      throw new ForbiddenError('You can only cancel your own leave requests');
     }
     if (isCancel && isOwner && existing.status !== 'pending') {
       throw new Error('You can only cancel a pending leave request');
@@ -951,7 +972,7 @@ export class UserService extends BaseService {
     const isOwner = existing.userId === actor.userId;
 
     if (!isOwner && !isAdminLike) {
-      throw new Error('You can only delete your own leave requests');
+      throw new ForbiddenError('You can only delete your own leave requests');
     }
     if (!isAdminLike && existing.status !== 'pending') {
       throw new Error('You can only delete a pending leave request');

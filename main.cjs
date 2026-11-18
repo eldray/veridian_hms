@@ -9,11 +9,13 @@
 //
 // Development (not packaged): loads http://localhost:3000 and expects `npm start` to be running.
 
-const { app, BrowserWindow, ipcMain, dialog, Menu, Tray, nativeImage, shell, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, Tray, nativeImage, shell, safeStorage, session } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
+const pki = require('./pki.cjs');
 const net = require('net');
 const os = require('os');
 const crypto = require('crypto');
@@ -46,6 +48,8 @@ let mainWindow = null;
 let setupWindow = null;
 let serverProcess = null;
 let activePort = PREFERRED_PORT;
+let activeScheme = 'http'; // 'https' whenever other PCs can reach this server (see planNetwork)
+let serverPki = null; // { caPem, chainPem, keyPem, fingerprint, code } while serving over TLS
 let backendReady = false;
 let quitting = false;
 let starting = false;
@@ -111,46 +115,88 @@ function decryptSecret(obj) {
 function readRawConfig() {
   try { return JSON.parse(fs.readFileSync(getConfigPath(), 'utf8')) || {}; } catch { return {}; }
 }
-function getClientServerUrl() {
-  const u = readRawConfig().client && readRawConfig().client.serverUrl;
-  return typeof u === 'string' ? u : '';
+// A client trusts exactly one server: its address AND the private certificate authority it presented when the
+// administrator confirmed its code (see the pairing handlers). Anything saved without that pin is ignored, so an
+// old plain-HTTP entry can never be used again.
+function getClientPin() {
+  const c = readRawConfig().client;
+  if (!c || typeof c.serverUrl !== 'string' || !c.serverUrl.startsWith('https://')) return null;
+  if (typeof c.caPem !== 'string' || !c.caPem.includes('BEGIN CERTIFICATE')) return null;
+  return { serverUrl: c.serverUrl, caPem: c.caPem };
 }
-function saveClientServerUrl(serverUrl) {
+const getClientServerUrl = () => (getClientPin() || {}).serverUrl || '';
+function saveClientPin(serverUrl, caPem) {
   const raw = readRawConfig();
-  raw.client = { serverUrl };
+  raw.client = { serverUrl, caPem };
   fs.mkdirSync(path.dirname(getConfigPath()), { recursive: true });
   fs.writeFileSync(getConfigPath(), JSON.stringify(raw, null, 2), { mode: 0o600 });
 }
-// "192.168.1.10" -> http://192.168.1.10:5000 ; keeps only protocol + host + port.
+// "192.168.1.10" -> https://192.168.1.10:5000 ; keeps only protocol + host + port. Connections are always secure.
 function normalizeServerUrl(input) {
   const text = String(input || '').trim();
   if (!text) throw new Error('Enter the address of the Veridian HMS server.');
-  const hadScheme = /^https?:\/\//i.test(text);
+  if (/^http:\/\//i.test(text)) throw new Error('Veridian HMS only connects over a secure connection. Remove "http://" from the address (it is added for you).');
+  const hadScheme = /^https:\/\//i.test(text);
   let u;
-  try { u = new URL(hadScheme ? text : `http://${text}`); } catch { throw new Error('That is not a valid server address. Example: 192.168.1.10:5000'); }
+  try { u = new URL(hadScheme ? text : `https://${text}`); } catch { throw new Error('That is not a valid server address. Example: 192.168.1.10:5000'); }
   if (!u.hostname) throw new Error('That is not a valid server address. Example: 192.168.1.10:5000');
   if (!hadScheme && !u.port) u.port = String(PREFERRED_PORT);
   return u.origin;
 }
 // The origin the main window is allowed to show: this PC's own backend, or the chosen server (client).
+// This PC's own backend, over TLS whenever other PCs can reach it.
+function serverOrigin() {
+  return `${activeScheme}://127.0.0.1:${activePort}`;
+}
 function appOrigin() {
-  try { return new URL(IS_CLIENT ? getClientServerUrl() : `http://127.0.0.1:${activePort}`).origin; } catch { return ''; }
+  try { return new URL(IS_CLIENT ? getClientServerUrl() : serverOrigin()).origin; } catch { return ''; }
 }
 function isAppUrl(u) {
   if (typeof u !== 'string') return false;
   const o = appOrigin();
   return (!!o && (u === o || u.startsWith(o + '/'))) || u.startsWith('http://localhost:3000');
 }
-function probeServer(serverUrl) {
+// Asks the server for its health, trusting ONLY the pinned authority. A server that cannot prove it is the paired
+// one (a different authority, a wrong name, an expired certificate) fails with a message that says so.
+// ==================== CERTIFICATE PINNING ====================
+// The authority a given host must be secured by, or null when it is not one of our servers.
+//   client : the host the administrator paired with, pinned to the authority confirmed at pairing
+//   server : this PC's own loopback address, pinned to this server's own authority
+function pinnedCaFor(hostname) {
+  if (IS_CLIENT) {
+    const pin = getClientPin();
+    try { return pin && new URL(pin.serverUrl).hostname === hostname ? pin.caPem : null; } catch { return null; }
+  }
+  if (activeScheme === 'https' && serverPki && (hostname === '127.0.0.1' || hostname === 'localhost')) return serverPki.caPem;
+  return null;
+}
+// The window's own network stack (page loads, API calls, the live event stream) trusts nothing but the pin: the
+// certificate must chain to the pinned authority, be in date and cover the address. For any other host Chromium's
+// normal checks apply (-3). Rejected (-2) is final: there is no "continue anyway" prompt to click through.
+function installCertificatePinning() {
+  session.defaultSession.setCertificateVerifyProc((request, callback) => {
+    const caPem = pinnedCaFor(request.hostname);
+    if (!caPem) return callback(-3);
+    const r = pki.verifyServerCertificate({ leafPem: request.certificate.data, caPem, host: request.hostname });
+    if (!r.ok) log(`Rejected the certificate presented by ${request.hostname}: ${r.reason}`);
+    callback(r.ok ? 0 : -2);
+  });
+}
+
+function probeServer(serverUrl, caPem) {
   return new Promise((resolve, reject) => {
     let u;
     try { u = new URL('/api/health', serverUrl); } catch (e) { return reject(e); }
-    const lib = u.protocol === 'https:' ? require('https') : http;
-    const req = lib.request({ hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, method: 'GET', timeout: 4000 }, (res) => {
+    const req = https.request({ hostname: u.hostname, port: u.port || 443, path: u.pathname, method: 'GET', timeout: 4000, ca: caPem, agent: false }, (res) => {
       res.resume();
       res.statusCode >= 200 && res.statusCode < 400 ? resolve(true) : reject(new Error(`The server answered with HTTP ${res.statusCode}.`));
     });
-    req.on('error', (e) => reject(new Error(`Could not reach ${serverUrl} (${e.code || e.message}). Check the address, that the server PC is on and running Veridian HMS Server, and that its firewall allows the port.`)));
+    req.on('error', (e) => {
+      const identity = /CERT|SELF_SIGNED|UNABLE_TO_VERIFY|ALTNAME|ERR_SSL|ERR_TLS|WRONG_VERSION/i.test(String(e.code) + ' ' + e.message);
+      reject(new Error(identity
+        ? `The server's identity could not be verified (${e.code || e.message}). If the server was reinstalled or its secure connection was reset, pair again with File > Server address. If not, someone may be intercepting the connection: do not continue.`
+        : `Could not reach ${serverUrl} (${e.code || e.message}). Check the address, that the server PC is on and running Veridian HMS Server, and that its firewall allows the port.`));
+    });
     req.on('timeout', () => req.destroy(Object.assign(new Error('timeout'), { code: 'timeout' })));
     req.end();
   });
@@ -162,22 +208,100 @@ function probeServer(serverUrl) {
 // private to this PC either way - other PCs only ever talk to the app, never to PostgreSQL.
 function normalizeNetwork(n) {
   const port = Number(n && n.port);
-  return { lan: IS_SERVER || !!(n && n.lan), port: Number.isInteger(port) && port >= 1024 && port <= 65535 ? port : PREFERRED_PORT };
+  // adapters: the names of the network adapters that may serve other PCs. null = never chosen: use the wired ones.
+  const adapters = Array.isArray(n && n.adapters) ? [...new Set(n.adapters.map(String).filter(Boolean))] : null;
+  return { lan: IS_SERVER || !!(n && n.lan), port: Number.isInteger(port) && port >= 1024 && port <= 65535 ? port : PREFERRED_PORT, adapters };
 }
-function lanAddresses() {
+
+// ==================== NETWORK ADAPTERS ====================
+// A PC with both a cable and Wi-Fi is reachable from both. Wi-Fi is the riskier side (shared air, guests, phones),
+// so by default only WIRED adapters serve other PCs. The server binds to exactly the chosen adapters' addresses
+// (plus this PC's own loopback address) instead of every interface, so an adapter nobody chose is not even listening.
+const WIRELESS_NAME = /wi-?fi|wlan|wireless|802\.11/i;
+const VIRTUAL_NAME = /vethernet|hyper-v|vmware|virtualbox|vbox|wsl|docker|loopback|bluetooth|tailscale|zerotier|\bvpn\b|tap-|\btun\d/i;
+function listAdapters() {
   const out = [];
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const i of list || []) {
-      if (i.family === 'IPv4' && !i.internal && !i.address.startsWith('169.254.')) out.push(i.address);
-    }
+  for (const [name, list] of Object.entries(os.networkInterfaces())) {
+    const addresses = (list || []).filter((i) => i.family === 'IPv4' && !i.internal && !i.address.startsWith('169.254.')).map((i) => i.address);
+    if (addresses.length) out.push({ name, addresses, wireless: WIRELESS_NAME.test(name), virtual: VIRTUAL_NAME.test(name) });
   }
   return out;
 }
-// Windows blocks inbound connections until a firewall rule exists. Adding one needs administrator
-// rights, so Windows shows its own UAC prompt; declining it is not fatal (the setup screen says so).
+const defaultAdapterNames = (adapters) => adapters.filter((a) => !a.wireless && !a.virtual).map((a) => a.name);
+function resolveListenAddresses(network, adapters = listAdapters()) {
+  const chosen = network.adapters || defaultAdapterNames(adapters);
+  const byName = new Map(adapters.map((a) => [a.name, a]));
+  const addresses = [];
+  const missing = [];
+  for (const name of chosen) {
+    const a = byName.get(name);
+    if (a) addresses.push(...a.addresses); else missing.push(name);
+  }
+  return { addresses: [...new Set(addresses)], missing, chosen };
+}
+// What the server will do, from the saved settings and the adapters present right now.
+function planNetwork(network = normalizeNetwork((loadConfig() || {}).network), adapters = listAdapters()) {
+  const sel = resolveListenAddresses(network, adapters);
+  const lanIps = network.lan ? sel.addresses : [];
+  return { network, lanIps, hosts: ['127.0.0.1', ...lanIps], secure: lanIps.length > 0, missing: network.lan ? sel.missing : [], chosen: sel.chosen };
+}
+
+// ==================== SECURE CONNECTION (private certificate authority) ====================
+// See pki.cjs. The authority and the server certificate live in userData/pki.json with their private keys protected
+// by Windows data protection (the same as the database password). Clients pin the AUTHORITY, so the server
+// certificate can be re-issued (for example when this PC gets a new address) without clients having to pair again.
+const getPkiPath = () => path.join(app.getPath('userData'), 'pki.json');
+function readPkiStore() { try { return JSON.parse(fs.readFileSync(getPkiPath(), 'utf8')) || {}; } catch { return {}; } }
+function writePkiStore(store) {
+  fs.mkdirSync(path.dirname(getPkiPath()), { recursive: true });
+  fs.writeFileSync(getPkiPath(), JSON.stringify(store, null, 2), { mode: 0o600 });
+}
+function dnsNamesForCert() {
+  const names = ['localhost'];
+  const host = os.hostname();
+  if (/^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$/.test(host) && !names.includes(host)) names.push(host);
+  return names;
+}
+function ensureServerPki({ ipAddresses, dnsNames = dnsNamesForCert() }) {
+  const store = readPkiStore();
+  let changed = false;
+  if (!safeStorage.isEncryptionAvailable()) log('WARNING: Windows data protection is unavailable, so the certificate keys are stored without encryption.');
+
+  let caKeyPem = store.ca ? decryptSecret(store.ca.key) : '';
+  let caUsable = false;
+  try { caUsable = !!caKeyPem && pki.certInfo(store.ca.certPem).notAfter.getTime() - Date.now() > 30 * 86_400_000; } catch { /* unreadable */ }
+  if (!caUsable) {
+    const ca = pki.createCa({ commonName: `Veridian HMS CA (${os.hostname()})` });
+    store.ca = { certPem: ca.certPem, key: encryptSecret(ca.keyPem) };
+    store.server = null;
+    caKeyPem = ca.keyPem;
+    changed = true;
+    log('Created a new private certificate authority for this server. Client PCs must pair with it again.');
+  }
+
+  let leafKeyPem = store.server ? decryptSecret(store.server.key) : '';
+  const leafUsable = !!leafKeyPem
+    && !pki.needsReissue({ certPem: store.server.certPem, dnsNames, ipAddresses })
+    && pki.verifyServerCertificate({ leafPem: store.server.certPem, caPem: store.ca.certPem, host: ipAddresses[0] }).ok;
+  if (!leafUsable) {
+    const leaf = pki.issueServerCert({ caCertPem: store.ca.certPem, caKeyPem, dnsNames, ipAddresses });
+    store.server = { certPem: leaf.certPem, key: encryptSecret(leaf.keyPem) };
+    leafKeyPem = leaf.keyPem;
+    changed = true;
+    log(`Issued the server certificate for ${[...dnsNames, ...ipAddresses].join(', ')}`);
+  }
+  if (changed) writePkiStore(store);
+  const fingerprint = pki.fingerprintSha256(store.ca.certPem);
+  return { caPem: store.ca.certPem, chainPem: store.server.certPem + store.ca.certPem, keyPem: leafKeyPem, fingerprint, code: pki.formatFingerprint(fingerprint) };
+}
+function resetSecureConnection() {
+  try { fs.rmSync(getPkiPath(), { force: true }); } catch (e) { log('Could not remove the certificate store:', e.message); }
+  serverPki = null;
+}
+
 function ensureFirewallRule(port) {
   if (process.platform !== 'win32') return Promise.resolve({ ok: true, skipped: true });
-  const inner = `/c netsh advfirewall firewall delete rule name=VeridianHMS & netsh advfirewall firewall add rule name=VeridianHMS dir=in action=allow protocol=TCP localport=${Number(port)} profile=private,domain`;
+  const inner = `/c netsh advfirewall firewall delete rule name=VeridianHMS & netsh advfirewall firewall add rule name=VeridianHMS dir=in action=allow protocol=TCP localport=${Number(port)} profile=private,domain remoteip=localsubnet`;
   const ps = `Start-Process -FilePath cmd.exe -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '${inner}'`;
   return new Promise((resolve) => {
     const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true, stdio: 'ignore' });
@@ -588,14 +712,23 @@ function databaseUrl(db) {
 
 // ==================== CHILD PROCESSES (Electron's own Node runtime) ====================
 function backendEnv(db, extra) {
-  const net = normalizeNetwork((loadConfig() || {}).network);
-  const lanOrigins = net.lan ? lanAddresses().map((ip) => `http://${ip}:${activePort}`) : [];
+  const plan = planNetwork();
+  const scheme = plan.secure ? 'https' : 'http';
+  // Other PCs reach the app by address or by this PC's name, and their browser origin must be allowed.
+  const hosts = [...plan.lanIps, ...(plan.secure ? dnsNamesForCert().filter((n) => n !== 'localhost') : [])];
+  const lanOrigins = hosts.map((h) => `${scheme}://${h}:${activePort}`);
   return {
     ...process.env,
     ELECTRON_RUN_AS_NODE: '1', // run process.execPath as plain Node: PCs do not need Node.js installed
     NODE_ENV: 'production',
     ELECTRON: 'true',
-    HOST: net.lan ? '0.0.0.0' : '127.0.0.1',
+    // Where to listen and the TLS key are given ONLY to the server process (startBackend). The one-shot scripts
+    // (bootstrap, migrations) get none of it, and never see the private key.
+    HOST: '',
+    LISTEN_HOSTS: '127.0.0.1',
+    TLS_CERT_PEM: '',
+    TLS_KEY_PEM: '',
+    COOKIE_SECURE: '',
     CORS_ALLOWED_ORIGINS: [process.env.CORS_ALLOWED_ORIGINS, ...lanOrigins].filter(Boolean).join(','),
     PORT: String(activePort),
     DATABASE_URL: databaseUrl(db),
@@ -614,27 +747,32 @@ function runNodeScript(scriptName, env, { onLine } = {}) {
   return runNode(path.join(getBackendDir(), scriptName), [], { cwd: getDataDir(), env, onLine, label: scriptName });
 }
 
-function bindHost() {
-  return normalizeNetwork((loadConfig() || {}).network).lan ? '0.0.0.0' : '127.0.0.1';
-}
-function isPortFree(port) {
+function isPortFreeOn(port, host) {
   return new Promise((resolve) => {
     const srv = net.createServer();
     srv.once('error', () => resolve(false));
     srv.once('listening', () => srv.close(() => resolve(true)));
-    srv.listen(port, bindHost());
+    srv.listen(port, host);
   });
 }
-async function findFreePort(start) {
+// Free only if it is free on EVERY address the server will bind.
+async function isPortFree(port, hosts) {
+  for (const h of hosts) if (!(await isPortFreeOn(port, h))) return false;
+  return true;
+}
+async function findFreePort(start, hosts) {
   for (let p = start; p < start + 20; p++) {
-    if (await isPortFree(p)) return p;
+    if (await isPortFree(p, hosts)) return p;
   }
   throw new Error(`No free port found between ${start} and ${start + 19}.`);
 }
 
+// Over TLS, trusting only this server's own authority: the certificate must chain to it and cover 127.0.0.1.
 function healthCheck(port) {
+  const secure = activeScheme === 'https' && serverPki;
+  const lib = secure ? https : http;
   return new Promise((resolve, reject) => {
-    const req = http.request({ hostname: '127.0.0.1', port, path: '/api/health', method: 'GET', timeout: 3000 }, (res) => {
+    const req = lib.request({ hostname: '127.0.0.1', port, path: '/api/health', method: 'GET', timeout: 3000, ...(secure ? { ca: serverPki.caPem, agent: false } : {}) }, (res) => {
       res.resume();
       res.statusCode >= 200 && res.statusCode < 400 ? resolve(true) : reject(new Error(`HTTP ${res.statusCode}`));
     });
@@ -661,8 +799,9 @@ function stopBackend() {
 
 async function startBackend(cfg) {
   await stopBackend();
-  const wantedPort = normalizeNetwork((loadConfig() || {}).network).port;
-  activePort = await findFreePort(wantedPort);
+  const plan = planNetwork();
+  const wantedPort = plan.network.port;
+  activePort = await findFreePort(wantedPort, plan.hosts);
   if (activePort !== wantedPort) {
     // Other PCs are told one fixed address, so the server must not quietly move to another port.
     if (IS_SERVER) throw new Error(`Port ${wantedPort} is already used by another program. Other PCs connect to this port, so the server will not use a different one. Close the other program, or choose another port in Database settings.`);
@@ -672,10 +811,23 @@ async function startBackend(cfg) {
   const script = path.join(getBackendDir(), 'server.mjs');
   if (!fs.existsSync(script)) throw new Error(`Backend not found at ${script}. The installer is incomplete.`);
 
+  // Other PCs can reach this server only over TLS, and only through the adapter(s) the administrator chose.
+  activeScheme = plan.secure ? 'https' : 'http';
+  let transportEnv = {};
+  if (plan.secure) {
+    serverPki = ensureServerPki({ ipAddresses: plan.hosts });
+    transportEnv = { TLS_CERT_PEM: serverPki.chainPem, TLS_KEY_PEM: serverPki.keyPem, COOKIE_SECURE: 'true' };
+    log(`Secure connection on: ${plan.hosts.join(', ')} (code ${serverPki.code})`);
+  } else {
+    serverPki = null;
+    if (plan.network.lan) log('WARNING: other PCs are allowed, but no network adapter is selected or connected, so this server is reachable from this PC only.');
+  }
+  if (plan.missing.length) log(`WARNING: the chosen network adapter(s) are not connected: ${plan.missing.join(', ')}`);
+
   await new Promise((resolve, reject) => {
     let settled = false;
     let tail = '';
-    const proc = spawn(process.execPath, [script], { cwd: getDataDir(), env: backendEnv(cfg.db), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const proc = spawn(process.execPath, [script], { cwd: getDataDir(), env: backendEnv(cfg.db, { LISTEN_HOSTS: plan.hosts.join(','), ...transportEnv }), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     serverProcess = proc;
 
     const feed = (buf, isErr) => {
@@ -778,32 +930,68 @@ ipcMain.handle('setup:get', () => {
     bootstrapDone: !!cfg?.bootstrapDone,
     lan: !!(cfg && cfg.network.lan),
     appPort: cfg ? cfg.network.port : PREFERRED_PORT,
-    addresses: lanAddresses(),
+    adapters: listAdapters(),
+    chosenAdapters: (cfg && cfg.network.adapters) || defaultAdapterNames(listAdapters()),
     mode: APP_MODE,
   };
 });
 
 // ---- client: choose the server ----
-ipcMain.handle('client:get', () => ({ serverUrl: getClientServerUrl() }));
-ipcMain.handle('client:test', async (_e, input) => {
+ipcMain.handle('client:get', () => {
+  const pin = getClientPin();
+  return { serverUrl: pin ? pin.serverUrl : '', code: pin ? pki.formatFingerprint(pki.fingerprintSha256(pin.caPem)) : '' };
+});
+
+// Pairing: connect WITHOUT trusting anything, only to read the certificates the server presents, and show the
+// authority's code. Only after a person has compared that code with the one on the server PC is the authority pinned.
+// The evidence stays here in the main process; the page only ever sees the code, never the certificate.
+let pendingPairing = null; // { url, caPem, fingerprint }
+ipcMain.handle('client:pair-start', async (_e, input) => {
+  pendingPairing = null;
   try {
     const url = normalizeServerUrl(input);
-    await probeServer(url);
-    return { ok: true, message: `Connected to ${url}.` };
+    const u = new URL(url);
+    let chain;
+    try {
+      chain = await pki.fetchServerChain({ host: u.hostname, port: u.port || 443 });
+    } catch (e) {
+      return { ok: false, message: `Could not make a secure connection to ${url} (${e.code || e.message}). Check the address, that the server PC is on and running Veridian HMS Server, that its firewall allows the port, and that it is a version with secure connections.` };
+    }
+    const caPem = pki.selectCaFromChain(chain);
+    if (!caPem) return { ok: false, message: 'The server did not present its certificate authority, so it cannot be paired. Update Veridian HMS Server on that PC.' };
+    const check = pki.verifyServerCertificate({ leafPem: chain[0], caPem, host: u.hostname });
+    if (!check.ok) return { ok: false, message: `The server's certificate is not valid for this address: ${check.reason}` };
+    const fingerprint = pki.fingerprintSha256(caPem);
+    const previous = getClientPin();
+    const sameServer = !!previous && previous.serverUrl === url;
+    const unchanged = sameServer && pki.fingerprintSha256(previous.caPem) === fingerprint;
+    pendingPairing = { url, caPem, fingerprint };
+    return {
+      ok: true,
+      url,
+      code: pki.formatFingerprint(fingerprint),
+      alreadyTrusted: unchanged,
+      // the same address presenting a different authority is the case to be loud about
+      previousCode: sameServer && !unchanged ? pki.formatFingerprint(pki.fingerprintSha256(previous.caPem)) : null,
+    };
   } catch (e) {
     return { ok: false, message: e.message };
   }
 });
-ipcMain.handle('client:save', async (_e, input) => {
+ipcMain.handle('client:pair-cancel', () => { pendingPairing = null; return { ok: true }; });
+ipcMain.handle('client:pair-confirm', async () => {
+  const pending = pendingPairing;
+  if (!pending) return { ok: false, message: 'Connect to the server first.' };
   try {
-    const url = normalizeServerUrl(input);
-    saveClientServerUrl(url); // saved even if the server is down right now, so it can be started later
-    log(`Client will connect to ${url}`);
-    setImmediate(finishSetup);
-    return { ok: true };
+    await probeServer(pending.url, pending.caPem); // proves the authority being pinned really secures this server
   } catch (e) {
     return { ok: false, message: e.message };
   }
+  saveClientPin(pending.url, pending.caPem);
+  pendingPairing = null;
+  log(`Client paired with ${pending.url} (authority ${pki.formatFingerprint(pending.fingerprint)})`);
+  setImmediate(finishSetup);
+  return { ok: true };
 });
 
 ipcMain.handle('setup:test', async (_e, db) => {
@@ -831,6 +1019,9 @@ ipcMain.handle('setup:save', async (event, payload) => {
     if (bad) return { ok: false, message: bad };
 
     const network = normalizeNetwork(payload.network || (previous && previous.network));
+    if (network.lan && network.adapters && network.adapters.length === 0) {
+      return { ok: false, message: 'Choose at least one network adapter for the other PCs to connect through.' };
+    }
     if (payload.network && Number(payload.network.port) !== network.port) {
       return { ok: false, message: 'The app port must be a number between 1024 and 65535.' };
     }
@@ -883,17 +1074,18 @@ function sameDb(a, b) {
 
 // ==================== STARTUP FLOW ====================
 async function startClient() {
-  let url = getClientServerUrl();
-  if (!url) {
+  let pin = getClientPin();
+  if (!pin) {
     await openSetupWindow({ firstRun: true, client: true });
-    url = getClientServerUrl();
-    if (!url) { app.quit(); return; }
+    pin = getClientPin();
+    if (!pin) { app.quit(); return; }
   }
-  showStatusPage('starting', `Connecting to the Veridian HMS server (${url})...`);
+  const url = pin.serverUrl;
+  showStatusPage('starting', `Connecting securely to the Veridian HMS server (${url})...`);
   try {
-    await probeServer(url);
+    await probeServer(url, pin.caPem);
   } catch (e) {
-    log('Server not reachable:', e.message);
+    log('Server not reachable or not verified:', e.message);
     showStatusPage('error', e.message);
     return;
   }
@@ -931,7 +1123,7 @@ async function startApplication() {
     await startBackend(cfg);
 
     log(`Backend ready on port ${activePort}`);
-    await mainWindow.loadURL(`http://127.0.0.1:${activePort}`);
+    await mainWindow.loadURL(serverOrigin());
     mainWindow.webContents.send('backend-ready');
   } catch (e) {
     log('Startup failed:', e.stack || e.message);
@@ -1086,7 +1278,7 @@ function createWindow() {
     clearTimeout(hangTimer);
     log(`Page process gone (${details.reason}, exit ${details.exitCode})`);
     if (quitting || !mainWindow || mainWindow.isDestroyed()) return;
-    if (backendReady || IS_CLIENT) setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(IS_CLIENT ? getClientServerUrl() : `http://127.0.0.1:${activePort}`).catch(() => {}); }, 500);
+    if (backendReady || IS_CLIENT) setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(IS_CLIENT ? getClientServerUrl() : serverOrigin()).catch(() => {}); }, 500);
     else showStatusPage('error', 'The page stopped working and the server is not running.');
   });
 
@@ -1115,6 +1307,9 @@ function createMenu() {
           : [
               { label: 'Database settings...', enabled: app.isPackaged, click: () => changeDatabaseSettings() },
               { label: 'Restart server', click: () => restartAll() },
+              { type: 'separator' },
+              { label: 'Secure connection code...', enabled: app.isPackaged, click: () => showSecureConnectionCode() },
+              { label: 'Reset secure connection...', enabled: app.isPackaged, click: () => confirmResetSecureConnection() },
               { type: 'separator' },
               { label: 'Reset database...', click: () => resetDatabase() },
             ]),
@@ -1570,6 +1765,44 @@ ipcMain.handle('reset:run', async (event, payload) => {
   }
 });
 
+// The code another PC must show when it pairs. Comparing it, on screen or out loud, is what proves the connection is
+// not being intercepted: it is the only step that cannot be done by software alone.
+function showSecureConnectionCode() {
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  const plan = planNetwork();
+  if (!app.isPackaged || !plan.secure) {
+    dialog.showMessageBox(parent, {
+      type: 'info', title: 'Secure connection', message: 'Other PCs are not connecting to this server.',
+      detail: plan.network.lan
+        ? 'No network adapter is selected or connected. Choose one in Database settings.'
+        : 'A secure connection is used when this PC is offered to other PCs. Turn that on in Database settings.',
+    });
+    return;
+  }
+  try {
+    const info = serverPki || ensureServerPki({ ipAddresses: plan.hosts });
+    const addresses = plan.lanIps.map((ip) => `https://${ip}:${activePort || plan.network.port}`).join('\n');
+    dialog.showMessageBox(parent, {
+      type: 'info', title: 'Secure connection code', message: info.code,
+      detail: `The first time a PC connects, it shows a code. It must be EXACTLY this one.\nIf the codes differ, stop: someone on the network may be intercepting the connection.\n\nAddress to type on other PCs:\n${addresses}`,
+    });
+  } catch (e) {
+    dialog.showErrorBox('Secure connection', e.message);
+  }
+}
+async function confirmResetSecureConnection() {
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  const { response } = await dialog.showMessageBox(parent, {
+    type: 'warning', buttons: ['Cancel', 'Reset secure connection'], defaultId: 0, cancelId: 0,
+    title: 'Reset secure connection', message: 'Create a new secure identity for this server?',
+    detail: 'Every other PC will refuse to connect until it is paired again with the new code (File > Server address on each PC). Use this only if the secure identity may have been exposed, or the server moved to a new PC.',
+  });
+  if (response !== 1) return;
+  resetSecureConnection();
+  log('Secure connection reset by the administrator.');
+  await restartAll();
+}
+
 function resetDatabase() {
   if (IS_CLIENT) return;
   return app.isPackaged ? openResetWindow() : resetDevDatabase();
@@ -1604,14 +1837,15 @@ function createTray() {
   const icon = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png'));
   tray = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 16, height: 16 }));
   const addresses = () => {
-    const net = normalizeNetwork((loadConfig() || {}).network);
-    const list = lanAddresses().map((ip) => `http://${ip}:${activePort || net.port}`);
-    return list.length ? list.join('\n') : 'No network connection found.';
+    const plan = planNetwork();
+    const list = plan.lanIps.map((ip) => `https://${ip}:${activePort || plan.network.port}`);
+    return list.length ? list.join('\n') : 'No network adapter is selected or connected. Choose one in Database settings.';
   };
   tray.setToolTip(`${APP_TITLE} Server`);
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open Veridian HMS', click: showMainWindow },
-    { label: 'Show address for other PCs', click: () => dialog.showMessageBox({ type: 'info', title: 'Server address', message: 'Type one of these into a browser or the Veridian HMS Client on other PCs:', detail: addresses() }) },
+    { label: 'Show address for other PCs', click: () => dialog.showMessageBox({ type: 'info', title: 'Server address', message: 'Type one of these into the Veridian HMS Client on other PCs:', detail: addresses() }) },
+    { label: 'Secure connection code...', click: () => showSecureConnectionCode() },
     { label: 'Database settings...', click: () => changeDatabaseSettings() },
     { label: 'Restart server', click: () => restartAll() },
     { label: 'Reset database...', click: () => resetDatabase() },
@@ -1648,6 +1882,7 @@ if (!gotTheLock) {
     log('Packaged:', app.isPackaged, '| Platform:', process.platform, os.release(), '| Electron:', process.versions.electron);
     log('User data:', app.getPath('userData'));
 
+    installCertificatePinning();
     createWindow();
     if (IS_SERVER && app.isPackaged) {
       createTray();

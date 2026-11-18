@@ -8,7 +8,6 @@ import { generateLeaveRequestFormHTML } from './pdfTemplates/leaveRequestFormPDF
 import { generateReceiptHTML } from './pdfTemplates/receiptPDF';
 import { generateThermalReceiptHTML } from './pdfTemplates/thermalReceiptPDF';
 import { generateThermalPrescriptionHTML } from './pdfTemplates/thermalPrescriptionPDF';
-import { generateThermalLabResultsHTML } from './pdfTemplates/thermalLabResultsPDF';
 import { generateInsuranceClaimHTML } from './pdfTemplates/insuranceClaimPDF';
 import { generateClaimBatchHTML } from './pdfTemplates/claimBatchPDF';
 import { generateBillStatementHTML } from './pdfTemplates/billStatementPDF';
@@ -26,7 +25,6 @@ export type PDFType =
   | 'receipt'
   | 'thermalReceipt'
   | 'thermalPrescription'
-  | 'thermalLabResults'
   | 'insuranceClaim'
   | 'billStatement'
   | 'visitSummary'
@@ -66,8 +64,6 @@ export const generatePDF = (
     case 'thermalPrescription':
       // Accepts data.medications (list) or data.medication (single).
       return generateThermalPrescriptionHTML(data.medications ?? data.medication, data.patient, data.attendance, hospital, data.prescriberName, data.paperWidth);
-    case 'thermalLabResults':
-      return generateThermalLabResultsHTML(withPerformer(data.labTests, data.performedByName), data.patient, data.attendance, hospital, data.paperWidth);
     case 'insuranceClaim':
       return generateInsuranceClaimHTML(data.claim, data.patient ?? data.claim?.Patient ?? data.claim?.patient, hospital);
     case 'claimBatch':

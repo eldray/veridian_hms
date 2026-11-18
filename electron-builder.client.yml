@@ -10,6 +10,7 @@ directories:
 
 files:
   - main.cjs
+  - pki.cjs
   - preload.js
   - setup-preload.cjs
   - client-setup-preload.cjs
