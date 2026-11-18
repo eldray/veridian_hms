@@ -493,7 +493,7 @@ export default function UserDetail() {
                   {(canManageSuperAdmin || userForm.role === 'super_admin') && (
                     <option value="super_admin" disabled={!canManageSuperAdmin}>Super Admin</option>
                   )}
-                  <option value="admin">Admin</option>
+                  <option value="admin">System Admin</option>
                   <option value="hr_officer">HR Officer</option>
                   <option value="doctor">Doctor</option>
                   <option value="nurse">Nurse</option>
