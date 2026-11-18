@@ -208,233 +208,163 @@ export class ClaimBatchService extends BaseService {
 
     let insuranceProviderId = input.insuranceProviderId ?? null;
     const corporateAccountId = input.corporateAccountId ?? null;
-    // Set when the scheme was chosen here rather than by the operator.
-    let nhisSchemeWasAutoSelected = false;
 
-    // Provider / corporate scope validation
-    if (insuranceType === 'private' && !insuranceProviderId) {
-      throw new ValidationError('insuranceProviderId is required for private batches');
-    }
-    if (insuranceType === 'corporate') {
-      if (!corporateAccountId && !insuranceProviderId) {
-        throw new ValidationError(
-          'corporateAccountId or insuranceProviderId is required for corporate batches',
-        );
-      }
-      if (corporateAccountId) {
-        const account = await this.prisma.corporateAccount.findUnique({
-          where: { id: corporateAccountId },
-          select: { id: true, isActive: true, insuranceProviderId: true, companyName: true },
-        });
-        if (!account) throw new NotFoundError('Corporate account', corporateAccountId);
-        if (!account.isActive) throw new ValidationError('Corporate account is inactive');
-        if (!account.insuranceProviderId) {
-          throw new ValidationError('Configure an insurance provider on this corporate account before generating a claim batch');
-        }
-        if (insuranceProviderId && insuranceProviderId !== account.insuranceProviderId) {
-          throw new ValidationError('The selected insurance provider does not match this corporate account');
-        }
-        insuranceProviderId = account.insuranceProviderId;
-      }
-    }
-    if (insuranceType === 'nhis') {
-      // NHIS is one national scheme. Its claims are filed together whichever duplicate scheme
-      // record each attendance happens to point at, so leaving the provider unset batches the
-      // month rather than asking the operator to guess between near-identical records.
+    // Every batch represents one closed service month for one payer. NHIS and
+    // private claims must be scoped to an explicit provider. Corporate claims
+    // are scoped to one employer account and its contracted provider.
+    if (insuranceType === 'nhis' || insuranceType === 'private') {
       if (!insuranceProviderId) {
-        insuranceProviderId = await this.resolvePrimaryNHISProvider(periodYear, periodMonth);
-        nhisSchemeWasAutoSelected = true;
+        throw new ValidationError(`insuranceProviderId is required for ${insuranceType} monthly batches`);
       }
+      const provider = await this.prisma.insuranceProvider.findUnique({
+        where: { id: insuranceProviderId },
+        select: { id: true, type: true, isActive: true, name: true },
+      });
+      if (!provider) throw new NotFoundError('Insurance provider', insuranceProviderId);
+      if (provider.type !== insuranceType) {
+        throw new ValidationError(`Provider "${provider.name}" is not a ${insuranceType} provider`);
+      }
+      if (!provider.isActive) throw new ValidationError('The selected insurance provider is inactive');
     }
 
-    // An auto-selected scheme names the batch but must not narrow it, or the batch would take one
-    // duplicate record's claims instead of the month the preview counted.
+    if (insuranceType === 'corporate') {
+      if (!corporateAccountId) {
+        throw new ValidationError('corporateAccountId is required. Corporate batches are generated per employer account and month.');
+      }
+      const account = await this.prisma.corporateAccount.findUnique({
+        where: { id: corporateAccountId },
+        select: { id: true, isActive: true, insuranceProviderId: true, companyName: true },
+      });
+      if (!account) throw new NotFoundError('Corporate account', corporateAccountId);
+      if (!account.isActive) throw new ValidationError('Corporate account is inactive');
+      if (!account.insuranceProviderId) {
+        throw new ValidationError('Configure an insurance provider on this corporate account before generating a claim batch');
+      }
+      if (insuranceProviderId && insuranceProviderId !== account.insuranceProviderId) {
+        throw new ValidationError('The selected insurance provider does not match this corporate account');
+      }
+      insuranceProviderId = account.insuranceProviderId;
+    }
+
     const claims = await this.repo.findEligibleClaimsForBatch(
       insuranceType,
       periodYear,
       periodMonth,
-      nhisSchemeWasAutoSelected ? null : insuranceProviderId,
+      insuranceProviderId,
       corporateAccountId,
     );
     if (!claims.length) {
       throw new ValidationError(
-        `No finalized unbatched ${insuranceType} claims found for ${periodYear}-${String(periodMonth).padStart(2, '0')}`,
+        `No finalized unbatched ${insuranceType} claims found for ${periodYear}-${String(periodMonth).padStart(2, '0')} and the selected payer`,
       );
     }
 
-    // Sanity: every claim must have items
-    const empty = claims.filter((c) => !c.items || c.items.length === 0);
+    const empty = claims.filter((claim) => !claim.items?.length);
     if (empty.length) {
       throw new ValidationError(
         `${empty.length} claim(s) have no items and cannot be batched (first: ${empty[0].claimNumber})`,
       );
     }
 
-    // NHIS is not filed as one claim per month: the payer adjudicates a G-DRG family at a time —
-    // surgery, medical, obstetric — so the month becomes one batch per family. A claim carrying no
-    // G-DRG line has no package to be paid under, so it is held back for coding rather than filed
-    // into a batch the payer would bounce.
-    const partition = insuranceType === 'nhis' ? this.partitionByNHISFamily(claims) : null;
-    const groups = partition ? partition.families : [{ family: 'ALL', claims }];
-    if (!groups.length) {
+    // NHIS claims without a priced G-DRG package remain outside the monthly
+    // submission until corrected. All coded claims for this provider/month are
+    // placed together in one batch, regardless of MDC/G-DRG family.
+    const uncoded = insuranceType === 'nhis'
+      ? claims.filter((claim) => !(claim.items ?? []).some(
+          (item: any) => item.itemCategory === 'gdrg' && item.gdrgTariff?.mdc,
+        ))
+      : [];
+    const batchClaims = insuranceType === 'nhis'
+      ? claims.filter((claim) => !uncoded.includes(claim))
+      : claims;
+    if (!batchClaims.length) {
       throw new ValidationError(
-        `None of the ${claims.length} NHIS claims for ${PERIOD_MONTH_NAMES[periodMonth - 1]} ${periodYear} carries a ` +
-        'G-DRG code, so nothing can be filed. Set the principal G-DRG on those claims first.',
+        `No NHIS claims with a priced G-DRG package are ready for ${PERIOD_MONTH_NAMES[periodMonth - 1]} ${periodYear}. Correct the uncoded claims before generating this provider's monthly batch.`,
       );
     }
 
-    // Nothing is written until every family this request would file is free, so a month is either
-    // batched whole or left untouched.
-    for (const group of groups) {
-      const existing = await this.repo.findExistingBatch(
+    // A previous batch of ANY family for this payer/month is a duplicate. This
+    // also prevents a new monthly batch from being created alongside legacy
+    // family-split batches.
+    const existing = await this.repo.findExistingBatch(
+      insuranceType,
+      periodYear,
+      periodMonth,
+      insuranceProviderId,
+      corporateAccountId,
+    );
+    if (existing) {
+      throw new ConflictError(
+        `A ${insuranceType} batch already exists for this payer in ${PERIOD_MONTH_NAMES[periodMonth - 1]} ${periodYear} (${existing.batchNumber}). Delete an unfinalized batch or reconcile the existing monthly submission first.`,
+      );
+    }
+
+    const totalAmount = batchClaims.reduce(
+      (sum, claim) => sum.plus(claim.totalClaimAmount),
+      new Prisma.Decimal(0),
+    );
+    const batchNumber = getCounterService().nextBatchNumber();
+    const batch = await this.prisma.claimBatch.create({
+      data: {
+        batchNumber,
         insuranceType,
-        periodYear,
-        periodMonth,
         insuranceProviderId,
         corporateAccountId,
-        group.family,
-      );
-      if (existing) {
-        throw new ConflictError(
-          `Batch already exists for ${insuranceType}${group.family === 'ALL' ? '' : ` / ${group.family}`} / ` +
-          `${periodYear}-${String(periodMonth).padStart(2, '0')} (${existing.batchNumber}). Delete it first to regenerate.`,
+        claimFamily: 'ALL',
+        periodYear,
+        periodMonth,
+        totalClaims: batchClaims.length,
+        totalAmount,
+        status: 'generated',
+        description: input.description ?? null,
+        createdById: userId,
+        claims: { connect: batchClaims.map((claim) => ({ id: claim.id })) },
+      },
+      include: {
+        insuranceProvider: true,
+        corporateAccount: true,
+        createdBy: { select: { id: true, fullName: true, username: true } },
+        claims: {
+          include: {
+            Patient: true,
+            Attendance: { include: { Admission: true } },
+            items: { orderBy: { itemNumber: 'asc' } },
+          },
+        },
+      },
+    });
+
+    this.logInfo('Monthly claim batch generated', {
+      batchId: batch.id,
+      batchNumber,
+      insuranceType,
+      insuranceProviderId,
+      corporateAccountId,
+      periodYear,
+      periodMonth,
+      totalClaims: batchClaims.length,
+      heldBackUncoded: uncoded.length,
+    });
+
+    if (insuranceType === 'nhis') {
+      try {
+        const xml = await this.buildNHISBatchXml(batch.id);
+        await fs.promises.mkdir(BATCH_OUTPUT_DIR, { recursive: true });
+        const filePath = path.join(BATCH_OUTPUT_DIR, `${batchNumber}.xml`);
+        await fs.promises.writeFile(filePath, xml, 'utf-8');
+        await this.prisma.claimBatch.update({
+          where: { id: batch.id },
+          data: { xmlFilePath: filePath },
+        });
+      } catch (err: any) {
+        this.logError('NHIS monthly batch XML generation failed', err, { batchId: batch.id });
+        throw new Error(
+          `Batch ${batchNumber} was created but XML generation failed: ${err.message}. Fix the issue and download the XML again.`,
         );
       }
     }
 
-    const batches: any[] = [];
-    for (const group of groups) {
-      const totalAmount = group.claims.reduce(
-        (sum, c) => sum.plus(c.totalClaimAmount),
-        new Prisma.Decimal(0),
-      );
-      const batchNumber = getCounterService().nextBatchNumber();
-
-      const batch = await this.prisma.claimBatch.create({
-        data: {
-          batchNumber,
-          insuranceType,
-          insuranceProviderId,
-          corporateAccountId,
-          claimFamily: group.family,
-          periodYear,
-          periodMonth,
-          totalClaims: group.claims.length,
-          totalAmount,
-          status: 'generated',
-          description: this.batchDescription(input.description, group.family),
-          createdById: userId,
-          claims: { connect: group.claims.map((c) => ({ id: c.id })) },
-        },
-        include: {
-          insuranceProvider: true,
-          corporateAccount: true,
-          createdBy: { select: { id: true, fullName: true, username: true } },
-          claims: {
-            include: {
-              Patient: true,
-              Attendance: { include: { Admission: true } },
-              items: { orderBy: { itemNumber: 'asc' } },
-            },
-          },
-        },
-      });
-
-      this.logInfo('Claim batch generated', {
-        batchId: batch.id,
-        batchNumber,
-        insuranceType,
-        claimFamily: group.family,
-        periodYear,
-        periodMonth,
-        totalClaims: group.claims.length,
-      });
-
-      // NHIS → write XML file on disk immediately
-      if (insuranceType === 'nhis') {
-        try {
-          const xml = await this.buildNHISBatchXml(batch.id);
-          await fs.promises.mkdir(BATCH_OUTPUT_DIR, { recursive: true });
-          const filePath = path.join(BATCH_OUTPUT_DIR, `${batchNumber}.xml`);
-          await fs.promises.writeFile(filePath, xml, 'utf-8');
-          await this.prisma.claimBatch.update({
-            where: { id: batch.id },
-            data: { xmlFilePath: filePath },
-          });
-          this.logInfo('NHIS batch XML written', { batchId: batch.id, filePath });
-        } catch (err: any) {
-          // XML failure must NOT roll back the batch — surface the error but
-          // keep the batch so the user can retry the XML generation later.
-          this.logError('NHIS batch XML generation failed', err, { batchId: batch.id });
-          throw new Error(
-            `Batch ${batchNumber} was created but XML generation failed: ${err.message}. Fix the issue and download the XML again.`,
-          );
-        }
-      }
-
-      batches.push(batch);
-    }
-
-    return {
-      batches,
-      // What Generate did not take, so the screen can say the month is not finished with.
-      heldBackUncoded: partition ? partition.uncoded.length : 0,
-    };
-  }
-
-  /**
-   * The NHIS month, split into the batches the payer actually receives.
-   *
-   * A claim's family is the MDC of its principal G-DRG line — the first G-DRG line on the claim,
-   * since the generator writes exactly one and puts the package it is paid under there.
-   */
-  private partitionByNHISFamily(claims: any[]) {
-    const byFamily = new Map<string, any[]>();
-    const uncoded: any[] = [];
-    for (const claim of claims) {
-      const family: string | undefined = (claim.items ?? [])
-        .find((item: any) => item.itemCategory === 'gdrg')?.gdrgTariff?.mdc;
-      if (!family) {
-        uncoded.push(claim);
-        continue;
-      }
-      const list = byFamily.get(family) ?? [];
-      list.push(claim);
-      byFamily.set(family, list);
-    }
-    return {
-      families: [...byFamily.entries()]
-        .map(([family, list]) => ({ family, claims: list }))
-        .sort((a, z) => (z.claims.length - a.claims.length) || a.family.localeCompare(z.family)),
-      uncoded,
-    };
-  }
-
-  /** The operator's note, with the family on it when the month was split into several batches. */
-  private batchDescription(description: string | undefined, family: string) {
-    if (family === 'ALL') return description ?? null;
-    return description ? `${description} — ${family} claims` : `${family} claims`;
-  }
-
-  /**
-   * The scheme record an NHIS batch is filed under.
-   *
-   * A facility often has several near-identical NHIS provider records, some left inactive while old
-   * claims still point at them. The month is still one national scheme, so the batch names the
-   * record that actually holds most of its claims rather than making the operator guess.
-   */
-  private async resolvePrimaryNHISProvider(periodYear: number, periodMonth: number): Promise<string> {
-    const waiting = (await this.repo.summarizeBatchableByProvider(periodYear, periodMonth))
-      .filter((row) => row.type === 'nhis' && row.insuranceProviderId);
-    if (waiting.length) return waiting[0].insuranceProviderId as string;
-
-    const configured = await this.prisma.insuranceProvider.findFirst({
-      where: { type: 'nhis' },
-      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
-      select: { id: true },
-    });
-    if (!configured) throw new ValidationError('No NHIS provider is configured');
-    return configured.id;
+    return { batches: [batch], heldBackUncoded: uncoded.length };
   }
 
   // ==========================================
@@ -555,8 +485,8 @@ export class ClaimBatchService extends BaseService {
     const byType = await this.repo.summarizeBatchableByType(periodYear, periodMonth, scope);
     const types = ['nhis', 'private', 'corporate'] as const;
 
-    // NHIS files a G-DRG family at a time, so its month is not one number but the set of batches
-    // Generate would build. Read from the same claims Generate would take.
+    // The preview uses the same provider-scoped claim set as generation.
+    // NHIS package-less claims are visible as held back, not mixed into the batch total.
     const nhisClaims = await this.repo.findEligibleClaimsForBatch(
       'nhis',
       periodYear,
@@ -564,7 +494,15 @@ export class ClaimBatchService extends BaseService {
       scope.insuranceProviderId ?? null,
       null,
     );
-    const nhisPartition = this.partitionByNHISFamily(nhisClaims);
+    const nhisCoded = nhisClaims.filter((claim) => (claim.items ?? []).some(
+      (item: any) => item.itemCategory === 'gdrg' && item.gdrgTariff?.mdc,
+    ));
+    const nhisUncoded = nhisClaims.length - nhisCoded.length;
+    byType.nhis.count = nhisCoded.length;
+    byType.nhis.amount = money(nhisCoded.reduce(
+      (sum, claim) => sum.plus(claim.totalClaimAmount),
+      new Prisma.Decimal(0),
+    ));
 
     return {
       periodYear,
@@ -584,16 +522,8 @@ export class ClaimBatchService extends BaseService {
       // Which payer each figure belongs to, so the provider list can show its own count instead
       // of repeating the type total against every name.
       byProvider: await this.repo.summarizeBatchableByProvider(periodYear, periodMonth),
-      nhisFamilies: nhisPartition.families.map((group) => ({
-        family: group.family,
-        count: group.claims.length,
-        amount: money(group.claims.reduce(
-          (sum, c) => sum.plus(c.totalClaimAmount),
-          new Prisma.Decimal(0),
-        )),
-      })),
-      // Claims with no G-DRG line: counted, reported, and left out of every batch.
-      nhisUncoded: nhisPartition.uncoded.length,
+      // Claims without a G-DRG package remain unbatched until coded.
+      nhisUncoded,
       overall: {
         count: types.reduce((sum, type) => sum + byType[type].count, 0),
         totalAmount: money(types.reduce((sum, type) => sum + byType[type].amount, 0)),
