@@ -114,6 +114,7 @@ const normalizeSeedPayerAllocation = async (
   const bill = await prisma.bill.findUnique({
     where: { id: billId },
     include: {
+      Attendance: { select: { insuranceProviderId: true } },
       BillLineItem: {
         where: { isVoided: false },
         include: {
@@ -137,20 +138,49 @@ const normalizeSeedPayerAllocation = async (
   });
   if (!bill) throw new Error(`Seed bill ${billId} disappeared before payer allocation.`);
 
+  const medicationIds = bill.BillLineItem
+    .filter((line) => line.serviceType === 'medication' && line.sourceKey?.startsWith('medication:'))
+    .map((line) => line.sourceKey!.slice('medication:'.length));
+  const medications = medicationIds.length
+    ? await prisma.medication.findMany({
+        where: { id: { in: medicationIds } },
+        include: {
+          StockItem: {
+            include: {
+              payerRules: {
+                where: { insuranceProviderId: bill.Attendance?.insuranceProviderId ?? '' },
+                take: 1,
+              },
+            },
+          },
+        },
+      })
+    : [];
+  const medicationById = new Map(medications.map((med) => [med.id, med]));
+
   for (const line of bill.BillLineItem) {
     const pricing = line.serviceCatalog?.pricing?.[0];
     const ward = line.wardChargeRecord;
-    const isMedication = line.serviceType === 'medication';
+    const medicationId = line.serviceType === 'medication' && line.sourceKey?.startsWith('medication:')
+      ? line.sourceKey.slice('medication:'.length)
+      : null;
+    const medicationRule = medicationId ? medicationById.get(medicationId)?.StockItem?.payerRules?.[0] : null;
+    const existingInsurerShare = toNumber(line.insuranceCoveredAmount);
+    const medicineIsCovered = Boolean(medicationRule?.isCovered === true && existingInsurerShare > 0);
+    const medicineTariff = medicationRule?.tariffPrice == null
+      ? pricing ? toNumber(pricing.nhisPrice) : (line.quantity > 0 ? existingInsurerShare / line.quantity : 0)
+      : toNumber(medicationRule.tariffPrice);
     const allocation = allocateSeedPayerLine({
       paymentMode,
       quantity: line.quantity,
       lineTotal: toNumber(line.lineTotal),
       unitPrice: toNumber(line.unitPrice),
       cashPrice: pricing ? toNumber(pricing.cashPrice) : ward ? toNumber(ward.cashPrice) : null,
-      nhisPrice: pricing ? toNumber(pricing.nhisPrice) : ward ? toNumber(ward.nhisPrice) : null,
-      isNHISCovered: line.serviceCatalog?.isNHISCovered ?? (ward ? toNumber(ward.nhisPrice) > 0 : false),
-      isMedication,
-      existingInsuranceCoveredAmount: toNumber(line.insuranceCoveredAmount),
+      nhisPrice: medicationId ? medicineTariff : pricing ? toNumber(pricing.nhisPrice) : ward ? toNumber(ward.nhisPrice) : null,
+      isNHISCovered: medicationId
+        ? medicineIsCovered
+        : line.serviceCatalog?.isNHISCovered ?? (ward ? toNumber(ward.nhisPrice) > 0 : false),
+      existingInsuranceCoveredAmount: existingInsurerShare,
       existingPatientPayableAmount: toNumber(line.patientPayableAmount),
     });
     await prisma.billLineItem.update({
