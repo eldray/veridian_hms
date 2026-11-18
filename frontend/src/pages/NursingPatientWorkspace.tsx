@@ -781,8 +781,8 @@ export default function NursingPatientWorkspace() {
 
                 {/* Patient info — 1 column */}
                 <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-                    <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+                    <PatientAvatar patient={selectedPatient} size="md" />
                     <span className="text-xs font-semibold text-[var(--text-primary)]">Patient Info</span>
                   </div>
 
