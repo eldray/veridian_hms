@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requirePermission, requireRole, requireRoleOrPermission, requireSuperAdmin } from '../src/middleware/authMiddleware';
+import { requireAllRoles, requireMinSeniority, requirePermission, requireRole, requireRoleOrPermission, requireSuperAdmin } from '../src/middleware/authMiddleware';
 
 describe('role authorization', () => {
   it('allows super_admin to inherit ordinary roles regardless of role casing', () => {
@@ -96,6 +96,22 @@ describe('role authorization', () => {
       res as any,
       next,
     );
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a user without seniority reaches a seniority-gated action', () => {
+    const next = vi.fn();
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    requireMinSeniority('SENIOR')({ user: { role: 'doctor' } } as any, res as any, next);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('does not treat requireAllRoles as any-of for a single-role account', () => {
+    const next = vi.fn();
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    requireAllRoles(['doctor', 'nurse'])({ user: { role: 'doctor' } } as any, res as any, next);
     expect(res.status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
   });
