@@ -1156,7 +1156,7 @@ export const getCorporateClaims = (filters?: any) =>
 export const getInsuranceClaimsTracking = (filters?: { page?: number; limit?: number; search?: string; insuranceType?: string }) =>
   api.get('/insurance-claims/tracking', { params: filters }).then(r => r.data);
 
-legacy claim payment API/**
+/**
  * Tracking & payments reads batches, not claims: the payer receives one submitted period and
  * answers it with one or more remittances, so the batch is the row the desk reconciles.
  */
