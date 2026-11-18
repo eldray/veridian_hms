@@ -5,6 +5,7 @@
 // happen. A walk-in gives a name and maybe an age or phone — nothing is invented for them,
 // so no folder number or date of birth is fabricated here.
 import { useCallback, useEffect, useState } from 'react';
+import { useSmartBack } from '../utils/useSmartBack';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
 import { AlertCircle, ArrowLeft, Store, UserPlus } from 'lucide-react';
@@ -19,6 +20,7 @@ const MODES: Array<[IdentityMode, string]> = [['new', 'New name'], ['existing', 
 
 export default function CounterNewTicket() {
   const navigate = useNavigate();
+  const goBack = useSmartBack('/dashboard/counter');
   const { success, error: toastError } = useToast();
 
   const [identityMode, setIdentityMode] = useState<IdentityMode>('new');
@@ -101,7 +103,7 @@ export default function CounterNewTicket() {
         icon={Store}
         accent="cyan"
         actions={(
-          <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate('/dashboard/counter')}>
+          <Button variant="secondary" icon={ArrowLeft} onClick={goBack}>
             Back to counter
           </Button>
         )}
