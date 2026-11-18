@@ -5,7 +5,6 @@
 // cells px-3 py-2, sidebar/details p-3, modals p-4. Logic untouched: every
 // filter, pagination, link/unlink, create/edit/delete handler is exactly as before.
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useSmartBack } from '../utils/useSmartBack';
 import { useGDRGTariffStore } from '../store/gdrgTariffStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
