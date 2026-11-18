@@ -250,11 +250,6 @@ const batchTrackingRows = (
  * The G-DRG family an NHIS claim is filed under — the MDC of its principal G-DRG line. Null when
  * the claim has no package code at all, which is a claim the payer cannot be billed for.
  */
-const nhisFamilyOf = (claim?: {
-  items?: Array<{ itemCategory: string; gdrgTariff: { mdc: string } | null } | null>;
-} | null): string | null =>
-  claim?.items?.find((item) => item?.itemCategory === 'gdrg')?.gdrgTariff?.mdc ?? null;
-
 /**
  * Claims, one per covered and billed visit, then the batches the finalised ones are
  * submitted in.
