@@ -38,3 +38,17 @@ This is a source review and a record of targeted changes, not a runtime security
 - The guard catches missing wiring, not an incorrect role list. Runtime
   allowed/denied checks against a running API remain a manual or future
   integration-test task.
+
+
+## Update (2026-11-18) — role and sensitive-action hardening
+
+- Leave list queries are now scoped server-side: HR Officer, System Admin and Super Admin may review facility requests; other staff can only list their own. A caller-supplied `userId` filter cannot broaden visibility.
+- Individual leave reads enforce the same owner-or-HR/admin rule.
+- Non-HR staff may only cancel their own pending leave request. They cannot amend another person's request, change approval status, or edit the reason field. HR and administrators retain review/decision workflows.
+- Billing invoice lists, collection totals, statistics and revenue-line reports are now restricted to Accounts and administrators. Clinical and Records staff may still read individual bills and their line items for patient-facing workflows.
+- The legacy bill endpoints now apply the same separation between facility-wide financial reporting and individual bill reads.
+- These changes complement the RBAC catalogue and platform-permission boundary described in `ROLE_PERMISSION_MATRIX.md`.
+
+## Verification status (2026-11-18)
+
+Source changes were reviewed after writing, but automated tests and API integration checks were not executed in this GitHub-only session. Validate the leave owner/HR cases and billing allowed/denied role cases against a non-production database before merging.
