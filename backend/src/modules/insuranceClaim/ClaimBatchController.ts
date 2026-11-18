@@ -113,7 +113,7 @@ export class ClaimBatchController extends BaseController {
       },
       req.user!.id,
     );
-    // An NHIS month is filed one G-DRG family at a time, so one click can build several batches.
+    // One payer/provider receives one batch for the selected service month.
     return this.created(
       res,
       result,
