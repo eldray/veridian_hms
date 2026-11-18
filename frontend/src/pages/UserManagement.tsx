@@ -97,7 +97,7 @@ const ROLE_ICON_KEYS: Record<string, 'stethoscope' | 'shield' | 'briefcase' | 'h
   billing_officer: 'calculator', store_keeper: 'briefcase', community_nurse: 'heart',
 };
 const ROLE_LABELS: Record<string, string> = {
-  super_admin: 'Super Admin', admin: 'Admin', hr_officer: 'HR Officer', doctor: 'Doctor', nurse: 'Nurse', midwife: 'Midwife',
+  super_admin: 'Super Admin', admin: 'System Admin', hr_officer: 'HR Officer', doctor: 'Doctor', nurse: 'Nurse', midwife: 'Midwife',
   lab_tech: 'Lab Technician', sonographer: 'Sonographer', pharmacist: 'Pharmacist', accounts: 'Accounts', records: 'Records',
   billing_officer: 'Billing Officer', store_keeper: 'Store Keeper', community_nurse: 'Community Nurse',
 };
