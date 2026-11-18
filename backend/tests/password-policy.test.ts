@@ -209,6 +209,10 @@ describe('forgot password', () => {
       updateUser: vi.fn().mockResolvedValue(undefined),
     };
     (service as any).repository = repository;
+    (service as any).prisma = { passwordResetRequest: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: 'reset-1' }),
+    } };
     return { service, repository };
   };
 
@@ -218,9 +222,7 @@ describe('forgot password', () => {
     const result = await service.forgotPassword('ward.nurse');
 
     expect(result.success).toBe(true);
-    expect(result.message).toMatch(/administrator/);
-    const [, data] = repository.updateUser.mock.calls[0];
-    expect(data).toEqual({ resetToken: null, resetExpiry: null });
+    expect(result.message).toMatch(/administrator review/i);
   });
 
   it('answers the same way whether or not the account exists', async () => {
