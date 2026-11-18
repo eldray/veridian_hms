@@ -2915,7 +2915,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     attendanceNumber: string;
     attendanceDateTime: any;
     attendanceStatus: string;
-    patient: { name: string; age: number | null; gender: string | null; folderNumber: string | null; isCounter: boolean };
+    patient: { name: string; age: number | null; gender: string | null; folderNumber: string | null; imageUrl: string | null; isCounter: boolean };
   } {
     const identity = {
       attendanceNumber: row?.attendanceNumber || '',
@@ -2932,6 +2932,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           age: patient.dateOfBirth ? this.calculateAge(patient.dateOfBirth) : null,
           gender: patient.gender ?? null,
           folderNumber: patient.folderNumber ?? null,
+          imageUrl: patient.imageUrl ?? null,
           isCounter: false,
         },
       };
@@ -2944,6 +2945,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         age: row?.CounterClient?.ageYears ?? null,
         gender: null,
         folderNumber: null,
+        imageUrl: null,
         isCounter: true,
       },
     };
