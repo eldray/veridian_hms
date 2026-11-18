@@ -188,11 +188,15 @@ export class AuthService {
     const policyError = passwordPolicyError(newPassword, { username: user.username, email: user.email });
     if (policyError) return { success: false, error: policyError };
     const password = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    await this.prisma.$transaction([
-      this.prisma.user.update({ where: { id: user.id }, data: { password, resetToken: null, resetExpiry: null } }),
-      this.prisma.passwordResetRequest.update({ where: { id: request.id }, data: { status: 'completed', completedAt: new Date(), codeHash: null } }),
-      this.prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
-    ]);
+    await this.prisma.$transaction(async (tx) => {
+      const consumed = await tx.passwordResetRequest.updateMany({
+        where: { id: request.id, status: 'approved', codeHash: suppliedHash, expiresAt: { gt: new Date() } },
+        data: { status: 'completed', completedAt: new Date(), codeHash: null },
+      });
+      if (consumed.count !== 1) throw new Error('Invalid or expired reset code');
+      await tx.user.update({ where: { id: user.id }, data: { password, resetToken: null, resetExpiry: null } });
+      await tx.refreshToken.deleteMany({ where: { userId: user.id } });
+    });
     return { success: true };
   }
 
