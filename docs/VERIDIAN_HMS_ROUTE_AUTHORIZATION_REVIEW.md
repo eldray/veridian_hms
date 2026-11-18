@@ -49,6 +49,7 @@ This is a source review and a record of targeted changes, not a runtime security
 - The legacy bill endpoints now apply the same separation between facility-wide financial reporting and individual bill reads.
 - These changes complement the RBAC catalogue and platform-permission boundary described in `ROLE_PERMISSION_MATRIX.md`.
 - Stock catalogue list, category and detail reads now require an operational, clinical or finance role (`admin`, `super_admin`, `accounts`, `pharmacist`, `doctor`, `nurse`, `midwife`, `records`, `lab_tech`, or `sonographer`). HR Officer is excluded because the role has no stock workflow. Existing department scoping remains in the controller/service; this route guard prevents unrelated authenticated roles from reading stock catalogue and pricing data.
+- Requisition fulfilment is now restricted in the service layer to Pharmacy or administrators, in addition to requiring the authenticated user to belong to the supplying department. This closes the shared status-route gap where any clinical role in the supplier department could otherwise mark a requisition fulfilled.
 
 ## Verification status (2026-11-18)
 
