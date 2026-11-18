@@ -14,11 +14,12 @@ import { LabTestModal } from '../components/medical-entries/modals/LabTestModal'
 import { getLabWorklist } from '../api';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { pickVisit } from '../utils/visitSelection';
 import SendDocumentModal from '../components/SendDocumentModal';
 import {
   FlaskConical, Printer, RefreshCw, AlertCircle,
-  Plus, Clock, CheckCircle, Activity, User, Calendar, X, Edit,
+  Plus, Clock, CheckCircle, Activity, Calendar, X, Edit,
   FileText, Microscope, ArrowUp, ArrowDown,
   Save, MessageSquare, Hash, Phone, Info, TestTube,
   BedDouble, Play,
@@ -392,6 +393,7 @@ export default function LabResultEntry() {
         attendanceId: row.attendanceId,
         patientId: row.patientId,
         name: row.patient?.name || 'Unknown patient',
+        imageUrl: row.patient?.imageUrl,
         folderNumber: row.patient?.folderNumber,
         age: row.patient?.age,
         gender: row.patient?.gender,
@@ -418,6 +420,7 @@ export default function LabResultEntry() {
         patient: {
           id: row.patientId,
           name: row.name,
+          imageUrl: row.imageUrl,
           folderNumber: row.folderNumber,
           age: row.age,
           gender: row.gender,
@@ -857,9 +860,7 @@ export default function LabResultEntry() {
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl border border-[var(--border-color)] bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] flex items-center justify-center">
-                  <User className="w-5 h-5" />
-                </div>
+                <PatientAvatar imageUrl={patient.imageUrl} name={patientFullName} size="md" className="rounded-xl border border-[var(--border-color)] bg-[var(--icon-purple-bg)]" fallbackClassName="text-[var(--icon-purple-text)]" />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-[var(--text-primary)] text-base">{patientFullName}</h3>

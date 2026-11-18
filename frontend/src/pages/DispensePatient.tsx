@@ -13,6 +13,7 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVisits';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
@@ -218,6 +219,7 @@ export default function DispensePatient() {
           attendanceId: row.attendanceId,
           patientId: row.patientId,
           name: row.patient?.name || 'Unknown patient',
+          imageUrl: row.patient?.imageUrl,
           folderNumber: row.patient?.folderNumber,
           age: row.patient?.age,
           gender: row.patient?.gender,
@@ -245,6 +247,7 @@ export default function DispensePatient() {
         patient: {
           id: row.patientId,
           name: row.name,
+          imageUrl: row.imageUrl,
           folderNumber: row.folderNumber,
           age: row.age,
           gender: row.gender,
@@ -665,9 +668,7 @@ export default function DispensePatient() {
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4" style={{ boxShadow: 'var(--shadow-sm)' }}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 rounded-xl bg-[var(--icon-green-bg)] flex items-center justify-center flex-shrink-0">
-              <User className="w-5 h-5 text-[var(--icon-green-text)]" />
-            </div>
+            <PatientAvatar imageUrl={patient.imageUrl} name={patientName} size="md" className="rounded-xl bg-[var(--icon-green-bg)]" fallbackClassName="text-[var(--icon-green-text)]" />
             <div>
               <h2 className="text-sm font-bold text-[var(--text-primary)]">{patientName}</h2>
               <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">

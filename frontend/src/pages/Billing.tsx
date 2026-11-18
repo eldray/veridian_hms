@@ -934,7 +934,10 @@ const handlePrintStatement = async (billId: string) => {
                   {paginatedWaivers.map((waiver) => (
                     <tr key={waiver.id} className={TR}>
                       <td className={cn(TD, 'font-semibold')}>
-                        {waiver.patient?.surname} {waiver.patient?.otherNames}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <PatientAvatar patient={waiver.patient} size="sm" className="rounded-full" />
+                          <span className="truncate">{waiver.patient?.surname} {waiver.patient?.otherNames}</span>
+                        </div>
                       </td>
                       <td className={TD_MONO}>{waiver.patient?.folderNumber || '—'}</td>
                       <td className={TD_MONO}>{waiver.bill?.attendance?.attendanceNumber || '—'}</td>

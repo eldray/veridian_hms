@@ -312,6 +312,7 @@ export default function ScansEntry() {
         attendanceId: row.attendanceId,
         patientId: row.patientId,
         name: row.patient?.name || 'Unknown patient',
+        imageUrl: row.patient?.imageUrl,
         folderNumber: row.patient?.folderNumber,
         age: row.patient?.age,
         gender: row.patient?.gender,
@@ -338,6 +339,7 @@ export default function ScansEntry() {
         patient: {
           id: row.patientId,
           name: row.name,
+          imageUrl: row.imageUrl,
           folderNumber: row.folderNumber,
           age: row.age,
           gender: row.gender,

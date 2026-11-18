@@ -69,7 +69,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       orderBy: { createdAt: 'desc' },
       include: {
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
-        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
+        Patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true, contact: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true } },
         Bill: { select: { id: true, billNumber: true, totalAmount: true } }
       }
@@ -126,7 +126,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         where,
         include: {
           InsuranceProvider: { select: { id: true, name: true, type: true } },
-          Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+          Patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
           Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true } },
           Bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true } },
           _count: { select: { items: true } },
@@ -204,7 +204,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
               claimNumber: true,
               totalClaimAmount: true,
               status: true,
-              Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }
+              Patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } }
             }
           },
           // The list screen shows a Provider / Account column; without these the
@@ -508,7 +508,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       this.prisma.insuranceClaim.findMany({
         where,
         include: {
-          Patient: { select: { folderNumber: true, surname: true, otherNames: true } },
+          Patient: { select: { folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
           Attendance: { select: { attendanceNumber: true, dateTime: true } },
           InsuranceProvider: { select: { name: true, type: true } },
           CorporateAccount: { select: { companyName: true } },
@@ -596,7 +596,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       orderBy: { createdAt: 'desc' },
       include: {
         InsuranceProvider: { select: { id: true, name: true, type: true } },
-        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        Patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } },
         Bill: { select: { id: true, billNumber: true, totalAmount: true } }
       }
@@ -625,7 +625,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       orderBy: { createdAt: 'desc' },
       include: {
         InsuranceProvider: { select: { id: true, name: true, type: true } },
-        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        Patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
         Bill: { select: { id: true, billNumber: true, totalAmount: true } }
       }
@@ -656,7 +656,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       include: {
         InsuranceProvider: { select: { id: true, name: true, type: true } },
         CorporateAccount: { select: { id: true, companyName: true } },
-        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        Patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, corporateEmployeeId: true } },
         Bill: { select: { id: true, billNumber: true, totalAmount: true } }
       }

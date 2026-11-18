@@ -12,6 +12,7 @@ import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getPatientName } from '../utils/patient';
 import {
@@ -506,9 +507,13 @@ export default function VitalsEntry() {
           <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-                  <User className="w-6 h-6 text-[var(--icon-cyan-text)]" />
-                </div>
+                <PatientAvatar
+                  imageUrl={selectedPatient?.imageUrl}
+                  name={getPatientName(selectedPatient)}
+                  size="xl"
+                  className="rounded-xl bg-[var(--icon-cyan-bg)]"
+                  fallbackClassName="text-[var(--icon-cyan-text)]"
+                />
                 <div>
                   <h3 className="text-lg font-bold text-[var(--text-primary)]">
                     {getPatientName(selectedPatient)}
