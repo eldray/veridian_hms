@@ -487,13 +487,22 @@ export class ClaimBatchService extends BaseService {
 
     // The preview uses the same provider-scoped claim set as generation.
     // NHIS package-less claims are visible as held back, not mixed into the batch total.
-    const nhisClaims = await this.repo.findEligibleClaimsForBatch(
-      'nhis',
-      periodYear,
-      periodMonth,
-      scope.insuranceProviderId ?? null,
-      null,
-    );
+    let nhisClaims: any[] = [];
+    if (!scope.corporateAccountId) {
+      if (!scope.insuranceProviderId) {
+        nhisClaims = await this.repo.findEligibleClaimsForBatch('nhis', periodYear, periodMonth, null, null);
+      } else {
+        const selectedProvider = await this.prisma.insuranceProvider.findUnique({
+          where: { id: scope.insuranceProviderId },
+          select: { type: true },
+        });
+        if (selectedProvider?.type === 'nhis') {
+          nhisClaims = await this.repo.findEligibleClaimsForBatch(
+            'nhis', periodYear, periodMonth, scope.insuranceProviderId, null,
+          );
+        }
+      }
+    }
     const nhisCoded = nhisClaims.filter((claim) => (claim.items ?? []).some(
       (item: any) => item.itemCategory === 'gdrg' && item.gdrgTariff?.mdc,
     ));
