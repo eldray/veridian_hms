@@ -236,50 +236,22 @@ export class InsuranceClaimController extends BaseController {
   });
 
   recordTrackingEvent = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { eventType, status, submissionDate, payerReference, amount, paymentReference, paymentMethod, notes } = req.body || {};
-    const allowedTypes = ['submission', 'adjudication', 'payment', 'note'];
+    const { eventType, status, submissionDate, payerReference, notes } = req.body || {};
+    // Payments are reconciled against the monthly payer batch, not individual claims.
+    if (eventType === 'payment') {
+      return this.badRequest(
+        res,
+        'Individual claim payments are disabled. Record the remittance against the relevant monthly batch in Tracking & payments.',
+      );
+    }
+    const allowedTypes = ['submission', 'adjudication', 'note'];
     if (!allowedTypes.includes(eventType)) return this.badRequest(res, 'Invalid tracking event type');
     const claim = await prisma.insuranceClaim.findUnique({
       where: { id: req.params.claimId },
-      select: { id: true, claimNumber: true, status: true, totalClaimAmount: true },
+      select: { id: true, claimNumber: true, status: true },
     });
     if (!claim) return this.notFound(res, 'Insurance claim');
-    if (claim.status !== 'finalized') return this.badRequest(res, 'Only finalized claims can be tracked for submission or remittance');
-
-    if (eventType === 'payment') {
-      const numericAmount = Number(amount);
-      if (!Number.isFinite(numericAmount) || numericAmount <= 0) return this.badRequest(res, 'Payment amount must be greater than zero');
-      if (!String(paymentReference || '').trim()) return this.badRequest(res, 'A payer remittance/payment reference is required to prevent duplicate entries');
-      try {
-        const event = await prisma.$transaction(async (tx: any) => {
-          await tx.$queryRaw`SELECT "id" FROM "InsuranceClaim" WHERE "id" = ${claim.id} FOR UPDATE`;
-          const existing = await tx.insuranceClaimTrackingEvent.findMany({
-            where: { claimId: claim.id, eventType: 'payment' }, select: { amount: true },
-          });
-          const paid = existing.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
-          if (paid + numericAmount > Number(claim.totalClaimAmount) + 0.005) {
-            throw new Error('Payment exceeds the remaining claim amount. Check the remittance and existing allocations.');
-          }
-          return tx.insuranceClaimTrackingEvent.create({
-            data: {
-              claimId: claim.id, eventType, amount: numericAmount,
-              paymentReference: String(paymentReference).trim(),
-              paymentMethod: paymentMethod ? String(paymentMethod).trim() : null,
-              payerReference: payerReference ? String(payerReference).trim() : null,
-              notes: notes ? String(notes).trim() : null,
-              recordedById: req.user!.id,
-            },
-          });
-        });
-        return this.created(res, event, 'Claim payment recorded');
-      } catch (error: any) {
-        if (error?.code === 'P2002' || /unique constraint/i.test(String(error?.message))) {
-          return this.conflict(res, 'This payment reference has already been recorded');
-        }
-        if (String(error?.message || '').includes('exceeds the remaining')) return this.badRequest(res, error.message);
-        throw error;
-      }
-    }
+    if (claim.status !== 'finalized') return this.badRequest(res, 'Only finalized claims can be tracked for submission or adjudication');
 
     if (eventType === 'submission' && !String(payerReference || '').trim()) {
       return this.badRequest(res, 'Enter the payer submission/reference number where available');

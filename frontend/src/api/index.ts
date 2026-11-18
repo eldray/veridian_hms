@@ -1156,18 +1156,7 @@ export const getCorporateClaims = (filters?: any) =>
 export const getInsuranceClaimsTracking = (filters?: { page?: number; limit?: number; search?: string; insuranceType?: string }) =>
   api.get('/insurance-claims/tracking', { params: filters }).then(r => r.data);
 
-export const recordInsuranceClaimTrackingEvent = (claimId: string, data: {
-  eventType: 'submission' | 'adjudication' | 'payment';
-  status?: string;
-  submissionDate?: string;
-  payerReference?: string;
-  amount?: number;
-  paymentReference?: string;
-  paymentMethod?: string;
-  notes?: string;
-}) => api.post(`/insurance-claims/${claimId}/tracking-events`, data).then(r => r.data);
-
-/**
+legacy claim payment API/**
  * Tracking & payments reads batches, not claims: the payer receives one submitted period and
  * answers it with one or more remittances, so the batch is the row the desk reconciles.
  */
@@ -4516,7 +4505,7 @@ export default {
   generateNHISClaim, generatePrivateInsuranceClaim, generateCorporateClaim,
   updateInsuranceClaim, updateClaimDraft, replaceClaimItems, finalizeClaim,
   getNHISClaimMedicines,
-  getClaimsSummary, getInsuranceClaimsTracking, recordInsuranceClaimTrackingEvent, downloadClaimXml, generateClaimPrint, generateClaimXML,
+  getClaimsSummary, getInsuranceClaimsTracking, downloadClaimXml, generateClaimPrint, generateClaimXML,
 
   // Claim Batches
   generateClaimBatch, getClaimBatches, getClaimBatch, finalizeClaimBatch, deleteClaimBatch,
