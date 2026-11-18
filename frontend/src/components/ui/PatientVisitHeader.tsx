@@ -187,7 +187,6 @@ export function PatientVisitHeader({
             fallbackClassName=""
             fallbackText={initials}
             fallbackIcon={Icon}
-            style={undefined}
           />
           <div className="min-w-0">
             <h2 className="font-bold text-[var(--text-primary)] text-[14px] leading-tight truncate">
