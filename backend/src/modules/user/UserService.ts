@@ -148,9 +148,18 @@ export class UserService extends BaseService {
     return shift;
   }
 
-  async getLeaveById(leaveId: string): Promise<LeaveResponse> {
+  async getLeaveById(
+    leaveId: string,
+    actor: { userId: string; role: string },
+  ): Promise<LeaveResponse> {
     const leave = await this.repository.findLeaveById(leaveId);
     if (!leave) throw new Error('Leave request not found');
+
+    // HR and administrators may review all requests. Other staff may only
+    // view their own request, including its private reason/details.
+    if (!this.isAdminLike(actor.role) && leave.userId !== actor.userId) {
+      throw new ForbiddenError('You can only view your own leave requests');
+    }
     return leave;
   }
 
@@ -854,8 +863,16 @@ export class UserService extends BaseService {
   // LEAVE MANAGEMENT
   // ==========================================
 
-  async getAllLeaves(filters: LeaveFilters = {}) {
-    return this.repository.findAllLeaves(filters);
+  async getAllLeaves(
+    filters: LeaveFilters = {},
+    actor: { userId: string; role: string },
+  ) {
+    // Never trust a client-supplied userId to broaden leave visibility.
+    // HR/admin can review facility requests; all other staff are self-service.
+    const scopedFilters = this.isAdminLike(actor.role)
+      ? filters
+      : { ...filters, userId: actor.userId };
+    return this.repository.findAllLeaves(scopedFilters);
   }
 
   async createLeave(userId: string, data: CreateLeaveDTO) {
