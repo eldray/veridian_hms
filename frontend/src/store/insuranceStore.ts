@@ -44,7 +44,7 @@ interface ClaimSummary { draft: { count: number; totalAmount: number }; finalize
 interface FinalizedClaimsTotal { total: number; totalAmount: number; }
 interface BatchSummary { batches: number; claims: number; amount: number; }
 interface PeriodClaimsState { rows: PeriodClaimRow[]; pagination: { page: number; limit: number; total: number; pages: number }; totals: { claims: number; amount: number; byStatus: Record<string, { count: number; amount: number }>; batchable: { count: number; amount: number } }; }
-/** Generating a batch can produce several: NHIS files one G-DRG family per submission, so a month of NHIS claims becomes one batch per family. `heldBackUncoded` is what Generate refused — claims with no package code, left for coding rather than filed into a batch the payer would reject. */
+/** One monthly batch is generated per insurance provider and, for corporate payers, per employer account. NHIS claims without a priced G-DRG package remain unbatched until corrected. */
 export interface GenerateClaimBatchOutcome { batches: ClaimBatch[]; heldBackUncoded: number; }
 interface InsuranceState {
   nhisClaims: InsuranceClaim[]; privateClaims: InsuranceClaim[]; corporateClaims: InsuranceClaim[]; allClaims: InsuranceClaim[];

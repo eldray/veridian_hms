@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/StockTransactions.tsx - COMPLETE FIXED VERSION
 // Consistent with Patients / Referrals / Notifications:
 //  - One data point per column (Date | Time | Item | Notes | Type | Quantity | Unit | Reference | Balance | Performed By)
@@ -23,6 +24,7 @@ const humanize = (s: any) => String(s ?? '').replace(/_/g, ' ').replace(/-/g, ' 
 const titleCase = (s: any) => String(s ?? '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).trim();
 
 export default function StockTransactions() {
+  const goBack = useSmartBack('/dashboard/stock');
   const { transactions, stockItems, getStockTransactions, getStockItems, isLoading } = useStockStore();
   const { users, getAllUsers } = useUserStore();
   const { success, error: toastError } = useToast();
@@ -143,7 +145,7 @@ export default function StockTransactions() {
 
   return (
     <div className="space-y-6 p-6">
-      <PageHeader title="Stock Transactions" subtitle="Track all stock movements and inventory changes" icon={FileText} accent="blue" onBack={() => navigate(-1)}
+      <PageHeader title="Stock Transactions" subtitle="Track all stock movements and inventory changes" icon={FileText} accent="blue" onBack={goBack}
         actions={(
           <>
             <Button variant="secondary" icon={RefreshCw} loading={isLoading} onClick={() => loadTransactions(filters)}>Refresh</Button>

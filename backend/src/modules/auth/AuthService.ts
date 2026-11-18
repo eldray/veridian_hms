@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { createHash, randomBytes } from 'crypto';
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import { PrismaClient, Seniority } from '@prisma/client';
 import { AuthRepository } from './AuthRepository';
@@ -71,8 +72,8 @@ export class AuthService {
       permissions,
       departmentId: departmentId || '',
     };
-    const accessToken = jwt.sign(payload, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] });
-    const refreshToken = jwt.sign({ userId, type: 'refresh' }, getJwtSecret(), { expiresIn: REFRESH_TOKEN_EXPIRY as SignOptions['expiresIn'] });
+    const accessToken = jwt.sign(payload, getJwtSecret(), { algorithm: 'HS256', expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] });
+    const refreshToken = jwt.sign({ userId, type: 'refresh' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: REFRESH_TOKEN_EXPIRY as SignOptions['expiresIn'] });
     return { accessToken, refreshToken, expiresIn: this.parseExpiresIn(JWT_EXPIRES_IN) };
   }
 
@@ -158,16 +159,45 @@ export class AuthService {
    * so the endpoint stays a poor way to enumerate usernames.
    */
   async forgotPassword(username: string) {
-    const message =
-      'Password resets are handled by a system administrator at this facility. Please ask one to reset it for you.';
-    const user = await this.repository.findByUsername(username);
-    if (user) {
-      // A reset is now an administrator decision, so no token from an earlier
-      // release is left sitting on the account.
-      await this.repository.updateUser(user.id, { resetToken: null, resetExpiry: null });
-    }
+    const message = 'If the account is eligible, a password reset request has been sent for administrator review.';
+    const normalized = String(username || '').trim();
+    if (!normalized) return { success: true, message };
+    const user = await this.repository.findByUsername(normalized);
+    if (!user || !user.isActive) return { success: true, message };
 
+    const existing = await this.prisma.passwordResetRequest.findFirst({
+      where: { userId: user.id, status: 'pending' },
+    });
+    if (!existing) {
+      await this.prisma.passwordResetRequest.create({ data: { userId: user.id } });
+    }
     return { success: true, message };
+  }
+
+  async completePasswordReset(username: string, code: string, newPassword: string) {
+    const user = await this.repository.findByUsername(String(username || '').trim());
+    if (!user || !user.isActive) return { success: false, error: 'Invalid or expired reset code' };
+    const request = await this.prisma.passwordResetRequest.findFirst({
+      where: { userId: user.id, status: 'approved', expiresAt: { gt: new Date() } },
+      orderBy: { reviewedAt: 'desc' },
+    });
+    const suppliedHash = createHash('sha256').update(String(code || '').trim()).digest('hex');
+    if (!request?.codeHash || suppliedHash !== request.codeHash) {
+      return { success: false, error: 'Invalid or expired reset code' };
+    }
+    const policyError = passwordPolicyError(newPassword, { username: user.username, email: user.email });
+    if (policyError) return { success: false, error: policyError };
+    const password = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await this.prisma.$transaction(async (tx) => {
+      const consumed = await tx.passwordResetRequest.updateMany({
+        where: { id: request.id, status: 'approved', codeHash: suppliedHash, expiresAt: { gt: new Date() } },
+        data: { status: 'completed', completedAt: new Date(), codeHash: null },
+      });
+      if (consumed.count !== 1) throw new Error('Invalid or expired reset code');
+      await tx.user.update({ where: { id: user.id }, data: { password, resetToken: null, resetExpiry: null } });
+      await tx.refreshToken.deleteMany({ where: { userId: user.id } });
+    });
+    return { success: true };
   }
 
   async refreshToken(refreshToken: string) {
@@ -177,7 +207,7 @@ export class AuthService {
       // store has already been rotated: treat it as possible theft and revoke
       // every session for that user. Expired/invalid signatures are ignored.
       try {
-        const decoded = jwt.verify(refreshToken, getJwtSecret()) as { userId?: string; type?: string };
+        const decoded = jwt.verify(refreshToken, getJwtSecret(), { algorithms: ['HS256'] }) as { userId?: string; type?: string };
         if (decoded.type === 'refresh' && decoded.userId) {
           await this.repository.deleteRefreshTokenForUser(decoded.userId);
         }

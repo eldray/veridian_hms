@@ -359,7 +359,7 @@ export default function Notifications() {
   ];
   return (
     <div className="space-y-4">
-      <PageHeader title="Notifications" subtitle={unreadCount > 0 ? `${unreadCount} unread alert${unreadCount > 1 ? 's' : ''}` : 'All caught up'} icon={Bell} accent="cyan"
+      <PageHeader title="Notifications" subtitle={unreadCount > 0 ? `${unreadCount} unread alert${unreadCount > 1 ? 's' : ''}` : 'All caught up'} icon={Bell} accent="cyan" backTo="/dashboard"
         actions={(
           <>
             {isAdmin && (<Button size="sm" variant="soft" accent="purple" icon={MessageSquare} onClick={() => setIsAdminModalOpen(true)}>Broadcast</Button>)}

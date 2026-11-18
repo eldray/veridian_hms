@@ -1,6 +1,7 @@
 // src/pages/NursingPatientWorkspace.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useSmartBack } from '../utils/useSmartBack';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
@@ -105,6 +106,7 @@ const VitalsRow: React.FC<{
 type TabKey = 'overview' | 'mar' | 'tasks' | 'notes' | 'vitals';
 
 export default function NursingPatientWorkspace() {
+  const goBack = useSmartBack('/dashboard/nursing');
   const { attendanceId } = useParams<{ attendanceId: string }>();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
@@ -370,7 +372,7 @@ export default function NursingPatientWorkspace() {
             The attendance record could not be found.
           </p>
           <button
-            onClick={() => navigate('/dashboard/nursing')}
+            onClick={goBack}
             className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
           >
             <ChevronLeft className="w-4 h-4" /> Back to Nursing Station
@@ -397,7 +399,7 @@ export default function NursingPatientWorkspace() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/nursing')}
+            onClick={goBack}
             className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
@@ -779,8 +781,8 @@ export default function NursingPatientWorkspace() {
 
                 {/* Patient info — 1 column */}
                 <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-                    <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+                    <PatientAvatar patient={selectedPatient} size="md" />
                     <span className="text-xs font-semibold text-[var(--text-primary)]">Patient Info</span>
                   </div>
 

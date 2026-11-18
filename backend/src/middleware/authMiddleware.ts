@@ -30,7 +30,8 @@ interface DecodedToken {
   type?: string;
 }
 
-const isSuperAdminOrAdmin = (role?: string) => role === 'super_admin' || role === 'admin';
+const isSuperAdmin = (role?: string) => String(role || '').toLowerCase() === 'super_admin';
+const isSystemAdmin = (role?: string) => String(role || '').toLowerCase() === 'admin';
 
 // JWT verification is followed by a database check so deactivated accounts and
 // changed roles/permissions take effect without waiting for token expiry.
@@ -53,7 +54,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
       return;
     }
 
-    const decoded = jwt.verify(token, secret) as DecodedToken;
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as DecodedToken;
     // Refresh tokens are long-lived and must only be exchanged at /auth/refresh-token.
     if (!decoded.userId || decoded.type === 'refresh') {
       res.status(401).json({ success: false, message: 'Invalid token' });
@@ -125,10 +126,12 @@ export const requireRole = (roles: string[]) =>
     if (!req.user) {
       return res.status(401).json({ success: false, status: 'fail', message: 'Authentication required' });
     }
-    // Normalize role casing consistently so Super Admin inherits all ordinary roles.
+    // System Admin and Super Admin can enter every role-gated application area.
+    // Super Admin-only operations must use requireSuperAdmin explicitly; this keeps
+    // platform-level controls (for example database restore) above the System Admin.
     const userRole = String(req.user.role || '').toLowerCase();
     const allowedRoles = roles.map((role) => String(role).toLowerCase());
-    if (userRole === 'super_admin') return next();
+    if (userRole === 'admin' || userRole === 'super_admin') return next();
     if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
@@ -184,7 +187,14 @@ export const requirePermission = (permission: string) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (isSuperAdminOrAdmin(user.role) || user.permissions?.includes(permission)) {
+    // Super Admin inherits every permission. System Admin inherits ordinary
+    // facility permissions, but platform-level controls remain Super Admin-only.
+    const isPlatformPermission = permission.startsWith('platform.');
+    if (
+      isSuperAdmin(user.role) ||
+      (isSystemAdmin(user.role) && !isPlatformPermission) ||
+      (!isSystemAdmin(user.role) && user.permissions?.includes(permission))
+    ) {
       next();
       return;
     }
@@ -204,7 +214,8 @@ export const requireMinSeniority = (minSeniority: Seniority) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthRequest;
     const user = authReq.user;
-    if (!user || seniorityLevels[user.seniority] < seniorityLevels[minSeniority]) {
+    const userLevel = user ? seniorityLevels[user.seniority] : undefined;
+    if (!user || userLevel === undefined || userLevel < seniorityLevels[minSeniority]) {
       res.status(403).json({ success: false, message: `Access denied. Requires ${minSeniority} seniority.` });
       return;
     }
@@ -227,10 +238,11 @@ export const requireRoleWithMinSeniority = (role: UserRole, minSeniority: Senior
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (user.role !== role || seniorityLevels[user.seniority] < seniorityLevels[minSeniority]) {
-      res.status(403).json({ 
-        success: false, 
-        message: `Access denied. Requires ${role} with ${minSeniority} seniority.` 
+    const userLevel = seniorityLevels[user.seniority];
+    if (user.role !== role || userLevel === undefined || userLevel < seniorityLevels[minSeniority]) {
+      res.status(403).json({
+        success: false,
+        message: `Access denied. Requires ${role} with ${minSeniority} seniority.`
       });
       return;
     }
@@ -252,7 +264,13 @@ export const requireRoleOrPermission = (role: UserRole, permission: string) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (user.role === role || isSuperAdminOrAdmin(user.role) || user.permissions?.includes(permission)) {
+    const isPlatformPermission = permission.startsWith('platform.');
+    if (
+      (!isPlatformPermission && user.role === role) ||
+      isSuperAdmin(user.role) ||
+      (isSystemAdmin(user.role) && !isPlatformPermission) ||
+      (!isSystemAdmin(user.role) && user.permissions?.includes(permission))
+    ) {
       next();
       return;
     }
@@ -277,9 +295,9 @@ export const requireAllRoles = (roles: UserRole[]) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    // Note: This is a simplified check - in practice, a user can only have one role
-    // This would be more useful with the dynamic RBAC system
-    if (isSuperAdminOrAdmin(user.role) || roles.includes(user.role)) {
+    // The User model has one canonical role, so a non-administrator cannot
+    // satisfy a multi-role "all" requirement. Use requireAnyRole for alternatives.
+    if (isSuperAdmin(user.role) || isSystemAdmin(user.role) || (roles.length === 1 && roles[0] === user.role)) {
       next();
       return;
     }

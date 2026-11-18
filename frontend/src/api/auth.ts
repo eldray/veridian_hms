@@ -83,3 +83,6 @@ export const getUsers = async () => {
 export const forgotPassword = (username: string) =>
   api.post('/auth/forgot-password', { username }).then((r) => r.data);
 
+
+export const completePasswordReset = (username: string, code: string, newPassword: string) =>
+  api.post('/auth/complete-password-reset', { username, code, newPassword }).then((r) => r.data);

@@ -433,7 +433,7 @@ export const seedCommunications = async (
   stats: SeedStats,
   planned: SeedStats,
 ): Promise<void> => {
-  planned['communication logs'] = (planned['communication logs'] ?? 0) + logs.length;
+  // writeMany() records the planned row count; do not count the same logs twice.
 
   const channelIds = new Map<string, string>();
   const templateIds = new Map<string, string | null>();

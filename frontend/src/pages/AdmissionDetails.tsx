@@ -1,8 +1,10 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/AdmissionDetails.tsx — Redesigned: top action bar, Antenatal-style sections
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
 import { usePatientStore } from '../store/patientStore';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useWardStore } from '../store/wardStore';
 import {
@@ -16,6 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function AdmissionDetails() {
+  const goBack = useSmartBack('/dashboard/admissions');
   const { id } = useParams();
   const navigate = useNavigate();
   const {
@@ -210,7 +213,7 @@ export default function AdmissionDetails() {
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Admission Not Found</h2>
           <p className="text-sm text-[var(--text-secondary)] mb-5">The admission record could not be located.</p>
           <button
-            onClick={() => navigate('/dashboard/admissions')}
+            onClick={goBack}
             className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-semibold transition-all"
           >
             Back to Admissions
@@ -225,7 +228,6 @@ export default function AdmissionDetails() {
   const isDetention = admission?.admissionType === 'detention_observation';
   const isDaySurgery = attendance?.encounterCategory === 'daycase';
   const patientName = patient ? (patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim()) : 'Unknown Patient';
-  const initials = patientName.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
   const attendanceId = attendance?.id || admission?.attendanceId;
 
   return (
@@ -234,7 +236,7 @@ export default function AdmissionDetails() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/admissions')}
+            onClick={goBack}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
               text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium"
           >
@@ -312,9 +314,7 @@ export default function AdmissionDetails() {
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-teal-100 to-teal-50 border border-teal-200 flex items-center justify-center flex-shrink-0">
-              <span className="text-sm font-bold text-teal-700">{initials || <User className="w-5 h-5" />}</span>
-            </div>
+            <PatientAvatar patient={patient} size="lg" className="rounded-xl" />
             <div className="min-w-0">
               <p className="text-base font-bold text-[var(--text-primary)] truncate">{patientName}</p>
               <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] mt-0.5 flex-wrap">

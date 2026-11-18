@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/Reports.tsx
 // Consistency fixes vs pasted version:
 //  - Consulting Room Register: was entries.slice(0,100) + "Showing 100 of N" — rows 101+
@@ -138,6 +139,7 @@ const NotYetCurated = ({ title, section }: { title: string; section: string }) =
 );
 
 export default function Reports() {
+  const goBack = useSmartBack('/dashboard');
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
   const { hasRole } = useAuthStore();
@@ -728,7 +730,7 @@ export default function Reports() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Reports & Analytics" subtitle="GHS-compliant reporting" icon={BarChart3} accent="cyan" onBack={() => navigate(-1)}
+      <PageHeader title="Reports & Analytics" subtitle="GHS-compliant reporting" icon={BarChart3} accent="cyan" onBack={goBack}
         // FIX #58 — Refresh is hidden for shell reports on purpose: GenericReportPage owns its own Reload.
         actions={!shellReport ? (<>
           {canExport ? (<>

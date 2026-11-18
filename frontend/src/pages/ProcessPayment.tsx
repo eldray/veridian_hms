@@ -2,6 +2,7 @@
 import { useState, FormEvent, useEffect, useRef } from 'react'; 
 import { uuid } from '../utils/uuid';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useSmartBack } from '../utils/useSmartBack';
 import { useBillingStore } from '../store/billingStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
@@ -51,6 +52,7 @@ const getOrCreatePaymentAttemptKey = (billId: string) => {
 
 export default function ProcessPayment() {
   const navigate = useNavigate();
+  const goBack = useSmartBack('/dashboard/billing');
   const { billId } = useParams<{ billId: string }>();
   const { getBill, addPaymentToBill, currentBill, isLoading, getBillingBreakdown } = useBillingStore();
   const { patients, currentPatient, fetchPatient } = usePatientStore();
@@ -290,7 +292,7 @@ export default function ProcessPayment() {
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">Bill Not Found</h2>
           <p className="text-[var(--text-secondary)] text-sm mb-5">The bill you're looking for doesn't exist.</p>
           <div className="flex gap-3 justify-center">
-            <Button variant="primary" onClick={() => navigate('/dashboard/billing')}>
+            <Button variant="primary" onClick={goBack}>
               Back to Billing
             </Button>
             <LinkButton variant="secondary" to="/dashboard/billing">
@@ -352,7 +354,7 @@ export default function ProcessPayment() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex items-center gap-2 mb-2">
-                  <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                  <PatientAvatar patient={bill?.attendance?.patient || bill?.patient} size="sm" />
                   <span className="text-xs font-semibold text-[var(--text-secondary)]">PATIENT</span>
                 </div>
                 <p className="font-bold text-[var(--text-primary)] text-lg">
@@ -534,7 +536,7 @@ export default function ProcessPayment() {
                 variant="secondary"
                 size="md"
                 fullWidth
-                onClick={() => navigate('/dashboard/billing')}
+                onClick={goBack}
               >
                 Cancel
               </Button>

@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/MedicalEntries.tsx - UPDATED with Daycase, Detention, IPD distinction
 import { useLiveRefresh } from '../api/realtime';
 import { confirmDialog } from '../context/ConfirmDialog';
@@ -642,7 +643,7 @@ const PhysicianNoteInput: React.FC<{
 export default function MedicalEntries() {
   const navigate = useNavigate();
   const location = useLocation();
-  const goBack = () => (location.key === 'default' ? navigate('/dashboard/medical-waiting-list') : navigate(-1));
+  const goBack = useSmartBack('/dashboard/medical-waiting-list');
   const { success, error: toastError } = useToast();
 
   const { patients, loadPatients, fetchPatient, currentPatient } = usePatientStore();

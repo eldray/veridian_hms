@@ -250,11 +250,6 @@ const batchTrackingRows = (
  * The G-DRG family an NHIS claim is filed under — the MDC of its principal G-DRG line. Null when
  * the claim has no package code at all, which is a claim the payer cannot be billed for.
  */
-const nhisFamilyOf = (claim?: {
-  items?: Array<{ itemCategory: string; gdrgTariff: { mdc: string } | null } | null>;
-} | null): string | null =>
-  claim?.items?.find((item) => item?.itemCategory === 'gdrg')?.gdrgTariff?.mdc ?? null;
-
 /**
  * Claims, one per covered and billed visit, then the batches the finalised ones are
  * submitted in.
@@ -274,6 +269,25 @@ export const seedClaims = async (
 ): Promise<void> => {
   const service = new InsuranceClaimService(prisma);
   const payerByAttendance = await loadPayers([...encounters.values()].map((e) => e.attendanceId));
+  const attendanceIds = [...encounters.values()].map((e) => e.attendanceId);
+  const primaryDiagnosisRows = await prisma.attendanceDiagnosis.findMany({
+    where: { attendanceId: { in: attendanceIds }, diagnosisType: 'primary' },
+    select: { attendanceId: true },
+  });
+  const attendanceWithPrimaryDiagnosis = new Set(primaryDiagnosisRows.map((row) => row.attendanceId));
+  const patientIds = [...new Set([...payerByAttendance.values()].map((payer) => payer.patientId).filter((id): id is string => !!id))];
+  const inpatientStays = await prisma.admission.findMany({
+    where: {
+      status: { not: 'cancelled' },
+      attendance: { patientId: { in: patientIds }, encounterCategory: 'ipd' },
+    },
+    select: {
+      attendanceId: true,
+      admissionDate: true,
+      dischargeDate: true,
+      attendance: { select: { patientId: true } },
+    },
+  });
   const claimIdByKey = new Map<string, string>();
   const notes: string[] = [];
   const refusals: string[] = [];
@@ -285,6 +299,23 @@ export const seedClaims = async (
     const encounter = encounters.get(plan.attendanceKey);
     const patientId = encounter ? payerByAttendance.get(encounter.attendanceId)?.patientId : null;
     if (!encounter?.billId || !patientId) { rejected++; continue; }
+    // The claims API requires a persisted primary diagnosis. Generated diagnosis
+    // plans can still be absent from the database when a code is not in the facility's
+    // configured diagnosis catalogue, so validate the actual encounter rows here.
+    if (!attendanceWithPrimaryDiagnosis.has(encounter.attendanceId)) continue;
+    // An outpatient claim cannot overlap another inpatient stay for the same patient.
+    // This is a payer rule enforced by the claims service; avoid creating a plan that
+    // is guaranteed to be refused instead of weakening that service validation.
+    if (plan.typeOfService === 'outpatient') {
+      const serviceDate = encounter.plan.dateTime.getTime();
+      const overlapsInpatientStay = inpatientStays.some((stay) =>
+        stay.attendanceId !== encounter.attendanceId
+        && stay.attendance.patientId === patientId
+        && stay.admissionDate.getTime() <= serviceDate
+        && (stay.dischargeDate === null || stay.dischargeDate.getTime() >= serviceDate),
+      );
+      if (overlapsInpatientStay) continue;
+    }
     const createdById = lookups.actorId(plan.createdBy);
 
     try {
@@ -390,17 +421,22 @@ export const seedClaims = async (
     const claimIds = (claimsByBatch.get(plan.key) ?? []).filter((id) => claimById.get(id)?.status === ENUMS.claimStatus.finalized);
     if (!claimIds.length) continue;
 
-    // One batch is one payer's claim for one period — the app refuses to merge two insurers into a
-    // single submission — and NHIS splits that further: the payer adjudicates one G-DRG family at a
-    // time, so a month of NHIS claims becomes a batch per family.
+    // One batch is one payer's claims for one service month. Different insurance
+    // providers and corporate accounts are kept in separate monthly batches.
     const perFilingGroup = new Map<string, string[]>();
     let heldBackUncoded = 0;
     for (const id of claimIds) {
       const claim = claimById.get(id);
-      const family = plan.insuranceType === ENUMS.insuranceType.nhis ? nhisFamilyOf(claim) : 'ALL';
-      // A claim with no G-DRG line has no package to be paid under. The app holds it back for
-      // coding, so the demo leaves it unbatched too rather than filing a batch that would bounce.
-      if (!family) { heldBackUncoded++; continue; }
+      const hasPricedGdrg = (claim?.items ?? []).some(
+        (item) => item?.itemCategory === 'gdrg' && item.gdrgTariff?.mdc,
+      );
+      // An NHIS claim without a priced G-DRG package stays out for correction.
+      // G-DRG family never partitions a monthly payer batch.
+      if (plan.insuranceType === ENUMS.insuranceType.nhis && !hasPricedGdrg) {
+        heldBackUncoded++;
+        continue;
+      }
+      const family = 'ALL';
       const key = `${claim?.insuranceProviderId ?? 'none'}|${claim?.corporateAccountId ?? 'none'}|${family}`;
       const list = perFilingGroup.get(key) ?? [];
       list.push(id);

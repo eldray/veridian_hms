@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/TheatreProcedure.tsx — V3, restructured to Antenatal UI language
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
@@ -136,6 +137,7 @@ type TheatreTabKey = 'record' | 'narrative' | 'handover' | 'history';
 // Main page
 // ─────────────────────────────────────────────────────────────
 export default function TheatreProcedure() {
+  const goBack = useSmartBack('/dashboard/theatre');
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -648,7 +650,7 @@ export default function TheatreProcedure() {
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
           <p className="text-[var(--text-secondary)]">The patient you're looking for doesn't exist.</p>
           <button
-            onClick={() => (location.key === 'default' ? navigate('/dashboard/theatre') : navigate(-1))}
+            onClick={goBack}
             className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all"
           >
             Back
@@ -694,7 +696,7 @@ export default function TheatreProcedure() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => (location.key === 'default' ? navigate('/dashboard/theatre') : navigate(-1))}
+            onClick={goBack}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
               text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium"
           >

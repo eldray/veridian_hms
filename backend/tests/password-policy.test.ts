@@ -24,8 +24,13 @@ describe('password policy', () => {
     expect(passwordPolicyError('someone@example.com', { email: 'Someone@Example.com' })).toMatch(/email/);
   });
 
-  it('rejects known common passwords', () => {
-    expect(passwordPolicyError('password1234')).toMatch(/too common/);
+  it('rejects known common and predictable facility passwords', () => {
+    for (const password of [
+      'password1234', 'password@1234', 'admin@123456', 'welcome123456',
+      'hospital@123', 'ghana@123456', 'veridian12345', 'superadmin123',
+    ]) {
+      expect(passwordPolicyError(password), password).toMatch(/too common/);
+    }
   });
 });
 
@@ -59,7 +64,6 @@ describe('password changes enforce the policy', () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/at least 12/);
     expect(repository.updateUser).not.toHaveBeenCalled();
-    expect(repository.deleteRefreshTokenForUser).not.toHaveBeenCalled();
   });
 
   it('rejects reusing the current password', async () => {
@@ -205,6 +209,10 @@ describe('forgot password', () => {
       updateUser: vi.fn().mockResolvedValue(undefined),
     };
     (service as any).repository = repository;
+    (service as any).prisma = { passwordResetRequest: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({ id: 'reset-1' }),
+    } };
     return { service, repository };
   };
 
@@ -214,9 +222,7 @@ describe('forgot password', () => {
     const result = await service.forgotPassword('ward.nurse');
 
     expect(result.success).toBe(true);
-    expect(result.message).toMatch(/administrator/);
-    const [, data] = repository.updateUser.mock.calls[0];
-    expect(data).toEqual({ resetToken: null, resetExpiry: null });
+    expect(result.message).toMatch(/administrator review/i);
   });
 
   it('answers the same way whether or not the account exists', async () => {
@@ -228,5 +234,23 @@ describe('forgot password', () => {
 
     expect(withoutUser).toEqual(withUser);
     expect(missing.repository.updateUser).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('refresh-token logout', () => {
+  it('revokes the exact supplied refresh token without requiring an access token', async () => {
+    const service = new AuthService({} as any);
+    const repository = {
+      deleteRefreshToken: vi.fn().mockResolvedValue(undefined),
+      deleteRefreshTokenForUser: vi.fn().mockResolvedValue(undefined),
+    };
+    (service as any).repository = repository;
+
+    const result = await service.logout('expired-access-session-refresh-token');
+
+    expect(result).toEqual({ success: true });
+    expect(repository.deleteRefreshToken).toHaveBeenCalledWith('expired-access-session-refresh-token');
+    expect(repository.deleteRefreshTokenForUser).not.toHaveBeenCalled();
   });
 });

@@ -33,8 +33,25 @@ This is a source review and a record of targeted changes, not a runtime security
 - `backend/tests/route-authorization.test.ts` adds a static regression guard:
   every module router except the public auth endpoints must apply `protect`,
   mutating route files must reference a role/permission guard, and the auth
-  controller may register only login, refresh-token and forgot-password without
-  `protect`.
+  controller may register only login, refresh-token, forgot-password and logout
+  without `protect`. Logout revokes only the exact supplied refresh-token hash.
 - The guard catches missing wiring, not an incorrect role list. Runtime
   allowed/denied checks against a running API remain a manual or future
   integration-test task.
+
+
+## Update (2026-11-18) — role and sensitive-action hardening
+
+- Leave list queries are now scoped server-side: HR Officer, System Admin and Super Admin may review facility requests; other staff can only list their own. A caller-supplied `userId` filter cannot broaden visibility.
+- Individual leave reads enforce the same owner-or-HR/admin rule.
+- Non-HR staff may only cancel their own pending leave request. They cannot amend another person's request, change approval status, or edit the reason field. HR and administrators retain review/decision workflows.
+- Billing invoice lists, collection totals, statistics and revenue-line reports are now restricted to Accounts and administrators. Clinical and Records staff may still read individual bills and their line items for patient-facing workflows.
+- The legacy bill endpoints now apply the same separation between facility-wide financial reporting and individual bill reads.
+- These changes complement the RBAC catalogue and platform-permission boundary described in `ROLE_PERMISSION_MATRIX.md`.
+- Stock catalogue list, category and detail reads now require an operational, clinical or finance role (`admin`, `super_admin`, `accounts`, `pharmacist`, `doctor`, `nurse`, `midwife`, `records`, `lab_tech`, or `sonographer`). HR Officer is excluded because the role has no stock workflow. Existing department scoping remains in the controller/service; this route guard prevents unrelated authenticated roles from reading stock catalogue and pricing data.
+- Requisition fulfilment is now restricted in the service layer to Pharmacy or administrators, in addition to requiring the authenticated user to belong to the supplying department. This closes the shared status-route gap where any clinical role in the supplier department could otherwise mark a requisition fulfilled.
+- The shared dashboard endpoint now redacts finance totals for non-finance roles, low-stock counts for users outside Pharmacy/Accounts/administration, and top-diagnosis aggregates for non-clinical roles. The response is cloned before redaction so role-specific filtering cannot mutate the shared dashboard cache.
+
+## Verification status (2026-11-18)
+
+Source changes were reviewed after writing, but automated tests and API integration checks were not executed in this GitHub-only session. Validate the leave owner/HR cases and billing allowed/denied role cases against a non-production database before merging.

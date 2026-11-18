@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/PatientBillingItems.tsx — Redesigned
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -88,7 +89,7 @@ export default function PatientBillingItems() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const routerLocation = useLocation();
-  const goBack = () => (routerLocation.key === 'default' ? navigate('/dashboard/billing') : navigate(-1));
+  const goBack = useSmartBack('/dashboard/billing');
   const { success, error: toastError } = useToast();
   const { hasRole, user } = useAuthStore();
   const { hospital } = useHospitalStore();
@@ -704,9 +705,7 @@ export default function PatientBillingItems() {
         {patient && (
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] rounded-t-xl">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
-                <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-              </div>
+              <PatientAvatar patient={patient} size="sm" />
               <div className="min-w-0">
                 <p className="font-semibold text-[var(--text-primary)] truncate">{getPatientName(patient)}</p>
                 <p className="text-[11px] text-[var(--text-secondary)] truncate">

@@ -5,10 +5,12 @@
 // happen. A walk-in gives a name and maybe an age or phone — nothing is invented for them,
 // so no folder number or date of birth is fabricated here.
 import { useCallback, useEffect, useState } from 'react';
+import { useSmartBack } from '../utils/useSmartBack';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
 import { AlertCircle, ArrowLeft, Store, UserPlus } from 'lucide-react';
 import { Button, cn, INPUT, PageHeader } from '../components/ui';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { createCounterTicket, searchCounterClients, searchCounterPatients } from '../api';
 import { describeApiError } from '../utils/apiError';
 import { identityOf, shell, unwrap } from '../utils/counterTicket';
@@ -19,6 +21,7 @@ const MODES: Array<[IdentityMode, string]> = [['new', 'New name'], ['existing', 
 
 export default function CounterNewTicket() {
   const navigate = useNavigate();
+  const goBack = useSmartBack('/dashboard/counter');
   const { success, error: toastError } = useToast();
 
   const [identityMode, setIdentityMode] = useState<IdentityMode>('new');
@@ -101,7 +104,7 @@ export default function CounterNewTicket() {
         icon={Store}
         accent="cyan"
         actions={(
-          <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate('/dashboard/counter')}>
+          <Button variant="secondary" icon={ArrowLeft} onClick={goBack}>
             Back to counter
           </Button>
         )}
@@ -158,8 +161,7 @@ export default function CounterNewTicket() {
                 {patientMatches.map((patient) => (
                   <li key={patient.id}>
                     <button className={`w-full text-left px-3 py-2 text-sm hover:bg-[var(--bg-main)] ${chosenPatient?.id === patient.id ? 'bg-[var(--bg-main)]' : ''} text-[var(--text-primary)]`} onClick={() => setChosenPatient(patient)}>
-                      {`${patient.surname || ''} ${patient.otherNames || ''}`.trim()}
-                      <span className="text-xs text-[var(--text-secondary)]"> · Folder {patient.folderNumber} · {patient.gender}</span>
+                      <span className="flex items-center gap-3"><PatientAvatar patient={patient} size="sm" /><span>{[patient.surname, patient.otherNames].filter(Boolean).join(" ")}<span className="text-xs text-[var(--text-secondary)]"> · Folder {patient.folderNumber} · {patient.gender}</span></span></span>
                     </button>
                   </li>
                 ))}
@@ -179,7 +181,7 @@ export default function CounterNewTicket() {
           </div>
 
           <div className="flex justify-end gap-2 mt-5">
-            <Button variant="secondary" onClick={() => navigate('/dashboard/counter')}>Cancel</Button>
+            <Button variant="secondary" onClick={goBack}>Cancel</Button>
             <Button variant="soft" accent="cyan" icon={UserPlus} loading={busy} disabled={busy} onClick={submit}>Open ticket</Button>
           </div>
         </section>

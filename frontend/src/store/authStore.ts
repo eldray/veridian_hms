@@ -244,18 +244,19 @@ export const useAuthStore = create<AuthState>()(
         apiLogout(refreshToken || undefined).catch(() => {});
       },
 
-      // Super admins inherit all ordinary role-gated UI capabilities.
+      // System Admin and Super Admin inherit ordinary role-gated UI capabilities.
+      // Super Admin-only actions must use an explicit super_admin check/guard.
       // Backend authorization remains authoritative for every protected action.
       hasRole: (roles) => {
         const { user } = get();
         if (!user) return false;
-        return user.role === 'super_admin' || roles.includes(user.role);
+        return user.role === 'admin' || user.role === 'super_admin' || roles.includes(user.role);
       },
 
       hasAnyRole: (roles) => {
         const { user } = get();
         if (!user) return false;
-        return user.role === 'super_admin' || roles.includes(user.role);
+        return user.role === 'admin' || user.role === 'super_admin' || roles.includes(user.role);
       },
 
       getProfile: async () => {

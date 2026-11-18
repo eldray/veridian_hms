@@ -13,31 +13,90 @@ import type { PrismaClient } from '@prisma/client';
 
 export const PERMISSION_DEFINITIONS: Array<[string, string]> = [
   ['hr.view', 'View staff profiles and HR records'],
-  ['hr.manage', 'Create and update staff profiles'],
-  ['users.manage', 'Manage system users and roles'],
-  ['reports.view', 'View operational reports'],
-  ['clinical.nursing', 'Use nursing workflows'],
-  ['clinical.antenatal', 'Use antenatal workflows'],
-  ['inventory.manage', 'Manage inventory and stock'],
+  ['hr.manage', 'Create and update staff profiles and HR records'],
+  ['users.view', 'View the staff directory and account summaries'],
+  ['users.manage', 'Create and manage ordinary facility user accounts'],
+  ['shifts.view', 'View staff rosters and shifts'],
+  ['shifts.manage', 'Create and update staff shifts'],
+  ['leave.view', 'View leave requests and balances'],
+  ['leave.manage', 'Submit, review and administer leave requests'],
+  ['payroll.view', 'View payroll and payslips'],
+  ['payroll.manage', 'Prepare and administer payroll'],
+  ['reports.view', 'View operational and departmental reports'],
+  ['patients.view', 'View patient records needed for assigned work'],
+  ['patients.manage', 'Register and update patient demographic records'],
+  ['attendance.manage', 'Register and manage patient attendance'],
+  ['clinical.consultation', 'Document and manage medical consultations'],
+  ['clinical.nursing', 'Use nursing and vital-sign workflows'],
+  ['clinical.antenatal', 'Use antenatal and maternal care workflows'],
+  ['clinical.postnatal', 'Use postnatal care workflows'],
+  ['clinical.delivery', 'Manage delivery and labour workflows'],
+  ['clinical.inpatient', 'Manage inpatient and ward clinical workflows'],
+  ['lab.manage', 'Manage laboratory requests and results'],
+  ['imaging.manage', 'Manage imaging requests and scan results'],
+  ['pharmacy.dispense', 'Dispense prescribed medicines'],
+  ['pharmacy.manage', 'Manage pharmacy operations'],
+  ['inventory.view', 'View stock and inventory records'],
+  ['inventory.manage', 'Manage stock, requisitions and inventory adjustments'],
+  ['billing.view', 'View bills and billing records'],
+  ['billing.manage', 'Create and update bills and charges'],
+  ['payments.manage', 'Collect, allocate and reconcile payments'],
+  ['insurance.manage', 'Manage NHIS, corporate and private insurance claims'],
+  ['platform.manage', 'Manage platform-level settings and destructive system controls'],
 ];
 
 export const ROLE_DEFINITIONS: Array<{ name: string; description: string }> = [
-  { name: 'super_admin', description: 'System owner; user and role administration' },
-  { name: 'admin', description: 'Facility administrator; cannot manage system users and roles' },
-  { name: 'hr_officer', description: 'Human resources and staff administration' },
-  { name: 'nurse', description: 'Nursing clinical workflows' },
-  { name: 'doctor', description: 'Medical clinical workflows' },
+  { name: 'super_admin', description: 'Platform owner; all facility and platform permissions, including privileged account and system controls' },
+  { name: 'admin', description: 'System Admin; all ordinary facility pages and operational permissions, excluding platform-owner controls' },
+  { name: 'hr_officer', description: 'Human resources, staff records, rosters, leave and payroll administration' },
+  { name: 'doctor', description: 'Medical consultations, clinical orders and assigned patient care' },
+  { name: 'nurse', description: 'Nursing, vital signs, attendance support and assigned patient care' },
+  { name: 'midwife', description: 'Antenatal, postnatal, delivery and maternal clinical workflows' },
+  { name: 'records', description: 'Patient registration, demographic records and attendance administration' },
+  { name: 'lab_tech', description: 'Laboratory requests, processing and results' },
+  { name: 'pharmacist', description: 'Pharmacy dispensing, pharmacy operations and stock management' },
+  { name: 'accounts', description: 'Billing, payment collection, insurance claims and financial reporting' },
+  { name: 'sonographer', description: 'Imaging requests, scan processing and imaging results' },
 ];
 
 const ALL_PERMISSIONS = PERMISSION_DEFINITIONS.map(([name]) => name);
-const WITHOUT_USERS_MANAGE = ALL_PERMISSIONS.filter(name => name !== 'users.manage');
+const FACILITY_PERMISSIONS = ALL_PERMISSIONS.filter(name => name !== 'platform.manage');
 
 export const ROLE_PERMISSION_MAP: Record<string, string[]> = {
   super_admin: ALL_PERMISSIONS,
-  admin: WITHOUT_USERS_MANAGE,
-  hr_officer: ['hr.view', 'hr.manage', 'reports.view'],
-  nurse: ['clinical.nursing', 'clinical.antenatal'],
-  doctor: ['reports.view', 'clinical.antenatal'],
+  admin: FACILITY_PERMISSIONS,
+  hr_officer: [
+    'hr.view', 'hr.manage', 'users.view',
+    'shifts.view', 'shifts.manage', 'leave.view', 'leave.manage',
+    'payroll.view', 'payroll.manage', 'reports.view',
+  ],
+  doctor: [
+    'patients.view', 'clinical.consultation', 'clinical.inpatient',
+    'clinical.antenatal', 'lab.manage', 'imaging.manage', 'reports.view',
+  ],
+  nurse: [
+    'patients.view', 'attendance.manage', 'clinical.nursing',
+    'clinical.antenatal', 'clinical.postnatal', 'clinical.inpatient',
+  ],
+  midwife: [
+    'patients.view', 'attendance.manage', 'clinical.nursing',
+    'clinical.antenatal', 'clinical.postnatal', 'clinical.delivery',
+    'clinical.inpatient',
+  ],
+  records: [
+    'patients.view', 'patients.manage', 'attendance.manage',
+    'reports.view',
+  ],
+  lab_tech: ['patients.view', 'lab.manage'],
+  pharmacist: [
+    'patients.view', 'pharmacy.dispense', 'pharmacy.manage',
+    'inventory.view', 'inventory.manage',
+  ],
+  accounts: [
+    'users.view', 'billing.view', 'billing.manage', 'payments.manage',
+    'insurance.manage', 'inventory.view', 'reports.view',
+  ],
+  sonographer: ['patients.view', 'imaging.manage'],
 };
 
 /**
@@ -82,14 +141,25 @@ export const upsertRbac = async (
     }
   }
 
+  // Synchronize every account's RBAC relation from its canonical User.role enum.
+  // This makes the matrix apply to existing installations as well as newly seeded users.
+  const users = await prisma.user.findMany({ select: { id: true, role: true } });
+  for (const user of users) {
+    const roleId = roleIds.get(user.role);
+    if (!roleId) continue;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { roles: { set: [{ id: roleId }] } },
+    });
+  }
+
+  // Explicit seed overrides are retained for installations whose bootstrap accounts
+  // intentionally differ from their enum role.
   for (const [username, roleName] of Object.entries(usernameToRole)) {
     const roleId = roleIds.get(roleName);
     if (!roleId) continue;
     const user = await prisma.user.findUnique({ where: { username }, select: { id: true } });
     if (!user) continue;
-    // `set`, not `connect`: demo databases seeded before the `admin` role existed still
-    // carry the super_admin grant on their admin accounts, and connecting alone would
-    // leave that escalation in place forever.
     await prisma.user.update({
       where: { id: user.id },
       data: { roles: { set: [{ id: roleId }] } },

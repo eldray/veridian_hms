@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/ScansEntry.tsx — Scans Results Entry (Enhanced UI/UX)
 import React, { useState, useEffect, useMemo } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
@@ -267,6 +268,7 @@ const ScanSection: React.FC<{
 );
 
 export default function ScansEntry() {
+  const goBack = useSmartBack('/dashboard/scans');
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -610,7 +612,7 @@ export default function ScansEntry() {
           <Button
             variant="primary"
             className="mt-4"
-            onClick={() => (location.key === 'default' ? navigate('/dashboard/scans') : navigate(-1))}
+            onClick={goBack}
           >
             Back
           </Button>
@@ -630,7 +632,7 @@ export default function ScansEntry() {
         meta={`${patientFullName} · ${totalScans} scan${totalScans !== 1 ? 's' : ''}`}
         icon={Scan}
         accent="purple"
-        onBack={() => (location.key === 'default' ? navigate('/dashboard/scans') : navigate(-1))}
+        onBack={goBack}
         actions={(
           <>
             <Button

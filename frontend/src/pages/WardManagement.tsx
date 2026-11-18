@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/WardManagement.tsx
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -286,6 +287,7 @@ function ModalShell({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function WardManagement() {
+  const goBack = useSmartBack('/dashboard');
   const {
     wards, beds, getWards, getBeds, createWard, updateWard, deleteWard,
     createBed, deleteBed, isLoading, getAvailableBeds,
@@ -499,7 +501,7 @@ export default function WardManagement() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate(-1)}
+            onClick={goBack}
             aria-label="Go back"
             className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm font-medium"
             style={{ color: 'var(--text-secondary)' }}

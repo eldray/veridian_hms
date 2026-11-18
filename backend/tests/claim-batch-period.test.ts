@@ -97,11 +97,17 @@ describe('claim batch month selection', () => {
 
 describe('claim batch month totals', () => {
   it('reports each payer bucket and the month overall from the database counts', async () => {
-    const { service, aggregate } = makeRepo();
+    const { service, aggregate, findMany } = makeRepo();
     aggregate
       .mockResolvedValueOnce(claimAggregate(3, '1200.50'))
       .mockResolvedValueOnce(claimAggregate(2, '300.25'))
       .mockResolvedValueOnce(claimAggregate(1, '0.00'));
+    // NHIS preview now independently verifies that these aggregate rows have a priced G-DRG.
+    findMany.mockResolvedValueOnce([
+      nhisClaim('nhis-1', 'MEDI', '500.00'),
+      nhisClaim('nhis-2', 'OPDC', '400.00'),
+      nhisClaim('nhis-3', 'ASUR', '300.50'),
+    ]);
 
     const summary = await service.eligibleForPeriod(2026, 9);
 
@@ -117,11 +123,12 @@ describe('claim batch month totals', () => {
   });
 
   it('adds batch amounts as money, never as text', async () => {
-    const { service, aggregate } = makeRepo();
+    const { service, aggregate, findMany } = makeRepo();
     aggregate
       .mockResolvedValueOnce(claimAggregate(1, '900'))
       .mockResolvedValueOnce(claimAggregate(1, '900'))
       .mockResolvedValueOnce(claimAggregate(1, '900'));
+    findMany.mockResolvedValueOnce([nhisClaim('nhis-1', 'MEDI', '900')]);
 
     const summary = await service.eligibleForPeriod(2026, 9);
     expect(summary.overall.totalAmount).toBe(2700);
@@ -256,6 +263,75 @@ describe('claim batch month totals', () => {
   });
 });
 
+describe('monthly batch remittance tracking', () => {
+  it('records partial payments against the selected provider-month batch', async () => {
+    const batch = {
+      id: 'batch-2026-10-provider-a',
+      batchNumber: 'BATCH-2026-10-A',
+      status: 'finalized',
+      totalAmount: '100.00',
+    };
+    const findManyEvents = vi.fn().mockResolvedValue([{ amount: '40.00' }]);
+    const createEvent = vi.fn(async ({ data }: any) => ({ id: 'payment-1', ...data }));
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      claimBatchTrackingEvent: { findMany: findManyEvents, create: createEvent },
+    };
+    const { service, prisma } = makeRepo({
+      claimBatch: { findUnique: vi.fn().mockResolvedValue(batch) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    });
+
+    const event = await service.recordBatchTrackingEvent('batch-2026-10-provider-a', {
+      eventType: 'payment',
+      amount: 30,
+      paymentReference: 'REMIT-OCT-PART-1',
+      paymentMethod: 'bank_transfer',
+    }, 'accounts-user');
+
+    expect(event).toMatchObject({
+      batchId: 'batch-2026-10-provider-a',
+      eventType: 'payment',
+      amount: 30,
+      paymentReference: 'REMIT-OCT-PART-1',
+      recordedById: 'accounts-user',
+    });
+    expect(findManyEvents).toHaveBeenCalledWith({
+      where: { batchId: 'batch-2026-10-provider-a', eventType: 'payment' },
+      select: { amount: true },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+  });
+
+  it('prevents monthly remittances from exceeding the submitted batch amount', async () => {
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      claimBatchTrackingEvent: {
+        findMany: vi.fn().mockResolvedValue([{ amount: '40.00' }]),
+        create: vi.fn(),
+      },
+    };
+    const { service } = makeRepo({
+      claimBatch: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'batch-2026-10-provider-a',
+          batchNumber: 'BATCH-2026-10-A',
+          status: 'finalized',
+          totalAmount: '100.00',
+        }),
+      },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    });
+
+    await expect(service.recordBatchTrackingEvent('batch-2026-10-provider-a', {
+      eventType: 'payment',
+      amount: 60.01,
+      paymentReference: 'REMIT-OCT-PART-2',
+    }, 'accounts-user')).rejects.toThrow(/Payment exceeds the ₵100.00 submitted/);
+    expect(tx.claimBatchTrackingEvent.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('claim batch period validation', () => {
   it('refuses a month that has no calendar', async () => {
     const { service } = makeRepo();
@@ -288,81 +364,153 @@ describe('claim batches are only generated for a month that has ended', () => {
 
   it('refuses the month still open and names the last one that passed', async () => {
     const { service } = atDate('2026-11-02T09:00:00');
-    await expect(service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 11 } as any, 'user-1'))
-      .rejects.toThrow(/November 2026 has not ended yet[\s\S]*batch October 2026 instead/);
+    await expect(service.generateBatch({
+      insuranceType: 'nhis', periodYear: 2026, periodMonth: 11, insuranceProviderId: 'nhis-a',
+    } as any, 'user-1')).rejects.toThrow(/November 2026 has not ended yet[\s\S]*batch October 2026 instead/);
   });
 
   it('refuses a future month', async () => {
     const { service } = atDate('2026-11-02T09:00:00');
-    await expect(service.generateBatch({ insuranceType: 'nhis', periodYear: 2027, periodMonth: 1 } as any, 'user-1'))
-      .rejects.toThrow(/has not ended yet/);
+    await expect(service.generateBatch({
+      insuranceType: 'nhis', periodYear: 2027, periodMonth: 1, insuranceProviderId: 'nhis-a',
+    } as any, 'user-1')).rejects.toThrow(/has not ended yet/);
   });
 
   it('carries the December of last year across the new year', async () => {
     const { service } = atDate('2026-01-15T09:00:00');
-    await expect(service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 1 } as any, 'user-1'))
-      .rejects.toThrow(/January 2026 has not ended yet[\s\S]*batch December 2025 instead/);
+    await expect(service.generateBatch({
+      insuranceType: 'nhis', periodYear: 2026, periodMonth: 1, insuranceProviderId: 'nhis-a',
+    } as any, 'user-1')).rejects.toThrow(/January 2026 has not ended yet[\s\S]*batch December 2025 instead/);
   });
 
-  it('files an NHIS month under the scheme that holds most of its claims', async () => {
-    const { service, prisma, findMany, groupBy, created } = generatingFrom([nhisClaim('claim-1', 'MEDI', '100.00')]);
-    // The duplicate records a real facility carries: the month spans both, and one is losing.
-    groupBy.mockResolvedValueOnce([
-      { insuranceProviderId: 'nhis-a', type: 'nhis', name: 'NHIS', _count: { _all: 9 }, _sum: { totalClaimAmount: '900.00' } },
-      { insuranceProviderId: 'nhis-b', type: 'nhis', name: 'NHIS (old)', _count: { _all: 3 }, _sum: { totalClaimAmount: '300.00' } },
+  it('requires an explicit NHIS provider so each scheme gets its own monthly batch', async () => {
+    const { service } = atDate('2026-11-02T09:00:00');
+    await expect(service.generateBatch({
+      insuranceType: 'nhis', periodYear: 2026, periodMonth: 10,
+    } as any, 'user-1')).rejects.toThrow(/insuranceProviderId is required for nhis monthly batches/);
+  });
+
+  it('creates one NHIS batch for the provider-month across all G-DRG families', async () => {
+    const { service, created } = generatingFrom([
+      nhisClaim('claim-1', 'MEDI', '100.00'),
+      nhisClaim('claim-2', 'MEDI', '50.00'),
+      nhisClaim('claim-3', 'OPDC', '25.00'),
     ]);
-    prisma.insuranceProvider = {
-      findMany: vi.fn().mockResolvedValue([
-        { id: 'nhis-a', name: 'NHIS', type: 'nhis' },
-        { id: 'nhis-b', name: 'NHIS (old)', type: 'nhis' },
-      ]),
-      findFirst: vi.fn().mockResolvedValue(null),
-    };
 
-    await service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 10 } as any, 'user-1');
+    const result = await service.generateBatch({
+      insuranceType: 'nhis', periodYear: 2026, periodMonth: 10, insuranceProviderId: 'nhis-a',
+    } as any, 'user-1');
 
-    // The batch is named after the dominant scheme…
-    expect(created[0].insuranceProviderId).toBe('nhis-a');
-    // …but it takes the whole month. Narrowing it to one record would batch 3 of 12 claims while
-    // the preview promised 12.
-    const claimWhere = findMany.mock.calls[0][0].where;
-    expect(claimWhere.insuranceProviderId).toBeUndefined();
-    expect(claimWhere.InsuranceProvider).toEqual({ type: 'nhis' });
+    expect(result.batches).toHaveLength(1);
+    expect(result.heldBackUncoded).toBe(0);
+    expect(created).toHaveLength(1);
+    expect(created[0]).toMatchObject({
+      insuranceType: 'nhis',
+      insuranceProviderId: 'nhis-a',
+      claimFamily: 'ALL',
+      periodYear: 2026,
+      periodMonth: 10,
+      totalClaims: 3,
+    });
+    expect(Number(created[0].totalAmount)).toBe(175);
+    expect(created[0].claims.connect.map((claim: any) => claim.id))
+      .toEqual(['claim-1', 'claim-2', 'claim-3']);
   });
 
-  it('takes an operator-chosen NHIS scheme at its word', async () => {
-    const { service, prisma, findMany } = atDate('2026-11-02T09:00:00');
-    prisma.claimBatch = { findFirst: vi.fn().mockResolvedValue(null) };
-    prisma.insuranceProvider = { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue(null) };
+  it('keeps NHIS claims without a priced G-DRG outside the monthly batch for correction', async () => {
+    const { service, created } = generatingFrom([
+      nhisClaim('claim-1', 'MEDI', '100.00'),
+      nhisClaim('claim-2', null, '10.00'),
+    ]);
+
+    const result = await service.generateBatch({
+      insuranceType: 'nhis', periodYear: 2026, periodMonth: 10, insuranceProviderId: 'nhis-a',
+    } as any, 'user-1');
+
+    expect(result.batches).toHaveLength(1);
+    expect(result.heldBackUncoded).toBe(1);
+    expect(created[0].claims.connect).toEqual([{ id: 'claim-1' }]);
+    expect(created[0].claimFamily).toBe('ALL');
+  });
+
+  it('refuses to create an empty NHIS monthly batch when every claim lacks a priced G-DRG', async () => {
+    const { service, created } = generatingFrom([nhisClaim('claim-1', null, '10.00')]);
 
     await expect(service.generateBatch({
-      insuranceType: 'nhis', periodYear: 2026, periodMonth: 10, insuranceProviderId: 'nhis-b',
-    } as any, 'user-1')).rejects.toThrow(/No finalized unbatched nhis claims found for 2026-10/);
-
-    expect(findMany.mock.calls[0][0].where.insuranceProviderId).toBe('nhis-b');
+      insuranceType: 'nhis', periodYear: 2026, periodMonth: 10, insuranceProviderId: 'nhis-a',
+    } as any, 'user-1')).rejects.toThrow(/No NHIS claims with a priced G-DRG package are ready/);
+    expect(created).toHaveLength(0);
   });
 
-  it('falls back to a configured scheme when the month holds none', async () => {
-    const { service, prisma, findMany } = atDate('2026-11-02T09:00:00');
-    prisma.claimBatch = { findFirst: vi.fn().mockResolvedValue(null) };
-    prisma.insuranceProvider = {
-      findMany: vi.fn().mockResolvedValue([]),
-      findFirst: vi.fn().mockResolvedValue({ id: 'nhis-c' }),
-    };
+  it('blocks a new monthly batch when a legacy G-DRG-family batch already exists', async () => {
+    const { service, prisma, created } = generatingFrom([
+      nhisClaim('claim-1', 'MEDI', '100.00'),
+      nhisClaim('claim-2', 'OPDC', '25.00'),
+    ]);
+    prisma.claimBatch.findFirst.mockResolvedValueOnce({ batchNumber: 'CB-00009', claimFamily: 'MEDI' });
 
-    await expect(service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 10 } as any, 'user-1'))
-      .rejects.toThrow(/No finalized unbatched nhis claims found for 2026-10/);
-
-    expect(prisma.insuranceProvider.findFirst).toHaveBeenCalled();
-    expect(findMany.mock.calls[0][0].where.insuranceProviderId).toBeUndefined();
+    await expect(service.generateBatch({
+      insuranceType: 'nhis', periodYear: 2026, periodMonth: 10, insuranceProviderId: 'nhis-a',
+    } as any, 'user-1')).rejects.toThrow(/A legacy nhis MEDI batch already exists for this payer in October 2026/);
+    expect(created).toHaveLength(0);
+    expect(prisma.claimBatch.findFirst.mock.calls[0][0].where).not.toHaveProperty('claimFamily');
   });
 
-  it('still refuses an NHIS month when no scheme exists at all', async () => {
-    const { service, prisma } = atDate('2026-11-02T09:00:00');
-    prisma.insuranceProvider = { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue(null) };
+  it('keeps private batches separate by provider and month', async () => {
+    const { service, created, findMany } = generatingFrom([
+      nhisClaim('claim-1', 'MEDI', '100.00'),
+      nhisClaim('claim-2', null, '10.00'),
+    ]);
+    const result = await service.generateBatch({
+      insuranceType: 'private', periodYear: 2026, periodMonth: 10, insuranceProviderId: 'private-a',
+    } as any, 'user-1');
 
-    await expect(service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 10 } as any, 'user-1'))
-      .rejects.toThrow(/No NHIS provider is configured/);
+    expect(result.batches).toHaveLength(1);
+    expect(created[0]).toMatchObject({
+      insuranceType: 'private', insuranceProviderId: 'private-a',
+      corporateAccountId: null, claimFamily: 'ALL', totalClaims: 2,
+    });
+    expect(findMany.mock.calls[0][0].where.insuranceProviderId).toBe('private-a');
+  });
+
+  it('keeps corporate monthly batches separate by employer account and its contracted provider', async () => {
+    const { service, created, findMany } = generatingFrom([
+      nhisClaim('claim-1', 'MEDI', '100.00'),
+    ]);
+    const result = await service.generateBatch({
+      insuranceType: 'corporate', periodYear: 2026, periodMonth: 10, corporateAccountId: 'account-1',
+    } as any, 'user-1');
+
+    expect(result.batches).toHaveLength(1);
+    expect(created[0]).toMatchObject({
+      insuranceType: 'corporate',
+      insuranceProviderId: 'provider-corp',
+      corporateAccountId: 'account-1',
+      periodYear: 2026,
+      periodMonth: 10,
+      claimFamily: 'ALL',
+    });
+    expect(findMany.mock.calls[0][0].where).toMatchObject({
+      insuranceProviderId: 'provider-corp',
+      corporateAccountId: 'account-1',
+    });
+  });
+
+  it('previews only coded NHIS claims for the selected provider and reports held-back claims separately', async () => {
+    const { service } = generatingFrom([
+      nhisClaim('claim-1', 'MEDI', '100.00'),
+      nhisClaim('claim-2', 'OPDC', '50.00'),
+      nhisClaim('claim-3', null, '10.00'),
+    ]);
+
+    const summary = await service.eligibleForPeriod(2026, 10, { insuranceProviderId: 'nhis-a' });
+
+    expect(summary).toMatchObject({
+      nhis: 2,
+      totalAmount: { nhis: 150 },
+      nhisUncoded: 1,
+    });
+    expect(summary).not.toHaveProperty('nhisFamilies');
   });
 
   it('still previews an open month, and says it is open', async () => {
@@ -378,16 +526,13 @@ describe('claim batches are only generated for a month that has ended', () => {
   });
 });
 
-// The payer does not adjudicate a month of NHIS claims as one submission: each G-DRG family —
-// surgery, medical, obstetric, the OPD package — is filed and paid separately, and a claim with no
-// package code has nothing to be paid under. Both rules live in the batching service, so the
-// screen cannot show a month that Generate would refuse to file.
 function nhisClaim(id: string, mdc: string | null, amount: string) {
   return {
     id,
     claimNumber: `NHIS-${id}`,
     totalClaimAmount: amount,
     insuranceProviderId: 'nhis-a',
+    corporateAccountId: null,
     items: mdc
       ? [
         { itemNumber: 1, itemCategory: 'gdrg', gdrgTariff: { mdc } },
@@ -398,9 +543,8 @@ function nhisClaim(id: string, mdc: string | null, amount: string) {
 }
 
 /**
- * A month of `claims` ready to generate: the batch table records whatever the service asks it to
- * create, and the XML step is stubbed — the file it writes is a copy of the batch, not the rule
- * under test, and a test must not touch the disk.
+ * A month of claims ready to generate. Each invocation is isolated from the database
+ * and the NHIS XML writer; tests assert the payer-period grouping itself.
  */
 function generatingFrom(claims: any[], date = '2026-11-02T09:00:00') {
   const created: any[] = [];
@@ -417,136 +561,21 @@ function generatingFrom(claims: any[], date = '2026-11-02T09:00:00') {
   batch.findMany.mockResolvedValue(claims);
   batch.prisma.insuranceProvider = {
     findMany: vi.fn().mockResolvedValue([]),
-    findFirst: vi.fn().mockResolvedValue({ id: 'nhis-a' }),
+    findUnique: vi.fn().mockImplementation(async ({ where }: any) => ({
+      id: where.id, name: 'NHIS', type: where.id === 'private-a' ? 'private' : 'nhis', isActive: true,
+    })),
   };
+  batch.prisma.corporateAccount = {
+    findUnique: vi.fn().mockResolvedValue({
+      id: 'account-1', companyName: 'Acacia', isActive: true, insuranceProviderId: 'provider-corp',
+    }),
+  };
+  batch.prisma.$transaction = vi.fn(async (callback: any) => callback({
+    $queryRaw: vi.fn().mockResolvedValue([]),
+    claimBatch: batch.prisma.claimBatch,
+  }));
   vi.spyOn(batch.service as any, 'buildNHISBatchXml').mockResolvedValue('<NHISICClaim/>');
   vi.spyOn(fs.promises, 'mkdir').mockImplementation(async () => undefined as any);
   vi.spyOn(fs.promises, 'writeFile').mockImplementation(async () => undefined);
   return { ...batch, created };
 }
-
-describe('an NHIS month is filed one G-DRG family at a time', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it('splits the month into one batch per family, biggest first', async () => {
-    const { service, created } = generatingFrom([
-      nhisClaim('claim-1', 'MEDI', '100.00'),
-      nhisClaim('claim-2', 'MEDI', '50.00'),
-      nhisClaim('claim-3', 'OPDC', '25.00'),
-    ]);
-
-    const result = await service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 10 } as any, 'user-1');
-
-    expect(result.batches).toHaveLength(2);
-    expect(created.map((row) => row.claimFamily)).toEqual(['MEDI', 'OPDC']);
-    expect(created[0].totalClaims).toBe(2);
-    expect(Number(created[0].totalAmount)).toBe(150);
-    expect(created[0].claims.connect.map((c: any) => c.id)).toEqual(['claim-1', 'claim-2']);
-    expect(created[1].totalClaims).toBe(1);
-    // Each family carries its own number, because each is a separate submission to the payer.
-    expect(created[1].batchNumber).not.toBe(created[0].batchNumber);
-    expect(created[1].description).toBe('OPDC claims');
-  });
-
-  it('holds back a claim with no package code and says how many', async () => {
-    const { service, created } = generatingFrom([
-      nhisClaim('claim-1', 'MEDI', '100.00'),
-      nhisClaim('claim-2', null, '10.00'),
-    ]);
-
-    const result = await service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 10 } as any, 'user-1');
-
-    expect(created).toHaveLength(1);
-    expect(created[0].claims.connect).toEqual([{ id: 'claim-1' }]);
-    expect(result.heldBackUncoded).toBe(1);
-  });
-
-  it('refuses a month where nothing carries a package code', async () => {
-    const { service, created } = generatingFrom([nhisClaim('claim-1', null, '10.00')]);
-
-    await expect(service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 10 } as any, 'user-1'))
-      .rejects.toThrow(/None of the 1 NHIS claims for October 2026 carries a G-DRG code/);
-    expect(created).toHaveLength(0);
-  });
-
-  it('checks the duplicate rule family by family, and writes nothing when one is taken', async () => {
-    const { service, prisma, created } = generatingFrom([
-      nhisClaim('claim-1', 'MEDI', '100.00'),
-      nhisClaim('claim-2', 'OPDC', '25.00'),
-    ]);
-    // October's MEDI batch exists; OPDC does not.
-    prisma.claimBatch.findFirst.mockImplementation(({ where }: any) =>
-      Promise.resolve(where.claimFamily === 'MEDI' ? { batchNumber: 'CB-00009' } : null));
-
-    await expect(service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 10 } as any, 'user-1'))
-      .rejects.toThrow(/nhis \/ MEDI \/ 2026-10 \(CB-00009\)/);
-    expect(created).toHaveLength(0);
-
-    // The family is part of the duplicate lookup: an October MEDI batch must not be read as proof
-    // that the OPDC claims of the same month were already filed.
-    const families = prisma.claimBatch.findFirst.mock.calls.map((call: any[]) => call[0].where.claimFamily);
-    expect(families).toEqual(['MEDI']);
-  });
-
-  it('looks up each family it is about to file before writing any of them', async () => {
-    const { service, prisma, created } = generatingFrom([
-      nhisClaim('claim-1', 'MEDI', '100.00'),
-      nhisClaim('claim-2', 'OPDC', '25.00'),
-    ]);
-
-    await service.generateBatch({ insuranceType: 'nhis', periodYear: 2026, periodMonth: 10 } as any, 'user-1');
-
-    expect(prisma.claimBatch.findFirst.mock.calls.map((call: any[]) => call[0].where.claimFamily))
-      .toEqual(['MEDI', 'OPDC']);
-    expect(created).toHaveLength(2);
-  });
-
-  it('previews the same families Generate would build, plus what it leaves out', async () => {
-    const { service } = generatingFrom([
-      nhisClaim('claim-1', 'MEDI', '100.00'),
-      nhisClaim('claim-2', 'MEDI', '50.00'),
-      nhisClaim('claim-3', 'OPDC', '25.00'),
-      nhisClaim('claim-4', null, '10.00'),
-    ]);
-
-    const summary = await service.eligibleForPeriod(2026, 10);
-
-    expect(summary.nhisFamilies).toEqual([
-      { family: 'MEDI', count: 2, amount: 150 },
-      { family: 'OPDC', count: 1, amount: 25 },
-    ]);
-    expect(summary.nhisUncoded).toBe(1);
-  });
-});
-
-// Only NHIS is filed by code family. Every other payer wants one invoice per month covering
-// whatever was done, so the split must not touch them — an uncoded claim there is still billable.
-describe('a private or corporate month is filed whole', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it('keeps one batch under ALL, package-coded claims or not', async () => {
-    const { service, created } = generatingFrom([
-      nhisClaim('claim-1', 'MEDI', '100.00'),
-      nhisClaim('claim-2', null, '10.00'),
-    ]);
-
-    const result = await service.generateBatch({
-      insuranceType: 'private', periodYear: 2026, periodMonth: 10, insuranceProviderId: 'mac-fam',
-    } as any, 'user-1');
-
-    expect(result.batches).toHaveLength(1);
-    expect(result.heldBackUncoded).toBe(0);
-    expect(created).toHaveLength(1);
-    expect(created[0].claimFamily).toBe('ALL');
-    expect(created[0].insuranceProviderId).toBe('mac-fam');
-    expect(created[0].claims.connect.map((c: any) => c.id)).toEqual(['claim-1', 'claim-2']);
-    // No family suffix on a whole-month batch — the operator's note is kept as written.
-    expect(created[0].description).toBeNull();
-  });
-});

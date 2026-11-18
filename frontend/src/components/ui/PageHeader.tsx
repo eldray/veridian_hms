@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button } from './Button';
@@ -41,11 +41,18 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   const navigate = useNavigate();
+  const location = useLocation();
 
+  // Prefer the actual in-app navigation history. backTo/onBack are fallback
+  // destinations for a page opened directly (e.g. pasted URL or refreshed tab).
   const handleBack = () => {
+    if (location.key !== 'default') {
+      navigate(-1);
+      return;
+    }
     if (onBack) onBack();
-    else if (backTo) navigate(backTo);
-    else navigate(-1);
+    else if (backTo) navigate(backTo, { replace: true });
+    else navigate('/dashboard', { replace: true });
   };
 
   return (

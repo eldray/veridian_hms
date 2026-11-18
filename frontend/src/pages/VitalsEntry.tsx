@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/VitalsEntry.tsx - FIXED with refresh and proper vitals display
 import { useLiveRefresh } from '../api/realtime';
 import { confirmDialog } from '../context/ConfirmDialog';
@@ -128,6 +129,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 };
 
 export default function VitalsEntry() {
+  const goBack = useSmartBack('/dashboard/vitals');
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -424,7 +426,7 @@ export default function VitalsEntry() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => (location.key === 'default' ? navigate('/dashboard/vitals') : navigate(-1))}
+            onClick={goBack}
             className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
           >
             <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />

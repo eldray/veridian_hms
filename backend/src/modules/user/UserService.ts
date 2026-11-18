@@ -59,9 +59,10 @@ export class UserService extends BaseService {
   ): Promise<UserResponse> {
     this.logInfo('Creating user', { username: dto.username, role: dto.role, actor: actor.userId });
 
-    // Super-admin accounts are privileged platform-level accounts and may only be created by a super admin.
-    if (String(dto.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
-      throw new ForbiddenError('Only super admins can create super-admin accounts');
+    // Administrator accounts are privileged. Only Super Admin may create
+    // another System Admin or Super Admin account.
+    if (['admin', 'super_admin'].includes(String(dto.role).toLowerCase()) && String(actor.role).toLowerCase() !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can create administrator accounts');
     }
 
     if (!VALID_ROLES.includes(dto.role as any)) {
@@ -148,9 +149,18 @@ export class UserService extends BaseService {
     return shift;
   }
 
-  async getLeaveById(leaveId: string): Promise<LeaveResponse> {
+  async getLeaveById(
+    leaveId: string,
+    actor: { userId: string; role: string },
+  ): Promise<LeaveResponse> {
     const leave = await this.repository.findLeaveById(leaveId);
     if (!leave) throw new Error('Leave request not found');
+
+    // HR and administrators may review all requests. Other staff may only
+    // view their own request, including its private reason/details.
+    if (!this.isAdminLike(actor.role) && leave.userId !== actor.userId) {
+      throw new ForbiddenError('You can only view your own leave requests');
+    }
     return leave;
   }
 
@@ -167,14 +177,15 @@ export class UserService extends BaseService {
     const actorRole = String(actor.role).toLowerCase();
     const targetRole = String(existingUser.role).toLowerCase();
 
-    // Admins have normal administrator powers, but cannot manage a super-admin account.
-    if (targetRole === 'super_admin' && actorRole !== 'super_admin') {
-      throw new ForbiddenError('Only super admins can modify a super-admin account');
+    // System Admin cannot modify another administrator account. Super Admin
+    // retains control over both administrator tiers.
+    if (['admin', 'super_admin'].includes(targetRole) && actorRole !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can modify administrator accounts');
     }
 
-    // Only a super admin may grant the super-admin role.
-    if (String(updateData.role || '').toLowerCase() === 'super_admin' && actorRole !== 'super_admin') {
-      throw new ForbiddenError('Only super admins can assign the super-admin role');
+    // Only Super Admin may grant either administrator role.
+    if (['admin', 'super_admin'].includes(String(updateData.role || '').toLowerCase()) && actorRole !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can assign administrator roles');
     }
 
     // Nobody can change their own role via this endpoint — role changes
@@ -258,8 +269,8 @@ export class UserService extends BaseService {
     const existing = await this.repository.findById(userId);
     if (!existing) throw new Error('User not found');
 
-    if (String(existing.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
-      throw new ForbiddenError('Only super_admins can deactivate a super_admin');
+    if (['admin', 'super_admin'].includes(String(existing.role).toLowerCase()) && String(actor.role).toLowerCase() !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can deactivate administrator accounts');
     }
 
     const deactivated = await this.repository.deactivateUser(userId);
@@ -294,8 +305,8 @@ export class UserService extends BaseService {
     const existing = await this.repository.findById(userId);
     if (!existing) throw new NotFoundError('User', userId);
 
-    if (String(existing.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
-      throw new ForbiddenError('Only super admins can reset a super-admin password');
+    if (['admin', 'super_admin'].includes(String(existing.role).toLowerCase()) && String(actor.role).toLowerCase() !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can reset administrator passwords');
     }
 
     const policyError = passwordPolicyError(newPassword, {
@@ -335,7 +346,10 @@ export class UserService extends BaseService {
     const permissions = await this.repository.getUserPermissions(userId);
     const effectiveRole = role || (await this.repository.findById(userId))?.role || 'unknown';
 
-    if ((effectiveRole === 'admin' || effectiveRole === 'super_admin') && !permissions.includes('*')) {
+    // Only Super Admin receives the global wildcard. System Admin's
+    // complete facility permissions are represented explicitly by the seeded
+    // RBAC matrix, which deliberately excludes platform.manage.
+    if (String(effectiveRole).toLowerCase() === 'super_admin' && !permissions.includes('*')) {
       permissions.unshift('*');
     }
     return { role: effectiveRole, permissions };
@@ -854,8 +868,16 @@ export class UserService extends BaseService {
   // LEAVE MANAGEMENT
   // ==========================================
 
-  async getAllLeaves(filters: LeaveFilters = {}) {
-    return this.repository.findAllLeaves(filters);
+  async getAllLeaves(
+    filters: LeaveFilters = {},
+    actor: { userId: string; role: string },
+  ) {
+    // Never trust a client-supplied userId to broaden leave visibility.
+    // HR/admin can review facility requests; all other staff are self-service.
+    const scopedFilters = this.isAdminLike(actor.role)
+      ? filters
+      : { ...filters, userId: actor.userId };
+    return this.repository.findAllLeaves(scopedFilters);
   }
 
   async createLeave(userId: string, data: CreateLeaveDTO) {
@@ -927,19 +949,30 @@ export class UserService extends BaseService {
     const isDecision = data.status === 'approved' || data.status === 'rejected';
     const isCancel = data.status === 'cancelled';
 
+    if (!isAdminLike) {
+      // Self-service staff may only cancel their own pending request.
+      // They cannot edit reasons, change approval status, or amend another
+      // employee's request by omitting the status field.
+      if (!isOwner || !isCancel || data.reason !== undefined) {
+        throw new ForbiddenError('You may only cancel your own pending leave request');
+      }
+      if (existing.status !== 'pending') {
+        throw new Error('You can only cancel a pending leave request');
+      }
+    }
     if (isDecision && !isAdminLike) {
       throw new ForbiddenError('Only admins and HR can approve or reject leave requests');
     }
     if (isCancel && !isOwner && !isAdminLike) {
       throw new ForbiddenError('You can only cancel your own leave requests');
     }
-    if (isCancel && isOwner && existing.status !== 'pending') {
+    if (isCancel && isOwner && existing.status !== 'pending' && !isAdminLike) {
       throw new Error('You can only cancel a pending leave request');
     }
 
     const updateData: any = {};
     if (data.status !== undefined) updateData.status = data.status;
-    if (data.reason !== undefined) updateData.reason = data.reason;
+    if (isAdminLike && data.reason !== undefined) updateData.reason = data.reason;
 
     if (isDecision) {
       updateData.approvedById = actor.userId;

@@ -22,7 +22,7 @@ const routeFiles = (): string[] =>
 const relative = (file: string) => path.relative(process.cwd(), file).replace(/\\/g, '/');
 const read = (file: string) => fs.readFileSync(file, 'utf8');
 
-const PUBLIC_AUTH_ENDPOINTS = new Set(['/login', '/refresh-token', '/forgot-password']);
+const PUBLIC_AUTH_ENDPOINTS = new Set(['/login', '/refresh-token', '/forgot-password', '/complete-password-reset', '/logout']);
 
 describe('route authorization coverage', () => {
   it('authenticates every module except the auth endpoints', () => {
@@ -107,5 +107,70 @@ describe('route authorization coverage', () => {
 
     expect([...publicEndpoints].sort()).toEqual([...PUBLIC_AUTH_ENDPOINTS].sort());
     expect(unprotected).toEqual([]);
+  });
+
+  it('redacts dashboard metrics the authenticated role cannot access', () => {
+    const controller = read(path.join(modulesDir, 'dashboard', 'DashboardController.ts'));
+    expect(controller).toMatch(/const canViewFinance = isAdmin \|\| role === 'accounts'/);
+    expect(controller).toMatch(/visibleStats\.pendingBills = 0/);
+    expect(controller).toMatch(/visibleStats\.pendingClaims = 0/);
+    expect(controller).toMatch(/visibleStats\.totalRevenue = 0/);
+    expect(controller).toMatch(/visibleStats\.lowStockItems = 0/);
+    expect(controller).toMatch(/visibleStats\.topDiagnoses = \[\]/);
+    expect(controller).toMatch(/topDiagnoses: \[\.\.\.stats\.topDiagnoses\]/);
+  });
+
+  it('restricts facility-wide billing reports to finance and administrators', () => {
+    const source = read(path.join(modulesDir, 'billing', 'BillingRoutes.ts'));
+    expect(source).toMatch(/router\.get\('\/invoices',\s*requireRole\(FINANCIAL_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/statistics',\s*requireRole\(FINANCIAL_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/collections',\s*requireRole\(FINANCIAL_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/line-items',\s*requireRole\(FINANCIAL_READERS\)/);
+    expect(source).toMatch(/const FINANCIAL_READERS = \['admin', 'accounts'\]/);
+  });
+
+  it('passes the authenticated actor into leave reads and scopes staff requests', () => {
+    const controller = read(path.join(modulesDir, 'user', 'UserController.ts'));
+    const service = read(path.join(modulesDir, 'user', 'UserService.ts'));
+    expect(controller).toMatch(/getAllLeaves\(filters,\s*\{\s*userId: req\.user!\.userId, role: req\.user!\.role\s*\}\)/);
+    expect(controller).toMatch(/getLeaveById\(req\.params\.id,\s*\{\s*userId: req\.user!\.userId, role: req\.user!\.role\s*\}\)/);
+    expect(service).toMatch(/: \{ \.\.\.filters, userId: actor\.userId \}/);
+    expect(service).toMatch(/You can only view your own leave requests/);
+    expect(service).toMatch(/You may only cancel your own pending leave request/);
+  });
+
+  it('reserves administrator account lifecycle actions for Super Admin', () => {
+    const service = read(path.join(modulesDir, 'user', 'UserService.ts'));
+    expect(service).toMatch(/Only Super Admin can create administrator accounts/);
+    expect(service).toMatch(/Only Super Admin can modify administrator accounts/);
+    expect(service).toMatch(/Only Super Admin can deactivate administrator accounts/);
+    expect(service).toMatch(/Only Super Admin can reset administrator passwords/);
+  });
+
+  it('restricts stock catalogue and category reads to operational, clinical and finance roles', () => {
+    const source = read(path.join(modulesDir, 'stockItem', 'StockItemRoutes.ts'));
+    expect(source).toMatch(/const STOCK_CATALOG_READERS = \[/);
+    expect(source).toMatch(/router\.get\('\/',\s*requireRole\(STOCK_CATALOG_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/:id',\s*requireRole\(STOCK_CATALOG_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/categories',\s*requireRole\(STOCK_CATALOG_READERS\)/);
+    expect(source).toMatch(/'accounts'/);
+    expect(source).not.toMatch(/const STOCK_CATALOG_READERS = \[[\s\S]*?'hr_officer'/);
+  });
+
+  it('restricts requisition fulfilment to Pharmacy and administrators even on the shared status route', () => {
+    const service = read(path.join(modulesDir, 'requisition', 'RequisitionService.ts'));
+    expect(service).toMatch(/action === 'fulfilled' && role !== 'pharmacist'/);
+    expect(service).toMatch(/Only Pharmacy or an administrator can fulfil a requisition/);
+  });
+
+  it('allows the pharmacy role to allocate departmental stock', () => {
+    const source = read(path.join(modulesDir, 'stockItem', 'StockItemRoutes.ts'));
+    expect(source).toMatch(/router\.post\('\/:id\/allocate-stock',\s*requireRole\(\['admin', 'super_admin', 'pharmacist'\]\)/);
+  });
+
+  it('keeps runtime user creation and role changes synchronized with dynamic RBAC', () => {
+    const repository = read(path.join(modulesDir, 'user', 'UserRepository.ts'));
+    expect(repository).toMatch(/roles:\s*\{\s*connect:\s*\{\s*name: data\.role\s*\}\s*\}/);
+    expect(repository).toMatch(/roles:\s*\{\s*set:\s*\[\{\s*name: String\(data\.role\)\s*\}\]\s*\}/);
   });
 });

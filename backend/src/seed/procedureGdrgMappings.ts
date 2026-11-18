@@ -78,7 +78,7 @@ export const MAPPINGS: ProcedureGDRGMapping[] = [
     procedureCode: 'ASUR30A',
     gdrgCodes: ['ASUR30A'],
     isPrimaryGdrg: 'ASUR30A',
-    notes: 'General excision biopsy — also maps to RSURO7A in reconstructive context'
+    notes: 'General excision biopsy — also maps to RSUR07A in reconstructive context'
   },
   {
     procedureCode: 'ASUR31A',
@@ -390,31 +390,31 @@ export const MAPPINGS: ProcedureGDRGMapping[] = [
 
   // ══════════════════════════════════════════════════════════════
   // RECONSTRUCTIVE SURGERY (RSUR)
-  // Note: manual uses RSURO (letter O not zero) in some codes
+  // Note: manual uses RSUR0 (letter O not zero) in some codes
   // ══════════════════════════════════════════════════════════════
-  { procedureCode: 'RSURO1A', gdrgCodes: ['RSURO1A'],             isPrimaryGdrg: 'RSURO1A' },
-  { procedureCode: 'RSURO1C', gdrgCodes: ['RSURO1C'],             isPrimaryGdrg: 'RSURO1C' },
-  { procedureCode: 'RSURO2A', gdrgCodes: ['RSURO2A'],             isPrimaryGdrg: 'RSURO2A' },
-  { procedureCode: 'RSURO2C', gdrgCodes: ['RSURO2C'],             isPrimaryGdrg: 'RSURO2C' },
+  { procedureCode: 'RSUR01A', gdrgCodes: ['RSUR01A'],             isPrimaryGdrg: 'RSUR01A' },
+  { procedureCode: 'RSUR01C', gdrgCodes: ['RSUR01C'],             isPrimaryGdrg: 'RSUR01C' },
+  { procedureCode: 'RSUR02A', gdrgCodes: ['RSUR02A'],             isPrimaryGdrg: 'RSUR02A' },
+  { procedureCode: 'RSUR02C', gdrgCodes: ['RSUR02C'],             isPrimaryGdrg: 'RSUR02C' },
   {
-    procedureCode: 'RSURO3A',
-    gdrgCodes: ['RSURO3A', 'ZOOM05A'],
-    isPrimaryGdrg: 'RSURO3A',
+    procedureCode: 'RSUR03A',
+    gdrgCodes: ['RSUR03A', 'ZOOM05A'],
+    isPrimaryGdrg: 'RSUR03A',
     notes: 'Excisional debridement + dressing; ZOOM05A for simple dressing change only'
   },
-  { procedureCode: 'RSURO3C', gdrgCodes: ['RSURO3C', 'ZOOM05C'], isPrimaryGdrg: 'RSURO3C' },
-  { procedureCode: 'RSURO4A', gdrgCodes: ['RSURO4A', 'ZOOM07A'], isPrimaryGdrg: 'RSURO4A' },
-  { procedureCode: 'RSURO4C', gdrgCodes: ['RSURO4C', 'ZOOM07C'], isPrimaryGdrg: 'RSURO4C' },
-  { procedureCode: 'RSURO5A', gdrgCodes: ['RSURO5A'],             isPrimaryGdrg: 'RSURO5A' },
-  { procedureCode: 'RSURO5C', gdrgCodes: ['RSURO5C'],             isPrimaryGdrg: 'RSURO5C' },
-  { procedureCode: 'RSURO6A', gdrgCodes: ['RSURO6A'],             isPrimaryGdrg: 'RSURO6A' },
-  { procedureCode: 'RSURO6C', gdrgCodes: ['RSURO6C'],             isPrimaryGdrg: 'RSURO6C' },
-  { procedureCode: 'RSURO7A', gdrgCodes: ['RSURO7A', 'ASUR30A'], isPrimaryGdrg: 'RSURO7A' },
-  { procedureCode: 'RSURO7C', gdrgCodes: ['RSURO7C'],             isPrimaryGdrg: 'RSURO7C' },
-  { procedureCode: 'RSURO8A', gdrgCodes: ['RSURO8A'],             isPrimaryGdrg: 'RSURO8A' },
-  { procedureCode: 'RSURO8C', gdrgCodes: ['RSURO8C'],             isPrimaryGdrg: 'RSURO8C' },
-  { procedureCode: 'RSURO9A', gdrgCodes: ['RSURO9A'],             isPrimaryGdrg: 'RSURO9A' },
-  { procedureCode: 'RSURO9C', gdrgCodes: ['RSURO9C'],             isPrimaryGdrg: 'RSURO9C' },
+  { procedureCode: 'RSUR03C', gdrgCodes: ['RSUR03C', 'ZOOM05C'], isPrimaryGdrg: 'RSUR03C' },
+  { procedureCode: 'RSUR04A', gdrgCodes: ['RSUR04A', 'ZOOM07A'], isPrimaryGdrg: 'RSUR04A' },
+  { procedureCode: 'RSUR04C', gdrgCodes: ['RSUR04C', 'ZOOM07C'], isPrimaryGdrg: 'RSUR04C' },
+  { procedureCode: 'RSUR05A', gdrgCodes: ['RSUR05A'],             isPrimaryGdrg: 'RSUR05A' },
+  { procedureCode: 'RSUR05C', gdrgCodes: ['RSUR05C'],             isPrimaryGdrg: 'RSUR05C' },
+  { procedureCode: 'RSUR06A', gdrgCodes: ['RSUR06A'],             isPrimaryGdrg: 'RSUR06A' },
+  { procedureCode: 'RSUR06C', gdrgCodes: ['RSUR06C'],             isPrimaryGdrg: 'RSUR06C' },
+  { procedureCode: 'RSUR07A', gdrgCodes: ['RSUR07A', 'ASUR30A'], isPrimaryGdrg: 'RSUR07A' },
+  { procedureCode: 'RSUR07C', gdrgCodes: ['RSUR07C'],             isPrimaryGdrg: 'RSUR07C' },
+  { procedureCode: 'RSUR08A', gdrgCodes: ['RSUR08A'],             isPrimaryGdrg: 'RSUR08A' },
+  { procedureCode: 'RSUR08C', gdrgCodes: ['RSUR08C'],             isPrimaryGdrg: 'RSUR08C' },
+  { procedureCode: 'RSUR09A', gdrgCodes: ['RSUR09A'],             isPrimaryGdrg: 'RSUR09A' },
+  { procedureCode: 'RSUR09C', gdrgCodes: ['RSUR09C'],             isPrimaryGdrg: 'RSUR09C' },
   { procedureCode: 'RSUR10A', gdrgCodes: ['RSUR10A'],             isPrimaryGdrg: 'RSUR10A' },
   { procedureCode: 'RSUR10C', gdrgCodes: ['RSUR10C'],             isPrimaryGdrg: 'RSUR10C' },
   { procedureCode: 'RSUR11A', gdrgCodes: ['RSUR11A'],             isPrimaryGdrg: 'RSUR11A' },
@@ -466,6 +466,33 @@ export const MAPPINGS: ProcedureGDRGMapping[] = [
   { procedureCode: 'ZOOM11A', gdrgCodes: ['ZOOM11A'],             isPrimaryGdrg: 'ZOOM11A' },
   { procedureCode: 'ZOOM12A', gdrgCodes: ['ZOOM12A'],             isPrimaryGdrg: 'ZOOM12A' },
   { procedureCode: 'ZOOM13A', gdrgCodes: ['ZOOM13A'],             isPrimaryGdrg: 'ZOOM13A' },
+
+  // Complete NHIS ophthalmic and paediatric surgery procedure templates.
+  { procedureCode: 'OPHT11A', gdrgCodes: ['OPHT11A'], isPrimaryGdrg: 'OPHT11A' },
+  { procedureCode: 'OPHT11C', gdrgCodes: ['OPHT11C'], isPrimaryGdrg: 'OPHT11C' },
+  { procedureCode: 'OPHT12A', gdrgCodes: ['OPHT12A'], isPrimaryGdrg: 'OPHT12A' },
+  { procedureCode: 'OPHT12C', gdrgCodes: ['OPHT12C'], isPrimaryGdrg: 'OPHT12C' },
+  { procedureCode: 'OPHT13A', gdrgCodes: ['OPHT13A'], isPrimaryGdrg: 'OPHT13A' },
+  { procedureCode: 'OPHT13C', gdrgCodes: ['OPHT13C'], isPrimaryGdrg: 'OPHT13C' },
+  { procedureCode: 'OPHT14A', gdrgCodes: ['OPHT14A'], isPrimaryGdrg: 'OPHT14A' },
+  { procedureCode: 'OPHT14C', gdrgCodes: ['OPHT14C'], isPrimaryGdrg: 'OPHT14C' },
+  { procedureCode: 'OPHT15A', gdrgCodes: ['OPHT15A'], isPrimaryGdrg: 'OPHT15A' },
+  { procedureCode: 'OPHT15C', gdrgCodes: ['OPHT15C'], isPrimaryGdrg: 'OPHT15C' },
+  { procedureCode: 'OPHT16A', gdrgCodes: ['OPHT16A'], isPrimaryGdrg: 'OPHT16A' },
+  { procedureCode: 'OPHT16C', gdrgCodes: ['OPHT16C'], isPrimaryGdrg: 'OPHT16C' },
+  { procedureCode: 'OPHT17A', gdrgCodes: ['OPHT17A'], isPrimaryGdrg: 'OPHT17A' },
+  { procedureCode: 'PSUR26C', gdrgCodes: ['PSUR26C'], isPrimaryGdrg: 'PSUR26C' },
+  { procedureCode: 'PSUR29C', gdrgCodes: ['PSUR29C'], isPrimaryGdrg: 'PSUR29C' },
+  { procedureCode: 'PSUR30C', gdrgCodes: ['PSUR30C'], isPrimaryGdrg: 'PSUR30C' },
+  { procedureCode: 'PSUR31C', gdrgCodes: ['PSUR31C'], isPrimaryGdrg: 'PSUR31C' },
+  { procedureCode: 'PSUR32C', gdrgCodes: ['PSUR32C'], isPrimaryGdrg: 'PSUR32C' },
+  { procedureCode: 'PSUR33C', gdrgCodes: ['PSUR33C'], isPrimaryGdrg: 'PSUR33C' },
+  { procedureCode: 'PSUR34C', gdrgCodes: ['PSUR34C'], isPrimaryGdrg: 'PSUR34C' },
+  { procedureCode: 'PSUR35C', gdrgCodes: ['PSUR35C'], isPrimaryGdrg: 'PSUR35C' },
+  { procedureCode: 'PSUR36C', gdrgCodes: ['PSUR36C'], isPrimaryGdrg: 'PSUR36C' },
+  { procedureCode: 'PSUR37C', gdrgCodes: ['PSUR37C'], isPrimaryGdrg: 'PSUR37C' },
+  { procedureCode: 'PSUR38C', gdrgCodes: ['PSUR38C'], isPrimaryGdrg: 'PSUR38C' },
+  { procedureCode: 'PSUR39C', gdrgCodes: ['PSUR39C'], isPrimaryGdrg: 'PSUR39C' },
 
   // ══════════════════════════════════════════════════════════════
   // CUSTOM / LAPAROSCOPIC PROCEDURES

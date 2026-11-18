@@ -462,7 +462,7 @@ export default function ShiftManagement() {
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       <PageHeader title="Shift Management" subtitle="Schedule and manage staff shifts"
         meta={<>{total} total loaded • {filteredShifts.length} in current view</>}
-        icon={Calendar} accent="cyan"
+        icon={Calendar} accent="cyan" backTo="/dashboard"
         actions={<>
           <Button icon={RefreshCw} loading={isLoading} onClick={refreshCurrentView}>{isLoading ? 'Refreshing...' : 'Refresh'}</Button>
           <Button variant="soft" accent="cyan" icon={Plus} onClick={openCreate}>Add Shift</Button>

@@ -45,7 +45,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           {patient && (
             <div className="bg-gradient-to-r from-blue-50 to-teal-50 rounded-2xl p-6 border border-blue-200">
               <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-                <User className="w-6 h-6 text-blue-600" />
+                <PatientAvatar patient={patient} size="md" />
                 Patient Information
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -5,7 +5,7 @@
 // cells px-3 py-2, sidebar/details p-3, modals p-4. Logic untouched: every
 // filter, pagination, link/unlink, create/edit/delete handler is exactly as before.
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSmartBack } from '../utils/useSmartBack';
 import { useGDRGTariffStore } from '../store/gdrgTariffStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useAuthStore } from '../store/authStore';
@@ -107,6 +107,7 @@ const StatCard = ({ title, value, icon: Icon, colorVar, bgVar }: any) => (
 
 export default function GDRGManagement() {
   const navigate = useNavigate();
+  const goBack = useSmartBack('/dashboard');
   const { hasRole } = useAuthStore();
   const { success, error: toastError } = useToast();
   const { tariffs, fetchTariffs, isLoading } = useGDRGTariffStore();
@@ -523,7 +524,7 @@ export default function GDRGManagement() {
     return (
       <div className="space-y-3 p-3">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]">
+          <button onClick={goBack} className="p-2 hover:bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]">
             <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
           <div>
@@ -544,7 +545,7 @@ export default function GDRGManagement() {
     <div className="space-y-3 p-3">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]">
+          <button onClick={goBack} className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]">
             <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
           <div className="w-9 h-9 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">

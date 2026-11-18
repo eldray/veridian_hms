@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, Search, X } from 'lucide-react';
 import type { Patient } from '../../types';
+import { PatientAvatar } from '../patients/PatientAvatar';
 
 interface PatientSelectionProps {
   patients: Patient[];
@@ -73,7 +74,7 @@ export const PatientSelection: React.FC<PatientSelectionProps> = ({
                 onClick={() => handlePatientSelect(patient)}
                 className="w-full px-4 py-3 text-left hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors"
               >
-                <div className="font-medium text-[var(--text-primary)]">{patient.fullName}</div>
+                <div className="flex items-center gap-3"><PatientAvatar patient={patient} size="sm" /><div className="font-medium text-[var(--text-primary)]">{patient.fullName}</div></div>
                 <div className="text-sm text-[var(--text-secondary)] flex items-center gap-2 mt-1">
                   <span>ID: {patient.folderNumber}</span>
                   <span>•</span>
@@ -94,9 +95,7 @@ export const PatientSelection: React.FC<PatientSelectionProps> = ({
         <div className="bg-[var(--icon-cyan-bg)] border border-[var(--icon-cyan-text)] rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[var(--icon-cyan-text)] bg-opacity-20 rounded-lg flex items-center justify-center">
-                <User className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-              </div>
+              <PatientAvatar patient={selectedPatient} size="md" />
               <div>
                 <div className="font-semibold text-[var(--icon-cyan-text)]">{selectedPatient.fullName}</div>
                 <div className="text-sm text-[var(--icon-cyan-text)] opacity-80 flex items-center gap-2">

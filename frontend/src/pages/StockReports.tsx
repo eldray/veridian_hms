@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/StockReports.tsx — Clean flow, no step numbers
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -234,6 +235,7 @@ function SectionHeader({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function StockReports() {
+  const goBack = useSmartBack('/dashboard/stock');
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
   const {
@@ -902,7 +904,7 @@ export default function StockReports() {
         subtitle="Pick a report, configure filters, then generate"
         icon={BarChart3}
         accent="cyan"
-        onBack={() => navigate(-1)}
+        onBack={goBack}
         actions={reportData && (
           <>
             <Button size="sm" icon={RefreshCw} loading={busy} onClick={generateReport}>Refresh</Button>

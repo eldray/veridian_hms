@@ -447,9 +447,7 @@ export default function VitalsWaitingList() {
                   >
                     <td className={TD}>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 shrink-0 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                        </div>
+                        <PatientAvatar patient={patient.patient} size="sm" />
                         <span className="font-medium text-[var(--text-primary)] text-sm truncate" title={patient.patient?.name}>
                           {patient.patient?.name}
                         </span>

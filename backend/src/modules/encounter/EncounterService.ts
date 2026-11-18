@@ -809,7 +809,7 @@ export class EncounterService extends BaseService {
     const from = query.dateFrom ? query.dateFrom.toISOString().slice(0, 10) : '';
     const to = query.dateTo ? query.dateTo.toISOString().slice(0, 10) : '';
     const types = (query.attendanceTypes ?? []).slice().sort().join('+');
-    return `worklist:${name}:${view}:${from}:${to}:${types}`;
+    return `worklist:${name}:${view}:${from}:${to}${types ? `:${types}` : ''}`;
   }
 
   async getVitalsWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('vitals', query), WORKLIST_CACHE_MS, () => this.repository.getVitalsWorklist(query)); }

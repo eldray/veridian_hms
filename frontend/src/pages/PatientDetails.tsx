@@ -1,6 +1,7 @@
 // src/pages/PatientDetails.tsx - COMPACT REDESIGNED VERSION
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useSmartBack } from '../utils/useSmartBack';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
@@ -9,6 +10,7 @@ import { useToast } from '../store/toastStore';
 import { getVitalsForEncounters } from '../api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { CompactAdditionalInfo } from '../components/patients/CompactAdditionalInfo';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import {
   ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors,
@@ -96,6 +98,7 @@ const EmptyState: React.FC<{ icon: React.ElementType; title: string; hint?: stri
 
 // ============ MAIN COMPONENT ============
 export default function PatientDetails() {
+  const goBack = useSmartBack('/dashboard/patients');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
@@ -115,7 +118,6 @@ export default function PatientDetails() {
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
-  const [imageFailed, setImageFailed] = useState(false);
   const { getDocumentsByEntity, downloadDocument } = useDocumentStore();
   const patient = useMemo(() => {
     if (!currentPatient) return null;
@@ -193,7 +195,7 @@ export default function PatientDetails() {
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Could not load patient data';
       toastError('Load failed', msg);
-      if (err.response?.status === 404) navigate('/dashboard/patients');
+      if (err.response?.status === 404) goBack();
     } finally { setIsLoading(false); setRefreshing(false); }
   };
   const loadDocuments = async () => {
@@ -204,7 +206,6 @@ export default function PatientDetails() {
     finally { setDocumentsLoading(false); }
   };
   useEffect(() => { loadData(); }, [id, refreshTrigger]);
-  useEffect(() => { setImageFailed(false); }, [id]);
   useEffect(() => {
     const totalVisits = patientAttendances.length;
     const completedVisits = patientAttendances.filter(a => a.status === 'completed').length;
@@ -310,7 +311,7 @@ export default function PatientDetails() {
           </div>
           <h2 className="text-base font-bold text-[var(--text-primary)] mb-1">Patient Not Found</h2>
           <p className="text-xs text-[var(--text-secondary)] mb-5">The patient record does not exist or has been removed.</p>
-          <Button variant="soft" accent="cyan" size="sm" icon={ArrowLeft} onClick={() => navigate('/dashboard/patients')}>Back to Patients</Button>
+          <Button variant="soft" accent="cyan" size="sm" icon={ArrowLeft} onClick={goBack}>Back</Button>
         </div>
       </div>
     );
@@ -339,11 +340,7 @@ export default function PatientDetails() {
       <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
         <div className="h-1 bg-[var(--icon-cyan-text)]/70" />
         <div className="flex flex-wrap items-center gap-3 px-3 pt-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--icon-cyan-bg)]">
-            {patient.imageUrl && !imageFailed ? (
-              <img src={patient.imageUrl} alt={getPatientFullName(patient) || 'Patient photo'} className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
-            ) : (<Users className="h-6 w-6 text-[var(--icon-cyan-text)]" />)}
-          </div>
+          <PatientAvatar patient={patient} size="lg" className="rounded-xl" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate text-xl font-bold leading-tight text-[var(--text-primary)]">{getPatientFullName(patient)}</h2>

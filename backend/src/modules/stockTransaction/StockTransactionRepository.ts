@@ -402,9 +402,9 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       // Department movement balances are location-specific snapshots. Exclude
       // ward ledger rows even when the ward is administratively linked to the
       // same department, otherwise running balances mix separate locations.
-      if (filters.departmentId) {
-        locationWhere.departmentId = filters.departmentId;
-      }
+      // Keep an explicit null scope for unassigned stock. Omitting the field
+      // would make the report include transactions from every department.
+      locationWhere.departmentId = filters.departmentId || null;
       locationWhere.wardId = null;
     }
 

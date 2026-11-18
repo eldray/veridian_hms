@@ -331,13 +331,17 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
     };
   }
 
+  /**
+   * A payer can have only one batch for a service month. Do not include claimFamily
+   * in this lookup: legacy NHIS family batches must also block a duplicate monthly
+   * submission until the period is reconciled.
+   */
   async findExistingBatch(
     insuranceType: string,
     periodYear: number,
     periodMonth: number,
     insuranceProviderId?: string | null,
     corporateAccountId?: string | null,
-    claimFamily = 'ALL',
   ) {
     return this.prisma.claimBatch.findFirst({
       where: {
@@ -346,8 +350,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         periodMonth,
         insuranceProviderId: insuranceProviderId ?? null,
         corporateAccountId: corporateAccountId ?? null,
-        claimFamily,
       },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -368,8 +372,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         Patient: true,
         Attendance: true,
         Bill: true,
-        // The G-DRG line carries the family an NHIS claim is filed under, so the month is split
-        // from these rows rather than from a second query that could disagree with this one.
+        // Include the priced G-DRG package for NHIS eligibility checks. It does not
+        // split the monthly batch: all coded claims for this provider/month stay together.
         items: {
           orderBy: { itemNumber: 'asc' },
           include: { gdrgTariff: { select: { gdrgCode: true, mdc: true } } },
@@ -383,8 +387,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
    * The single definition of "a claim from this month that a batch may take".
    *
    * The month is the VISIT's month — a claim belongs to the period of its attendance, which is
-   * the period the payer is billed for. A batch is scoped by insurance type and, when one was
-   * chosen, by provider or corporate account.
+   * the period the payer is billed for. A batch is scoped by insurance type, one insurance
+   * provider, and (for corporate payers) one corporate account.
    *
    * Every count shown before a batch is generated has to come through here. There used to be two
    * copies of this rule and they disagreed — the preview bucketed by corporateAccountId while the

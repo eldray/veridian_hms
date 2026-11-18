@@ -14,7 +14,6 @@ const CALL = /\b(?:router|\w*[Rr]outer)\.(get|post|put|patch|delete|use|all)\s*\
 
 /** Verified by hand: authenticated-only on purpose. "METHOD file path": why it is safe. */
 const SELF_SERVICE: Record<string, string> = {
-  'POST auth/AuthController.ts /logout': 'acts on the caller’s own session',
   'POST auth/AuthController.ts /change-password': 'needs the caller’s current password',
   'PUT auth/AuthController.ts /profile': 'service allow-lists name, email, phone, image',
   'PATCH notification/NotificationRoutes.ts /mark-all-read': 'updates only where userId = caller',
@@ -72,11 +71,13 @@ describe('route authorization, route by route', () => {
     expect(routes.filter((r) => MUTATING.has(r.method)).length).toBeGreaterThan(200);
   });
 
-  it('only the three public auth endpoints skip authentication', () => {
+  it('only the explicitly public auth endpoints skip authentication', () => {
     const open = routes.filter((r) => !r.protectedRoute).map((r) => r.id).sort();
     expect(open).toEqual([
+      'POST auth/AuthController.ts /complete-password-reset',
       'POST auth/AuthController.ts /forgot-password',
       'POST auth/AuthController.ts /login',
+      'POST auth/AuthController.ts /logout',
       'POST auth/AuthController.ts /refresh-token',
     ]);
   });
@@ -87,7 +88,11 @@ describe('route authorization, route by route', () => {
   });
 
   it('the self-service list has no stale entries', () => {
-    const live = new Set(routes.filter((r) => MUTATING.has(r.method) && r.protectedRoute && !r.guarded).map((r) => r.id));
-    expect(Object.keys(SELF_SERVICE).filter((id) => !live.has(id))).toEqual([]);
+    const routeIds = new Set(routes.map((r) => r.id));
+    const stale = Object.keys(SELF_SERVICE).filter((id) => !routeIds.has(id));
+    expect(stale, 'remove self-service entries for routes that no longer exist').toEqual([]);
+    for (const id of Object.keys(SELF_SERVICE)) {
+      expect(routes.find((route) => route.id === id)?.protectedRoute, `${id} must remain authenticated`).toBe(true);
+    }
   });
 });

@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/UserManagement.tsx — THE ONLY User Management page.
 // MERGED: this file now contains everything that used to live in two places:
 //   1. This page (Directory + Payslips + Documents)
@@ -24,6 +25,7 @@ import UserEditModal from '../components/UserEditModal';
 import UserRegistrationModal from '../components/UserRegistrationModal';
 import type { User } from '../types';
 import { describeApiError } from '../utils/apiError';
+import api from '../api/api';
 
 const formatCedis = (v: number | string | undefined | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0);
@@ -96,7 +98,7 @@ const ROLE_ICON_KEYS: Record<string, 'stethoscope' | 'shield' | 'briefcase' | 'h
   billing_officer: 'calculator', store_keeper: 'briefcase', community_nurse: 'heart',
 };
 const ROLE_LABELS: Record<string, string> = {
-  super_admin: 'Super Admin', admin: 'Admin', hr_officer: 'HR Officer', doctor: 'Doctor', nurse: 'Nurse', midwife: 'Midwife',
+  super_admin: 'Super Admin', admin: 'System Admin', hr_officer: 'HR Officer', doctor: 'Doctor', nurse: 'Nurse', midwife: 'Midwife',
   lab_tech: 'Lab Technician', sonographer: 'Sonographer', pharmacist: 'Pharmacist', accounts: 'Accounts', records: 'Records',
   billing_officer: 'Billing Officer', store_keeper: 'Store Keeper', community_nurse: 'Community Nurse',
 };
@@ -122,9 +124,10 @@ const SHIFT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 // ── Main page ────────────────────────────────────────────────────────────────
-type TabId = 'directory' | 'payslips' | 'documents' | 'shifts' | 'leaves';
+type TabId = 'directory' | 'payslips' | 'documents' | 'shifts' | 'leaves' | 'password-resets';
 
 export default function UserManagement() {
+  const goBack = useSmartBack('/dashboard');
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>('directory');
 
@@ -140,6 +143,9 @@ export default function UserManagement() {
   const [deactivatingUser, setDeactivatingUser] = useState<User | null>(null);
   const [resettingUser, setResettingUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [passwordResetRequests, setPasswordResetRequests] = useState<any[]>([]);
+  const [resetRequestsLoading, setResetRequestsLoading] = useState(false);
+  const [issuedResetCode, setIssuedResetCode] = useState<{ code: string; username: string; expiresAt: string } | null>(null);
 
   // Payslips state
   const now = new Date();
@@ -189,7 +195,8 @@ export default function UserManagement() {
   const { success, error: toastError } = useToast();
 
   const canManageUsers = hasRole(['admin', 'super_admin', 'hr_officer']);
-  const canResetPasswords = hasRole(['admin', 'super_admin']); // HR may edit but may not hand out a new password
+  const canAdministerAccounts = hasRole(['admin', 'super_admin']);
+  const canResetPasswords = canAdministerAccounts; // HR may view staff records but cannot create, edit core accounts, deactivate or reset passwords
 
   useEffect(() => { if (canManageUsers) getAllUsers(); }, [canManageUsers, getAllUsers]);
   useEffect(() => {
@@ -197,7 +204,41 @@ export default function UserManagement() {
     else if (activeTab === 'documents') getAllDocuments();
     else if (activeTab === 'shifts') getShifts({});
     else if (activeTab === 'leaves') getLeaves({});
+
   }, [activeTab, payrollMonth, payrollYear]);
+
+  const loadPasswordResetRequests = async () => {
+    setResetRequestsLoading(true);
+    try {
+      const response = await api.get('/users/password-reset-requests');
+      const data = response.data?.data?.data ?? response.data?.data ?? [];
+      setPasswordResetRequests(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      toastError('Could not load reset requests', err?.response?.data?.message || 'Please refresh and try again.');
+    } finally {
+      setResetRequestsLoading(false);
+    }
+  };
+
+  const reviewPasswordReset = async (requestId: string, decision: 'approve' | 'reject') => {
+    try {
+      const response = await api.post(`/users/password-reset-requests/${requestId}/${decision}`);
+      if (decision === 'approve') {
+        const payload = response.data?.data?.data ?? response.data?.data ?? {};
+        if (payload.resetCode) {
+          setIssuedResetCode({ code: payload.resetCode, username: payload.username || '', expiresAt: payload.expiresAt });
+        }
+        success('Request approved', 'Verify the staff member in person and give them the one-time code.');
+      } else {
+        success('Request rejected', 'The password reset request was rejected.');
+      }
+      await loadPasswordResetRequests();
+    } catch (err: any) {
+      toastError('Action failed', err?.response?.data?.message || 'Could not process the request.');
+    }
+  };
+
+  useEffect(() => { if (activeTab === 'password-resets' && canAdministerAccounts) loadPasswordResetRequests(); }, [activeTab, canAdministerAccounts]);
 
   const userList = Array.isArray(users) ? users : [];
 
@@ -357,7 +398,7 @@ export default function UserManagement() {
           <Shield className="w-16 h-16 text-[var(--icon-red-text)] mx-auto mb-4" />
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Access Denied</h2>
           <p className="text-[var(--text-secondary)] text-sm mb-6">Administrator privileges required.</p>
-          <button onClick={() => navigate('/dashboard')} className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg font-semibold text-sm"><ArrowLeft className="w-4 h-4" /> Back to Dashboard</button>
+          <button onClick={goBack} className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg font-semibold text-sm"><ArrowLeft className="w-4 h-4" /> Back</button>
         </div>
       </div>
     );
@@ -370,7 +411,7 @@ export default function UserManagement() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-[var(--bg-main)]"><ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" /></button>
+          <button onClick={goBack} className="p-2 rounded-lg hover:bg-[var(--bg-main)]"><ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" /></button>
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2"><Hospital className="w-5 h-5 text-[var(--icon-cyan-text)]" />HR &amp; User Management</h1>
             <p className="text-sm text-[var(--text-secondary)]">Users, payroll, documents, shifts and leave</p>
@@ -378,7 +419,7 @@ export default function UserManagement() {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => getAllUsers()} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm text-[var(--text-primary)]"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh</button>
-          {activeTab === 'directory' && (
+          {activeTab === 'directory' && canAdministerAccounts && (
             <button onClick={() => setShowRegisterModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"><Plus className="w-4 h-4" /> Add User</button>
           )}
         </div>
@@ -407,12 +448,31 @@ export default function UserManagement() {
           { id: 'documents' as TabId, label: 'Documents', icon: FileText },
           { id: 'shifts' as TabId, label: `Shifts (${Array.isArray(shifts) ? shifts.length : 0})`, icon: Clock },
           { id: 'leaves' as TabId, label: `Leaves (${(Array.isArray(leaves) ? leaves : []).filter((l: any) => l.status === 'pending').length} pending)`, icon: FileText },
+          ...(canAdministerAccounts ? [{ id: 'password-resets' as TabId, label: `Password resets (${passwordResetRequests.filter((r: any) => r.status === 'pending').length})`, icon: KeyRound }] : []),
         ].map((t) => {
           const Icon = t.icon;
           return (<button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}><Icon className="w-3.5 h-3.5" /> {t.label}</button>);
         })}
       </div>
 
+      {activeTab === 'password-resets' && canAdministerAccounts && (
+        <section className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+          <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+            <div><h2 className="font-semibold text-[var(--text-primary)]">Password reset requests</h2><p className="text-xs text-[var(--text-secondary)] mt-1">Verify staff identity before approving. Reset codes expire after 15 minutes.</p></div>
+            <button onClick={loadPasswordResetRequests} disabled={resetRequestsLoading} className="px-3 py-2 text-xs border border-[var(--border-color)] rounded-lg">{resetRequestsLoading ? 'Loading…' : 'Refresh'}</button>
+          </div>
+          {passwordResetRequests.length === 0 ? <p className="p-8 text-center text-sm text-[var(--text-secondary)]">{resetRequestsLoading ? 'Loading requests…' : 'No password reset requests awaiting review.'}</p> : (
+            <div className="divide-y divide-[var(--border-color)]">
+              {passwordResetRequests.map((request: any) => (
+                <div key={request.id} className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+                  <div><p className="font-medium text-sm text-[var(--text-primary)]">{request.user?.fullName || 'Unknown staff'} <span className="font-normal text-[var(--text-secondary)]">@{request.user?.username || 'unknown'}</span></p><p className="text-xs text-[var(--text-secondary)] mt-1">{request.user?.department?.name || 'No department'} · {request.user?.role || 'Unknown role'} · Requested {new Date(request.requestedAt).toLocaleString()}</p><span className="inline-block mt-2 text-xs rounded-full px-2 py-1 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]">{request.status}</span></div>
+                  {request.status === 'pending' && <div className="flex gap-2"><button onClick={() => reviewPasswordReset(request.id, 'approve')} className="px-3 py-2 rounded-lg text-xs font-medium bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">Approve</button><button onClick={() => reviewPasswordReset(request.id, 'reject')} className="px-3 py-2 rounded-lg text-xs font-medium bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">Reject</button></div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
       {/* ══════════ DIRECTORY ══════════ */}
       {activeTab === 'directory' && (
         <>
@@ -478,9 +538,9 @@ export default function UserManagement() {
                           <td className="px-3 py-3 whitespace-nowrap text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button onClick={() => navigate(`/dashboard/users/${user.id}`)} className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-all" title="Open full profile (account + HR + payslips)"><FileText className="w-3.5 h-3.5" /></button>
-                              {(user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (<button onClick={() => setEditingUser(user)} className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)]" title="Quick edit account"><Edit className="w-3.5 h-3.5" /></button>)}
-                              {canResetPasswords && user.id !== currentUser?.id && (user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (<button onClick={() => openPasswordReset(user)} className="p-1.5 text-[var(--icon-orange-text)] border border-[var(--icon-orange-text)] rounded-lg hover:bg-[var(--icon-orange-bg)]" title="Reset password (signs the account out everywhere)"><KeyRound className="w-3.5 h-3.5" /></button>)}
-                              {user.isActive && user.id !== currentUser?.id && (user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (<button onClick={() => setDeactivatingUser(user)} className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]" title="Deactivate account"><Ban className="w-3.5 h-3.5" /></button>)}
+                              {canAdministerAccounts && (!['admin', 'super_admin'].includes(user.role) || currentUser?.role === 'super_admin') && (<button onClick={() => setEditingUser(user)} className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)]" title="Quick edit account"><Edit className="w-3.5 h-3.5" /></button>)}
+                              {canResetPasswords && user.id !== currentUser?.id && (!['admin', 'super_admin'].includes(user.role) || currentUser?.role === 'super_admin') && (<button onClick={() => openPasswordReset(user)} className="p-1.5 text-[var(--icon-orange-text)] border border-[var(--icon-orange-text)] rounded-lg hover:bg-[var(--icon-orange-bg)]" title="Reset password (signs the account out everywhere)"><KeyRound className="w-3.5 h-3.5" /></button>)}
+                              {canAdministerAccounts && user.isActive && user.id !== currentUser?.id && (!['admin', 'super_admin'].includes(user.role) || currentUser?.role === 'super_admin') && (<button onClick={() => setDeactivatingUser(user)} className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]" title="Deactivate account"><Ban className="w-3.5 h-3.5" /></button>)}
                             </div>
                           </td>
                         </tr>
@@ -735,6 +795,18 @@ export default function UserManagement() {
                 <button onClick={handleDeactivateUser} disabled={isLoading} className="flex-1 px-5 py-2.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white text-sm font-medium disabled:opacity-50">{isLoading ? 'Deactivating…' : 'Deactivate'}</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {issuedResetCode && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]" onClick={() => setIssuedResetCode(null)}>
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md border border-[var(--border-color)]" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">One-time reset code</h3>
+            <p className="text-sm text-[var(--text-secondary)] mb-4">Give this code only to the staff member after verifying their identity. It expires at {new Date(issuedResetCode.expiresAt).toLocaleTimeString()}.</p>
+            <div className="text-center text-2xl font-mono font-bold tracking-[0.25em] p-4 rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] select-all">{issuedResetCode.code}</div>
+            <p className="text-xs text-[var(--text-secondary)] mt-3">The code is shown only now and is stored on the server as a hash.</p>
+            <button onClick={() => { navigator.clipboard?.writeText(issuedResetCode.code); }} className="w-full mt-4 px-4 py-2 rounded-lg border border-[var(--border-color)] text-sm">Copy code</button>
+            <button onClick={() => setIssuedResetCode(null)} className="w-full mt-2 px-4 py-2 rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] text-sm font-medium">Done</button>
           </div>
         </div>
       )}

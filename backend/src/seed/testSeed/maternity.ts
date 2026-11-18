@@ -233,7 +233,7 @@ export const seedAncVisits = async (
   // above every number the generator can hand out rather than at the size of one loop.
   let attendanceCounter = VISIT_NUMBER_CEILING;
   const attachable = visits.filter((visit) => antenatal.byKey.has(visit.bookingKey));
-  planned['anc visits'] = (planned['anc visits'] ?? 0) + attachable.length;
+  // writeMany() records the planned row count; do not count the same visits twice.
 
   const visitAttendances: Prisma.AttendanceCreateManyInput[] = [];
   const keyed: Array<{ visit: GeneratedAncVisit; ref: BookingRef; attendanceNumber: string }> = [];

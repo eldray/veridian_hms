@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useSmartBack } from '../utils/useSmartBack';
 import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
@@ -295,6 +296,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
 export default function UserDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useSmartBack('/dashboard/users');
   const { success, error: toastError } = useToast();
   const { user: currentUser } = useAuthStore();
   // Mirrors UserEditModal: only a super administrator may hand out (or keep) the top role.
@@ -422,7 +424,7 @@ export default function UserDetail() {
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard/users')} className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)]">
+          <button onClick={goBack} className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)]">
             <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
           <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
@@ -491,7 +493,7 @@ export default function UserDetail() {
                   {(canManageSuperAdmin || userForm.role === 'super_admin') && (
                     <option value="super_admin" disabled={!canManageSuperAdmin}>Super Admin</option>
                   )}
-                  <option value="admin">Admin</option>
+                  <option value="admin">System Admin</option>
                   <option value="hr_officer">HR Officer</option>
                   <option value="doctor">Doctor</option>
                   <option value="nurse">Nurse</option>

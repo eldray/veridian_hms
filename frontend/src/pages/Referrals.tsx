@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/Referrals.tsx — consistent with Patients / Shift / Leave:
 // shared PageHeader + SearchInput + FilterSelect + Segmented + Pagination
 // from components/ui, no hard-coded Tailwind colours (all var(--*) tokens).
@@ -157,6 +158,7 @@ const fmtDate = (v: any) => {
 };
 
 export default function Referrals() {
+  const goBack = useSmartBack('/dashboard');
   const navigate = useNavigate();
   const location = useLocation();
   const [urlSearchParams] = useSearchParams();
@@ -583,7 +585,7 @@ export default function Referrals() {
         icon={Send} accent="cyan"
         meta={<>{referrals.length} referrals loaded</>}
         actions={<>
-          <Button icon={ArrowLeft} variant="secondary" onClick={() => navigate(-1)}>Back</Button>
+          <Button icon={ArrowLeft} variant="secondary" onClick={goBack}>Back</Button>
           <Button icon={RefreshCw} loading={refreshing} onClick={() => { loadData(true); fetchReferrals(); fetchStats(); }}>Refresh</Button>
           <Button variant="secondary" icon={Activity} onClick={() => setShowStats(s => !s)}>{showStats ? 'Hide stats' : 'Stats'}</Button>
           <Button variant="soft" accent="cyan" icon={UserPlus} onClick={() => { resetForm(); setShowModal(true); }}>New Referral</Button>

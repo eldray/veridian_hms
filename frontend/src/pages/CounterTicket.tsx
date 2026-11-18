@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/CounterTicket.tsx
 //
 // One counter ticket, worked end to end: sell, order a lab test or a scan, hand the goods
@@ -24,6 +25,7 @@ import {
   Plus, Printer, RefreshCw, Scan, Trash2, User,
 } from 'lucide-react';
 import { Badge, Button, cn, INPUT, PageHeader, SELECT, TD, TH, TH_ROW, TR } from '../components/ui';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import {
   CANCELLABLE_ORDER_STATUSES, CLOSED_STATUSES, dateTime, identityOf, label, LIST_KEYS, money, openedByLabel,
   pickList, shell, ticketLabel, ticketTone, unwrap,
@@ -53,6 +55,7 @@ const fetchCatalog = async (serviceType: string, search: string) => {
 const stockItemOf = (row: any): string | null => row?.stockItem?.id || row?.StockItem?.id || row?.stockItemId || null;
 
 export default function CounterTicket() {
+  const goBack = useSmartBack('/dashboard/counter');
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, hasRole } = useAuthStore();
@@ -292,7 +295,7 @@ export default function CounterTicket() {
             <Button variant="secondary" icon={RefreshCw} loading={loadingDetail} disabled={loadingDetail || !!working} onClick={() => id && loadTicket(id)}>
               Refresh
             </Button>
-            <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate('/dashboard/counter')}>
+            <Button variant="secondary" icon={ArrowLeft} onClick={goBack}>
               Back to counter
             </Button>
             <Button variant="soft" accent="cyan" icon={Plus} onClick={() => navigate('/dashboard/counter/new')}>
@@ -335,9 +338,9 @@ export default function CounterTicket() {
           <div className={`${shell} p-4`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-3 min-w-0">
-                <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center shrink-0">
+                {identity.patient ? <PatientAvatar patient={identity.patient} size="md" className="rounded-xl" /> : <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center shrink-0">
                   <User className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                </div>
+                </div>}
                 <div className="min-w-0">
                   <h2 className="text-lg font-semibold text-[var(--text-primary)] truncate">{identity.label}</h2>
                   <p className="text-sm text-[var(--text-secondary)]">
@@ -938,8 +941,7 @@ function RegisterLink({ clientId, onDone }: { clientId: string; onDone: () => vo
               disabled={busy}
               onClick={() => link(patient)}
             >
-              {`${patient.surname || ''} ${patient.otherNames || ''}`.trim()}
-              <span className="text-xs text-[var(--text-secondary)]"> · Folder {patient.folderNumber}</span>
+              <span className="flex items-center gap-3"><PatientAvatar patient={patient} size="sm" /><span>{[patient.surname, patient.otherNames].filter(Boolean).join(" ")}<span className="text-xs text-[var(--text-secondary)]"> · Folder {patient.folderNumber}</span></span></span>
             </button>
           </li>
         ))}

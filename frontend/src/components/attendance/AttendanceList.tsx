@@ -83,9 +83,7 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({
               <tr key={attendanceId} className="hover:bg-gray-50 transition-colors duration-150">
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-teal-500 rounded-md flex items-center justify-center shadow-sm">
-                      <User className="w-3 h-3 text-white" />
-                    </div>
+                    <PatientAvatar patient={patient} size="sm" />
                     <div>
                       <p className="font-semibold text-gray-900 text-xs">
                         {patient?.fullName || `Patient ${attendance.patientId?.toString().slice(-6) || 'Unknown'}`}

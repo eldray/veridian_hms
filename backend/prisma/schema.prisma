@@ -1349,9 +1349,8 @@ model ClaimBatch {
   printFilePath       String?
   description         String?
   /**
-   * Which slice of the period this batch files. NHIS does not file a month as one claim: the
-   * payer adjudicates each G-DRG family (ASUR, MEDI, OBGY, PAED…) separately, so a month becomes
-   * one batch per family. Every other payer files its whole month together and sits under "ALL".
+   * Kept for compatibility with historical batches created under the former G-DRG-family
+   * split. All new batches use "ALL": one monthly batch per provider and corporate account.
    */
   claimFamily         String             @default("ALL")
   createdById         String
@@ -4164,4 +4163,21 @@ enum NursingTaskStatus {
   in_progress
   completed
   skipped
+}
+ 
+// Administrator-approved password recovery. Codes are stored only as hashes.
+model PasswordResetRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  status        String   @default("pending")
+  requestedAt   DateTime @default(now())
+  reviewedAt    DateTime?
+  reviewedById  String?
+  codeHash      String?
+  expiresAt     DateTime?
+  completedAt   DateTime?
+
+  @@index([status, requestedAt])
+  @@index([userId, status])
+  @@map("password_reset_requests")
 }

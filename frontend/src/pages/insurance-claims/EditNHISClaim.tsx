@@ -1,6 +1,7 @@
 // src/pages/insurance-claims/EditNHISClaim.tsx
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useSmartBack } from '../../utils/useSmartBack';
 import { useInsuranceStore } from '../../store/insuranceStore';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { usePatientStore } from '../../store/patientStore';
@@ -892,6 +893,7 @@ function AddProcedureModal({ isOpen, onClose, onAdd, editing = null }: { isOpen:
 export default function EditNHISClaim() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const goBack = useSmartBack('/dashboard/insurance/nhis/claims');
   const { success, error: toastError } = useToast();
   const isInitialized = useRef(false);
 
@@ -1606,7 +1608,7 @@ export default function EditNHISClaim() {
             {isDraft ? 'DRAFT' : 'FINALIZED'}
           </span>
         }
-        onClose={() => navigate('/dashboard/insurance/nhis/claims')}
+        onClose={goBack}
         onCollapse={() => setTablesOpen(o => !o)}
         onFinalize={isDraft ? handleFinalize : undefined}
         finalizing={isSubmitting}
@@ -1972,10 +1974,10 @@ export default function EditNHISClaim() {
           <div className="flex justify-end gap-3 bg-white px-5 py-4 border-t border-gray-200">
             <button type="button" onClick={handleDownloadXml} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Download className="w-4 h-4" /> Download XML</button>
             <button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
-            <button type="button" onClick={() => navigate('/dashboard/insurance/nhis/claims')} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
+            <button type="button" onClick={goBack} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
           </div>
         ) : (
-          <ClaimFooter onCancel={() => navigate('/dashboard/insurance/nhis/claims')} onSave={handleSave} saving={isSubmitting} />
+          <ClaimFooter onCancel={goBack} onSave={handleSave} saving={isSubmitting} />
         )}
       </ClaimFrame>
 

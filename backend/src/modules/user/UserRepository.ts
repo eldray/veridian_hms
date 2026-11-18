@@ -102,6 +102,9 @@ export class UserRepository extends BaseRepository<any, any, any> {
         password: data.passwordHash,
         fullName: data.fullName,
         role: data.role as UserRole,
+        // Keep the canonical enum role and dynamic RBAC relation synchronized
+        // for users created after the initial seed has completed.
+        roles: { connect: { name: data.role } },
         seniority: data.seniority ?? 'JUNIOR',
         email: data.email ?? null,
         phone: data.phone ?? null,
@@ -175,7 +178,13 @@ export class UserRepository extends BaseRepository<any, any, any> {
   async update(userId: string, data: any): Promise<UserResponse> {
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { ...data, updatedAt: new Date() },
+      data: {
+        ...data,
+        // Role changes must also replace the dynamic RBAC role relation; otherwise
+        // the UI and requirePermission would continue using the previous role grants.
+        ...(data.role ? { roles: { set: [{ name: String(data.role) }] } } : {}),
+        updatedAt: new Date(),
+      },
       select: {
         id: true, username: true, fullName: true, email: true, phone: true,
         imageUrl: true, licenseNumber: true, specialization: true,
