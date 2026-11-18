@@ -73,7 +73,7 @@ import {
 } from '@prisma/client';
 import { DRUG_GROUPS } from '../clinicalContent.js';
 import type { Actor, GeneratedUser } from '../bulkGenerator.js';
-import { isPayerCovered, resolveUnitPrice, resolveWardDailyRate } from '../../utils/pricing.js';
+import { isPayerCovered, resolveMedicationUnitPrice, resolveUnitPrice, resolveWardDailyRate } from '../../utils/pricing.js';
 import { hashOf, prisma, startOfToday, toNumber } from './shared.js';
 
 export interface ServiceRow {
@@ -558,7 +558,7 @@ export const buildLookups = async (): Promise<Lookups> => {
     corporateEmployeesByAccount,
     facility: facility ? { id: facility.id, name: facility.name, nhisFacilityCode: facility.nhisFacilityCode } : null,
     priceOf: (service, paymentMode, corporateDiscountPercent = 0) => service
-      ? resolveUnitPrice(
+      ? (service.serviceType === 'medication' ? resolveMedicationUnitPrice : resolveUnitPrice)(
         { cashPrice: service.cashPrice, nhisPrice: service.nhisPrice, insurancePrice: service.insurancePrice, corporatePrice: service.corporatePrice },
         paymentMode as any,
         { isNHISCovered: service.isNHISCovered, isPrivateInsuranceExempted: service.isPrivateInsuranceExempted, corporateDiscountPercent },

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { calculateNHISMedicineAllocation, isPayerCovered, resolveUnitPrice } from '../src/utils/pricing';
+import { calculateNHISMedicineAllocation, isPayerCovered, resolveMedicationUnitPrice, resolveUnitPrice } from '../src/utils/pricing';
 import { BillingRepository } from '../src/modules/billing/BillingRepository';
 
 describe('visit billing payer scenarios', () => {
@@ -20,6 +20,14 @@ describe('visit billing payer scenarios', () => {
     expect(resolveUnitPrice(configuredPrices, 'private_insurance', { isPrivateInsuranceExempted: false })).toBe(80);
     expect(resolveUnitPrice(configuredPrices, 'private_insurance', { isPrivateInsuranceExempted: true })).toBe(100);
     expect(resolveUnitPrice({ cashPrice: 100, insurancePrice: null }, 'private_insurance')).toBe(100);
+  });
+
+  it('uses the cash selling price for private and corporate medicines, but keeps the NHIS tariff', () => {
+    const medicinePrices = { cashPrice: 42.5, nhisPrice: 18.75, insurancePrice: 31, corporatePrice: 27 };
+    expect(resolveMedicationUnitPrice(medicinePrices, 'private_insurance')).toBe(42.5);
+    expect(resolveMedicationUnitPrice(medicinePrices, 'corporate', { corporateDiscountPercent: 15 })).toBe(42.5);
+    expect(resolveMedicationUnitPrice(medicinePrices, 'nhis', { isNHISCovered: true })).toBe(18.75);
+    expect(resolveMedicationUnitPrice(medicinePrices, 'nhis', { isNHISCovered: false })).toBe(42.5);
   });
 
   it('does not mark an uncovered payer line as insurer-covered', () => {

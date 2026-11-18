@@ -1,7 +1,7 @@
 import { PrismaClient, BillStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilters } from './BillingTypes';
-import { resolveUnitPrice } from '../../utils/pricing';
+import { resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
 import { latestSubmissionEvent, withSubmissionDate } from '../insuranceClaim/helpers/claimSubmission';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
@@ -633,10 +633,13 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       corporateDiscountPercent = toNumber(corporate?.discountPercentage);
     }
 
-    return resolveUnitPrice(price, paymentMode, {
+    const priceOptions = {
       isNHISCovered: service?.isNHISCovered,
       isPrivateInsuranceExempted: service?.isPrivateInsuranceExempted,
-      corporateDiscountPercent
-    });
+      corporateDiscountPercent,
+    };
+    return service?.serviceType === 'medication'
+      ? resolveMedicationUnitPrice(price, paymentMode, priceOptions)
+      : resolveUnitPrice(price, paymentMode, priceOptions);
   }
 }

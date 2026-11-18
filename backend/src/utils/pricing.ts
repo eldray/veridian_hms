@@ -95,6 +95,23 @@ export const resolveUnitPrice = (price: PriceRow, mode: PayerMode | string, opts
 
 
 /**
+ * Medication payer pricing differs from general service pricing:
+ * NHIS uses its published medicine tariff; private and corporate payers use the
+ * same hospital cash selling price. Corporate account discounts do not alter
+ * medicine prices in this workflow.
+ */
+export const resolveMedicationUnitPrice = (
+  price: PriceRow,
+  mode: PayerMode | string,
+  opts: PriceOptions = {},
+): number => {
+  if (mode === 'private_insurance' || mode === 'corporate') {
+    return toPriceNumber(price.cashPrice);
+  }
+  return resolveUnitPrice(price, mode, opts);
+};
+
+/**
  * Calculates an NHIS medicine line allocation from an explicit payer-rule policy.
  * The reference JSON does not establish co-payment terms; those must be configured on
  * StockItemPayerRule. All amounts are rounded to two decimal places.

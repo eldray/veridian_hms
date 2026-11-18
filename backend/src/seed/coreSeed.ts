@@ -997,7 +997,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     let totalStockProcessed = 0;
     const stockItemMap = new Map();
     // Patient prices per drugCode, taken from each item's own selling/insurance prices in the JSON files
-    const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number }>();
+    const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number; corporatePrice: number }>();
     // Keep NHIS reference rows separate from inventory pricing so payer rules can be reviewed independently.
     const nhisReferenceByDrugCode = new Map<string, any>();
 
@@ -1037,18 +1037,16 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             nhisReferenceByDrugCode.set(item.drugCode, item);
           }
 
-          // cash = sellingPrice, insurance = insurancePrice. In the NHIS list and medications2.json the
-          // insurancePrice equals unitPrice, and that is the real NHIA tariff, so it is also the NHIS price.
-          // medications1 / consumables only hold a cost in unitPrice: NHIS stays 0 (not NHIS-priced), so the
-          // patient pays the cash price. Corporate stays 0 and falls back to cash (or the account discount).
+          // Only the current NHIS Medicines List supplies NHIS medicine tariffs.
+          // Private and corporate medication billing use the hospital cash selling price.
           const unit = Number(item.unitPrice ?? 0);
           const sell = Number(item.sellingPrice ?? 0);
-          const ins = Number(item.insurancePrice ?? 0);
-          const isNhiaTariff = unit > 0 && Math.abs(ins - unit) < 0.005;
+          const isNhiaTariff = file === 'nhismedicines.json' && item.isNHISCovered !== false && unit > 0;
           const cashPrice = sell > 0 ? sell : Math.round(unit * 1.2 * 100) / 100;
           stockPriceMap.set(item.drugCode, {
             cashPrice,
-            insurancePrice: ins > 0 ? ins : cashPrice,
+            insurancePrice: cashPrice,
+            corporatePrice: cashPrice,
             nhisPrice: isNhiaTariff ? unit : 0,
           });
           totalStockProcessed++;
@@ -1328,8 +1326,19 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       // An explicit entry in servicePricing.json wins; otherwise use the item's own prices from its JSON file.
       // Last resort (no prices at all): cost + 20%. All of these are placeholders until real price lists are loaded.
       const costBased = Math.round(Number(stockItem.costPrice ?? 0) * 1.2 * 100) / 100;
-      const pricing = pricingConfig.medications?.[drugCode] || stockPriceMap.get(drugCode) || {
-        cashPrice: costBased, nhisPrice: 0, insurancePrice: costBased,
+      const referencePricing = stockPriceMap.get(drugCode) || {
+        cashPrice: costBased, nhisPrice: 0, insurancePrice: costBased, corporatePrice: costBased,
+      };
+      const configuredPricing = pricingConfig.medications?.[drugCode] || {};
+      const sourcePricing = { ...referencePricing, ...configuredPricing };
+      // Medication pricing has one hospital selling price for cash, private and corporate.
+      // NHIS always retains the official tariff from the 2025 NHIS list, not a stale override.
+      const medicationCashPrice = Number(sourcePricing.cashPrice ?? costBased);
+      const pricing = {
+        ...sourcePricing,
+        nhisPrice: Number(referencePricing.nhisPrice ?? 0),
+        insurancePrice: medicationCashPrice,
+        corporatePrice: medicationCashPrice,
       };
       serviceCatalogEntries.push({
         name: stockItem.name,

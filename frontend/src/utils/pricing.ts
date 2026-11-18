@@ -31,6 +31,10 @@ export const payerUnitPrice = (
   if (!pricing) return 0;
   const cash = toNumber(pricing.cashPrice);
 
+  // Medication pricing uses the hospital cash price for private and corporate payers.
+  // NHIS medicine claims use the separately configured NHIS tariff.
+  if (catalog?.serviceType === 'medication') return cash;
+
   switch (mode) {
     // An exempted service, or one with no insurance tariff, is patient-payable at the cash price.
     case 'private_insurance':

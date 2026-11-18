@@ -2,7 +2,7 @@ import { PrismaClient, ServiceType, ServiceCategory } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { ServiceCatalogRepository } from './ServiceCatalogRepository';
 import { ValidationError, NotFoundError } from '../../utils/errors';
-import { resolveUnitPrice, isPayerCovered } from '../../utils/pricing';
+import { resolveMedicationUnitPrice, resolveUnitPrice, isPayerCovered } from '../../utils/pricing';
 
 export class ServiceCatalogService extends BaseService {
   private repo: ServiceCatalogRepository;
@@ -107,8 +107,8 @@ export class ServiceCatalogService extends BaseService {
           serviceCatalogId: serviceItem.id,
           cashPrice: parseFloat(data.cashPrice),
           nhisPrice: parseFloat(data.nhisPrice || 0),
-          insurancePrice: parseFloat(data.insurancePrice ?? data.cashPrice),
-          corporatePrice: parseFloat(data.corporatePrice ?? 0), // 0 = use the corporate fallback (account discount off cash, else cash)
+          insurancePrice: serviceItem.serviceType === ServiceType.medication ? parseFloat(data.cashPrice) : parseFloat(data.insurancePrice ?? data.cashPrice),
+          corporatePrice: serviceItem.serviceType === ServiceType.medication ? parseFloat(data.cashPrice) : parseFloat(data.corporatePrice ?? 0), // medication corporate price is cash price
           vatRate: parseFloat(data.vatRate || 0),
           isTaxable: data.isTaxable ?? true,
           effectiveDate: new Date(), isActive: true,
@@ -257,6 +257,12 @@ export class ServiceCatalogService extends BaseService {
     for (const field of pricingFields) {
       if (updateData[field] !== undefined) pricingUpdateData[field] = parseFloat(updateData[field]);
     }
+    if ((updateData.serviceType ?? existingService.serviceType) === ServiceType.medication) {
+      const existingPricing = Array.isArray(existingService.pricing) ? existingService.pricing[0] : existingService.pricing;
+      const medicationCashPrice = pricingUpdateData.cashPrice ?? Number(existingPricing?.cashPrice ?? 0);
+      pricingUpdateData.insurancePrice = medicationCashPrice;
+      pricingUpdateData.corporatePrice = medicationCashPrice;
+    }
 
     await this.prisma.$transaction(async (tx) => {
       if (Object.keys(serviceUpdateData).length > 0) {
@@ -285,6 +291,12 @@ export class ServiceCatalogService extends BaseService {
       ...(pricingData.vatRate !== undefined && { vatRate: parseFloat(pricingData.vatRate) }),
       ...(pricingData.isTaxable !== undefined && { isTaxable: pricingData.isTaxable }),
     };
+    if (service.serviceType === ServiceType.medication) {
+      const existingPricing = Array.isArray(service.pricing) ? service.pricing[0] : service.pricing;
+      const medicationCashPrice = parsedData.cashPrice ?? Number(existingPricing?.cashPrice ?? 0);
+      parsedData.insurancePrice = medicationCashPrice;
+      parsedData.corporatePrice = medicationCashPrice;
+    }
 
     // ✅ FIXED: Uses historical pricing logic
     return this.repo.updatePricingHistorically(id, parsedData);
@@ -328,8 +340,8 @@ export class ServiceCatalogService extends BaseService {
     switch (paymentMode) {
       case 'cash': price = p.cashPrice; patientPayable = price; break;
       case 'nhis': isCovered = isPayerCovered(p, 'nhis', opts); price = resolveUnitPrice(p, 'nhis', opts); coverageAmount = isCovered ? price : 0; patientPayable = isCovered ? 0 : p.cashPrice; break;
-      case 'private_insurance': isCovered = isPayerCovered(p, 'private_insurance', opts); price = resolveUnitPrice(p, 'private_insurance', opts); coverageAmount = isCovered ? price : 0; patientPayable = isCovered ? 0 : p.cashPrice; break;
-      case 'corporate': price = resolveUnitPrice(p, 'corporate', opts); isCovered = true; coverageAmount = price; patientPayable = 0; break;
+      case 'private_insurance': isCovered = isPayerCovered(p, 'private_insurance', opts); price = service.serviceType === ServiceType.medication ? resolveMedicationUnitPrice(p, 'private_insurance', opts) : resolveUnitPrice(p, 'private_insurance', opts); coverageAmount = isCovered ? price : 0; patientPayable = isCovered ? 0 : p.cashPrice; break;
+      case 'corporate': price = service.serviceType === ServiceType.medication ? resolveMedicationUnitPrice(p, 'corporate', opts) : resolveUnitPrice(p, 'corporate', opts); isCovered = true; coverageAmount = price; patientPayable = 0; break;
     }
 
     return { serviceId, serviceName: service.name, paymentMode, price, isCovered, coverageAmount, patientPayable, allPrices: { cashPrice: p.cashPrice, nhisPrice: p.nhisPrice, insurancePrice: p.insurancePrice, corporatePrice: p.corporatePrice } };
@@ -348,8 +360,8 @@ export class ServiceCatalogService extends BaseService {
     switch (paymentMode) {
       case 'cash': unitPrice = p.cashPrice; totalAmount = unitPrice * qty; patientAmount = totalAmount; break;
       case 'nhis': { const covered = isPayerCovered(p, 'nhis', opts); unitPrice = resolveUnitPrice(p, 'nhis', opts); totalAmount = p.cashPrice * qty; coverageAmount = covered ? unitPrice * qty : 0; patientAmount = totalAmount - coverageAmount; break; }
-      case 'private_insurance': { const covered = isPayerCovered(p, 'private_insurance', opts); unitPrice = resolveUnitPrice(p, 'private_insurance', opts); totalAmount = p.cashPrice * qty; coverageAmount = covered ? unitPrice * qty : 0; patientAmount = totalAmount - coverageAmount; break; }
-      case 'corporate': unitPrice = resolveUnitPrice(p, 'corporate', opts); totalAmount = unitPrice * qty; coverageAmount = totalAmount; patientAmount = 0; break;
+      case 'private_insurance': { const covered = isPayerCovered(p, 'private_insurance', opts); unitPrice = service.serviceType === ServiceType.medication ? resolveMedicationUnitPrice(p, 'private_insurance', opts) : resolveUnitPrice(p, 'private_insurance', opts); totalAmount = unitPrice * qty; coverageAmount = covered ? unitPrice * qty : 0; patientAmount = totalAmount - coverageAmount; break; }
+      case 'corporate': unitPrice = service.serviceType === ServiceType.medication ? resolveMedicationUnitPrice(p, 'corporate', opts) : resolveUnitPrice(p, 'corporate', opts); totalAmount = unitPrice * qty; coverageAmount = totalAmount; patientAmount = 0; break;
     }
 
     if (p.isTaxable && p.vatRate > 0) { vatAmount = (patientAmount * p.vatRate) / 100; patientAmount += vatAmount; }

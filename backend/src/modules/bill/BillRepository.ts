@@ -3,7 +3,7 @@ import { PrismaClient, BillStatus, PaymentMethod, PaymentMode, ServiceType } fro
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
-import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff, resolveUnitPrice } from '../../utils/pricing';
+import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff, resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
@@ -549,12 +549,15 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       const priceFor = (catalog: any, qty: number): { unitPrice: number; lineTotal: number } => {
         const price = catalog?.pricing?.[0];
+        const priceOptions = {
+          isNHISCovered: catalog?.isNHISCovered,
+          isPrivateInsuranceExempted: catalog?.isPrivateInsuranceExempted,
+          corporateDiscountPercent,
+        };
         const unitPrice = price
-          ? resolveUnitPrice(price, paymentMode, {
-              isNHISCovered: catalog?.isNHISCovered,
-              isPrivateInsuranceExempted: catalog?.isPrivateInsuranceExempted,
-              corporateDiscountPercent
-            })
+          ? catalog?.serviceType === ServiceType.medication
+            ? resolveMedicationUnitPrice(price, paymentMode, priceOptions)
+            : resolveUnitPrice(price, paymentMode, priceOptions)
           : 0;
         return { unitPrice, lineTotal: unitPrice * qty };
       };
