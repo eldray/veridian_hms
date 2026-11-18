@@ -426,17 +426,22 @@ export const seedClaims = async (
     const claimIds = (claimsByBatch.get(plan.key) ?? []).filter((id) => claimById.get(id)?.status === ENUMS.claimStatus.finalized);
     if (!claimIds.length) continue;
 
-    // One batch is one payer's claim for one period — the app refuses to merge two insurers into a
-    // single submission — and NHIS splits that further: the payer adjudicates one G-DRG family at a
-    // time, so a month of NHIS claims becomes a batch per family.
+    // One batch is one payer's claims for one service month. Different insurance
+    // providers and corporate accounts are kept in separate monthly batches.
     const perFilingGroup = new Map<string, string[]>();
     let heldBackUncoded = 0;
     for (const id of claimIds) {
       const claim = claimById.get(id);
-      const family = plan.insuranceType === ENUMS.insuranceType.nhis ? nhisFamilyOf(claim) : 'ALL';
-      // A claim with no G-DRG line has no package to be paid under. The app holds it back for
-      // coding, so the demo leaves it unbatched too rather than filing a batch that would bounce.
-      if (!family) { heldBackUncoded++; continue; }
+      const hasPricedGdrg = (claim?.items ?? []).some(
+        (item) => item?.itemCategory === 'gdrg' && item.gdrgTariff?.mdc,
+      );
+      // An NHIS claim without a priced G-DRG package stays out for correction.
+      // G-DRG family never partitions a monthly payer batch.
+      if (plan.insuranceType === ENUMS.insuranceType.nhis && !hasPricedGdrg) {
+        heldBackUncoded++;
+        continue;
+      }
+      const family = 'ALL';
       const key = `${claim?.insuranceProviderId ?? 'none'}|${claim?.corporateAccountId ?? 'none'}|${family}`;
       const list = perFilingGroup.get(key) ?? [];
       list.push(id);
