@@ -14,7 +14,6 @@ const CALL = /\b(?:router|\w*[Rr]outer)\.(get|post|put|patch|delete|use|all)\s*\
 
 /** Verified by hand: authenticated-only on purpose. "METHOD file path": why it is safe. */
 const SELF_SERVICE: Record<string, string> = {
-  'POST auth/AuthController.ts /logout': 'acts on the caller’s own session',
   'POST auth/AuthController.ts /change-password': 'needs the caller’s current password',
   'PUT auth/AuthController.ts /profile': 'service allow-lists name, email, phone, image',
   'PATCH notification/NotificationRoutes.ts /mark-all-read': 'updates only where userId = caller',
