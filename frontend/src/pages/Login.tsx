@@ -651,7 +651,7 @@ export default function Login() {
                 <>
                   <FormHeader
                     title="Reset your password"
-                    subtitle={resetSent ? 'Ask a system administrator to reset it for you' : 'Enter your username to see how a reset is handled here'}
+                    subtitle={resetComplete ? 'Your password is ready to use' : resetSent ? 'Enter the one-time code provided by an administrator' : 'Enter your username to request administrator approval'}
                   />
 
                   {resetComplete ? (
