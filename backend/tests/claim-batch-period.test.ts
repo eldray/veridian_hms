@@ -570,6 +570,10 @@ function generatingFrom(claims: any[], date = '2026-11-02T09:00:00') {
       id: 'account-1', companyName: 'Acacia', isActive: true, insuranceProviderId: 'provider-corp',
     }),
   };
+  batch.prisma.$transaction = vi.fn(async (callback: any) => callback({
+    $queryRaw: vi.fn().mockResolvedValue([]),
+    claimBatch: batch.prisma.claimBatch,
+  }));
   vi.spyOn(batch.service as any, 'buildNHISBatchXml').mockResolvedValue('<NHISICClaim/>');
   vi.spyOn(fs.promises, 'mkdir').mockImplementation(async () => undefined as any);
   vi.spyOn(fs.promises, 'writeFile').mockImplementation(async () => undefined);
