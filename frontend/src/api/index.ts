@@ -1264,11 +1264,11 @@ export const generateClaimBatch = (data: GenerateClaimBatchInput): Promise<Gener
   api.post('/insurance-claims/batches/generate', data).then(r => r.data?.data ?? r.data);
 
 /**
- * An NHIS month is filed one G-DRG family at a time, so one click can build several batches.
- * `heldBackUncoded` is what Generate refused: claims with no package code, left for coding.
+ * One batch represents one closed service month for one payer/provider.
+ * NHIS claims without a priced G-DRG package remain unbatched until corrected.
  */
 export interface GenerateClaimBatchResult {
-  batches: Array<{ id: string; batchNumber: string; claimFamily?: string; totalClaims: number }>;
+  batches: Array<{ id: string; batchNumber: string; totalClaims: number }>;
   heldBackUncoded: number;
 }
 
@@ -1298,12 +1298,7 @@ export interface BatchEligibility {
     count: number;
     amount: number;
   }>;
-  /**
-   * The NHIS month as Generate would file it: one batch per G-DRG family (MEDI, OPDC, ASUR…),
-   * biggest first.
-   */
-  nhisFamilies?: Array<{ family: string; count: number; amount: number }>;
-  /** NHIS claims with no package code. Counted, reported, and left out of every batch. */
+  /** NHIS claims with no priced G-DRG package. They remain unbatched until corrected. */
   nhisUncoded?: number;
 }
 
