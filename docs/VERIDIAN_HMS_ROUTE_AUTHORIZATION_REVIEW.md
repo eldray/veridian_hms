@@ -50,6 +50,7 @@ This is a source review and a record of targeted changes, not a runtime security
 - These changes complement the RBAC catalogue and platform-permission boundary described in `ROLE_PERMISSION_MATRIX.md`.
 - Stock catalogue list, category and detail reads now require an operational, clinical or finance role (`admin`, `super_admin`, `accounts`, `pharmacist`, `doctor`, `nurse`, `midwife`, `records`, `lab_tech`, or `sonographer`). HR Officer is excluded because the role has no stock workflow. Existing department scoping remains in the controller/service; this route guard prevents unrelated authenticated roles from reading stock catalogue and pricing data.
 - Requisition fulfilment is now restricted in the service layer to Pharmacy or administrators, in addition to requiring the authenticated user to belong to the supplying department. This closes the shared status-route gap where any clinical role in the supplier department could otherwise mark a requisition fulfilled.
+- The shared dashboard endpoint now redacts finance totals for non-finance roles, low-stock counts for users outside Pharmacy/Accounts/administration, and top-diagnosis aggregates for non-clinical roles. The response is cloned before redaction so role-specific filtering cannot mutate the shared dashboard cache.
 
 ## Verification status (2026-11-18)
 
