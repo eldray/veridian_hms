@@ -22,7 +22,7 @@ const routeFiles = (): string[] =>
 const relative = (file: string) => path.relative(process.cwd(), file).replace(/\\/g, '/');
 const read = (file: string) => fs.readFileSync(file, 'utf8');
 
-const PUBLIC_AUTH_ENDPOINTS = new Set(['/login', '/refresh-token', '/forgot-password']);
+const PUBLIC_AUTH_ENDPOINTS = new Set(['/login', '/refresh-token', '/forgot-password', '/logout']);
 
 describe('route authorization coverage', () => {
   it('authenticates every module except the auth endpoints', () => {
