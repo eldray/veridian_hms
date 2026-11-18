@@ -264,7 +264,7 @@ export const requireRoleOrPermission = (role: UserRole, permission: string) => {
     }
     const isPlatformPermission = permission.startsWith('platform.');
     if (
-      user.role === role ||
+      (!isPlatformPermission && user.role === role) ||
       isSuperAdmin(user.role) ||
       (isSystemAdmin(user.role) && !isPlatformPermission) ||
       (!isSystemAdmin(user.role) && user.permissions?.includes(permission))
