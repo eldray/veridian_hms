@@ -75,6 +75,8 @@ export const backfillHistoricalPricing = async (stats: SeedStats, planned: SeedS
   return rows.length;
 };
 
+import { allocateSeedPayerLine } from './payerAllocation.js';
+
 export interface BillRecordRef {
   billId: string;
   billNumber: string;
@@ -97,6 +99,86 @@ const recomputeAttendanceTotals = async (attendanceId: string): Promise<void> =>
       totalBill: money(toNumber(totals._sum.totalAmount)),
       paidAmount: money(toNumber(totals._sum.paidAmount)),
       outstandingBalance: money(toNumber(totals._sum.balance)),
+    },
+  });
+};
+
+/**
+ * Reconcile line-level payer shares before any waiver, patient payment or claim is created.
+ */
+const normalizeSeedPayerAllocation = async (
+  billId: string,
+  paymentMode: GeneratedBill['paymentMode'],
+  serviceDate: Date,
+): Promise<any> => {
+  const bill = await prisma.bill.findUnique({
+    where: { id: billId },
+    include: {
+      BillLineItem: {
+        where: { isVoided: false },
+        include: {
+          serviceCatalog: {
+            include: {
+              pricing: {
+                where: {
+                  isActive: true,
+                  effectiveDate: { lte: serviceDate },
+                  OR: [{ expiryDate: null }, { expiryDate: { gt: serviceDate } }],
+                },
+                orderBy: { effectiveDate: 'desc' },
+                take: 1,
+              },
+            },
+          },
+          wardChargeRecord: true,
+        },
+      },
+    },
+  });
+  if (!bill) throw new Error(`Seed bill ${billId} disappeared before payer allocation.`);
+
+  for (const line of bill.BillLineItem) {
+    const pricing = line.serviceCatalog?.pricing?.[0];
+    const ward = line.wardChargeRecord;
+    const isMedication = line.serviceType === 'medication';
+    const allocation = allocateSeedPayerLine({
+      paymentMode,
+      quantity: line.quantity,
+      lineTotal: toNumber(line.lineTotal),
+      unitPrice: toNumber(line.unitPrice),
+      cashPrice: pricing ? toNumber(pricing.cashPrice) : ward ? toNumber(ward.cashPrice) : null,
+      nhisPrice: pricing ? toNumber(pricing.nhisPrice) : ward ? toNumber(ward.nhisPrice) : null,
+      isNHISCovered: line.serviceCatalog?.isNHISCovered ?? (ward ? toNumber(ward.nhisPrice) > 0 : false),
+      isMedication,
+    });
+    await prisma.billLineItem.update({
+      where: { id: line.id },
+      data: {
+        lineTotal: allocation.lineTotal,
+        unitPrice: allocation.unitPrice,
+        insuranceCoveredAmount: allocation.insuranceCoveredAmount,
+        patientPayableAmount: allocation.patientPayableAmount,
+      },
+    });
+  }
+
+  const totals = await prisma.billLineItem.aggregate({
+    where: { billId, isVoided: false },
+    _sum: { lineTotal: true, insuranceCoveredAmount: true, patientPayableAmount: true },
+  });
+  const totalAmount = money(toNumber(totals._sum.lineTotal));
+  const insuranceCovered = money(toNumber(totals._sum.insuranceCoveredAmount));
+  const patientPayable = money(toNumber(totals._sum.patientPayableAmount));
+  const balance = Math.max(0, patientPayable - toNumber(bill.paidAmount));
+  return prisma.bill.update({
+    where: { id: billId },
+    data: {
+      subtotal: totalAmount,
+      totalAmount,
+      insuranceCovered,
+      patientPayable,
+      balance,
+      status: balance <= 0 ? 'paid' : toNumber(bill.paidAmount) > 0 ? 'partial' : 'pending',
     },
   });
 };
@@ -174,9 +256,20 @@ export const seedBills = async (
     }
     if (!generated?.id) { note('skipped: nothing billable'); continue; }
 
+    // Reconcile the persisted bill lines with the payer before creating waivers or payments.
+    try {
+      generated = await normalizeSeedPayerAllocation(generated.id, plan.paymentMode, plan.billDate);
+    } catch (error: any) {
+      const reason = `payer allocation rejected: ${String(error?.message ?? error).replace(/\\s+/g, ' ').slice(0, 90)}`;
+      note(reason);
+      console.warn(`   ⚠️ ${reason} (bill ${plan.billNumber})`);
+      continue;
+    }
+
     // ── Waivers first: they reduce the liability the payment is then made against ──
     let waiverAmount = 0;
-    for (const waiverPlan of waiverPlans.get(plan.billNumber) ?? []) {
+    const waiverEligible = plan.paymentMode === 'cash' || plan.paymentMode === 'nhis';
+    for (const waiverPlan of (waiverEligible ? waiverPlans.get(plan.billNumber) ?? [] : [])) {
       const patientId = encounter.patientId;
       if (!patientId) { note('waiver skipped: counter bill'); continue; }
       const requested = money(toNumber(generated.patientPayable) * waiverPlan.fraction);
@@ -221,7 +314,8 @@ export const seedBills = async (
       select: { balance: true, status: true },
     });
     const targetBalance = Math.max(0, money(toNumber(currentBillForPayment?.balance)));
-    const payAmount = plan.status === 'cancelled' || currentBillForPayment?.status === 'cancelled'
+    const payAmount = plan.paymentMode === 'private_insurance' || plan.paymentMode === 'corporate' ||
+      plan.status === 'cancelled' || currentBillForPayment?.status === 'cancelled'
       ? 0
       : money(Math.min(targetBalance, payableAfterWaiver * plan.paymentFraction));
     let paidAmount = toNumber(generated.paidAmount);
@@ -255,7 +349,9 @@ export const seedBills = async (
     }
 
     // ── Dates the repository cannot know ──
-    const finalBalance = Math.max(0, money(payableAfterWaiver - paidAmount));
+    const finalBalance = plan.paymentMode === 'private_insurance' || plan.paymentMode === 'corporate'
+      ? 0
+      : Math.max(0, money(payableAfterWaiver - paidAmount));
     const status = plan.status === 'cancelled'
       ? ENUMS.billStatus.cancelled
       : finalBalance <= 0 ? ENUMS.billStatus.paid : paidAmount > 0 ? ENUMS.billStatus.partial : ENUMS.billStatus.pending;
