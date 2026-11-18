@@ -140,4 +140,10 @@ describe('route authorization coverage', () => {
     const source = read(path.join(modulesDir, 'stockItem', 'StockItemRoutes.ts'));
     expect(source).toMatch(/router\.post\('\/:id\/allocate-stock',\s*requireRole\(\['admin', 'super_admin', 'pharmacist'\]\)/);
   });
+
+  it('keeps runtime user creation and role changes synchronized with dynamic RBAC', () => {
+    const repository = read(path.join(modulesDir, 'user', 'UserRepository.ts'));
+    expect(repository).toMatch(/roles:\s*\{\s*connect:\s*\{\s*name: data\.role\s*\}\s*\}/);
+    expect(repository).toMatch(/roles:\s*\{\s*set:\s*\[\{\s*name: String\(data\.role\)\s*\}\]\s*\}/);
+  });
 });
