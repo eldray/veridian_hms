@@ -15,17 +15,23 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   // All routes require authentication
   router.use(protect);
 
+  // Facility-wide financial views are limited to finance and administrators.
+  // Clinical/records staff may read an individual patient's bill when needed
+  // for care or front-desk workflow, but cannot browse collection totals.
+  const BILLING_READERS = ['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'];
+  const FINANCIAL_READERS = ['admin', 'accounts'];
+
   // Get all bills with filtering and pagination
-  router.get('/invoices', controller.getAll.bind(controller));
+  router.get('/invoices', requireRole(FINANCIAL_READERS), controller.getAll.bind(controller));
 
   // Get billing statistics (includes corporate breakdown)
-  router.get('/statistics', controller.getStatistics.bind(controller));
+  router.get('/statistics', requireRole(FINANCIAL_READERS), controller.getStatistics.bind(controller));
 
   // Get actual payment collections for a date range
-  router.get('/collections', controller.getCollections.bind(controller));
+  router.get('/collections', requireRole(FINANCIAL_READERS), controller.getCollections.bind(controller));
 
   // Get bill by ID
-  router.get('/invoices/:id', controller.getById.bind(controller));
+  router.get('/invoices/:id', requireRole(BILLING_READERS), controller.getById.bind(controller));
 
   // Create new bill (Admin/Accounts only)
   router.post('/invoices', requireRole(['admin', 'accounts']), controller.create);
@@ -37,10 +43,10 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   router.post('/invoices/:id/pay', requireRole(['admin', 'accounts', 'records']), controller.addPayment);
 
   // Get bill line items
-  router.get('/invoices/:id/items', controller.getLineItems.bind(controller));
+  router.get('/invoices/:id/items', requireRole(BILLING_READERS), controller.getLineItems.bind(controller));
 
   // Revenue-line report: every charge in a date range, across all bills (Reports screen)
-  router.get('/line-items', controller.getRevenueLines.bind(controller));
+  router.get('/line-items', requireRole(FINANCIAL_READERS), controller.getRevenueLines.bind(controller));
 
   // Void bill line item (Admin/Accounts only)
   router.post('/line-items/:lineItemId/void', requireRole(['admin', 'accounts']), controller.voidLineItem);
