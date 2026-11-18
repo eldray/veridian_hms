@@ -59,9 +59,10 @@ export class UserService extends BaseService {
   ): Promise<UserResponse> {
     this.logInfo('Creating user', { username: dto.username, role: dto.role, actor: actor.userId });
 
-    // Super-admin accounts are privileged platform-level accounts and may only be created by a super admin.
-    if (String(dto.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
-      throw new ForbiddenError('Only super admins can create super-admin accounts');
+    // Administrator accounts are privileged. Only Super Admin may create
+    // another System Admin or Super Admin account.
+    if (['admin', 'super_admin'].includes(String(dto.role).toLowerCase()) && String(actor.role).toLowerCase() !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can create administrator accounts');
     }
 
     if (!VALID_ROLES.includes(dto.role as any)) {
@@ -176,14 +177,15 @@ export class UserService extends BaseService {
     const actorRole = String(actor.role).toLowerCase();
     const targetRole = String(existingUser.role).toLowerCase();
 
-    // Admins have normal administrator powers, but cannot manage a super-admin account.
-    if (targetRole === 'super_admin' && actorRole !== 'super_admin') {
-      throw new ForbiddenError('Only super admins can modify a super-admin account');
+    // System Admin cannot modify another administrator account. Super Admin
+    // retains control over both administrator tiers.
+    if (['admin', 'super_admin'].includes(targetRole) && actorRole !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can modify administrator accounts');
     }
 
-    // Only a super admin may grant the super-admin role.
-    if (String(updateData.role || '').toLowerCase() === 'super_admin' && actorRole !== 'super_admin') {
-      throw new ForbiddenError('Only super admins can assign the super-admin role');
+    // Only Super Admin may grant either administrator role.
+    if (['admin', 'super_admin'].includes(String(updateData.role || '').toLowerCase()) && actorRole !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can assign administrator roles');
     }
 
     // Nobody can change their own role via this endpoint — role changes
@@ -267,8 +269,8 @@ export class UserService extends BaseService {
     const existing = await this.repository.findById(userId);
     if (!existing) throw new Error('User not found');
 
-    if (String(existing.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
-      throw new ForbiddenError('Only super_admins can deactivate a super_admin');
+    if (['admin', 'super_admin'].includes(String(existing.role).toLowerCase()) && String(actor.role).toLowerCase() !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can deactivate administrator accounts');
     }
 
     const deactivated = await this.repository.deactivateUser(userId);
@@ -303,8 +305,8 @@ export class UserService extends BaseService {
     const existing = await this.repository.findById(userId);
     if (!existing) throw new NotFoundError('User', userId);
 
-    if (String(existing.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
-      throw new ForbiddenError('Only super admins can reset a super-admin password');
+    if (['admin', 'super_admin'].includes(String(existing.role).toLowerCase()) && String(actor.role).toLowerCase() !== 'super_admin') {
+      throw new ForbiddenError('Only Super Admin can reset administrator passwords');
     }
 
     const policyError = passwordPolicyError(newPassword, {
