@@ -32,11 +32,6 @@
       "nhisPrice": 9.21,
       "insurancePrice": 35
     },
-    "INVE47D": {
-      "cashPrice": 40,
-      "nhisPrice": 30,
-      "insurancePrice": 35
-    },
     "INVE99D": {
       "cashPrice": 45,
       "nhisPrice": 8.45,
@@ -702,11 +697,6 @@
       "nhisPrice": 20.33,
       "insurancePrice": 75
     },
-    "INVE140": {
-      "cashPrice": 80,
-      "nhisPrice": 31.37,
-      "insurancePrice": 75
-    },
     "INVE134": {
       "cashPrice": 80,
       "nhisPrice": 23.56,
@@ -772,11 +762,6 @@
       "nhisPrice": 12.1,
       "insurancePrice": 75
     },
-    "INVE84D": {
-      "cashPrice": 80,
-      "nhisPrice": 52.64,
-      "insurancePrice": 75
-    },
     "INVE111": {
       "cashPrice": 80,
       "nhisPrice": 12.8,
@@ -830,11 +815,6 @@
     "INVE27E": {
       "cashPrice": 80,
       "nhisPrice": 11.75,
-      "insurancePrice": 75
-    },
-    "INVE138": {
-      "cashPrice": 80,
-      "nhisPrice": 113.66,
       "insurancePrice": 75
     },
     "INVE28E": {
