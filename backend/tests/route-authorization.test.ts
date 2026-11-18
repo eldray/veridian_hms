@@ -143,8 +143,7 @@ describe('route authorization coverage', () => {
     expect(source).toMatch(/router\.get\('\/:id',\s*requireRole\(STOCK_CATALOG_READERS\)/);
     expect(source).toMatch(/router\.get\('\/categories',\s*requireRole\(STOCK_CATALOG_READERS\)/);
     expect(source).toMatch(/'accounts'/);
-    expect(source).toMatch(/'hr_officer'/ === null ? /./ : /STOCK_CATALOG_READERS/);
-    expect(source).not.toMatch(/STOCK_CATALOG_READERS[^;]*'hr_officer'/);
+    expect(source).not.toMatch(/const STOCK_CATALOG_READERS = \[[\s\S]*?'hr_officer'/);
   });
 
   it('allows the pharmacy role to allocate departmental stock', () => {
