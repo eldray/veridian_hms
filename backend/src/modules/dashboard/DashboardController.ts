@@ -28,6 +28,23 @@ export class DashboardController extends BaseController {
       endDate?: string;
     };
     const stats = await this.service.getDashboardStats(startDate, endDate, period);
-    return this.ok(res, stats, 'Dashboard statistics retrieved successfully');
+    // Dashboard cards are role-specific in the UI, but the API must not send
+    // hidden finance/clinical/stock figures to roles that cannot open those areas.
+    // Clone the cached result before redaction so one user's role cannot alter
+    // the shared 15-second cache entry seen by another user.
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'super_admin';
+    const canViewFinance = isAdmin || role === 'accounts';
+    const canViewStock = isAdmin || role === 'accounts' || role === 'pharmacist';
+    const canViewClinicalDiagnoses = isAdmin || ['doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer'].includes(role);
+    const visibleStats = { ...stats, topDiagnoses: [...stats.topDiagnoses] };
+    if (!canViewFinance) {
+      visibleStats.pendingBills = 0;
+      visibleStats.pendingClaims = 0;
+      visibleStats.totalRevenue = 0;
+    }
+    if (!canViewStock) visibleStats.lowStockItems = 0;
+    if (!canViewClinicalDiagnoses) visibleStats.topDiagnoses = [];
+    return this.ok(res, visibleStats, 'Dashboard statistics retrieved successfully');
   });
 }
