@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { useLiveRefresh } from '../../api/realtime';
 import { useWorklistStore, supportsWorklistViews } from '../../store/worklistStore';
 import { WorklistViewControls } from './WorklistViewControls';
+import { PatientAvatar } from '../patients/PatientAvatar';
 import type { DepartmentType, WorklistItem } from '../../types/worklist';
 import {
   Users, AlertCircle, Clock, CheckCircle,
@@ -179,6 +180,7 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
+                        <PatientAvatar imageUrl={item.patient?.imageUrl} name={item.patient?.name} size="sm" className="rounded-full bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
                         <h3 className="font-semibold">
                           {item.patient?.name || 'Unknown Patient'}
                         </h3>
