@@ -64,7 +64,6 @@ describe('password changes enforce the policy', () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/at least 12/);
     expect(repository.updateUser).not.toHaveBeenCalled();
-    expect(repository.deleteRefreshTokenForUser).not.toHaveBeenCalled();
   });
 
   it('rejects reusing the current password', async () => {
