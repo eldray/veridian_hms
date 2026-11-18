@@ -56,18 +56,17 @@ describe('seeded bill payer allocation', () => {
     });
   });
 
-  it('preserves the explicit StockItem NHIS medicine copayment allocation', () => {
+  it('applies the cash-minus-NHIS-tariff difference to covered medicines too', () => {
     expect(allocateSeedPayerLine({
       ...base,
       paymentMode: 'nhis',
-      isMedication: true,
-      existingInsuranceCoveredAmount: 60,
-      existingPatientPayableAmount: 40,
+      existingInsuranceCoveredAmount: 65,
+      existingPatientPayableAmount: 0,
     })).toEqual({
       lineTotal: 100,
       unitPrice: 100,
-      insuranceCoveredAmount: 60,
-      patientPayableAmount: 40,
+      insuranceCoveredAmount: 65,
+      patientPayableAmount: 35,
     });
   });
 });
