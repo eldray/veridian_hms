@@ -108,4 +108,23 @@ describe('route authorization coverage', () => {
     expect([...publicEndpoints].sort()).toEqual([...PUBLIC_AUTH_ENDPOINTS].sort());
     expect(unprotected).toEqual([]);
   });
+
+  it('restricts facility-wide billing reports to finance and administrators', () => {
+    const source = read(path.join(modulesDir, 'billing', 'BillingRoutes.ts'));
+    expect(source).toMatch(/router\.get\('\/invoices',\s*requireRole\(FINANCIAL_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/statistics',\s*requireRole\(FINANCIAL_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/collections',\s*requireRole\(FINANCIAL_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/line-items',\s*requireRole\(FINANCIAL_READERS\)/);
+    expect(source).toMatch(/const FINANCIAL_READERS = \['admin', 'accounts'\]/);
+  });
+
+  it('passes the authenticated actor into leave reads and scopes staff requests', () => {
+    const controller = read(path.join(modulesDir, 'user', 'UserController.ts'));
+    const service = read(path.join(modulesDir, 'user', 'UserService.ts'));
+    expect(controller).toMatch(/getAllLeaves\(filters,\s*\{\s*userId: req\.user!\.userId, role: req\.user!\.role\s*\}\)/);
+    expect(controller).toMatch(/getLeaveById\(req\.params\.id,\s*\{\s*userId: req\.user!\.userId, role: req\.user!\.role\s*\}\)/);
+    expect(service).toMatch(/: \{ \.\.\.filters, userId: actor\.userId \}/);
+    expect(service).toMatch(/You can only view your own leave requests/);
+    expect(service).toMatch(/You may only cancel your own pending leave request/);
+  });
 });
