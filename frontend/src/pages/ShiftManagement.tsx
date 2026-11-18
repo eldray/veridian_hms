@@ -4,15 +4,17 @@
 // handlers, printing, filters, modals are exactly as before.
 // New:
 //  1) Searchable staff picker in Add/Edit Shift (replaces the long <select>).
-//     Type a name / username / department / role, pick from the filtered
-//     dropdown. Edit mode still locks the staff member, as before.
-//  2) List view rebuilt as a real TABLE (TABLE_SHELL): Staff | Department |
-//     Date | Time | Type | Notes | Actions — one data point per column,
-//     instead of everything crammed into one flex row.
-//  3) Pagination (same Pagination component as Patients/Attendance/Leave):
-//     List paginates shifts; Week/Month paginate staff rows (dept groups are
-//     re-grouped after slicing, so headers stay correct).
+//  2) List view rebuilt as a real TABLE (TABLE_SHELL).
+//  3) Pagination (same Pagination component as Patients/Attendance/Leave).
 //  4) PageHeader + SearchInput + FilterSelect + Segmented + stats strip.
+//  5) Canonical shift windows: choosing a type sets AND locks its hours —
+//     Morning 08:00–14:00, Afternoon 14:00–20:00, Night 20:00–08:00 (+1 day).
+//     On Call keeps flexible hours. Edit normalizes old off-window records;
+//     submit always saves the canonical window for fixed types.
+//  6) Monthly Rota print now uses generateShiftRotaMonthHTML (A4 LANDSCAPE,
+//     fixed-layout month grid — every day column shares the page width evenly).
+//     It previously printed via the 'shiftSummary' template, which is a
+//     portrait per-staff summary, not the month rota grid.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useShiftStore } from '../store/shiftStore';
@@ -21,6 +23,7 @@ import { useAuthStore } from '../store/authStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { useToast } from '../store/toastStore';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+import { generateShiftRotaMonthHTML } from '../utils/pdfTemplates/shiftRotaPDF';
 import {
   Calendar, Clock, Plus, RefreshCw, X, Trash2, Edit,
   ChevronLeft, ChevronRight, ChevronDown, User as UserIcon,
@@ -37,6 +40,22 @@ const SHIFT_TYPES = [
   { value: 'night',     label: 'Night',     letter: 'N', color: 'bg-purple-100 text-purple-700' },
   { value: 'on_call',   label: 'On Call',   letter: 'C', color: 'bg-blue-100 text-blue-700'     },
 ];
+
+// Canonical shift windows — selecting a type sets (and locks) these times.
+// Night crosses midnight: 20:00 → 08:00 the NEXT day. On Call has no fixed
+// window, so its time inputs stay editable.
+const SHIFT_WINDOWS: Record<string, { startTime: string; endTime: string }> = {
+  morning:   { startTime: '08:00', endTime: '14:00' },
+  afternoon: { startTime: '14:00', endTime: '20:00' },
+  night:     { startTime: '20:00', endTime: '08:00' },
+};
+const windowFor = (type: string) => SHIFT_WINDOWS[type] ?? null;
+const windowText = (type: string) => {
+  const w = SHIFT_WINDOWS[type];
+  if (!w) return '';
+  return `${w.startTime}–${w.endTime}${type === 'night' ? ' (next day)' : ''}`;
+};
+
 const ADMIN_LIKE_ROLES = ['admin', 'super_admin', 'hr_officer'];
 const shiftColor = (letter: string) => {
   switch (letter) {
@@ -73,6 +92,11 @@ const timeToHHmm = (iso: string) => {
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   } catch { return '08:00'; }
 };
+// Accepts either an ISO timestamp or an already-plain "HH:mm" string.
+const hhmmOf = (v: string) => (/^\d{2}:\d{2}/.test(v || '') ? v.slice(0, 5) : timeToHHmm(v));
+// Overnight shift = end clock-time earlier than start (e.g. 20:00 → 08:00).
+const isOvernight = (start: string, end: string) => hhmmOf(end) < hhmmOf(start);
+
 type ViewMode = 'list' | 'week' | 'month';
 interface DeptGroup {
   departmentId: string | null;
@@ -190,7 +214,8 @@ export default function ShiftManagement() {
   const [saving, setSaving] = useState(false);
   const [printing, setPrinting] = useState(false);
   const [formData, setFormData] = useState({
-    userId: '', shiftDate: toInputDate(new Date()), startTime: '08:00', endTime: '14:00',
+    userId: '', shiftDate: toInputDate(new Date()),
+    startTime: SHIFT_WINDOWS.morning.startTime, endTime: SHIFT_WINDOWS.morning.endTime,
     shiftType: 'morning' as 'morning' | 'afternoon' | 'night' | 'on_call', notes: '',
   });
   useEffect(() => {
@@ -308,12 +333,26 @@ export default function ShiftManagement() {
 
   const openCreate = () => {
     setEditingId(null);
-    setFormData({ userId: '', shiftDate: toInputDate(new Date()), startTime: '08:00', endTime: '14:00', shiftType: 'morning', notes: '' });
+    setFormData({
+      userId: '', shiftDate: toInputDate(new Date()),
+      startTime: SHIFT_WINDOWS.morning.startTime, endTime: SHIFT_WINDOWS.morning.endTime,
+      shiftType: 'morning', notes: '',
+    });
     setShowForm(true);
   };
   const openEdit = (shift: any) => {
     setEditingId(shift.id);
-    setFormData({ userId: shift.userId, shiftDate: (shift.shiftDate || '').split('T')[0] || toInputDate(new Date()), startTime: timeToHHmm(shift.startTime), endTime: timeToHHmm(shift.endTime), shiftType: shift.shiftType, notes: shift.notes ?? '' });
+    // Fixed shift types conform to their canonical window even if the stored
+    // record has legacy off-window times; On Call keeps its recorded hours.
+    const w = windowFor(shift.shiftType);
+    setFormData({
+      userId: shift.userId,
+      shiftDate: (shift.shiftDate || '').split('T')[0] || toInputDate(new Date()),
+      startTime: w ? w.startTime : hhmmOf(shift.startTime),
+      endTime: w ? w.endTime : hhmmOf(shift.endTime),
+      shiftType: shift.shiftType,
+      notes: shift.notes ?? '',
+    });
     setShowForm(true);
   };
   const refreshCurrentView = () => {
@@ -332,13 +371,17 @@ export default function ShiftManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.userId && !editingId) { toastError('Missing user', 'Choose a staff member'); return; }
+    // Fixed shift types ALWAYS save their canonical window, whatever is in state.
+    const w = windowFor(formData.shiftType);
+    const startTime = w ? w.startTime : formData.startTime;
+    const endTime = w ? w.endTime : formData.endTime;
     setSaving(true);
     try {
       if (editingId) {
-        await updateShift(editingId, { shiftDate: formData.shiftDate, startTime: formData.startTime, endTime: formData.endTime, shiftType: formData.shiftType, notes: formData.notes || undefined } as any);
+        await updateShift(editingId, { shiftDate: formData.shiftDate, startTime, endTime, shiftType: formData.shiftType, notes: formData.notes || undefined } as any);
         success('Shift updated', 'The shift has been updated');
       } else {
-        await createShift({ userId: formData.userId, shiftDate: formData.shiftDate, startTime: formData.startTime, endTime: formData.endTime, shiftType: formData.shiftType, notes: formData.notes || undefined });
+        await createShift({ userId: formData.userId, shiftDate: formData.shiftDate, startTime, endTime, shiftType: formData.shiftType, notes: formData.notes || undefined });
         success('Shift created', 'The shift has been scheduled');
       }
       setShowForm(false); setEditingId(null); refreshCurrentView();
@@ -362,8 +405,18 @@ export default function ShiftManagement() {
         openPrintWindow(html, `Shift Rota — week of ${weekStart.toDateString()}`);
         success('Print ready', 'Weekly rota opened');
       } else {
-        const html = generatePDF('shiftSummary', { shifts: filteredShifts, month: monthCursor.getMonth() + 1, year: monthCursor.getFullYear(), departments, users: userList, departmentName: departmentContext }, hospital);
-        openPrintWindow(html, `Shift Summary — ${monthCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
+        // MONTH = the landscape rota GRID (staff × every day of the month),
+        // not the old portrait 'shiftSummary'. Same filters/dept scope as the
+        // on-screen month preview; printKit emits @page A4 landscape.
+        const monthStart = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1);
+        const monthLabel = monthCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        const html = generateShiftRotaMonthHTML(
+          filteredShifts,
+          monthStart.toISOString(),
+          hospital,
+          { departments, users: userList, departmentName: departmentContext },
+        );
+        openPrintWindow(html, `Shift Rota — ${monthLabel}`);
         success('Print ready', 'Monthly rota opened');
       }
     } catch (err: any) { toastError('Print failed', err?.message || 'Could not generate the document'); }
@@ -376,6 +429,8 @@ export default function ShiftManagement() {
   const nextMonth = () => { const d = new Date(monthCursor); d.setMonth(d.getMonth() + 1); setMonthCursor(d); };
   const todayMonth = () => { const d = new Date(); d.setDate(1); setMonthCursor(d); };
   const inputClass = 'w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]';
+  // Fixed-window types lock the time inputs; On Call keeps them editable.
+  const fixedWindow = windowFor(formData.shiftType);
   const staffForForm = useMemo(() => {
     if (filterDepartmentId === 'all') return userList;
     return userList.filter((u: any) => (u as any).departmentId === filterDepartmentId);
@@ -385,7 +440,7 @@ export default function ShiftManagement() {
     const letters = cells.map((c) => shiftLetter(c.shiftType)).join('+');
     const primary = shiftLetter(cells[0].shiftType);
     return (
-      <button type="button" onClick={() => onEdit(cells[0])} title={cells.map((c) => `${c.shiftType}: ${formatTime(c.startTime)}–${formatTime(c.endTime)}`).join(' | ')}
+      <button type="button" onClick={() => onEdit(cells[0])} title={cells.map((c) => `${c.shiftType}: ${formatTime(c.startTime)}–${formatTime(c.endTime)}${isOvernight(c.startTime, c.endTime) ? ' (+1 day)' : ''}`).join(' | ')}
         className={`inline-flex items-center justify-center min-w-[26px] h-6 px-1.5 rounded-md border text-[10px] font-bold ${shiftColor(primary)} hover:opacity-80 transition-opacity`}>
         {letters}
       </button>
@@ -502,7 +557,10 @@ export default function ShiftManagement() {
                         </td>
                         <td className={TD}>{dept ? (<span className="inline-flex items-center gap-1.5 whitespace-nowrap"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: dept.color }} />{dept.name}</span>) : <span className="italic text-[var(--text-tertiary)]">Unassigned</span>}</td>
                         <td className={`${TD} whitespace-nowrap`}>{new Date(shift.shiftDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</td>
-                        <td className={`${TD} whitespace-nowrap`}>{formatTime(shift.startTime)} – {formatTime(shift.endTime)}</td>
+                        <td className={`${TD} whitespace-nowrap`}>
+                          {formatTime(shift.startTime)} – {formatTime(shift.endTime)}
+                          {isOvernight(shift.startTime, shift.endTime) && <span className="ml-1 text-[10px] text-[var(--text-tertiary)]">(+1 day)</span>}
+                        </td>
                         <td className={TD}>{shiftTypeBadge(shift.shiftType)}</td>
                         <td className={TD}><span className="block max-w-[240px] truncate" title={shift.notes}>{shift.notes || '—'}</span></td>
                         <td className={TD}>{rowActions(shift)}</td>
@@ -593,7 +651,7 @@ export default function ShiftManagement() {
             <div className="border-t border-[var(--border-color)] px-4 py-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">
               {SHIFT_TYPES.map((t) => (
                 <span key={t.value} className="flex items-center gap-1.5">
-                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold border ${shiftColor(t.letter)}`}>{t.letter}</span>{t.label}
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold border ${shiftColor(t.letter)}`}>{t.letter}</span>{t.label}{windowText(t.value) && <span className="text-[10px] text-[var(--text-tertiary)]">{windowText(t.value)}</span>}
                 </span>
               ))}
               <span className="ml-auto text-[10px] text-[var(--text-tertiary)]">Total: {filteredShifts.length} shifts this week · {totalStaffRows} staff</span>
@@ -682,7 +740,7 @@ export default function ShiftManagement() {
             <div className="border-t border-[var(--border-color)] px-4 py-3 flex flex-wrap items-center gap-4 text-xs text-[var(--text-secondary)]">
               {SHIFT_TYPES.map((t) => (
                 <span key={t.value} className="flex items-center gap-1.5">
-                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold border ${shiftColor(t.letter)}`}>{t.letter}</span>{t.label}
+                  <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold border ${shiftColor(t.letter)}`}>{t.letter}</span>{t.label}{windowText(t.value) && <span className="text-[10px] text-[var(--text-tertiary)]">{windowText(t.value)}</span>}
                 </span>
               ))}
               <span className="ml-auto text-[10px] text-[var(--text-tertiary)]">Total: {filteredShifts.length} shifts this month · {totalStaffRows} staff</span>
@@ -713,21 +771,46 @@ export default function ShiftManagement() {
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Date *</label>
                 <input type="date" value={formData.shiftDate} onChange={(e) => setFormData({ ...formData, shiftDate: e.target.value })} required className={inputClass} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Start *</label>
-                  <input type="time" value={formData.startTime} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} required className={inputClass} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">End *</label>
-                  <input type="time" value={formData.endTime} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} required className={inputClass} />
-                </div>
-              </div>
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Shift Type *</label>
-                <select value={formData.shiftType} onChange={(e) => setFormData({ ...formData, shiftType: e.target.value as any })} required className={inputClass}>
-                  {SHIFT_TYPES.map((t) => (<option key={t.value} value={t.value}>{t.label}</option>))}
+                <select
+                  value={formData.shiftType}
+                  onChange={(e) => {
+                    const shiftType = e.target.value as typeof formData.shiftType;
+                    const w = windowFor(shiftType);
+                    // Choosing a type conforms the hours to its canonical window.
+                    // On Call has no fixed window — keep whatever hours are set.
+                    setFormData({ ...formData, shiftType, ...(w ? { startTime: w.startTime, endTime: w.endTime } : {}) });
+                  }}
+                  required className={inputClass}
+                >
+                  {SHIFT_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}{windowText(t.value) ? ` · ${windowText(t.value)}` : ''}
+                    </option>
+                  ))}
                 </select>
+              </div>
+              <div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Start *</label>
+                    <input type="time" value={formData.startTime} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} required disabled={!!fixedWindow}
+                      className={`${inputClass} ${fixedWindow ? 'opacity-70 cursor-not-allowed' : ''}`} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">End *</label>
+                    <input type="time" value={formData.endTime} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} required disabled={!!fixedWindow}
+                      className={`${inputClass} ${fixedWindow ? 'opacity-70 cursor-not-allowed' : ''}`} />
+                  </div>
+                </div>
+                <p className="text-[10px] text-[var(--text-tertiary)] mt-1.5">
+                  {fixedWindow
+                    ? formData.shiftType === 'night'
+                      ? 'Fixed night window: starts 20:00 and ends 08:00 the next morning.'
+                      : `Fixed ${formData.shiftType} window: ${windowText(formData.shiftType)}. Change the shift type to change the hours.`
+                    : 'On-call hours are flexible — set the coverage window.'}
+                </p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Notes</label>

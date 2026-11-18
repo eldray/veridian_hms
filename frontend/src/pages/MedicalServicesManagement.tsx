@@ -356,6 +356,8 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
           case 'diagnoses':
             return (
               item.name?.toLowerCase().includes(term) ||
+              item.description?.toLowerCase().includes(term) ||
+              item.explanation?.toLowerCase().includes(term) ||
               item.icdCode?.toLowerCase().includes(term) ||
               item.gdrgGroupCode?.toLowerCase().includes(term) ||
               item.morbidityGroup?.toLowerCase().includes(term)
@@ -563,6 +565,10 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     return found ? found.label : value || 'Unassigned';
   };
 
+  const getExplanation = (item: any) => {
+    return item.explanation || item.description || '';
+  };
+
   const morbidityOptionsByCategory = getMorbidityOptionsByCategory();
   const selectedMorbidityLabel = morbidityFilter === 'all' ? 'All Morbidities' : getMorbidityGroupLabel(morbidityFilter);
 
@@ -604,7 +610,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
 
       {/* Search, Filter and Add Button */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w-[200px] max-w-sm">
+        <div className="flex-1 min-w- max-w-sm">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
@@ -647,7 +653,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                 </div>
                 {Object.entries(morbidityOptionsByCategory).map(([category, items]) => (
                   <div key={category} className="border-b border-[var(--border-color)] last:border-0">
-                    <div className="px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] bg-[var(--bg-main)] uppercase sticky top-[45px]">
+                    <div className="px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] bg-[var(--bg-main)] uppercase sticky top-">
                       {category}
                     </div>
                     {items.map((item) => (
@@ -718,6 +724,9 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                 <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                   <tr>
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Name</th>
+                    {activeTab === 'diagnoses' && (
+                      <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase min-w-">Explanation</th>
+                    )}
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Code</th>
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Category</th>
                     {activeTab === 'diagnoses' && (
@@ -730,35 +739,39 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                 <tbody className="divide-y divide-[var(--border-color)]">
                   {paginatedData.map((item: any) => (
                     <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                      <td className="px-4 py-3">
+                      {/* Name - separate column */}
+                      <td className="px-4 py-3 align-top">
                         <div className="font-medium text-[var(--text-primary)]">{item.name}</div>
-                        {item.description && (
-                          <div className="text-xs text-[var(--text-secondary)] truncate max-w-xs mt-0.5">
-                            {item.description}
-                          </div>
-                        )}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-[var(--text-primary)]">
+                      {/* Explanation - separate column, Diagnoses only */}
+                      {activeTab === 'diagnoses' && (
+                        <td className="px-4 py-3 align-top">
+                          <div className="text-xs text-[var(--text-secondary)] leading-relaxed max-w- whitespace-normal">
+                            {getExplanation(item) || <span className="text-[var(--text-tertiary)]">—</span>}
+                          </div>
+                        </td>
+                      )}
+                      <td className="px-4 py-3 font-mono text-xs text-[var(--text-primary)] align-top">
                         {getCode(item)}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-1 bg-[var(--bg-main)] text-[var(--text-secondary)] rounded text-xs">
+                      <td className="px-4 py-3 align-top">
+                        <span className="px-2 py-1 bg-[var(--bg-main)] text-[var(--text-secondary)] rounded text-xs whitespace-nowrap">
                           {activeTab === 'lab-tests' && item.specimenType 
                             ? `${item.category} / ${item.specimenType}`
                             : item.category || 'General'}
                         </span>
                       </td>
                       {activeTab === 'diagnoses' && (
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center px-2 py-1 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded text-xs">
+                        <td className="px-4 py-3 align-top">
+                          <span className="inline-flex items-center px-2 py-1 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded text-xs whitespace-nowrap">
                             {getMorbidityGroupLabel(item.morbidityGroup)}
                           </span>
                         </td>
                       )}
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-top">
                         {getStatusBadge(item)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 align-top">
                         <div className="flex items-center gap-2">
                           {canWriteActiveTab && (
                             <button

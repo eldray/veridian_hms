@@ -1,9 +1,16 @@
 // src/pages/AuditLogs.tsx
-// Aligned to Patients / Attendance shell: PageHeader + SearchInput + page-number pagination.
+// Aligned to Patients / Attendance / Admissions shell: PageHeader + SearchInput + pager card.
 // Preserved: server-side pagination / filters via auditStore, JSON diff panels, detail drawer, CSV export.
 // 2026-11-15 pass: removed the duplicated When column (same timestamp as Date & Time),
 // added Role as its own column (was drawer-only), un-hid Entity ID / IP so every column
 // is present at every viewport instead of vanishing at lg/xl.
+// 2026-11-19 pass: pagination now PIXEL-MATCHES the Admissions bar — own card below the
+// table, "Showing X to Y of Z entries" + "N per page" select on the left, bordered
+// chevrons + numbered pages on the right, active page = solid cyan fill / white text.
+// Built in-file (not the shared Pagination) because the shared component hides itself
+// when totalPages <= 1 and the audit store can report totalPages as 0 — the fallback
+// math below (total ÷ limit) guarantees the bar renders whenever rows exist.
+// Still server-driven: page -> store setPage, rows per page -> store setLimit + page 1.
 // Deliberately NOT added: client-side sort — sorting audit logs must happen server-side
 // (a client sort would only reorder the current page and lie about the rest).
 import { useEffect, useMemo, useState } from 'react';
@@ -11,8 +18,8 @@ import { useAuditStore } from '../store/auditStore';
 import { useToast } from '../store/toastStore';
 import { AuditLogEntry } from '../api/audit';
 import {
-  ScrollText, Filter, X, RefreshCw, Download, Eye,
-  ChevronLeft, ChevronRight, Activity, User as UserIcon, Clock,
+  ScrollText, Filter, X, RefreshCw, Download, Eye, ChevronLeft, ChevronRight,
+  Activity, User as UserIcon, Clock,
   Globe, FileJson, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { Button, PageHeader, SearchInput } from '../components/ui';
@@ -75,9 +82,7 @@ const humanizeEntity = (s: string) =>
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
-// Page numbers with ellipsis, same shape as Patients / Appointments / Counter.
-// Server-driven: every click calls the store's setPage, so it pages across the
-// whole filtered set, not just the rows on screen.
+// Page numbers with ellipsis — 1 2 3 … last (same windowing the Admissions bar uses).
 const pageNumbers = (page: number, totalPages: number): (number | '…')[] => {
   if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
   const pages = new Set<number>([1, 2, page - 1, page, page + 1, totalPages - 1, totalPages]);
@@ -324,6 +329,18 @@ export default function AuditLogs() {
     }
   };
 
+  // ── Server pagination, with fallbacks so the bar NEVER silently disappears ──
+  // If the store/API omits totalPages (or reports 0), derive it from total ÷ limit.
+  // If total is missing too, fall back to the loaded row count — a visible bar
+  // with an approximate count beats no navigation at all.
+  const pageSize = pagination.limit || 10;
+  const totalItems = pagination.total || logs.length;
+  const totalPages = Math.max(1, pagination.totalPages || Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(Math.max(1, pagination.page || 1), totalPages);
+  const rangeStart = totalItems === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(safePage * pageSize, totalItems);
+  const goToPage = (page: number) => setPage(Math.max(1, Math.min(page, totalPages)));
+
   const hasActiveFilters = Boolean(
     filters.entityType || filters.action || filters.userId || filters.startDate || filters.endDate,
   );
@@ -335,7 +352,7 @@ export default function AuditLogs() {
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       {/* Header — shared PageHeader, same as Patients / Attendance */}
       <PageHeader title="Audit Logs" subtitle="Immutable trail of system activity"
-        meta={`${pagination.total.toLocaleString()} entr${pagination.total === 1 ? 'y' : 'ies'} · Page ${pagination.page} of ${pagination.totalPages}`}
+        meta={`${totalItems.toLocaleString()} entr${totalItems === 1 ? 'y' : 'ies'} · Page ${safePage} of ${totalPages}`}
         icon={ScrollText} accent="cyan" backTo="/dashboard"
         actions={<>
           <button
@@ -595,69 +612,86 @@ export default function AuditLogs() {
             </table>
           </div>
         )}
-
-        {/* Pagination — page numbers, server-driven via setPage */}
-        {!isLoading && visibleLogs.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-card)]">
-            <div className="text-xs text-[var(--text-secondary)]">
-              Page <strong>{pagination.page}</strong> of{' '}
-              <strong>{pagination.totalPages}</strong> · {pagination.total.toLocaleString()} entries
-              {searchQuery.trim() && ` · showing ${visibleLogs.length} on this page`}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              <select
-                value={pagination.limit}
-                onChange={(e) => setLimit(Number(e.target.value))}
-                className="px-2 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-1 focus:ring-[var(--icon-cyan-text)]"
-              >
-                {[10, 25, 50, 100].map((n) => (
-                  <option key={n} value={n}>
-                    {n} / page
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={() => setPage(Math.max(1, pagination.page - 1))}
-                disabled={pagination.page <= 1 || isLoading}
-                className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] disabled:opacity-40 disabled:cursor-not-allowed"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {pageNumbers(pagination.page, pagination.totalPages).map((p, i) =>
-                p === '…' ? (
-                  <span key={`e-${i}`} className="px-1 text-xs text-[var(--text-tertiary)]">…</span>
-                ) : (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    disabled={isLoading}
-                    className={`min-w-[28px] px-1.5 py-1.5 rounded-lg border text-xs font-medium transition-all disabled:opacity-40 ${
-                      p === pagination.page
-                        ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-text)]'
-                        : 'border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ),
-              )}
-              <button
-                onClick={() =>
-                  setPage(Math.min(pagination.totalPages, pagination.page + 1))
-                }
-                disabled={pagination.page >= pagination.totalPages || isLoading}
-                className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] disabled:opacity-40 disabled:cursor-not-allowed"
-                aria-label="Next page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* ═══════════ Pagination — pixel-matched to the Admissions bar ═══════════
+          Own card BELOW the table (sibling, not a footer row inside it).
+          Left:  "Showing X to Y of Z entries" + "N per page" select.
+          Right: bordered chevrons + numbered pages; active page = solid cyan,
+          white text; inactive pages = borderless with hover tint.
+          Server-driven: goToPage -> store setPage; select -> setLimit + page 1.
+          Gated on totalItems (not visibleLogs) so the quick filter emptying this
+          page never strands you without navigation controls. */}
+      {!isLoading && totalItems > 0 && (
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-sm px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs text-[var(--text-secondary)]">
+              Showing <span className="font-medium text-[var(--text-primary)]">{rangeStart}</span> to{' '}
+              <span className="font-medium text-[var(--text-primary)]">{rangeEnd}</span> of{' '}
+              <span className="font-medium text-[var(--text-primary)]">{totalItems.toLocaleString()}</span> entries
+            </p>
+            <select
+              id="audit-page-size"
+              value={pageSize}
+              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              disabled={isLoading}
+              aria-label="Rows per page"
+              className="px-2 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]"
+            >
+              {[10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>{n} per page</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => goToPage(safePage - 1)}
+              disabled={safePage <= 1 || isLoading}
+              aria-label="Previous page"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {pageNumbers(safePage, totalPages).map((pg, i) =>
+              pg === '…' ? (
+                <span
+                  key={`e-${i}`}
+                  className="w-8 h-8 flex items-center justify-center text-xs text-[var(--text-tertiary)]"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={pg}
+                  onClick={() => goToPage(pg)}
+                  disabled={isLoading}
+                  aria-label={`Page ${pg}`}
+                  aria-current={pg === safePage ? 'page' : undefined}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-semibold transition-all disabled:opacity-40 ${
+                    pg === safePage
+                      ? 'text-white'
+                      : 'text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
+                  }`}
+                  style={pg === safePage ? { background: 'var(--icon-cyan-text)' } : undefined}
+                >
+                  {pg}
+                </button>
+              ),
+            )}
+
+            <button
+              onClick={() => goToPage(safePage + 1)}
+              disabled={safePage >= totalPages || isLoading}
+              aria-label="Next page"
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Drawer */}
       {selectedLog && <LogDrawer log={selectedLog} onClose={() => setSelectedLog(null)} />}

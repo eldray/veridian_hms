@@ -1,6 +1,18 @@
 // src/pages/Attendance.tsx - with View All + Sort (patient-owned sorts)
+// 2026-11-19 pass: data-loading hardened.
+// - Cold-start skeleton is owned by the PAGE (isInitialLoading + hasLoadedOnce),
+//   not the store's shared isLoading — a failed/hung fetch can no longer freeze
+//   the whole page on a permanent spinner.
+// - Single in-flight fetch guard: live-refresh socket events and StrictMode
+//   double-mounts can't pile up concurrent mega-queries.
+// - limit 5000 -> 2000 (the ceiling Admissions proved stable; 5000 with all
+//   relations + a concurrent registry download was the 30s-timeout failure mode).
+// - Patient registry is now a lazy, one-time NAME FALLBACK: downloaded only if
+//   some row arrives without an embedded patient, never alongside the big fetch.
+// NOTE: "View All" is capped at the newest 2000 rows. True unbounded View All
+// needs server-side pagination (like Audit Logs) — pending attendanceStore review.
 import { useLiveRefresh } from '../api/realtime';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
@@ -34,10 +46,16 @@ export default function Attendance() {
   const [sortKey, setSortKey] = useState<SortKey>('newest');
   const [onlyWithBalance, setOnlyWithBalance] = useState(false);
 
-  const { attendances, getAttendances, deleteAttendance, isLoading: attendancesLoading } = useAttendanceStore();
+  // Cold-start skeleton is owned by the PAGE, not the store — a failed/hung
+  // fetch can never leave a shared isLoading flag freezing the whole page again.
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const fetchInFlight = useRef(false);
+  const registryRequested = useRef(false);
+
+  const { attendances, getAttendances, deleteAttendance } = useAttendanceStore();
   const { patients, loadPatients } = usePatientStore();
   const { hasRole } = useAuthStore();
-  const isLoading = attendancesLoading;
 
   const patientById = useMemo(() => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])), [patients]);
 
@@ -60,11 +78,12 @@ export default function Attendance() {
   const isCounterTicket = (attendance: any) => attendance?.attendanceType === 'walk_in' || Boolean(attendance?.counterClient || attendance?.counterClientId);
   const getBalance = (a: any) => (a.totalBill || 0) - (a.paidAmount || 0);
 
-  const getDateRange = (): { startDate: Date; endDate: Date } | null => {
+  // Memoized so live refresh always sees a fresh closure for the current window.
+  const getDateRange = useCallback((): { startDate: Date; endDate: Date } | null => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
     switch (dateFilter) {
-      case 'all': return null; // View All — no date window, backend returns all pages
+      case 'all': return null; // View All — no date window (capped at newest 2000)
       case 'today': return { startDate: today, endDate: endOfDay };
       case 'yesterday': {
         const y = new Date(today); y.setDate(y.getDate() - 1);
@@ -80,23 +99,60 @@ export default function Attendance() {
         return null;
       default: return null;
     }
-  };
+  }, [dateFilter, customStartDate, customEndDate]);
 
-  const loadData = async () => {
+  const fetchAttendanceRows = useCallback((silent: boolean) => {
+    const range = getDateRange();
+    return getAttendances(
+      // 2000 matches the ceiling Admissions proved stable. 5000 with all relations
+      // is what blew the 30s Axios timeout.
+      { limit: 2000, ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}) },
+      { silent },
+    );
+  }, [getAttendances, getDateRange]);
+
+  const loadData = useCallback(async () => {
+    if (fetchInFlight.current) return; // one fetch at a time — no pile-ups (also kills StrictMode double-mount)
+    fetchInFlight.current = true;
     try {
       setRefreshing(true);
-      const range = getDateRange();
-      await getAttendances({ limit: 5000, ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}) });
-      void loadPatients().catch(() => undefined);
+      if (!hasLoadedOnce) setIsInitialLoading(true);
+      await fetchAttendanceRows(false);
     } catch (e) { error('Refresh failed', 'Could not load attendance data.'); }
-    finally { setRefreshing(false); }
-  };
+    finally {
+      fetchInFlight.current = false;
+      setRefreshing(false);
+      setIsInitialLoading(false);
+      setHasLoadedOnce(true);
+    }
+  }, [fetchAttendanceRows, hasLoadedOnce, error]);
+
+  // Registry is a NAME FALLBACK only: download it lazily, once, and only if some
+  // row arrived without an embedded patient — never alongside the attendance fetch
+  // (that concurrency is what overloaded the API/DB on Admissions).
+  useEffect(() => {
+    if (!hasLoadedOnce || registryRequested.current) return;
+    const needsFallback = attendances.some(
+      (a: any) => a.patientId && typeof a.patientId === 'string' && !a.patient && !a.Patient && !a.counterClient,
+    );
+    if (needsFallback) {
+      registryRequested.current = true;
+      void loadPatients().catch(() => undefined);
+    }
+  }, [attendances, hasLoadedOnce, loadPatients]);
 
   const windowReady = !(dateFilter === 'custom' && !(customStartDate && customEndDate));
-  useLiveRefresh(['encounters', 'admissions'], () => {
-    const range = getDateRange();
-    return getAttendances({ limit: 5000, ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}) }, { silent: true });
-  }, windowReady);
+  useLiveRefresh(
+    ['encounters', 'admissions'],
+    async () => {
+      if (fetchInFlight.current) return; // skip socket events while a fetch is running
+      fetchInFlight.current = true;
+      try { await fetchAttendanceRows(true); }
+      catch { /* silent background refresh — next event retries */ }
+      finally { fetchInFlight.current = false; }
+    },
+    windowReady,
+  );
 
   useEffect(() => {
     if (dateFilter === 'custom' && !(customStartDate && customEndDate)) return;
@@ -176,13 +232,15 @@ export default function Attendance() {
     <button key={key} onClick={() => { setDateFilter(key); setShowDatePicker(key === 'custom'); setCurrentPage(1); }} className={`px-3 py-1.5 text-sm rounded-lg whitespace-nowrap transition-all ${dateFilter === key ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'}`}>{label}</button>
   );
 
-  if (isLoading && !refreshing) {
+  // Cold-start skeleton only — once data has loaded once, background refreshes
+  // never blank the page, and a stuck store flag can't trap this screen.
+  if (isInitialLoading && !hasLoadedOnce) {
     return (<div className="space-y-6 p-4 sm:p-6"><PageHeader title="Attendance Management" subtitle="Manage patient visits and clinical records" icon={Calendar} accent="cyan" actions={<Button icon={RefreshCw} loading>Loading...</Button>} /><div className="space-y-4">{[1,2,3,4,5].map(i => (<div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-[var(--bg-main)] rounded-lg animate-pulse" /><div className="flex-1 space-y-2"><div className="h-4 bg-[var(--bg-main)] rounded animate-pulse w-48" /><div className="h-3 bg-[var(--bg-main)] rounded animate-pulse w-32" /></div></div></div>))}</div></div>);
   }
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      <PageHeader title="Attendance Management" subtitle="Manage patient visits and clinical records" meta={`${filteredAttendances.length} attendance(s) • ${patients.length} patient(s)`} icon={Calendar} accent="cyan" actions={<Button icon={RefreshCw} loading={refreshing} onClick={handleRefresh}>{refreshing ? 'Refreshing...' : 'Refresh'}</Button>} />
+      <PageHeader title="Attendance Management" subtitle="Manage patient visits and clinical records" meta={`${filteredAttendances.length} attendance(s)`} icon={Calendar} accent="cyan" actions={<Button icon={RefreshCw} loading={refreshing} onClick={handleRefresh}>{refreshing ? 'Refreshing...' : 'Refresh'}</Button>} />
 
       {/* Date Filter Bar — now includes View All */}
       <Card>
