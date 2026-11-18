@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User } from 'lucide-react';
 
 interface PatientAvatarProps {
@@ -16,7 +16,17 @@ export const PatientAvatar: React.FC<PatientAvatarProps> = ({
   imageUrl, name, size = 'md', className = '', fallbackClassName = '', fallbackText, fallbackIcon: FallbackIcon = User,
 }) => {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const showImage = Boolean(imageUrl) && failedUrl !== imageUrl;
+  // Patient photos are uploaded to this application's protected upload area. Never
+  // request arbitrary third-party URLs supplied through patient data.
+  const safeImageUrl = imageUrl && /^\/(?:api\/)?uploads\/patients\/[A-Za-z0-9._-]+$/.test(imageUrl) ? imageUrl : null;
+  const showImage = Boolean(safeImageUrl) && failedUrl !== safeImageUrl;
+  useEffect(() => {
+    setFailedUrl(null);
+    if (!safeImageUrl) return;
+    const retryWhenOnline = () => setFailedUrl(null);
+    window.addEventListener('online', retryWhenOnline);
+    return () => window.removeEventListener('online', retryWhenOnline);
+  }, [safeImageUrl]);
   const sizes = { xs: 'w-6 h-6', sm: 'w-8 h-8', md: 'w-10 h-10', lg: 'w-12 h-12', xl: 'w-16 h-16' };
   return (
     <div
@@ -25,11 +35,11 @@ export const PatientAvatar: React.FC<PatientAvatarProps> = ({
     >
       {showImage ? (
         <img
-          src={imageUrl!}
+          src={safeImageUrl!}
           alt={name ? `${name} patient photo` : 'Patient photo'}
           className="absolute inset-0 w-full h-full object-cover"
           loading="lazy"
-          onError={() => setFailedUrl(imageUrl || null)}
+          onError={() => setFailedUrl(safeImageUrl || null)}
         />
       ) : (
         fallbackText ? (
