@@ -294,8 +294,12 @@ export class ClaimBatchService extends BaseService {
       corporateAccountId,
     );
     if (existing) {
+      const periodLabel = `${PERIOD_MONTH_NAMES[periodMonth - 1]} ${periodYear}`;
+      const isLegacyFamilyBatch = Boolean(existing.claimFamily && existing.claimFamily !== 'ALL');
       throw new ConflictError(
-        `A ${insuranceType} batch already exists for this payer in ${PERIOD_MONTH_NAMES[periodMonth - 1]} ${periodYear} (${existing.batchNumber}). Delete an unfinalized batch or reconcile the existing monthly submission first.`,
+        isLegacyFamilyBatch
+          ? `A legacy ${insuranceType} ${existing.claimFamily} batch already exists for this payer in ${periodLabel} (${existing.batchNumber}). Its submission and payment history will not be merged automatically; reconcile the existing batch before creating a single monthly batch.`
+          : `A ${insuranceType} monthly batch already exists for this payer in ${periodLabel} (${existing.batchNumber}). Delete it if it is still unfinalized, or reconcile the existing monthly submission.`,
       );
     }
 
