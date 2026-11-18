@@ -18,7 +18,6 @@ import {
   History,
   Microscope,
   RefreshCw,
-  User,
   Users,
 } from 'lucide-react';
 import {
