@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/DispensePatient.tsx - REDESIGNED v3 (two-column card grid)
 import { useLiveRefresh } from '../api/realtime';
 import { confirmDialog } from '../context/ConfirmDialog';
@@ -540,7 +541,7 @@ export default function DispensePatient() {
   const paymentTone: BadgeTone = attendance?.paymentMode === 'nhis' ? 'green'
     : attendance?.paymentMode === 'private_insurance' ? 'purple' : 'cyan';
 
-  const handleBack = () => (location.key === 'default' ? navigate('/dashboard/pharmacy') : navigate(-1));
+  const handleBack = useSmartBack('/dashboard/pharmacy');
 
   if (isLoading) return (
     <div className="space-y-4">
