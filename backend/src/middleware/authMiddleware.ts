@@ -54,7 +54,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
       return;
     }
 
-    const decoded = jwt.verify(token, secret) as DecodedToken;
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as DecodedToken;
     // Refresh tokens are long-lived and must only be exchanged at /auth/refresh-token.
     if (!decoded.userId || decoded.type === 'refresh') {
       res.status(401).json({ success: false, message: 'Invalid token' });
