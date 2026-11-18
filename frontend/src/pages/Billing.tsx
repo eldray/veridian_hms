@@ -23,6 +23,7 @@ import {
 import type { PaymentMode } from '../types';
 import type { BillingCollectionsReport } from '../types/billing';
 import CollectionsReport from './billing/CollectionsReport';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 
 type DateFilterType = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
@@ -794,9 +795,7 @@ const handlePrintStatement = async (billId: string) => {
                         </td>
                         <td className={TD}>
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
-                              <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                            </div>
+                            <PatientAvatar imageUrl={patient?.imageUrl} name={patientName} size="sm" className="rounded-lg bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
                             <div className="min-w-0">
                               <p className="font-semibold text-[var(--text-primary)] text-sm truncate">{patientName}</p>
                               {isWalkIn && (
@@ -934,7 +933,10 @@ const handlePrintStatement = async (billId: string) => {
                   {paginatedWaivers.map((waiver) => (
                     <tr key={waiver.id} className={TR}>
                       <td className={cn(TD, 'font-semibold')}>
-                        {waiver.patient?.surname} {waiver.patient?.otherNames}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <PatientAvatar imageUrl={waiver.patient?.imageUrl} name={`${waiver.patient?.surname || ''} ${waiver.patient?.otherNames || ''}`.trim()} size="sm" className="rounded-full bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
+                          <span className="truncate">{waiver.patient?.surname} {waiver.patient?.otherNames}</span>
+                        </div>
                       </td>
                       <td className={TD_MONO}>{waiver.patient?.folderNumber || '—'}</td>
                       <td className={TD_MONO}>{waiver.bill?.attendance?.attendanceNumber || '—'}</td>
