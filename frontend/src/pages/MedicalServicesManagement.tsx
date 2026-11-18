@@ -610,7 +610,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
 
       {/* Search, Filter and Add Button */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w- max-w-sm">
+        <div className="flex-1 min-w-[200px] max-w-sm">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
@@ -653,7 +653,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                 </div>
                 {Object.entries(morbidityOptionsByCategory).map(([category, items]) => (
                   <div key={category} className="border-b border-[var(--border-color)] last:border-0">
-                    <div className="px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] bg-[var(--bg-main)] uppercase sticky top-">
+                    <div className="px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] bg-[var(--bg-main)] uppercase sticky top-[45px]">
                       {category}
                     </div>
                     {items.map((item) => (
@@ -725,7 +725,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                   <tr>
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Name</th>
                     {activeTab === 'diagnoses' && (
-                      <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase min-w-">Explanation</th>
+                      <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase min-w-[250px]">Explanation</th>
                     )}
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Code</th>
                     <th className="text-left px-4 py-3 font-semibold text-[var(--text-secondary)] text-xs uppercase">Category</th>
