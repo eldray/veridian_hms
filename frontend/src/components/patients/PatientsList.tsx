@@ -1,6 +1,7 @@
 // src/components/patients/PatientsList.tsx
 import { Link } from 'react-router-dom';
 import { User, Phone, Calendar, Eye, Edit, Stethoscope } from 'lucide-react';
+import { PatientAvatar } from './PatientAvatar';
 
 interface PatientsListProps {
   patients: any[];
@@ -55,19 +56,7 @@ export const PatientsList: React.FC<PatientsListProps> = ({ patients, onAddAtten
               <tr key={patientId} className="hover:bg-gray-50 transition-colors duration-150">
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-teal-500 rounded-md flex items-center justify-center shadow-sm overflow-hidden">
-                      {patient.imageUrl ? (
-                        <img 
-                          src={patient.imageUrl} 
-                          alt={patient.fullName}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : null}
-                      {!patient.imageUrl && <User className="w-3 h-3 text-white" />}
-                    </div>
+                    <PatientAvatar patient={patient} size="sm" />
                     <div>
                       <p className="font-semibold text-gray-900 text-xs">{patient.fullName}</p>
                       <p className="text-xs text-gray-500">{patient.folderNumber || patientId}</p>
