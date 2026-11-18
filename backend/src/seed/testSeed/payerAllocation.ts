@@ -8,7 +8,6 @@ export interface SeedPayerLineInput {
   cashPrice?: number | null;
   nhisPrice?: number | null;
   isNHISCovered?: boolean;
-  isMedication?: boolean;
   existingInsuranceCoveredAmount?: number;
   existingPatientPayableAmount?: number;
 }
@@ -26,8 +25,8 @@ const roundMoney = (value: number): number => Math.round((value + Number.EPSILON
  * Private and corporate invoices are receivables, not front-desk collections.
  * NHIS covered non-medicine services retain the cash charge and split the tariff:
  * NHIS pays up to its tariff; the patient pays the cash-price difference. Uncovered
- * items remain fully patient-payable. Medicines keep the explicit StockItem payer-rule
- * allocation already calculated by BillRepository.
+ * items remain fully patient-payable. NHIS medicine eligibility is checked against the
+ * existing StockItem payer rule before this helper is called.
  */
 export const allocateSeedPayerLine = (input: SeedPayerLineInput): SeedPayerLineAllocation => {
   const lineTotal = roundMoney(Math.max(0, input.lineTotal));
@@ -37,7 +36,7 @@ export const allocateSeedPayerLine = (input: SeedPayerLineInput): SeedPayerLineA
     return { lineTotal, unitPrice: roundMoney(lineTotal / quantity), insuranceCoveredAmount: lineTotal, patientPayableAmount: 0 };
   }
 
-  if (input.paymentMode !== 'nhis' || input.isMedication ||
+  if (input.paymentMode !== 'nhis' ||
       input.cashPrice == null || !Number.isFinite(input.cashPrice) || input.cashPrice < 0) {
     return {
       lineTotal,
