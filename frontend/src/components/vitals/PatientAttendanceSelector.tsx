@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, Calendar, ChevronDown, X, Clock, Activity, CheckCircle, Sparkles } from 'lucide-react';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
 import { getPatients } from '../../api';
+import { PatientAvatar } from '../patients/PatientAvatar';
 
 interface PatientAttendanceSelectorProps {
   patients: any[];
@@ -321,16 +322,19 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
                   onClick={() => handlePatientSelect(patient)}
                   className="w-full text-left p-3 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="font-medium text-[var(--text-primary)]">
-                        {getPatientFullName(patient)}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
-                        {getPatientFolderNumber(patient) && <span className="font-mono">#{getPatientFolderNumber(patient)}</span>}
-                        {getPatientContact(patient) && <span>📞 {getPatientContact(patient)}</span>}
-                        {getPatientAge(patient) && <span>🎂 {getPatientAge(patient)}y</span>}
-                        {getPatientGender(patient) && <span>{getPatientGender(patient) === 'male' ? '♂ Male' : getPatientGender(patient) === 'female' ? '♀ Female' : ''}</span>}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="md" className="rounded-full bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-[var(--text-primary)] truncate">
+                          {getPatientFullName(patient)}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)] flex-wrap">
+                          {getPatientFolderNumber(patient) && <span className="font-mono">#{getPatientFolderNumber(patient)}</span>}
+                          {getPatientContact(patient) && <span>📞 {getPatientContact(patient)}</span>}
+                          {getPatientAge(patient) && <span>🎂 {getPatientAge(patient)}y</span>}
+                          {getPatientGender(patient) && <span>{getPatientGender(patient) === 'male' ? '♂ Male' : getPatientGender(patient) === 'female' ? '♀ Female' : ''}</span>}
+                        </div>
                       </div>
                     </div>
                     {getPatientPaymentMode(patient) === 'nhis' && (
@@ -354,9 +358,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
           <div className="mt-3 p-3 bg-[var(--icon-cyan-bg)] rounded-lg border border-[var(--border-color)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
-                  <User className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                </div>
+                <PatientAvatar imageUrl={selectedPatient.imageUrl} name={getPatientFullName(selectedPatient)} size="md" className="rounded-full bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
                 <div>
                   <div className="font-semibold text-[var(--text-primary)]">
                     {getPatientFullName(selectedPatient)}

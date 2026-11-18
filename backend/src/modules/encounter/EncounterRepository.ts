@@ -255,7 +255,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       },
       include: {
         Patient: { select: {
-          id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true,
+          id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, dateOfBirth: true, gender: true,
           allergies: { select: { id: true, allergen: true, reaction: true, severity: true, notes: true } },
         } }
       }
@@ -267,7 +267,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       where: { id },
       include: {
         Patient: { select: {
-          id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true, contact: true,
+          id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, dateOfBirth: true, gender: true, contact: true,
           allergies: { select: { id: true, allergen: true, reaction: true, severity: true, notes: true } },
           medicalHistories: { select: { id: true, condition: true, diagnosedAt: true, notes: true } },
           surgicalHistories: { select: { id: true, procedure: true, surgeryDate: true, notes: true } },
@@ -330,7 +330,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.findManyWithPagination({
       where, page, limit: Math.min(limit, 1000), orderBy: { dateTime: 'desc' },
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true, contact: true } },
+        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, dateOfBirth: true, gender: true, contact: true } },
         CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
         Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
@@ -481,7 +481,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       return tx.attendance.update({
         where: { id },
         data: { ...normalizedData, updatedAt: new Date() },
-        include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } } }
+        include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true } } }
       });
     });
   }
@@ -2447,7 +2447,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           clinicalNotes: true,
         },
         include: {
-          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, gender: true, dateOfBirth: true, paymentMode: true } },
+          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, contact: true, gender: true, dateOfBirth: true, paymentMode: true } },
           Ward: { select: { id: true, wardName: true, wardType: true } },
           Bed: { select: { id: true, bedNumber: true, isOccupied: true, Ward: { select: { id: true, wardName: true, wardType: true } } } },
           Vitals: { orderBy: { recordedAt: 'desc' as const }, take: 1, select: { recordedAt: true } },
@@ -2462,7 +2462,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return {
       attendance: {
         include: {
-          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, gender: true, dateOfBirth: true, paymentMode: true } },
+          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, contact: true, gender: true, dateOfBirth: true, paymentMode: true } },
           Ward: { select: { id: true, wardName: true, wardType: true } },
           Bed: { select: { id: true, bedNumber: true, isOccupied: true, Ward: { select: { id: true, wardName: true, wardType: true } } } },
           AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'asc' as const } },
@@ -2915,7 +2915,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     attendanceNumber: string;
     attendanceDateTime: any;
     attendanceStatus: string;
-    patient: { name: string; age: number | null; gender: string | null; folderNumber: string | null; isCounter: boolean };
+    patient: { name: string; age: number | null; gender: string | null; folderNumber: string | null; imageUrl: string | null; isCounter: boolean };
   } {
     const identity = {
       attendanceNumber: row?.attendanceNumber || '',
@@ -2932,6 +2932,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           age: patient.dateOfBirth ? this.calculateAge(patient.dateOfBirth) : null,
           gender: patient.gender ?? null,
           folderNumber: patient.folderNumber ?? null,
+          imageUrl: patient.imageUrl ?? null,
           isCounter: false,
         },
       };
@@ -2944,6 +2945,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         age: row?.CounterClient?.ageYears ?? null,
         gender: null,
         folderNumber: null,
+        imageUrl: null,
         isCounter: true,
       },
     };
@@ -3016,7 +3018,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         // write, so including it would leave a permanent "pending" row and skew wait times.
         encounterCategory: { in: ['opd', 'ipd', 'daycase'] }, attendanceType: { not: 'walk_in' },
       }),
-      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
+      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
     );
     activeAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
 
@@ -3059,7 +3061,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         // write, so including it would leave a permanent "pending" row and skew wait times.
         encounterCategory: { in: ['opd', 'ipd', 'daycase'] }, attendanceType: { not: 'walk_in' },
       }),
-      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 }, AttendanceDiagnosis: { take: 1 } },
+      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 }, AttendanceDiagnosis: { take: 1 } },
     );
     activeAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
 
@@ -3138,7 +3140,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
             attendanceNumber: true,
             dateTime: true,
             status: true,
-            Patient: { select: { surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } },
+            Patient: { select: { surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
             CounterClient: { select: { name: true, ageYears: true } },
             Bed: { select: { bedNumber: true, Ward: { select: { wardName: true } } } }
           }
@@ -3214,7 +3216,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
             attendanceNumber: true,
             dateTime: true,
             status: true,
-            Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } },
+            Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
             CounterClient: { select: { name: true, ageYears: true } },
             Bed: { select: { bedNumber: true, Ward: { select: { wardName: true } } } }
           }
@@ -3273,7 +3275,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       };
     const allScans = await this.prisma.scan.findMany({
       where,
-      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ScanTemplate: true, User_Scan_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'asc' }
+      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ScanTemplate: true, User_Scan_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'asc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const scan of allScans) {
@@ -3342,7 +3344,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       };
     const allProcedures = await this.prisma.procedure.findMany({
       where,
-      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { scheduledDate: 'asc' }
+      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { scheduledDate: 'asc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const procedure of allProcedures) {
@@ -3381,7 +3383,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const view = query.view || 'pending';
     const maternalAttendances = await this.findQueueAttendances(
       this.attendanceQueueWhere(view, query, { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] } }),
-      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 }, antenatalBookings: true, currentAntenatalBookings: true, antenatalVisits: { orderBy: { visitDate: 'desc' }, take: 1 }, deliveryRecords: { orderBy: { deliveryDate: 'desc' }, take: 1 }, postnatalRecords: { orderBy: { examinationDate: 'desc' }, take: 1 } },
+      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 }, antenatalBookings: true, currentAntenatalBookings: true, antenatalVisits: { orderBy: { visitDate: 'desc' }, take: 1 }, deliveryRecords: { orderBy: { deliveryDate: 'desc' }, take: 1 }, postnatalRecords: { orderBy: { examinationDate: 'desc' }, take: 1 } },
     );
     maternalAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
     const processedItems = maternalAttendances.map((attendance: any) => {
@@ -3414,7 +3416,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         ...(query.attendanceTypes?.length ? { attendanceType: { in: query.attendanceTypes } } : {}),
       }),
       {
-        Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } },
+        Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
         CounterClient: { select: { name: true, ageYears: true } },
         Bed: { include: { Ward: true } },
         LabTest: { where: { status: { in: [...UNANSWERED_INVESTIGATION.labTest] } }, select: { id: true, status: true, requestedAt: true, LabTestTemplate: { select: { name: true } } } },

@@ -10,6 +10,7 @@ import NewAttendanceModal from '../components/NewAttendanceModal';
 import SendDocumentModal from '../components/SendDocumentModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { getPatientName } from '../utils/patient';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import { canAccessPage } from '../config/access';
 import { useHospitalStore } from '../store/hospitalStore';
@@ -980,9 +981,7 @@ export default function AttendanceDetails() {
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--icon-cyan-bg)]">
-                <User className="h-6 w-6 text-[var(--icon-cyan-text)]" />
-              </div>
+              <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="lg" className="rounded-xl bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
               <div className="min-w-0">
                 <h2 className="break-words text-lg font-bold text-[var(--text-primary)]">
                   {getPatientFullName(patient)}
@@ -1319,9 +1318,7 @@ export default function AttendanceDetails() {
                   {patient && (
                     <div className="bg-gradient-to-r from-blue-50 to-teal-50 dark:from-blue-950/30 dark:to-teal-950/30 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
-                          <User className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                        </div>
+                        <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="md" className="rounded-lg bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
                         <div>
                           <h3 className="text-lg font-bold text-[var(--text-primary)]">Patient Information</h3>
                           <p className="text-xs text-[var(--text-secondary)]">Demographic and contact details</p>

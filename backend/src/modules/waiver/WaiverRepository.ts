@@ -24,7 +24,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
     return this.findManyWithPagination({
       where, page, limit: Math.min(limit, 1000), orderBy: { createdAt: 'desc' },
       include: {
-        patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
+        patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true, contact: true } },
         bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true, role: true } },
         approvedBy: { select: { id: true, fullName: true, username: true, role: true } } // ✅ FIXED: Aligned with schema
@@ -36,7 +36,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
     return this.getModel().findUnique({
       where: { id },
       include: {
-        patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true, paymentMode: true } },
+        patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true, contact: true, paymentMode: true } },
         bill: { include: { BillLineItem: { take: 10, select: { id: true, description: true, lineTotal: true, serviceType: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true, role: true } },
         approvedBy: { select: { id: true, fullName: true, username: true, role: true } } // ✅ FIXED
@@ -52,7 +52,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
         status: 'pending', requestedById: data.requestedById, supportingDocs: data.supportingDocs
       },
       include: {
-        patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
         bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true, role: true } },
         approvedBy: { select: { id: true, fullName: true, username: true, role: true } }
@@ -66,7 +66,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
         where: { id },
         data: { status: 'approved', amountApproved, approvedById, approvedAt: new Date(), rejectionReason: null },
         include: {
-          patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+          patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
           bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
           requestedBy: { select: { id: true, fullName: true, username: true } },
           approvedBy: { select: { id: true, fullName: true, username: true } }
@@ -102,7 +102,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
       where: { id },
       data: { status: 'rejected', approvedById, approvedAt: new Date(), rejectionReason },
       include: {
-        patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
         bill: { select: { id: true, billNumber: true, totalAmount: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true } },
         approvedBy: { select: { id: true, fullName: true, username: true } }
@@ -151,7 +151,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
     return this.getModel().findMany({
       where: { billId }, orderBy: { createdAt: 'desc' },
       include: {
-        patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
         bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true, role: true } },
         approvedBy: { select: { id: true, fullName: true, username: true, role: true } }
@@ -163,7 +163,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
     return this.getModel().findMany({
       where: { patientId }, orderBy: { createdAt: 'desc' },
       include: {
-        patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
         bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true, role: true } },
         approvedBy: { select: { id: true, fullName: true, username: true, role: true } }
@@ -175,7 +175,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
     return this.getModel().update({
       where: { id }, data,
       include: {
-        patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        patient: { select: { id: true, folderNumber: true, imageUrl: true, surname: true, otherNames: true } },
         bill: { select: { id: true, billNumber: true, totalAmount: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true } }
       }

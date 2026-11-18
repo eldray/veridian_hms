@@ -14,6 +14,7 @@ import {
   Building2, Moon, Sun, ArrowRight, LogOut,
   Hash, LayoutGrid, List, CircleDot, MapPin, Baby, Heart,
 } from 'lucide-react';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import {
   Button,
   Card,
@@ -61,14 +62,6 @@ const calculateAge = (dateOfBirth: string): number => {
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
   return Math.max(0, age);
 };
-
-const initials = (name: string) =>
-  name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? '')
-    .join('');
 
 const formatDate = (dateString: string) => {
   if (!dateString) return '—';
@@ -783,25 +776,11 @@ export default function Admissions() {
                     const isDischarged = !!admission.dischargeDate;
                     const stayDays = getLengthOfStay(admission);
 
-                    const avatarBg =
-                      admission.displayType === 'day_surgery'
-                        ? 'var(--icon-purple-bg)'
-                        : admission.displayType === 'detention'
-                        ? 'var(--icon-orange-bg)'
-                        : 'var(--icon-green-bg)';
-
                     return (
                       <tr key={admission.id} className={TR}>
                         <td className={TD}>
                           <div className="flex items-center gap-3">
-                            <div
-                              className="w-9 h-9 rounded-full border flex items-center justify-center flex-shrink-0"
-                              style={{ background: avatarBg, borderColor: 'var(--border-color)' }}
-                            >
-                              <span className="text-[10px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                                {initials(fullName)}
-                              </span>
-                            </div>
+                            <PatientAvatar imageUrl={patient?.imageUrl} name={fullName} size="md" className="rounded-full border" fallbackClassName="text-[var(--text-primary)]" />
                             <div className="min-w-0">
                               <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
                                 {fullName}
@@ -990,13 +969,6 @@ export default function Admissions() {
               const isDischarged = !!admission.dischargeDate;
               const stayDays = getLengthOfStay(admission);
 
-              const avatarBg =
-                admission.displayType === 'day_surgery'
-                  ? 'var(--icon-purple-bg)'
-                  : admission.displayType === 'detention'
-                  ? 'var(--icon-orange-bg)'
-                  : 'var(--icon-green-bg)';
-
               return (
                 <div
                   key={admission.id}
@@ -1013,14 +985,7 @@ export default function Admissions() {
                       <StatusBadge isDischarged={isDischarged} />
                     </div>
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0"
-                        style={{ background: avatarBg, borderColor: 'var(--border-color)' }}
-                      >
-                        <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
-                          {initials(fullName)}
-                        </span>
-                      </div>
+                      <PatientAvatar imageUrl={rowPatient(admission)?.imageUrl} name={fullName} size="md" className="rounded-xl border" fallbackClassName="text-[var(--text-primary)]" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>
                           {fullName}

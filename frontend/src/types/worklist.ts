@@ -26,6 +26,7 @@ export interface BaseWorklistItem {
     age: number;
     gender: string;
     folderNumber: string;
+    imageUrl?: string | null;
   };
   location?: {
     ward?: string;
