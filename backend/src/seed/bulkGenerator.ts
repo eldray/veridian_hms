@@ -1776,7 +1776,10 @@ const emitBill = (
   const billNumber = `BILL-${att.attendanceNumber}`;
   const roll = rand();
   const settled = att.status === 'cancelled';
-  const paymentFraction = settled
+  // Private and corporate bills are settled through payer claims, never by
+  // collecting the insured patient's share at the hospital. NHIS still collects
+  // only the patient's uncovered items and cash-minus-tariff difference.
+  const paymentFraction = settled || att.paymentMode === 'private_insurance' || att.paymentMode === 'corporate'
     ? 0
     : att.paymentMode === 'cash'
       ? roll < 0.62 ? 1 : roll < 0.85 ? between(0.2, 0.9) : 0
