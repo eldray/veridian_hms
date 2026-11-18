@@ -944,19 +944,30 @@ export class UserService extends BaseService {
     const isDecision = data.status === 'approved' || data.status === 'rejected';
     const isCancel = data.status === 'cancelled';
 
+    if (!isAdminLike) {
+      // Self-service staff may only cancel their own pending request.
+      // They cannot edit reasons, change approval status, or amend another
+      // employee's request by omitting the status field.
+      if (!isOwner || !isCancel || data.reason !== undefined) {
+        throw new ForbiddenError('You may only cancel your own pending leave request');
+      }
+      if (existing.status !== 'pending') {
+        throw new Error('You can only cancel a pending leave request');
+      }
+    }
     if (isDecision && !isAdminLike) {
       throw new ForbiddenError('Only admins and HR can approve or reject leave requests');
     }
     if (isCancel && !isOwner && !isAdminLike) {
       throw new ForbiddenError('You can only cancel your own leave requests');
     }
-    if (isCancel && isOwner && existing.status !== 'pending') {
+    if (isCancel && isOwner && existing.status !== 'pending' && !isAdminLike) {
       throw new Error('You can only cancel a pending leave request');
     }
 
     const updateData: any = {};
     if (data.status !== undefined) updateData.status = data.status;
-    if (data.reason !== undefined) updateData.reason = data.reason;
+    if (isAdminLike && data.reason !== undefined) updateData.reason = data.reason;
 
     if (isDecision) {
       updateData.approvedById = actor.userId;
