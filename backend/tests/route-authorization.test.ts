@@ -127,4 +127,12 @@ describe('route authorization coverage', () => {
     expect(service).toMatch(/You can only view your own leave requests/);
     expect(service).toMatch(/You may only cancel your own pending leave request/);
   });
+
+  it('reserves administrator account lifecycle actions for Super Admin', () => {
+    const service = read(path.join(modulesDir, 'user', 'UserService.ts'));
+    expect(service).toMatch(/Only Super Admin can create administrator accounts/);
+    expect(service).toMatch(/Only Super Admin can modify administrator accounts/);
+    expect(service).toMatch(/Only Super Admin can deactivate administrator accounts/);
+    expect(service).toMatch(/Only Super Admin can reset administrator passwords/);
+  });
 });
