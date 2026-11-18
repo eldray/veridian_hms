@@ -193,7 +193,7 @@ export const requirePermission = (permission: string) => {
     if (
       isSuperAdmin(user.role) ||
       (isSystemAdmin(user.role) && !isPlatformPermission) ||
-      user.permissions?.includes(permission)
+      (!isSystemAdmin(user.role) && user.permissions?.includes(permission))
     ) {
       next();
       return;
@@ -262,7 +262,13 @@ export const requireRoleOrPermission = (role: UserRole, permission: string) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (user.role === role || isSuperAdmin(user.role) || (isSystemAdmin(user.role) && !permission.startsWith('platform.')) || user.permissions?.includes(permission)) {
+    const isPlatformPermission = permission.startsWith('platform.');
+    if (
+      user.role === role ||
+      isSuperAdmin(user.role) ||
+      (isSystemAdmin(user.role) && !isPlatformPermission) ||
+      (!isSystemAdmin(user.role) && user.permissions?.includes(permission))
+    ) {
       next();
       return;
     }
