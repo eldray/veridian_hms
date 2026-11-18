@@ -204,7 +204,7 @@ export default function UserManagement() {
     else if (activeTab === 'documents') getAllDocuments();
     else if (activeTab === 'shifts') getShifts({});
     else if (activeTab === 'leaves') getLeaves({});
-    else if (activeTab === 'password-resets' && canAdministerAccounts) loadPasswordResetRequests();
+
   }, [activeTab, payrollMonth, payrollYear]);
 
   const loadPasswordResetRequests = async () => {
@@ -237,6 +237,8 @@ export default function UserManagement() {
       toastError('Action failed', err?.response?.data?.message || 'Could not process the request.');
     }
   };
+
+  useEffect(() => { if (activeTab === 'password-resets' && canAdministerAccounts) loadPasswordResetRequests(); }, [activeTab, canAdministerAccounts]);
 
   const userList = Array.isArray(users) ? users : [];
 
