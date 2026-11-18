@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requireRole, requireSuperAdmin } from '../src/middleware/authMiddleware';
+import { requirePermission, requireRole, requireSuperAdmin } from '../src/middleware/authMiddleware';
 
 describe('role authorization', () => {
   it('allows super_admin to inherit ordinary roles regardless of role casing', () => {
@@ -60,6 +60,30 @@ describe('role authorization', () => {
 
     requireSuperAdmin({ user: { role: 'SUPER_ADMIN' } }, res, next);
 
+    expect(next).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('allows System Admin ordinary facility permissions', () => {
+    const next = vi.fn();
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    requirePermission('billing.manage')({ user: { role: 'admin', permissions: [] } } as any, res as any, next);
+    expect(next).toHaveBeenCalledOnce();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('reserves platform permissions from System Admin', () => {
+    const next = vi.fn();
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    requirePermission('platform.manage')({ user: { role: 'admin', permissions: ['platform.manage'] } } as any, res as any, next);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('allows Super Admin platform permissions', () => {
+    const next = vi.fn();
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    requirePermission('platform.manage')({ user: { role: 'super_admin', permissions: [] } } as any, res as any, next);
     expect(next).toHaveBeenCalledOnce();
     expect(res.status).not.toHaveBeenCalled();
   });
