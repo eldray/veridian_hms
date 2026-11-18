@@ -3138,7 +3138,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
             attendanceNumber: true,
             dateTime: true,
             status: true,
-            Patient: { select: { surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } },
+            Patient: { select: { surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
             CounterClient: { select: { name: true, ageYears: true } },
             Bed: { select: { bedNumber: true, Ward: { select: { wardName: true } } } }
           }
