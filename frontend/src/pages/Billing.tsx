@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { useWaiverStore } from '../store/waiverStore';
 import { usePatientStore } from '../store/patientStore';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
@@ -795,9 +796,7 @@ const handlePrintStatement = async (billId: string) => {
                         </td>
                         <td className={TD}>
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
-                              <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                            </div>
+                            <PatientAvatar patient={patient} size="sm" />
                             <div className="min-w-0">
                               <p className="font-semibold text-[var(--text-primary)] text-sm truncate">{patientName}</p>
                               {isWalkIn && (
