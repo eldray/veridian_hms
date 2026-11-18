@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/CounterTicket.tsx
 //
 // One counter ticket, worked end to end: sell, order a lab test or a scan, hand the goods
@@ -53,6 +54,7 @@ const fetchCatalog = async (serviceType: string, search: string) => {
 const stockItemOf = (row: any): string | null => row?.stockItem?.id || row?.StockItem?.id || row?.stockItemId || null;
 
 export default function CounterTicket() {
+  const goBack = useSmartBack('/dashboard/counter');
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, hasRole } = useAuthStore();
@@ -292,7 +294,7 @@ export default function CounterTicket() {
             <Button variant="secondary" icon={RefreshCw} loading={loadingDetail} disabled={loadingDetail || !!working} onClick={() => id && loadTicket(id)}>
               Refresh
             </Button>
-            <Button variant="secondary" icon={ArrowLeft} onClick={() => navigate('/dashboard/counter')}>
+            <Button variant="secondary" icon={ArrowLeft} onClick={goBack}>
               Back to counter
             </Button>
             <Button variant="soft" accent="cyan" icon={Plus} onClick={() => navigate('/dashboard/counter/new')}>
