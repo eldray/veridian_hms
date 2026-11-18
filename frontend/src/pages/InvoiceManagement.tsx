@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/InvoiceManagement.tsx - COMPLETE UPDATED VERSION WITH SEARCHABLE ITEMS
 // Consistency fixes vs pasted version:
 //  - Pagination: always rendered in one place (was only inside the non-empty branch),
@@ -101,6 +102,7 @@ function SearchableStockItemSelect({ value, onChange, items, placeholder = 'Sear
 }
 
 export default function InvoiceManagement() {
+  const goBack = useSmartBack('/dashboard/stock');
   const { purchaseInvoices, stockItems, getPurchaseInvoices, getStockItems, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice, isLoading } = useStockStore();
   const { departments, getDepartments } = useDepartmentStore();
   const { wards, getWards } = useWardStore();
@@ -243,7 +245,7 @@ export default function InvoiceManagement() {
 
   return (
     <div className="space-y-6 p-6">
-      <PageHeader title="Purchase Invoices" subtitle="Manage supplier purchases and stock updates" icon={FileText} accent="yellow" onBack={() => navigate(-1)}
+      <PageHeader title="Purchase Invoices" subtitle="Manage supplier purchases and stock updates" icon={FileText} accent="yellow" onBack={goBack}
         actions={(
           <>
             <Button variant="soft" accent="green" icon={Download} disabled={sortedInvoices.length === 0} onClick={exportToCSV}>Export CSV</Button>
