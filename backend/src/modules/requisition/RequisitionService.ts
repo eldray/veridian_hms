@@ -1,4 +1,4 @@
-import { ValidationError } from '../../utils/errors';
+import { ForbiddenError, ValidationError } from '../../utils/errors';
 import { BaseService } from '../../shared/base/BaseService';
 import { RequisitionRepository } from './RequisitionRepository';
 import { StockItemRepository } from '../stockItem/StockItemRepository';
@@ -39,7 +39,13 @@ export class RequisitionService extends BaseService {
     if (!userId) throw new ValidationError('User not authenticated');
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true, departmentId: true } });
     if (!user) throw new ValidationError('User not found');
-    if (['admin', 'super_admin'].includes(String(user.role).toLowerCase())) return;
+    const role = String(user.role || '').toLowerCase();
+    if (['admin', 'super_admin'].includes(role)) return;
+    // Fulfilment physically moves/consumes stock. Department membership alone
+    // is not enough: only pharmacy/store staff may complete the stock issue.
+    if (action === 'fulfilled' && role !== 'pharmacist') {
+      throw new ForbiddenError('Only Pharmacy or an administrator can fulfil a requisition');
+    }
 
     const isRequester = requisition.requestedById === userId || (!!user.departmentId && user.departmentId === requisition.requestingDepartmentId);
     const isSupplier = !!requisition.supplyingDepartmentId && user.departmentId === requisition.supplyingDepartmentId;
