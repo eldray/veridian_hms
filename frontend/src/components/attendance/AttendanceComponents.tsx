@@ -31,9 +31,7 @@ export const AttendanceCard: React.FC<AttendanceCardProps> = ({
     <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg flex items-center justify-center shadow-sm">
-            <User className="w-4 h-4 text-white" />
-          </div>
+          <PatientAvatar patient={patient} size="md" />
           <div>
             <h3 className="font-semibold text-gray-900 text-sm leading-tight">
               {patient?.fullName || `Patient ${attendance.patientId?.toString().slice(-6) || 'Unknown'}`}
