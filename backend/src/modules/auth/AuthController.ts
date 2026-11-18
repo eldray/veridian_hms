@@ -23,7 +23,7 @@ export class AuthController {
     this.router.post('/login', loginLimiter, this.login.bind(this));
     this.router.post('/refresh-token', this.refreshToken.bind(this));
     this.router.post('/forgot-password', this.forgotPassword.bind(this));
-    this.router.post('/complete-password-reset', this.completePasswordReset.bind(this));
+    this.router.post('/complete-password-reset', loginLimiter, this.completePasswordReset.bind(this));
 
     // Logout is intentionally not access-token protected: an expired access token
     // must not prevent revocation of the refresh token supplied by the client.
