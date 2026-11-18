@@ -24,8 +24,12 @@ export class AuthController {
     this.router.post('/refresh-token', this.refreshToken.bind(this));
     this.router.post('/forgot-password', this.forgotPassword.bind(this));
 
+    // Logout is intentionally not access-token protected: an expired access token
+    // must not prevent revocation of the refresh token supplied by the client.
+    // The service deletes only the exact hashed refresh token presented.
+    this.router.post('/logout', this.logout.bind(this));
+
     // ── Protected ──────────────────────────────────────────
-    this.router.post('/logout', protect, this.logout.bind(this));
     this.router.post('/change-password', protect, this.changePassword.bind(this));
     this.router.get('/profile', protect, this.getCurrentUser.bind(this));
     this.router.put(
@@ -77,7 +81,12 @@ export class AuthController {
   private logout = async (req: AuthenticatedRequest, res: Response) => {
     clearFileAccessCookie(res);
     try {
-      const result = await this.authService.logout(req.body.refreshToken);
+      const refreshToken = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken.trim() : '';
+      if (!refreshToken) {
+        res.status(400).json({ success: false, message: 'Refresh token is required' });
+        return;
+      }
+      const result = await this.authService.logout(refreshToken);
       res.status(200).json(result);
     } catch (error) {
       res.status(500).json({ success: false, message: 'Logout failed' });
