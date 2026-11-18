@@ -54,7 +54,7 @@ export class AuditService extends BaseService {
   // Prefix an apostrophe (after optional control/space characters) before CSV quoting.
   private csvSafeCell(value: unknown): string {
     const text = String(value ?? '');
-    const safe = /^[\\u0000-\\u0020]*[=+\\-@]/.test(text) ? `'${text}` : text;
+    const safe = /^[\u0000-\u0020]*[=+\-@]/.test(text) ? `'${text}` : text;
     return `"${safe.replace(/"/g, '""')}"`;
   }
 
@@ -75,7 +75,7 @@ export class AuditService extends BaseService {
           log.performedBy?.fullName || log.performedBy?.username || 'System',
           log.ipAddress || 'N/A',
         ]
-          .map((field) => `"${String(field).replace(/"/g, '""')}"`)
+          .map((field) => this.csvSafeCell(field))
           .join(',');
         csvRows.push(row);
       });
