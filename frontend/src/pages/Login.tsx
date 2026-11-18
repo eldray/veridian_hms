@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useAuthStore, LoginError } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
-import { forgotPassword } from '../api/auth';
+import { forgotPassword, completePasswordReset } from '../api/auth';
 import VeridianLogo from '../components/VeridianLogo';
 import {
   Lock, User, Eye, EyeOff,
@@ -103,6 +103,10 @@ export default function Login() {
   const [resetUsername, setResetUsername] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [newResetPassword, setNewResetPassword] = useState('');
+  const [confirmResetPassword, setConfirmResetPassword] = useState('');
+  const [resetComplete, setResetComplete] = useState(false);
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
   const { success, error: toastError, info } = useToast();
@@ -145,11 +149,7 @@ export default function Login() {
     try {
       const response = (await forgotPassword(resetUsername.trim())) as { message?: string } | undefined;
       setResetSent(true);
-      success(
-        'Ask an administrator',
-        response?.message || 'Passwords are reset by a system administrator at this facility.',
-        8000,
-      );
+      success('Request submitted', response?.message || 'Your request has been sent for administrator approval.', 6000);
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Unable to send reset request';
       toastError(err?.response?.status ? 'Request failed' : 'Connection error', msg, 5000);
@@ -158,9 +158,35 @@ export default function Login() {
     }
   };
 
+  const handleCompleteReset = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!resetCode.trim() || newResetPassword.length < 12) {
+      toastError('Check your details', 'Enter the one-time code and a password of at least 12 characters.');
+      return;
+    }
+    if (newResetPassword !== confirmResetPassword) {
+      toastError('Passwords do not match', 'Confirm the new password correctly.');
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await completePasswordReset(resetUsername.trim(), resetCode.trim(), newResetPassword);
+      setResetComplete(true);
+      success('Password updated', 'You can now sign in using your new password.');
+    } catch (err: any) {
+      toastError('Reset failed', err?.response?.data?.message || err?.message || 'The code may be invalid or expired.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const backToLogin = () => {
     setMode('login');
     setResetSent(false);
+    setResetComplete(false);
+    setResetCode('');
+    setNewResetPassword('');
+    setConfirmResetPassword('');
     setResetUsername('');
   };
 
@@ -628,24 +654,19 @@ export default function Login() {
                     subtitle={resetSent ? 'Ask a system administrator to reset it for you' : 'Enter your username to see how a reset is handled here'}
                   />
 
-                  {resetSent ? (
-                    <div
-                      role="status"
-                      style={{
-                        padding: '16px',
-                        borderRadius: 8,
-                        border: '1px solid color-mix(in srgb, var(--icon-cyan-text) 30%, var(--border-color))',
-                        background: 'var(--icon-cyan-bg)',
-                        display: 'flex',
-                        gap: 10,
-                        alignItems: 'flex-start',
-                      }}
-                    >
-                      <CheckCircle style={{ width: 18, height: 18, color: 'var(--icon-cyan-text)', flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
-                      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--icon-cyan-text)', lineHeight: 1.6 }}>
-                        This facility runs without an email service, so passwords are reset by a system administrator. Ask one to open <strong>Staff management</strong> for <strong>{resetUsername}</strong>, set a new password and hand it to you in person.
-                      </p>
+                  {resetComplete ? (
+                    <div role="status" className="info-strip">
+                      <CheckCircle style={{ width: 18, height: 18, color: 'var(--icon-green-text)', flexShrink: 0 }} aria-hidden="true" />
+                      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-primary)', lineHeight: 1.6 }}>Your password has been changed. Return to sign in with your new password.</p>
                     </div>
+                  ) : resetSent ? (
+                    <form onSubmit={handleCompleteReset} className="form-stack" aria-busy={resetLoading}>
+                      <div className="info-strip"><Info style={{ width: 15, height: 15, flexShrink: 0 }} /><p style={{ margin: 0, fontSize: 12, lineHeight: 1.5 }}>An administrator must verify you and approve your request. Enter the one-time code they give you.</p></div>
+                      <div className="field-group"><label className="field-label" htmlFor={`${uid}-code`}>One-time reset code</label><input id={`${uid}-code`} value={resetCode} onChange={e => setResetCode(e.target.value)} required autoComplete="one-time-code" className="field-input" placeholder="Enter code" /></div>
+                      <div className="field-group"><label className="field-label" htmlFor={`${uid}-new-password`}>New password</label><input id={`${uid}-new-password`} type="password" value={newResetPassword} onChange={e => setNewResetPassword(e.target.value)} required minLength={12} autoComplete="new-password" className="field-input" placeholder="At least 12 characters" /></div>
+                      <div className="field-group"><label className="field-label" htmlFor={`${uid}-confirm-password`}>Confirm new password</label><input id={`${uid}-confirm-password`} type="password" value={confirmResetPassword} onChange={e => setConfirmResetPassword(e.target.value)} required minLength={12} autoComplete="new-password" className="field-input" placeholder="Enter password again" /></div>
+                      <button type="submit" disabled={resetLoading} className="btn-primary">{resetLoading ? 'Updating password…' : 'Set new password'}</button>
+                    </form>
                   ) : (
                     <form onSubmit={handleForgotSubmit} className="form-stack" aria-busy={resetLoading}>
                       <div className="field-group">
