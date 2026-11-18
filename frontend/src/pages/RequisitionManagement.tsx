@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/RequisitionManagement.tsx
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -45,6 +46,7 @@ const emptyLine = (): FormLine => ({
 // Component
 // ─────────────────────────────────────────────────────────────
 export default function RequisitionsPage() {
+  const goBack = useSmartBack('/dashboard/stock');
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
   const { user, hasRole } = useAuthStore(); // adjust to your auth shape
@@ -393,7 +395,7 @@ export default function RequisitionsPage() {
         subtitle="Manage internal stock requests and approvals"
         icon={ClipboardList}
         accent="blue"
-        onBack={() => navigate(-1)}
+        onBack={goBack}
         actions={(
           <>
             <Button icon={RefreshCw} loading={isLoading} onClick={loadData}>
