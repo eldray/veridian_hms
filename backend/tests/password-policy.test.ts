@@ -24,8 +24,13 @@ describe('password policy', () => {
     expect(passwordPolicyError('someone@example.com', { email: 'Someone@Example.com' })).toMatch(/email/);
   });
 
-  it('rejects known common passwords', () => {
-    expect(passwordPolicyError('password1234')).toMatch(/too common/);
+  it('rejects known common and predictable facility passwords', () => {
+    for (const password of [
+      'password1234', 'password@1234', 'admin@123456', 'welcome123456',
+      'hospital@123', 'ghana@123456', 'veridian12345', 'superadmin123',
+    ]) {
+      expect(passwordPolicyError(password), password).toMatch(/too common/);
+    }
   });
 });
 
