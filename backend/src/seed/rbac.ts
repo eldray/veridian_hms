@@ -141,14 +141,25 @@ export const upsertRbac = async (
     }
   }
 
+  // Synchronize every account's RBAC relation from its canonical User.role enum.
+  // This makes the matrix apply to existing installations as well as newly seeded users.
+  const users = await prisma.user.findMany({ select: { id: true, role: true } });
+  for (const user of users) {
+    const roleId = roleIds.get(user.role);
+    if (!roleId) continue;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { roles: { set: [{ id: roleId }] } },
+    });
+  }
+
+  // Explicit seed overrides are retained for installations whose bootstrap accounts
+  // intentionally differ from their enum role.
   for (const [username, roleName] of Object.entries(usernameToRole)) {
     const roleId = roleIds.get(roleName);
     if (!roleId) continue;
     const user = await prisma.user.findUnique({ where: { username }, select: { id: true } });
     if (!user) continue;
-    // `set`, not `connect`: demo databases seeded before the `admin` role existed still
-    // carry the super_admin grant on their admin accounts, and connecting alone would
-    // leave that escalation in place forever.
     await prisma.user.update({
       where: { id: user.id },
       data: { roles: { set: [{ id: roleId }] } },
