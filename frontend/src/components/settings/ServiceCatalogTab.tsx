@@ -72,7 +72,7 @@ export default function ServiceCatalogTab() {
     let totalCashValue = 0; let totalInsuranceValue = 0; let nhisCovered = 0; let requiresAuth = 0;
     serviceCatalog.forEach(service => {
       const cashPrice = service.pricing?.cashPrice || 0;
-      const insurancePrice = service.pricing?.insurancePrice || 0;
+      const insurancePrice = service.serviceType === 'medication' ? cashPrice : (service.pricing?.insurancePrice || 0);
       if (!byType[service.serviceType]) byType[service.serviceType] = { count: 0, totalCash: 0, totalInsurance: 0 };
       byType[service.serviceType].count++; byType[service.serviceType].totalCash += cashPrice; byType[service.serviceType].totalInsurance += insurancePrice;
       if (!byCategory[service.serviceCategory]) byCategory[service.serviceCategory] = { count: 0, totalCash: 0, totalInsurance: 0 };
@@ -165,7 +165,7 @@ export default function ServiceCatalogTab() {
 
   const getPriceDisplay = (service: any, priceType: 'cash' | 'insurance' | 'nhis' | 'corporate') => {
     const pricing = service.pricing;
-    if (pricing) { switch (priceType) { case 'cash': return Number(pricing.cashPrice) || 0; case 'insurance': return Number(pricing.insurancePrice) || 0; case 'nhis': return Number(pricing.nhisPrice) || 0; case 'corporate': return Number(pricing.corporatePrice) || 0; } }
+    if (pricing) { switch (priceType) { case 'cash': return Number(pricing.cashPrice) || 0; case 'insurance': return service.serviceType === 'medication' ? (Number(pricing.cashPrice) || 0) : (Number(pricing.insurancePrice) || 0); case 'nhis': return Number(pricing.nhisPrice) || 0; case 'corporate': return service.serviceType === 'medication' ? (Number(pricing.cashPrice) || 0) : (Number(pricing.corporatePrice) || 0); } }
     return 0;
   };
   const getPriceText = (service: any, priceType: 'cash' | 'insurance' | 'nhis' | 'corporate') => {
