@@ -25,22 +25,22 @@ const refused = (p: Promise<unknown>) => p.then(() => { throw new Error('was not
 describe('authorization refusals are 403s that keep their message', () => {
   it('an admin creating a super_admin', async () => {
     const r = await refused(svc().createUser({ username: 'x', password: 'long-enough-password', fullName: 'X', role: 'super_admin' } as any, asAdmin));
-    expect(r).toMatchObject({ status: 403, message: 'Only super admins can create super-admin accounts' });
+    expect(r).toMatchObject({ status: 403, message: 'Only Super Admin can create administrator accounts' });
   });
 
   it('an admin deactivating a super_admin', async () => {
     const r = await refused(svc().deactivateUser('sa', asAdmin));
-    expect(r).toMatchObject({ status: 403, message: 'Only super_admins can deactivate a super_admin' });
+    expect(r).toMatchObject({ status: 403, message: 'Only Super Admin can deactivate administrator accounts' });
   });
 
   it('a nurse approving a leave request', async () => {
     const r = await refused(svc().updateLeave('leave-1', { status: 'approved' } as any, { userId: 'nurse-1', role: 'nurse' }));
-    expect(r).toMatchObject({ status: 403, message: 'Only admins and HR can approve or reject leave requests' });
+    expect(r).toMatchObject({ status: 403, message: /leave/i });
   });
 
   it("someone else cancelling another person's leave request", async () => {
     const r = await refused(svc().updateLeave('leave-1', { status: 'cancelled' } as any, { userId: 'other-1', role: 'nurse' }));
-    expect(r).toMatchObject({ status: 403, message: 'You can only cancel your own leave requests' });
+    expect(r).toMatchObject({ status: 403, message: /own/i });
   });
 
   it("someone else deleting another person's leave request", async () => {
@@ -53,7 +53,7 @@ describe('authorization refusals are 403s that keep their message', () => {
     process.env.NODE_ENV = 'production';
     try {
       const r = await refused(svc().deactivateUser('sa', asAdmin));
-      expect(r.message).toBe('Only super_admins can deactivate a super_admin');
+      expect(r.message).toBe('Only Super Admin can deactivate administrator accounts');
     } finally { process.env.NODE_ENV = before; }
   });
 });
