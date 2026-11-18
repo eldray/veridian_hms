@@ -286,7 +286,8 @@ export class ClaimPrintService {
     // printout. Keep the claim-to-batch links in the database for audit and adjudication,
     // but aggregate every line into the month-level cost buckets shown on this document.
     const allItems = claims.flatMap((claim) => claim.items ?? []);
-    const costBuckets = costBucketsFor(insuranceType);\n    const bucketTotals = costBuckets.map((bucket) => {
+    const costBuckets = costBucketsFor(insuranceType);
+    const bucketTotals = costBuckets.map((bucket) => {
       const matchingItems = allItems.filter((item: any) =>
         bucket.categories.includes(String(item.itemCategory)),
       );
