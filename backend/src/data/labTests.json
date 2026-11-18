@@ -4911,23 +4911,6 @@
     ]
   },
   {
-    "name": "Breast tissue Biopsy",
-    "investigationCode": "INVE140",
-    "category": "biochemistry",
-    "subCategory": "nhis-listed",
-    "description": "Breast tissue Biopsy laboratory investigation.",
-    "specimenType": "blood",
-    "isActive": true,
-    "isNHISCovered": true,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "textarea",
-        "label": "Result / Findings"
-      }
-    ]
-  },
-  {
     "name": "Calcium Infusion test",
     "investigationCode": "INVE134",
     "category": "biochemistry",
@@ -5149,23 +5132,6 @@
     ]
   },
   {
-    "name": "Orthopanthomograph (OPT)",
-    "investigationCode": "INVE84D",
-    "category": "biochemistry",
-    "subCategory": "nhis-listed",
-    "description": "Orthopanthomograph (OPT) laboratory investigation.",
-    "specimenType": "blood",
-    "isActive": true,
-    "isNHISCovered": true,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "textarea",
-        "label": "Result / Findings"
-      }
-    ]
-  },
-  {
     "name": "Potassium",
     "investigationCode": "INVE111",
     "category": "biochemistry",
@@ -5341,23 +5307,6 @@
     "category": "biochemistry",
     "subCategory": "nhis-listed",
     "description": "Total Serum Cholesterol laboratory investigation.",
-    "specimenType": "blood",
-    "isActive": true,
-    "isNHISCovered": true,
-    "resultTemplate": [
-      {
-        "fieldName": "result",
-        "fieldType": "textarea",
-        "label": "Result / Findings"
-      }
-    ]
-  },
-  {
-    "name": "Transhepatic cholangiography (PTC)",
-    "investigationCode": "INVE138",
-    "category": "biochemistry",
-    "subCategory": "nhis-listed",
-    "description": "Transhepatic cholangiography (PTC) laboratory investigation.",
     "specimenType": "blood",
     "isActive": true,
     "isNHISCovered": true,
