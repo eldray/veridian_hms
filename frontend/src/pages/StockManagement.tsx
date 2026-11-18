@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/StockManagement.tsx - SPLIT COLUMNS + NICER
 // List view: one data point per column (was: Item / Category / Dept+Hospital stacked / Reorder / Cost / Actions).
 // Pagination: totalPages never 0, safePage clamps, filters/search reset to page 1 (was: could strand on empty page).
@@ -19,6 +20,7 @@ const titleCase = (s: any) => String(s ?? '').replace(/_/g, ' ').toLowerCase().r
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString() : '—';
 
 export default function StockManagement() {
+  const goBack = useSmartBack('/dashboard');
   const { stockItems, getStockItems, createStockItem, updateStockItem, deleteStockItem, createStockTransaction, allocateStockToDepartment, getLowStockItems, isLoading } = useStockStore();
   const { user, hasRole } = useAuthStore();
   const { departments, getDepartments } = useDepartmentStore();
@@ -142,7 +144,7 @@ export default function StockManagement() {
 
   return (
     <div className="space-y-6 p-6">
-      <PageHeader title="Stock Management" subtitle="Track inventory and manage stock levels" icon={Warehouse} accent="blue" onBack={() => navigate(-1)}
+      <PageHeader title="Stock Management" subtitle="Track inventory and manage stock levels" icon={Warehouse} accent="blue" onBack={goBack}
         actions={<>
           <LinkButton to="/dashboard/invoices" icon={FileText}>Invoices</LinkButton>
           <LinkButton to="/dashboard/requisitions" icon={ClipboardList}>Requisitions</LinkButton>
