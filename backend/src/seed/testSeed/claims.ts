@@ -274,6 +274,25 @@ export const seedClaims = async (
 ): Promise<void> => {
   const service = new InsuranceClaimService(prisma);
   const payerByAttendance = await loadPayers([...encounters.values()].map((e) => e.attendanceId));
+  const attendanceIds = [...encounters.values()].map((e) => e.attendanceId);
+  const primaryDiagnosisRows = await prisma.attendanceDiagnosis.findMany({
+    where: { attendanceId: { in: attendanceIds }, diagnosisType: 'primary' },
+    select: { attendanceId: true },
+  });
+  const attendanceWithPrimaryDiagnosis = new Set(primaryDiagnosisRows.map((row) => row.attendanceId));
+  const patientIds = [...new Set([...payerByAttendance.values()].map((payer) => payer.patientId).filter((id): id is string => !!id))];
+  const inpatientStays = await prisma.admission.findMany({
+    where: {
+      status: { not: 'cancelled' },
+      attendance: { patientId: { in: patientIds }, encounterCategory: 'ipd' },
+    },
+    select: {
+      attendanceId: true,
+      admissionDate: true,
+      dischargeDate: true,
+      attendance: { select: { patientId: true } },
+    },
+  });
   const claimIdByKey = new Map<string, string>();
   const notes: string[] = [];
   const refusals: string[] = [];
@@ -285,6 +304,23 @@ export const seedClaims = async (
     const encounter = encounters.get(plan.attendanceKey);
     const patientId = encounter ? payerByAttendance.get(encounter.attendanceId)?.patientId : null;
     if (!encounter?.billId || !patientId) { rejected++; continue; }
+    // The claims API requires a persisted primary diagnosis. Generated diagnosis
+    // plans can still be absent from the database when a code is not in the facility's
+    // configured diagnosis catalogue, so validate the actual encounter rows here.
+    if (!attendanceWithPrimaryDiagnosis.has(encounter.attendanceId)) continue;
+    // An outpatient claim cannot overlap another inpatient stay for the same patient.
+    // This is a payer rule enforced by the claims service; avoid creating a plan that
+    // is guaranteed to be refused instead of weakening that service validation.
+    if (plan.typeOfService === 'outpatient') {
+      const serviceDate = encounter.plan.dateTime.getTime();
+      const overlapsInpatientStay = inpatientStays.some((stay) =>
+        stay.attendanceId !== encounter.attendanceId
+        && stay.attendance.patientId === patientId
+        && stay.admissionDate.getTime() <= serviceDate
+        && (stay.dischargeDate === null || stay.dischargeDate.getTime() >= serviceDate),
+      );
+      if (overlapsInpatientStay) continue;
+    }
     const createdById = lookups.actorId(plan.createdBy);
 
     try {
