@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/Antenatal.tsx — restructured
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
@@ -353,6 +354,7 @@ const BedWardSelectionModalAntenatal: React.FC<{
 
 // ═════════════════════════════════════════════════════════════════════════════
 export default function Antenatal() {
+  const goBack = useSmartBack('/dashboard/maternal-waiting-list');
   const navigate = useNavigate();
   const routerLocation = useLocation();
   const { attendanceId: urlAttendanceId } = useParams();
@@ -1026,7 +1028,7 @@ useEffect(() => {
       {/* ── PAGE HEADER ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => (routerLocation.key === 'default' ? navigate('/dashboard/maternal-waiting-list') : navigate(-1))}
+          <button onClick={goBack}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
               text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium">
             <ChevronLeft className="w-3.5 h-3.5" /> Back
