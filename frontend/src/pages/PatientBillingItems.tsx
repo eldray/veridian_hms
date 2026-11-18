@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/PatientBillingItems.tsx — Redesigned
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -88,7 +89,7 @@ export default function PatientBillingItems() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const routerLocation = useLocation();
-  const goBack = () => (routerLocation.key === 'default' ? navigate('/dashboard/billing') : navigate(-1));
+  const goBack = useSmartBack('/dashboard/billing');
   const { success, error: toastError } = useToast();
   const { hasRole, user } = useAuthStore();
   const { hospital } = useHospitalStore();
