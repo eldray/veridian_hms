@@ -20,7 +20,6 @@ import {
   Printer,
   RefreshCw,
   Syringe,
-  User,
   Users,
 } from 'lucide-react';
 import {
