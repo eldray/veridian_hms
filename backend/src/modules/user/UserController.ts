@@ -387,7 +387,7 @@ export class UserController extends BaseController {
       limit: parsePageSize(req.query.limit, 50, 500),
     };
 
-    const result = await this.service.getAllLeaves(filters);
+    const result = await this.service.getAllLeaves(filters, { userId: req.user!.userId, role: req.user!.role });
     return this.paginated(
       res,
       result.leaves,
@@ -397,7 +397,7 @@ export class UserController extends BaseController {
   });
 
   getLeaveById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const leave = await this.service.getLeaveById(req.params.id);
+    const leave = await this.service.getLeaveById(req.params.id, { userId: req.user!.userId, role: req.user!.role });
     if (!leave) return this.notFound(res, 'Leave request');
     return this.ok(res, leave, 'Leave request retrieved successfully');
   });
