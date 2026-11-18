@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/EstimateDetails.tsx - Proforma invoice (estimate) detail + actions
 // DESIGN: the screen IS the print template. One full A4-style page, not a
 // compact card: tall page, wide margins, large type, generous row height.
@@ -84,6 +85,7 @@ const printHtml = (est: any, hospital: any, fmt: (n: any) => string) => {
 };
 
 export default function EstimateDetails() {
+  const goBack = useSmartBack('/dashboard/estimates');
   const { id } = useParams();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
@@ -128,7 +130,7 @@ export default function EstimateDetails() {
     return (
       <div className="p-10 text-center">
         <p className="text-[var(--text-secondary)]">Estimate not found.</p>
-        <Button variant="primary" className="mt-4" onClick={() => navigate('/dashboard/estimates')}>Back to Estimates</Button>
+        <Button variant="primary" className="mt-4" onClick={goBack}>Back to Estimates</Button>
       </div>
     );
   }
@@ -148,7 +150,7 @@ export default function EstimateDetails() {
           icon={FileText} accent="cyan" backTo="/dashboard/estimates"
           actions={(
             <>
-              <Button variant="secondary" icon={X} onClick={() => navigate('/dashboard/estimates')}>Close</Button>
+              <Button variant="secondary" icon={X} onClick={goBack}>Close</Button>
               <Button variant="secondary" icon={Printer} onClick={handlePrint}>Print</Button>
               {est.status === 'DRAFT' && (
                 <>
