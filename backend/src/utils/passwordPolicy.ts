@@ -35,7 +35,7 @@ const COMMON_PASSWORDS = new Set([
   'hospital123456',
   'hospital@123',
   'clinician123456',
-  'wardnurse123456',
+  'wardstaff123456',
   'manager123456',
   'systemadmin123',
   'superadmin123',
