@@ -110,11 +110,8 @@ const addSchemaDefaults = (data: any, type: string) => {
         normalRangeTemplate: data.normalRangeTemplate || null,
         isNHISCovered: data.isNHISCovered ?? true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false,
-        nhisRequiresAuth: data.nhisRequiresAuth ?? false,
-        privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
-        vatRate: data.vatRate ?? 0,
-        isTaxable: data.isTaxable ?? true,
-        tariffCode: data.tariffCode || `LAB-${data.investigationCode}`,
+        nhisRequiresAuth: false,
+        privateInsRequiresAuth: false,
         isActive: true,
       };
     }

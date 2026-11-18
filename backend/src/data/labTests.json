@@ -7,10 +7,6 @@
     "description": "Complete blood count with differential",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE51D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "wbc",
@@ -18,8 +14,8 @@
         "label": "White Blood Cell Count",
         "unit": "x 10^9/L",
         "referenceRange": "4.0–11.0",
-        "lowThreshold": 4.0,
-        "highThreshold": 11.0
+        "lowThreshold": 4,
+        "highThreshold": 11
       },
       {
         "fieldName": "rbc",
@@ -188,7 +184,9 @@
         "label": "Film Comment",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 22.33
   },
   {
     "name": "Malaria Parasite Test",
@@ -198,10 +196,6 @@
     "description": "Malaria parasite test by microscopy",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE09D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "mp_result",
@@ -257,7 +251,9 @@
         "label": "Comments / Interpretation",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 8.99
   },
   {
     "name": "Blood Glucose (Random)",
@@ -267,10 +263,6 @@
     "description": "Random blood glucose test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE46D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "glucose_random",
@@ -281,7 +273,9 @@
         "lowThreshold": 3.9,
         "highThreshold": 11.1
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 9.21
   },
   {
     "name": "Blood Glucose (Fasting)",
@@ -291,10 +285,6 @@
     "description": "Fasting blood glucose test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE46D-FAST",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "glucose_fasting",
@@ -305,7 +295,8 @@
         "lowThreshold": 3.9,
         "highThreshold": 5.6
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Oral Glucose Tolerance Test",
@@ -315,10 +306,6 @@
     "description": "2-hour OGTT for diabetes diagnosis",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE83D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "glucose_fasting",
@@ -345,7 +332,9 @@
         "referenceRange": "<7.8",
         "highThreshold": 7.8
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 24.24
   },
   {
     "name": "2 Hour Post Prandial Blood Glucose",
@@ -355,10 +344,6 @@
     "description": "Post-meal blood glucose test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE01D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "glucose_2hr_pp",
@@ -368,7 +353,9 @@
         "referenceRange": "<7.8",
         "highThreshold": 7.8
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 19.59
   },
   {
     "name": "Urinalysis (Routine)",
@@ -378,10 +365,6 @@
     "description": "Complete urinalysis with microscopy",
     "specimenType": "urine",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE99D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "appearance",
@@ -416,7 +399,7 @@
         "label": "pH",
         "referenceRange": "4.5–8.0",
         "lowThreshold": 4.5,
-        "highThreshold": 8.0,
+        "highThreshold": 8,
         "unit": "pH"
       },
       {
@@ -574,7 +557,9 @@
         "label": "Comments / Interpretation",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 8.45
   },
   {
     "name": "Pregnancy Test",
@@ -584,10 +569,6 @@
     "description": "Qualitative pregnancy test",
     "specimenType": "urine",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE92D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "pregnancy_test",
@@ -599,7 +580,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 10.49
   },
   {
     "name": "Quantitative Beta-hCG",
@@ -609,10 +592,6 @@
     "description": "Quantitative serum pregnancy test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE04E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "beta_hcg",
@@ -622,7 +601,9 @@
         "referenceRange": "Non-pregnant: <5",
         "highThreshold": 5
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 25.23
   },
   {
     "name": "Widal Test",
@@ -632,10 +613,6 @@
     "description": "Widal test for typhoid fever with titres",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE38E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "salmonella_typhi_o",
@@ -695,7 +672,9 @@
         "label": "Interpretation",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 10.71
   },
   {
     "name": "Typhi Dot",
@@ -705,10 +684,6 @@
     "description": "Typhoid IgM/IgG rapid test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE149",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "typhi_igm",
@@ -730,7 +705,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 14.03
   },
   {
     "name": "HIV Screening",
@@ -740,10 +717,6 @@
     "description": "HIV rapid test screening",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE69D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "hiv_screening",
@@ -756,7 +729,9 @@
           "Invalid"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 17.86
   },
   {
     "name": "HIV Confirmatory Test",
@@ -766,10 +741,6 @@
     "description": "HIV confirmatory test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE68D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "hiv_confirmation",
@@ -782,7 +753,9 @@
           "Indeterminate"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 19.71
   },
   {
     "name": "CD4 Count",
@@ -792,10 +765,6 @@
     "description": "CD4 T-cell count for HIV monitoring",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE27D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "cd4_count",
@@ -815,7 +784,9 @@
         "lowThreshold": 30,
         "highThreshold": 60
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 70.86
   },
   {
     "name": "Hepatitis B Surface Antigen",
@@ -825,10 +796,6 @@
     "description": "HBsAg test for Hepatitis B",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE63D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "hbsag",
@@ -840,7 +807,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 10.23
   },
   {
     "name": "Hepatitis B Profile",
@@ -850,10 +819,6 @@
     "description": "Complete Hepatitis B profile",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE64D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "hbsag",
@@ -905,7 +870,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 23.07
   },
   {
     "name": "Hepatitis C Antibody",
@@ -915,10 +882,6 @@
     "description": "Hepatitis C virus screening",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE105",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "hcv_ab",
@@ -930,7 +893,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 12.32
   },
   {
     "name": "Viral Serology",
@@ -940,10 +905,6 @@
     "description": "Viral serology panel",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE133",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "viral_igm",
@@ -971,7 +932,9 @@
         "label": "Virus Type",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 105.21
   },
   {
     "name": "Stool Microscopy",
@@ -981,10 +944,6 @@
     "description": "Stool examination for ova and parasites",
     "specimenType": "stool",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE98D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "consistency",
@@ -1064,7 +1023,9 @@
         "label": "Comments / Interpretation",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 7.83
   },
   {
     "name": "Stool Culture & Sensitivity",
@@ -1074,10 +1035,6 @@
     "description": "Stool culture for enteric pathogens",
     "specimenType": "stool",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE19E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "culture_result",
@@ -1108,7 +1065,9 @@
         "label": "Resistant Antibiotics",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 20.02
   },
   {
     "name": "Stool for Occult Blood",
@@ -1118,10 +1077,6 @@
     "description": "Fecal occult blood test",
     "specimenType": "stool",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE20E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "occult_blood",
@@ -1133,9 +1088,11 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 9.32
   },
-    {
+  {
     "name": "Helicobacter Pylori Blood Antigen",
     "investigationCode": "INVE621D",
     "category": "microbiology",
@@ -1143,10 +1100,6 @@
     "description": "H. pylori stool antigen test",
     "specimenType": "stool",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE621D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "h_pylori_antigen",
@@ -1158,7 +1111,8 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Helicobacter Pylori Stool Antigen",
@@ -1168,10 +1122,6 @@
     "description": "H. pylori stool antigen test",
     "specimenType": "stool",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE62D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "h_pylori_antigen",
@@ -1183,7 +1133,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 9.88
   },
   {
     "name": "Liver Function Tests",
@@ -1193,10 +1145,6 @@
     "description": "Comprehensive liver function panel",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE74D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "alt",
@@ -1293,7 +1241,7 @@
         "fieldType": "number",
         "label": "A/G Ratio",
         "referenceRange": "1.0–2.1",
-        "lowThreshold": 1.0,
+        "lowThreshold": 1,
         "highThreshold": 2.1,
         "unit": "ratio"
       },
@@ -1304,7 +1252,9 @@
         "referenceRange": "N/A"
       }
     ],
-    "reportingTemplateVersion": "2.0"
+    "reportingTemplateVersion": "2.0",
+    "isNHISCovered": true,
+    "price": 30.72
   },
   {
     "name": "Renal Function Test",
@@ -1314,10 +1264,6 @@
     "description": "Renal function panel including electrolytes, urea, creatinine and eGFR",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE112",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "urea",
@@ -1388,7 +1334,9 @@
         "referenceRange": "N/A"
       }
     ],
-    "reportingTemplateVersion": "2.0"
+    "reportingTemplateVersion": "2.0",
+    "isNHISCovered": true,
+    "price": 20.98
   },
   {
     "name": "Electrolytes, Urea and Creatinine",
@@ -1398,10 +1346,6 @@
     "description": "Electrolytes with renal function tests",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE21D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "sodium",
@@ -1457,7 +1401,9 @@
         "lowThreshold": 62,
         "highThreshold": 106
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 22.42
   },
   {
     "name": "BUE & Creatinine",
@@ -1467,10 +1413,6 @@
     "description": "Blood urea, electrolytes and creatinine",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE24D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "urea",
@@ -1508,7 +1450,9 @@
         "lowThreshold": 3.5,
         "highThreshold": 5.1
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 23.56
   },
   {
     "name": "Lipid Profile",
@@ -1518,10 +1462,6 @@
     "description": "Complete lipid profile with calculated lipid indices and laboratory interpretation",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE75D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "total_cholesterol",
@@ -1537,7 +1477,7 @@
         "label": "HDL Cholesterol",
         "unit": "mmol/L",
         "referenceRange": ">1.0",
-        "lowThreshold": 1.0
+        "lowThreshold": 1
       },
       {
         "fieldName": "ldl_cholesterol",
@@ -1603,7 +1543,9 @@
         "referenceRange": "N/A"
       }
     ],
-    "reportingTemplateVersion": "2.0"
+    "reportingTemplateVersion": "2.0",
+    "isNHISCovered": true,
+    "price": 29.15
   },
   {
     "name": "Blood Grouping",
@@ -1613,10 +1555,6 @@
     "description": "ABO and Rh blood grouping",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE17D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "abo_group",
@@ -1640,7 +1578,9 @@
           "Negative"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 10.78
   },
   {
     "name": "Sickling Test",
@@ -1650,10 +1590,6 @@
     "description": "Sickle cell solubility test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE16E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "sickle_cell_test",
@@ -1665,7 +1601,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 8.16
   },
   {
     "name": "Hemoglobin Electrophoresis",
@@ -1675,10 +1613,6 @@
     "description": "Qualitative hemoglobin electrophoresis",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE59D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "hb_pattern",
@@ -1716,7 +1650,9 @@
           "Increased"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 15.15
   },
   {
     "name": "Hb Electrophoresis (Quantitative)",
@@ -1726,10 +1662,6 @@
     "description": "Quantitative hemoglobin electrophoresis",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE58D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "hb_a",
@@ -1771,7 +1703,9 @@
         "unit": "%",
         "referenceRange": "0"
       }
-    ]
+    ],
+    "isNHISCovered": false,
+    "price": 12.75
   },
   {
     "name": "Thyroid Function Test (TSH, fT3, fT4)",
@@ -1781,10 +1715,6 @@
     "description": "Thyroid function panel: TSH, Free T3 and Free T4",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE24E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "tsh",
@@ -1793,7 +1723,7 @@
         "unit": "mIU/L",
         "referenceRange": "0.4–4.0",
         "lowThreshold": 0.4,
-        "highThreshold": 4.0
+        "highThreshold": 4
       },
       {
         "fieldName": "ft3",
@@ -1820,7 +1750,9 @@
         "referenceRange": "N/A"
       }
     ],
-    "reportingTemplateVersion": "2.0"
+    "reportingTemplateVersion": "2.0",
+    "isNHISCovered": false,
+    "price": 30.49
   },
   {
     "name": "Thyroid Profile (TSH, FT3, FT4)",
@@ -1830,10 +1762,6 @@
     "description": "Thyroid function panel: TSH, Free T3 and Free T4",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE25E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "tsh",
@@ -1842,7 +1770,7 @@
         "unit": "mIU/L",
         "referenceRange": "0.4–4.0",
         "lowThreshold": 0.4,
-        "highThreshold": 4.0
+        "highThreshold": 4
       },
       {
         "fieldName": "ft3",
@@ -1869,7 +1797,9 @@
         "referenceRange": "N/A"
       }
     ],
-    "reportingTemplateVersion": "2.0"
+    "reportingTemplateVersion": "2.0",
+    "isNHISCovered": true,
+    "price": 67.59
   },
   {
     "name": "T3",
@@ -1879,10 +1809,6 @@
     "description": "Total T3",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE21E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "t3",
@@ -1893,7 +1819,9 @@
         "lowThreshold": 1.2,
         "highThreshold": 2.8
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 50.28
   },
   {
     "name": "T4",
@@ -1903,10 +1831,6 @@
     "description": "Total T4",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE22E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "t4",
@@ -1917,7 +1841,9 @@
         "lowThreshold": 55,
         "highThreshold": 150
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 50.28
   },
   {
     "name": "Prostate Specific Antigen",
@@ -1927,10 +1853,6 @@
     "description": "PSA panel with Total PSA, Free PSA and Free/Total PSA ratio",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE94D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "total_psa",
@@ -1938,7 +1860,7 @@
         "label": "Total PSA",
         "unit": "ng/mL",
         "referenceRange": "<4.0",
-        "highThreshold": 4.0
+        "highThreshold": 4
       },
       {
         "fieldName": "free_psa",
@@ -1962,7 +1884,9 @@
         "referenceRange": "N/A"
       }
     ],
-    "reportingTemplateVersion": "2.0"
+    "reportingTemplateVersion": "2.0",
+    "isNHISCovered": true,
+    "price": 28.18
   },
   {
     "name": "Glycosylated Haemoglobin",
@@ -1972,10 +1896,6 @@
     "description": "3-month average blood glucose control",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE57D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "hba1c",
@@ -1983,7 +1903,7 @@
         "label": "HbA1c",
         "unit": "%",
         "referenceRange": "4.0–5.6",
-        "lowThreshold": 4.0,
+        "lowThreshold": 4,
         "highThreshold": 5.6
       },
       {
@@ -1993,9 +1913,11 @@
         "unit": "mmol/L",
         "referenceRange": "3.9–7.0",
         "lowThreshold": 3.9,
-        "highThreshold": 7.0
+        "highThreshold": 7
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 25.87
   },
   {
     "name": "C Reactive Protein",
@@ -2005,10 +1927,6 @@
     "description": "High-sensitivity CRP for inflammation",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE141",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "crp",
@@ -2016,9 +1934,11 @@
         "label": "C-Reactive Protein",
         "unit": "mg/L",
         "referenceRange": "<5.0",
-        "highThreshold": 5.0
+        "highThreshold": 5
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 20.51
   },
   {
     "name": "Rheumatoid Factor",
@@ -2028,10 +1948,6 @@
     "description": "Rheumatoid arthritis screening",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE97D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "rheumatoid_factor",
@@ -2041,7 +1957,9 @@
         "referenceRange": "<14",
         "highThreshold": 14
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 8.19
   },
   {
     "name": "ASO Titre",
@@ -2051,10 +1969,6 @@
     "description": "Anti-streptolysin O titre",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE154",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "aso_titre",
@@ -2064,7 +1978,9 @@
         "referenceRange": "<200",
         "highThreshold": 200
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 29.11
   },
   {
     "name": "VDRL/RPR",
@@ -2074,10 +1990,6 @@
     "description": "Syphilis screening test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE36E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "vdrl",
@@ -2089,7 +2001,9 @@
           "Reactive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 8.27
   },
   {
     "name": "TPHA",
@@ -2099,10 +2013,6 @@
     "description": "Syphilis confirmatory test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE37E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "tpha",
@@ -2114,7 +2024,9 @@
           "Reactive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": false,
+    "price": 237.36
   },
   {
     "name": "Blood Culture and Sensitivity",
@@ -2124,10 +2036,6 @@
     "description": "Blood culture for bacteremia with sensitivity",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE16D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "culture_result",
@@ -2163,7 +2071,9 @@
         "label": "Comments / Interpretation",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 20.48
   },
   {
     "name": "Urine Culture and Sensitivity",
@@ -2173,10 +2083,6 @@
     "description": "Urine culture for UTI with sensitivity",
     "specimenType": "urine",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE34E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "culture_result",
@@ -2222,7 +2128,9 @@
         "label": "Comments / Interpretation",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 18.48
   },
   {
     "name": "High Vaginal Swab for C/S",
@@ -2232,10 +2140,6 @@
     "description": "Vaginal swab for infection screening",
     "specimenType": "swab",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE65D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "pus_cells",
@@ -2304,7 +2208,9 @@
           "Mixed"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 19.87
   },
   {
     "name": "Semen Analysis",
@@ -2314,10 +2220,6 @@
     "description": "Complete semen analysis for fertility",
     "specimenType": "semen",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE113",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "liquefaction_time",
@@ -2334,7 +2236,7 @@
         "unit": "mL",
         "referenceRange": "1.5–5.0",
         "lowThreshold": 1.5,
-        "highThreshold": 5.0
+        "highThreshold": 5
       },
       {
         "fieldName": "ph",
@@ -2342,7 +2244,7 @@
         "label": "pH",
         "referenceRange": "7.2–8.0",
         "lowThreshold": 7.2,
-        "highThreshold": 8.0,
+        "highThreshold": 8,
         "unit": "pH"
       },
       {
@@ -2417,7 +2319,9 @@
         "referenceRange": "<1",
         "highThreshold": 1
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 51.1
   },
   {
     "name": "Erythrocyte Sedimentation Rate",
@@ -2427,10 +2331,6 @@
     "description": "ESR for inflammatory conditions",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE42D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "esr_1hr",
@@ -2441,7 +2341,9 @@
         "lowThreshold": 0,
         "highThreshold": 15
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 8.16
   },
   {
     "name": "Prothrombin Time",
@@ -2451,10 +2353,6 @@
     "description": "Prothrombin time with INR",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE95D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "pt",
@@ -2483,7 +2381,9 @@
         "highThreshold": 1.2,
         "unit": "ratio"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 15.46
   },
   {
     "name": "Activated Partial Thromboplastin Time",
@@ -2493,10 +2393,6 @@
     "description": "APTT for coagulation screening",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE06D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "aptt",
@@ -2516,7 +2412,9 @@
         "lowThreshold": 25,
         "highThreshold": 35
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 16.45
   },
   {
     "name": "Bleeding and Clotting Time",
@@ -2526,10 +2424,6 @@
     "description": "Bleeding and clotting time test",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE15D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "bleeding_time",
@@ -2549,7 +2443,9 @@
         "lowThreshold": 5,
         "highThreshold": 11
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 10.05
   },
   {
     "name": "D-Dimer",
@@ -2559,10 +2455,6 @@
     "description": "D-dimer for DVT/PE screening",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE146",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "d_dimer",
@@ -2572,7 +2464,9 @@
         "referenceRange": "<0.5",
         "highThreshold": 0.5
       }
-    ]
+    ],
+    "isNHISCovered": false,
+    "price": 62.55
   },
   {
     "name": "Troponin I",
@@ -2582,10 +2476,6 @@
     "description": "Cardiac marker for myocardial infarction",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE29E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "troponin_i",
@@ -2595,7 +2485,9 @@
         "referenceRange": "<0.04",
         "highThreshold": 0.04
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 23.35
   },
   {
     "name": "CK-MB",
@@ -2605,10 +2497,6 @@
     "description": "Creatine kinase-MB for cardiac injury",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE29D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "ck_mb",
@@ -2618,7 +2506,9 @@
         "referenceRange": "<25",
         "highThreshold": 25
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 18.94
   },
   {
     "name": "Creatine Kinase (CK)",
@@ -2628,10 +2518,6 @@
     "description": "Total creatine kinase",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE30D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "ck_total",
@@ -2642,7 +2528,9 @@
         "lowThreshold": 30,
         "highThreshold": 200
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 15.86
   },
   {
     "name": "Amylase",
@@ -2652,10 +2540,6 @@
     "description": "Amylase for pancreatitis",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE04D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "amylase",
@@ -2666,7 +2550,9 @@
         "lowThreshold": 28,
         "highThreshold": 100
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 19.4
   },
   {
     "name": "Lipase",
@@ -2676,10 +2562,6 @@
     "description": "Pancreatic specific amylase",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE85D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "pancreatic_amylase",
@@ -2690,7 +2572,9 @@
         "lowThreshold": 13,
         "highThreshold": 53
       }
-    ]
+    ],
+    "isNHISCovered": false,
+    "price": 17.07
   },
   {
     "name": "Cortisol (AM)",
@@ -2700,10 +2584,6 @@
     "description": "Morning cortisol level",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE91D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "cortisol_am",
@@ -2714,7 +2594,9 @@
         "lowThreshold": 171,
         "highThreshold": 536
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 11.18
   },
   {
     "name": "Prolactin",
@@ -2724,10 +2606,6 @@
     "description": "Prolactin hormone",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE11E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "prolactin",
@@ -2738,7 +2616,9 @@
         "lowThreshold": 86,
         "highThreshold": 324
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 26.23
   },
   {
     "name": "Testosterone",
@@ -2748,10 +2628,6 @@
     "description": "Total testosterone",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE23E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "testosterone_total",
@@ -2760,9 +2636,11 @@
         "unit": "nmol/L",
         "referenceRange": "8.64–29.0",
         "lowThreshold": 8.64,
-        "highThreshold": 29.0
+        "highThreshold": 29
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 31.71
   },
   {
     "name": "Estradiol (E2)",
@@ -2772,10 +2650,6 @@
     "description": "Estradiol level",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE43D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "estradiol",
@@ -2786,7 +2660,9 @@
         "lowThreshold": 70,
         "highThreshold": 550
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 24.64
   },
   {
     "name": "Progesterone",
@@ -2796,10 +2672,6 @@
     "description": "Progesterone level",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE93D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "progesterone",
@@ -2808,9 +2680,11 @@
         "unit": "nmol/L",
         "referenceRange": "0.3–3.0",
         "lowThreshold": 0.3,
-        "highThreshold": 3.0
+        "highThreshold": 3
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 26.62
   },
   {
     "name": "Carcinoembryonic Antigen",
@@ -2820,10 +2694,6 @@
     "description": "Colorectal cancer marker",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE25D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "cea",
@@ -2833,7 +2703,9 @@
         "referenceRange": "<2.5",
         "highThreshold": 2.5
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 12.35
   },
   {
     "name": "Alpha-Fetoprotein",
@@ -2843,10 +2715,6 @@
     "description": "Liver cancer marker",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE05D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "afp",
@@ -2854,9 +2722,11 @@
         "label": "Alpha-fetoprotein",
         "unit": "IU/mL",
         "referenceRange": "<7.0",
-        "highThreshold": 7.0
+        "highThreshold": 7
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 13.63
   },
   {
     "name": "CA-125",
@@ -2866,10 +2736,6 @@
     "description": "Ovarian cancer marker",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE45B",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "ca_125",
@@ -2879,7 +2745,8 @@
         "referenceRange": "<35",
         "highThreshold": 35
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "CA 19-9",
@@ -2889,10 +2756,6 @@
     "description": "Pancreatic cancer marker",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE137",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "ca_19_9",
@@ -2902,7 +2765,9 @@
         "referenceRange": "<37",
         "highThreshold": 37
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 85.99
   },
   {
     "name": "Ferritin",
@@ -2912,10 +2777,6 @@
     "description": "Iron stores evaluation",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE08E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "ferritin",
@@ -2926,7 +2787,9 @@
         "lowThreshold": 30,
         "highThreshold": 400
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 23.15
   },
   {
     "name": "Vitamin B12 and Folate",
@@ -2936,10 +2799,6 @@
     "description": "Vitamin B12 and folate levels",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE126",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "vitamin_b12",
@@ -2956,9 +2815,11 @@
         "label": "Folate",
         "unit": "ng/mL",
         "referenceRange": ">3.0",
-        "lowThreshold": 3.0
+        "lowThreshold": 3
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 102.75
   },
   {
     "name": "Serum Calcium",
@@ -2968,10 +2829,6 @@
     "description": "Calcium level in blood",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE05E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "calcium",
@@ -2982,7 +2839,9 @@
         "lowThreshold": 2.1,
         "highThreshold": 2.55
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 15.86
   },
   {
     "name": "Phosphate",
@@ -2992,10 +2851,6 @@
     "description": "Serum phosphate",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE109",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "phosphate",
@@ -3006,7 +2861,9 @@
         "lowThreshold": 0.8,
         "highThreshold": 1.5
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 12.8
   },
   {
     "name": "Magnesium",
@@ -3016,10 +2873,6 @@
     "description": "Serum magnesium",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE107",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "magnesium",
@@ -3028,9 +2881,11 @@
         "unit": "mmol/L",
         "referenceRange": "0.70–1.00",
         "lowThreshold": 0.7,
-        "highThreshold": 1.0
+        "highThreshold": 1
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 12.78
   },
   {
     "name": "Uric Acid",
@@ -3040,10 +2895,6 @@
     "description": "Uric acid for gout evaluation",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE14E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "uric_acid",
@@ -3054,7 +2905,9 @@
         "lowThreshold": 210,
         "highThreshold": 420
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 14.32
   },
   {
     "name": "Iron Studies",
@@ -3064,10 +2917,6 @@
     "description": "Complete iron profile",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE09E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "serum_iron",
@@ -3096,7 +2945,9 @@
         "lowThreshold": 20,
         "highThreshold": 50
       }
-    ]
+    ],
+    "isNHISCovered": false,
+    "price": 13.29
   },
   {
     "name": "Total Iron Binding Capacity",
@@ -3106,10 +2957,6 @@
     "description": "Total iron binding capacity",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE26E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "tibc",
@@ -3120,7 +2967,9 @@
         "lowThreshold": 250,
         "highThreshold": 400
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 15.71
   },
   {
     "name": "Cerebrospinal Fluid Analysis",
@@ -3130,10 +2979,6 @@
     "description": "CSF analysis for meningitis",
     "specimenType": "csf",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE26D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "appearance",
@@ -3212,7 +3057,9 @@
         "label": "Gram Stain",
         "referenceRange": "No organisms seen"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 22.21
   },
   {
     "name": "Pleural Fluid Analysis",
@@ -3222,10 +3069,6 @@
     "description": "Pleural fluid examination",
     "specimenType": "fluid",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE136",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "appearance",
@@ -3270,7 +3113,9 @@
         "unit": "cells/μL",
         "referenceRange": "0"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 17.27
   },
   {
     "name": "Peripheral Blood Film",
@@ -3280,10 +3125,6 @@
     "description": "Blood film examination",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE53D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "red_cell_morphology",
@@ -3319,7 +3160,9 @@
           "Present"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 21.64
   },
   {
     "name": "Platelet Count",
@@ -3329,10 +3172,6 @@
     "description": "Platelet count only",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE110",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "plt",
@@ -3343,7 +3182,9 @@
         "lowThreshold": 150,
         "highThreshold": 450
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 9.53
   },
   {
     "name": "Absolute Eosinophil Count",
@@ -3353,10 +3194,6 @@
     "description": "Absolute eosinophil count",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE150",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "aec",
@@ -3366,7 +3203,9 @@
         "referenceRange": "<500",
         "highThreshold": 500
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 14.06
   },
   {
     "name": "Reticulocyte Count",
@@ -3376,10 +3215,6 @@
     "description": "Reticulocyte count for bone marrow function",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE96D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "reticulocyte_count",
@@ -3399,7 +3234,9 @@
         "lowThreshold": 25,
         "highThreshold": 100
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 9.61
   },
   {
     "name": "WBC + Differential",
@@ -3409,10 +3246,6 @@
     "description": "White blood cell count with differential",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE120",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "wbc",
@@ -3420,8 +3253,8 @@
         "label": "White Blood Cell Count",
         "unit": "x 10^9/L",
         "referenceRange": "4.0–11.0",
-        "lowThreshold": 4.0,
-        "highThreshold": 11.0
+        "lowThreshold": 4,
+        "highThreshold": 11
       },
       {
         "fieldName": "neutrophils",
@@ -3468,7 +3301,9 @@
         "lowThreshold": 0,
         "highThreshold": 1
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 12.21
   },
   {
     "name": "Arterial Blood Gas (ABG)",
@@ -3478,10 +3313,6 @@
     "description": "Arterial blood gas analysis",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE07D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "ph",
@@ -3537,7 +3368,9 @@
         "lowThreshold": 95,
         "highThreshold": 100
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 23.41
   },
   {
     "name": "ECG",
@@ -3547,10 +3380,6 @@
     "description": "Electrocardiogram",
     "specimenType": "other",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE41D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "ecg_report",
@@ -3558,7 +3387,9 @@
         "label": "ECG Report",
         "referenceRange": "Normal sinus rhythm"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 16.3
   },
   {
     "name": "EEG (Electroencephalogram)",
@@ -3568,10 +3399,6 @@
     "description": "Electroencephalogram",
     "specimenType": "other",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE142",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "eeg_report",
@@ -3579,7 +3406,9 @@
         "label": "EEG Report",
         "referenceRange": "Normal"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 62.97
   },
   {
     "name": "Pulmonary Function Test",
@@ -3589,10 +3418,6 @@
     "description": "Spirometry and lung function",
     "specimenType": "other",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE135",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "fev1",
@@ -3618,7 +3443,9 @@
         "referenceRange": ">70",
         "lowThreshold": 70
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 49.71
   },
   {
     "name": "Dengue NS1 Antigen",
@@ -3628,10 +3455,6 @@
     "description": "Early dengue detection (NS1 antigen)",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE33S",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "dengue_ns1",
@@ -3643,7 +3466,8 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Dengue IgG/IgM Antibodies",
@@ -3653,10 +3477,6 @@
     "description": "Dengue serology for past/current infection",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE34S",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "dengue_igm",
@@ -3678,7 +3498,8 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Chikungunya IgM/IgG",
@@ -3688,10 +3509,6 @@
     "description": "Chikungunya virus serology",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE35S",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "chikungunya_igm",
@@ -3713,7 +3530,8 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "COVID-19 PCR",
@@ -3723,10 +3541,6 @@
     "description": "SARS-CoV-2 PCR test",
     "specimenType": "swab",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE55M",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "covid_pcr",
@@ -3746,7 +3560,8 @@
         "referenceRange": "N/A",
         "unit": "cycles"
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "COVID-19 Antigen",
@@ -3756,10 +3571,6 @@
     "description": "Rapid COVID-19 antigen test",
     "specimenType": "swab",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE56M",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "covid_antigen",
@@ -3772,7 +3583,8 @@
           "Invalid"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Wound Swab Culture & Sensitivity",
@@ -3782,10 +3594,6 @@
     "description": "Wound swab culture with antibiotic sensitivity",
     "specimenType": "swab",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE27M",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "culture_result",
@@ -3816,7 +3624,8 @@
         "label": "Resistant Antibiotics",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Sputum for Acid-Fast Bacilli (AFB)",
@@ -3826,10 +3635,6 @@
     "description": "Sputum AFB smear microscopy for TB screening",
     "specimenType": "sputum",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE53M",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "afb_smear",
@@ -3856,7 +3661,8 @@
           "Purulent"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "GeneXpert MTB/RIF",
@@ -3866,10 +3672,6 @@
     "description": "Molecular TB test with rifampicin resistance detection",
     "specimenType": "sputum",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE54M",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "mtb_detected",
@@ -3906,7 +3708,8 @@
           "High"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Ascitic Fluid Analysis",
@@ -3916,10 +3719,6 @@
     "description": "Ascitic fluid examination for liver disease patients",
     "specimenType": "fluid",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE51M",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "appearance",
@@ -3965,7 +3764,8 @@
         "referenceRange": "<50",
         "highThreshold": 50
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Synovial Fluid Analysis",
@@ -3975,10 +3775,6 @@
     "description": "Joint fluid analysis for arthritis/gout",
     "specimenType": "fluid",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE52M",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "appearance",
@@ -4030,7 +3826,8 @@
           "Hydroxyapatite"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Spot Urine Protein Creatinine Ratio (UPCR)",
@@ -4040,10 +3837,6 @@
     "description": "Proteinuria quantification (spot urine)",
     "specimenType": "urine",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE44B",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "urine_protein",
@@ -4067,7 +3860,8 @@
         "referenceRange": "<30",
         "highThreshold": 30
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Fructosamine",
@@ -4077,10 +3871,6 @@
     "description": "2-3 week average glucose control (alternative to HbA1c)",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE40B",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "fructosamine",
@@ -4091,7 +3881,8 @@
         "lowThreshold": 200,
         "highThreshold": 285
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Coombs Test (Direct)",
@@ -4101,10 +3892,6 @@
     "description": "Direct antiglobulin test for hemolytic anemia",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE28D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "direct_coombs",
@@ -4119,7 +3906,9 @@
           "Positive (4+)"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 13.94
   },
   {
     "name": "CSF Latex Agglutination",
@@ -4129,10 +3918,6 @@
     "description": "CSF latex agglutination for bacterial antigens",
     "specimenType": "csf",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE31D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "latex_result",
@@ -4158,7 +3943,9 @@
           "S. agalactiae"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 14.78
   },
   {
     "name": "Donor Screening for HB & AG",
@@ -4168,10 +3955,6 @@
     "description": "Donor screening for Hepatitis B and Australia antigen",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE103",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "hbsag",
@@ -4203,7 +3986,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 21.38
   },
   {
     "name": "LE Cell",
@@ -4213,10 +3998,6 @@
     "description": "Lupus erythematosus cell test for SLE",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE76D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "le_cell",
@@ -4228,7 +4009,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 15.86
   },
   {
     "name": "Fungal Cultures",
@@ -4238,10 +4021,6 @@
     "description": "Fungal culture and identification",
     "specimenType": "swab",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE54D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "culture_result",
@@ -4259,7 +4038,9 @@
         "label": "Organism Identified",
         "referenceRange": "None"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 22.02
   },
   {
     "name": "High Vaginal Swab Routine",
@@ -4269,10 +4050,6 @@
     "description": "Routine vaginal swab microscopic examination",
     "specimenType": "swab",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE66D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "pus_cells",
@@ -4328,7 +4105,9 @@
           "Present"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 11.43
   },
   {
     "name": "Miscellaneous Cultures",
@@ -4338,10 +4117,6 @@
     "description": "Culture of fluids, aspirates and exudates",
     "specimenType": "fluid",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE79D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "specimen_type",
@@ -4366,7 +4141,9 @@
         "label": "Organism Identified",
         "referenceRange": "None"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 18.17
   },
   {
     "name": "Skin Scraping for Fungal Elements",
@@ -4376,10 +4153,6 @@
     "description": "Microscopic examination of skin scrapings for fungi",
     "specimenType": "tissue",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE17E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "fungal_elements",
@@ -4412,7 +4185,9 @@
           "Present"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 9.2
   },
   {
     "name": "Skin Snip",
@@ -4422,10 +4197,6 @@
     "description": "Skin snip for microfilaria detection",
     "specimenType": "tissue",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE18E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "microfilaria",
@@ -4449,7 +4220,9 @@
           "Loa loa"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 9.22
   },
   {
     "name": "Biopsy L/A (Macroscopic Description)",
@@ -4459,10 +4232,6 @@
     "description": "Biopsy macroscopic description and tissue processing",
     "specimenType": "tissue",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE152",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "specimen_type",
@@ -4488,7 +4257,9 @@
         "label": "Histopathological Diagnosis",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 96.25
   },
   {
     "name": "Bone Marrow Aspirate",
@@ -4498,10 +4269,6 @@
     "description": "Bone marrow aspiration for hematological disorders",
     "specimenType": "tissue",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE23D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "cellularity",
@@ -4552,7 +4319,9 @@
           "Present"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 80.97
   },
   {
     "name": "Bone Marrow - Trephine Biopsy",
@@ -4562,10 +4331,6 @@
     "description": "Bone marrow trephine biopsy for hematological disorders",
     "specimenType": "tissue",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE22D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "cellularity",
@@ -4603,7 +4368,9 @@
         "label": "Diagnosis",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 122.55
   },
   {
     "name": "Cytology",
@@ -4613,10 +4380,6 @@
     "description": "Cytological examination of body fluids or aspirates",
     "specimenType": "fluid",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE36D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "specimen_source",
@@ -4641,7 +4404,9 @@
         "label": "Cytology Report",
         "referenceRange": "No malignant cells seen"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 22.62
   },
   {
     "name": "Fine Needle Aspiration",
@@ -4651,10 +4416,6 @@
     "description": "Fine needle aspiration cytology",
     "specimenType": "fluid",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE86D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "site",
@@ -4678,7 +4439,9 @@
         "label": "Cytology Result",
         "referenceRange": "Benign"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 31.25
   },
   {
     "name": "Histopathology",
@@ -4688,10 +4451,6 @@
     "description": "Gross and microscopic examination of tissue biopsy",
     "specimenType": "tissue",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE67D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "specimen_type",
@@ -4717,7 +4476,9 @@
         "label": "Pathological Diagnosis",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 38.28
   },
   {
     "name": "Immunostaining",
@@ -4727,10 +4488,6 @@
     "description": "Immunohistochemical staining for tissue diagnosis",
     "specimenType": "tissue",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE71D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "antibody_panel",
@@ -4750,7 +4507,9 @@
         "label": "Interpretation",
         "referenceRange": "N/A"
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 71.3
   },
   {
     "name": "Pap Smear",
@@ -4760,10 +4519,6 @@
     "description": "Cervical cancer screening (Pap smear)",
     "specimenType": "swab",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE87D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "specimen_adequacy",
@@ -4797,7 +4552,9 @@
         "label": "Microorganisms Detected",
         "referenceRange": "None"
       }
-    ]
+    ],
+    "isNHISCovered": false,
+    "price": 120.86
   },
   {
     "name": "Factor VIII Assay",
@@ -4807,10 +4564,6 @@
     "description": "Factor VIII activity assay for hemophilia A",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE45D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "factor_viii",
@@ -4821,7 +4574,9 @@
         "lowThreshold": 50,
         "highThreshold": 150
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 66.68
   },
   {
     "name": "Factor IX Assay",
@@ -4831,10 +4586,6 @@
     "description": "Factor IX activity assay for hemophilia B",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE44D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "factor_ix",
@@ -4845,7 +4596,9 @@
         "lowThreshold": 50,
         "highThreshold": 150
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 30.49
   },
   {
     "name": "Glucose-6-Phosphate Dehydrogenase, G6PD",
@@ -4855,10 +4608,6 @@
     "description": "Glucose-6-phosphate dehydrogenase for hemolytic anemia",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE56D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "g6pd",
@@ -4866,10 +4615,12 @@
         "label": "G6PD",
         "unit": "U/g Hb",
         "referenceRange": "7.0–20.5",
-        "lowThreshold": 7.0,
+        "lowThreshold": 7,
         "highThreshold": 20.5
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 12.78
   },
   {
     "name": "Blood Grouping & Antibody Screen",
@@ -4879,10 +4630,6 @@
     "description": "ABO/Rh blood grouping with atypical antibody screening",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE18D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "abo_group",
@@ -4916,7 +4663,9 @@
           "Positive"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 13.8
   },
   {
     "name": "Crossmatching",
@@ -4926,10 +4675,6 @@
     "description": "Crossmatching for blood transfusion",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": true,
-    "tariffCode": "LAB-INVE104",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "crossmatch_result",
@@ -4941,7 +4686,9 @@
           "Incompatible"
         ]
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 12.55
   },
   {
     "name": "Total Leucocyte Count",
@@ -4951,10 +4698,6 @@
     "description": "Total white blood cell count only",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE114",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "wbc",
@@ -4962,10 +4705,12 @@
         "label": "Total Leucocyte Count",
         "unit": "x 10^9/L",
         "referenceRange": "4.0–11.0",
-        "lowThreshold": 4.0,
-        "highThreshold": 11.0
+        "lowThreshold": 4,
+        "highThreshold": 11
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 10.66
   },
   {
     "name": "Acid Phosphatase",
@@ -4975,10 +4720,6 @@
     "description": "Acid phosphatase for prostate pathology",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE100",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "acid_phosphatase",
@@ -4988,7 +4729,9 @@
         "referenceRange": "0–3",
         "highThreshold": 3
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 11.44
   },
   {
     "name": "Aldolase",
@@ -4998,10 +4741,6 @@
     "description": "Aldolase for muscle disease",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE101A",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "aldolase",
@@ -5009,10 +4748,11 @@
         "label": "Aldolase",
         "unit": "U/L",
         "referenceRange": "1.0–7.5",
-        "lowThreshold": 1.0,
+        "lowThreshold": 1,
         "highThreshold": 7.5
       }
-    ]
+    ],
+    "isNHISCovered": false
   },
   {
     "name": "Chloride",
@@ -5022,10 +4762,6 @@
     "description": "Serum chloride level",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE101",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "chloride",
@@ -5036,7 +4772,9 @@
         "lowThreshold": 98,
         "highThreshold": 107
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 11.7
   },
   {
     "name": "Digoxin Level",
@@ -5046,10 +4784,6 @@
     "description": "Serum digoxin level monitoring",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE37D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "digoxin",
@@ -5058,9 +4792,11 @@
         "unit": "ng/mL",
         "referenceRange": "0.8–2.0",
         "lowThreshold": 0.8,
-        "highThreshold": 2.0
+        "highThreshold": 2
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 10.92
   },
   {
     "name": "DHEA-S",
@@ -5070,10 +4806,6 @@
     "description": "Dehydroepiandrosterone sulfate for adrenal function",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE38D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "dheas",
@@ -5084,7 +4816,9 @@
         "lowThreshold": 35,
         "highThreshold": 560
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 11.75
   },
   {
     "name": "Follicle Stimulating Hormone",
@@ -5094,10 +4828,6 @@
     "description": "FSH for fertility/menopause assessment",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE48D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "fsh",
@@ -5108,7 +4838,9 @@
         "lowThreshold": 1.7,
         "highThreshold": 135
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 26.49
   },
   {
     "name": "Luteinizing Hormone",
@@ -5118,10 +4850,6 @@
     "description": "LH for fertility assessment",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE77D",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "lh",
@@ -5129,10 +4857,12 @@
         "label": "Luteinizing Hormone",
         "unit": "IU/L",
         "referenceRange": "Follicular: 2.4–12.6, Mid-cycle: 14–95, Luteal: 1.0–11.4, Postmenopausal: 7.7–58.5",
-        "lowThreshold": 1.0,
+        "lowThreshold": 1,
         "highThreshold": 95
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 26.21
   },
   {
     "name": "Serum ACTH",
@@ -5142,10 +4872,6 @@
     "description": "Adrenocorticotropic hormone for pituitary function",
     "specimenType": "blood",
     "isActive": true,
-    "requiresAuthorization": false,
-    "tariffCode": "LAB-INVE01E",
-    "vatRate": 0,
-    "isTaxable": false,
     "resultTemplate": [
       {
         "fieldName": "acth",
@@ -5156,6 +4882,692 @@
         "lowThreshold": 10,
         "highThreshold": 60
       }
-    ]
+    ],
+    "isNHISCovered": true,
+    "price": 10.92
+  },
+  {
+    "name": "24hr Urine for Protein",
+    "investigationCode": "INVE02D",
+    "category": "microbiology",
+    "subCategory": "nhis-listed",
+    "description": "24hr Urine for Protein laboratory investigation.",
+    "specimenType": "urine",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 14.5
+  },
+  {
+    "name": "Alanine Aminotransferase (ALT)",
+    "investigationCode": "INVE03D",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Alanine Aminotransferase (ALT) laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 14.63
+  },
+  {
+    "name": "Anti-streptolysin test",
+    "investigationCode": "INVE132",
+    "category": "microbiology",
+    "subCategory": "nhis-listed",
+    "description": "Anti-streptolysin test laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 21.87
+  },
+  {
+    "name": "Aspartate Aminotransferase (AST)",
+    "investigationCode": "INVE08D",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Aspartate Aminotransferase (AST) laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 12.78
+  },
+  {
+    "name": "Bilirubin",
+    "investigationCode": "INVE14D",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Bilirubin laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 12.78
+  },
+  {
+    "name": "Blood Parasites",
+    "investigationCode": "INVE19D",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "Blood Parasites laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 13.58
+  },
+  {
+    "name": "Blood Sugar PP",
+    "investigationCode": "INVE151",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "Blood Sugar PP laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 7.75
+  },
+  {
+    "name": "Blood Urea",
+    "investigationCode": "INVE20D",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "Blood Urea laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 20.33
+  },
+  {
+    "name": "Calcium Infusion test",
+    "investigationCode": "INVE134",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Calcium Infusion test laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 23.56
+  },
+  {
+    "name": "Demonstration of Heinz bodies",
+    "investigationCode": "INVE130",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "Demonstration of Heinz bodies laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 13.15
+  },
+  {
+    "name": "Direct Bilirubin/Total Bilirubin",
+    "investigationCode": "INVE102",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Direct Bilirubin/Total Bilirubin laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 14.68
+  },
+  {
+    "name": "FT3",
+    "investigationCode": "INVE49D",
+    "category": "serology",
+    "subCategory": "nhis-listed",
+    "description": "FT3 laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 30.42
+  },
+  {
+    "name": "FT4",
+    "investigationCode": "INVE50D",
+    "category": "serology",
+    "subCategory": "nhis-listed",
+    "description": "FT4 laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 30.42
+  },
+  {
+    "name": "Full Blood Count FBC (Automation)",
+    "investigationCode": "INVE52D",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "Full Blood Count FBC (Automation) laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 19.14
+  },
+  {
+    "name": "Gamma Glutamyl Transferase (GGT)",
+    "investigationCode": "INVE55D",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Gamma Glutamyl Transferase (GGT) laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 18.94
+  },
+  {
+    "name": "Haemoglobin Estimation (HB)",
+    "investigationCode": "INVE60D",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "Haemoglobin Estimation (HB) laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 9.34
+  },
+  {
+    "name": "HDL-Cholesterol",
+    "investigationCode": "INVE61D",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "HDL-Cholesterol laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 14.63
+  },
+  {
+    "name": "Hematocrit",
+    "investigationCode": "INVE156",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "Hematocrit laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 18.61
+  },
+  {
+    "name": "LDL - Cholesterol",
+    "investigationCode": "INVE73D",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "LDL - Cholesterol laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 13.15
+  },
+  {
+    "name": "Malaria Card Test (Dipstik assay/rapid card)",
+    "investigationCode": "INVE122",
+    "category": "microbiology",
+    "subCategory": "nhis-listed",
+    "description": "Malaria Card Test (Dipstik assay/rapid card) laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 4.62
+  },
+  {
+    "name": "NA+",
+    "investigationCode": "INVE108",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "NA+ laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 12.1
+  },
+  {
+    "name": "Potassium",
+    "investigationCode": "INVE111",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Potassium laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 12.8
+  },
+  {
+    "name": "RH Typing",
+    "investigationCode": "INVE123",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "RH Typing laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 9.56
+  },
+  {
+    "name": "Serum Albumin",
+    "investigationCode": "INVE02E",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Serum Albumin laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 12.62
+  },
+  {
+    "name": "Serum Alkaline Phosphatase (ALP)",
+    "investigationCode": "INVE03E",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Serum Alkaline Phosphatase (ALP) laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 11.98
+  },
+  {
+    "name": "Serum Creatinine",
+    "investigationCode": "INVE06E",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Serum Creatinine laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 12.19
+  },
+  {
+    "name": "Serum Electrolyte (Na+, K+",
+    "investigationCode": "INVE07E",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Serum Electrolyte (Na+, K+ laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 13.52
+  },
+  {
+    "name": "Serum Lactate Dehydrogenase (LDH)",
+    "investigationCode": "INVE10E",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Serum Lactate Dehydrogenase (LDH) laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 13.29
+  },
+  {
+    "name": "Serum Total Protein",
+    "investigationCode": "INVE12E",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Serum Total Protein laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 11.37
+  },
+  {
+    "name": "Serum Triglyceride",
+    "investigationCode": "INVE13E",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Serum Triglyceride laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 12.29
+  },
+  {
+    "name": "Total Proteins Blood",
+    "investigationCode": "INVE115",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "Total Proteins Blood laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 9.69
+  },
+  {
+    "name": "Total Serum Cholesterol",
+    "investigationCode": "INVE27E",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Total Serum Cholesterol laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 11.75
+  },
+  {
+    "name": "Trophozoite Count",
+    "investigationCode": "INVE28E",
+    "category": "hematology",
+    "subCategory": "nhis-listed",
+    "description": "Trophozoite Count laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 14.18
+  },
+  {
+    "name": "Urine For Bence Jones Protein",
+    "investigationCode": "INVE35E",
+    "category": "microbiology",
+    "subCategory": "nhis-listed",
+    "description": "Urine For Bence Jones Protein laboratory investigation.",
+    "specimenType": "urine",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 7.83
+  },
+  {
+    "name": "Urine Sugar",
+    "investigationCode": "INVE116",
+    "category": "microbiology",
+    "subCategory": "nhis-listed",
+    "description": "Urine Sugar laboratory investigation.",
+    "specimenType": "urine",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 7.49
+  },
+  {
+    "name": "VCT",
+    "investigationCode": "INVE117",
+    "category": "microbiology",
+    "subCategory": "nhis-listed",
+    "description": "VCT laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 4
+  },
+  {
+    "name": "Vitality Test",
+    "investigationCode": "INVE118",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "Vitality Test laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 24.82
+  },
+  {
+    "name": "VLDL",
+    "investigationCode": "INVE119",
+    "category": "biochemistry",
+    "subCategory": "nhis-listed",
+    "description": "VLDL laboratory investigation.",
+    "specimenType": "blood",
+    "isActive": true,
+    "isNHISCovered": true,
+    "resultTemplate": [
+      {
+        "fieldName": "result",
+        "fieldType": "textarea",
+        "label": "Result / Findings"
+      }
+    ],
+    "price": 9.83
   }
 ]
