@@ -7,6 +7,7 @@ import type { GeneratedPatient } from '../bulkGenerator.js';
 import type { Lookups } from './lookups.js';
 import { ENUMS } from './lookups.js';
 import { asCalendarDay, hashOf, pickEnum, prisma, writeMany, type SeedStats } from './shared.js';
+import { seedAvatarImages } from './avatars.js';
 
 export interface PatientRowRef {
   id: string;
@@ -28,6 +29,7 @@ export const seedPatients = async (
   planned: SeedStats,
 ): Promise<PatientRecords> => {
   const rows: any[] = [];
+  const avatarByFolder = await seedAvatarImages('patients', patients.map((patient) => patient.folderNumber));
 
   patients.forEach((p, index) => {
     let insuranceProviderId: string | null = null;
@@ -55,6 +57,7 @@ export const seedPatients = async (
       // encounter, bill and claim would then hang off a genuine person's folder.
       id: `seedpat-${p.folderNumber}`,
       folderNumber: p.folderNumber,
+      imageUrl: avatarByFolder.get(p.folderNumber) ?? null,
       surname: p.surname,
       otherNames: p.otherNames,
       gender,
