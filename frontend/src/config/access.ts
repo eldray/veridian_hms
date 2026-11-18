@@ -5,8 +5,8 @@
 // the route guard in App.tsx, and (by convention) the `requireRole` arrays in
 // the backend. Nothing else may hardcode which role opens which page.
 //
-// `admin` and `super_admin` may open every page and are never listed; they are
-// implied. Every other role has to appear in `roles` explicitly.
+// System Admin (`admin`) and Super Admin (`super_admin`) may open every page
+// and are never listed; they are implied. Every other role must appear in `roles` explicitly.
 //
 // `roles`  = may open the page at all (the route guard).
 // `navRoles` = also gets the sidebar link. Defaults to all of `roles`, so an
