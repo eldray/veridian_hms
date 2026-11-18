@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/EstimateForm.tsx - New / Edit estimate
 // UI: the form IS the proforma invoice. Same wide paper sheet as EstimateDetails,
 // same letterhead order, same totals box — what you type is what prints.
@@ -190,6 +191,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 export default function EstimateForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const goBack = useSmartBack('/dashboard/estimates');
   const location = useLocation();
   const editing = Boolean(id);
   const { error: toastError, success } = useToast();
@@ -437,7 +439,7 @@ export default function EstimateForm() {
           icon={FileText} accent="cyan" backTo="/dashboard/estimates"
           actions={(
             <>
-              <Button type="button" variant="secondary" onClick={() => navigate('/dashboard/estimates')}>Cancel</Button>
+              <Button type="button" variant="secondary" onClick={goBack}>Cancel</Button>
               <Button type="submit" variant="primary" icon={Save} disabled={isSaving}>{isSaving ? 'Saving…' : 'Save Draft'}</Button>
             </>
           )}
@@ -569,7 +571,7 @@ export default function EstimateForm() {
 
           {/* Bottom save bar — same actions as the header, reachable without scrolling back up */}
           <div className="flex justify-end gap-2 mt-10 pt-5 border-t border-[var(--border-color)]">
-            <Button type="button" variant="secondary" onClick={() => navigate('/dashboard/estimates')}>Cancel</Button>
+            <Button type="button" variant="secondary" onClick={goBack}>Cancel</Button>
             <Button type="submit" variant="primary" icon={Save} disabled={isSaving}>{isSaving ? 'Saving…' : 'Save Draft'}</Button>
           </div>
         </div>
