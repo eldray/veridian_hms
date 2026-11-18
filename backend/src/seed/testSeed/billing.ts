@@ -150,6 +150,8 @@ const normalizeSeedPayerAllocation = async (
       nhisPrice: pricing ? toNumber(pricing.nhisPrice) : ward ? toNumber(ward.nhisPrice) : null,
       isNHISCovered: line.serviceCatalog?.isNHISCovered ?? (ward ? toNumber(ward.nhisPrice) > 0 : false),
       isMedication,
+      existingInsuranceCoveredAmount: toNumber(line.insuranceCoveredAmount),
+      existingPatientPayableAmount: toNumber(line.patientPayableAmount),
     });
     await prisma.billLineItem.update({
       where: { id: line.id },
