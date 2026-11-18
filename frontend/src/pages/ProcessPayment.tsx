@@ -354,7 +354,7 @@ export default function ProcessPayment() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex items-center gap-2 mb-2">
-                  <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                  <PatientAvatar patient={bill?.attendance?.patient || bill?.patient} size="sm" />
                   <span className="text-xs font-semibold text-[var(--text-secondary)]">PATIENT</span>
                 </div>
                 <p className="font-bold text-[var(--text-primary)] text-lg">
