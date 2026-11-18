@@ -7,7 +7,17 @@ import prisma from '../../core/database/prisma.client';
 // ==========================================
 
 export const getHospitalDetails = async () => {
-  return prisma.hospital.findFirst();
+  // Staff screens need facility identity and accreditation details, not admin configuration.
+  // Explicitly select safe fields so bank details and NHIS API settings never leave the server.
+  return prisma.hospital.findFirst({
+    select: {
+      id: true, name: true, address: true, phone: true, email: true, imageUrl: true,
+      nhisFacilityCode: true, nhisFacilityType: true, nhisAccreditationNumber: true,
+      nhisAccreditationDate: true, nhisAccreditationExpiry: true, nhisContactPerson: true,
+      nhisContactPhone: true, nhisContactEmail: true, ghsDistrictCode: true, ghaHFCode: true,
+      isActive: true, createdAt: true, updatedAt: true,
+    },
+  });
 };
 
 export const updateHospitalDetails = async (hospitalData: {

@@ -77,7 +77,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     try {
       const response = await apiGetNotifications({ page, limit });
       
-      console.log('RAW response:', response);
+      console.debug('Notifications response received:', Array.isArray(response) ? `${response.length} items` : 'wrapped response');
       
       // Handle both legacy array responses and the current wrapped API response.
       if (Array.isArray(response)) {

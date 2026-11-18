@@ -20,7 +20,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+    const message = error instanceof Error ? error.message : 'Unknown rendering error';
+    const componentStack = typeof errorInfo?.componentStack === 'string' ? errorInfo.componentStack : '';
+    // Log strings only to avoid secondary serialization failures hiding the original error.
+    console.error(`Uncaught error: ${message}${componentStack ? `\n${componentStack}` : ''}`);
   }
 
   public render() {
