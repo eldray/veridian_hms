@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Patient } from '../../types';
 import { User, Search } from 'lucide-react';
+import { PatientAvatar } from '../patients/PatientAvatar';
 
 interface PatientSelectionProps {
   patients: Patient[];
@@ -71,7 +72,7 @@ export const PatientSelection: React.FC<PatientSelectionProps> = ({
                       }}
                       className="w-full text-left p-3 hover:bg-blue-50 border-b last:border-b-0 transition-colors text-sm"
                     >
-                      <div className="font-semibold text-gray-900">{patient.fullName}</div>
+                      <div className="flex items-center gap-3"><PatientAvatar patient={patient} size="sm" /><div className="font-semibold text-gray-900">{patient.fullName}</div></div>
                       <div className="text-xs text-gray-600">
                         {patient.gender} • {patient.contact} • {patient.folderNumber}
                       </div>
