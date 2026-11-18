@@ -146,6 +146,12 @@ describe('route authorization coverage', () => {
     expect(source).not.toMatch(/const STOCK_CATALOG_READERS = \[[\s\S]*?'hr_officer'/);
   });
 
+  it('restricts requisition fulfilment to Pharmacy and administrators even on the shared status route', () => {
+    const service = read(path.join(modulesDir, 'requisition', 'RequisitionService.ts'));
+    expect(service).toMatch(/action === 'fulfilled' && role !== 'pharmacist'/);
+    expect(service).toMatch(/Only Pharmacy or an administrator can fulfil a requisition/);
+  });
+
   it('allows the pharmacy role to allocate departmental stock', () => {
     const source = read(path.join(modulesDir, 'stockItem', 'StockItemRoutes.ts'));
     expect(source).toMatch(/router\.post\('\/:id\/allocate-stock',\s*requireRole\(\['admin', 'super_admin', 'pharmacist'\]\)/);
