@@ -136,6 +136,17 @@ describe('route authorization coverage', () => {
     expect(service).toMatch(/Only Super Admin can reset administrator passwords/);
   });
 
+  it('restricts stock catalogue and category reads to operational, clinical and finance roles', () => {
+    const source = read(path.join(modulesDir, 'stockItem', 'StockItemRoutes.ts'));
+    expect(source).toMatch(/const STOCK_CATALOG_READERS = \[/);
+    expect(source).toMatch(/router\.get\('\/',\s*requireRole\(STOCK_CATALOG_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/:id',\s*requireRole\(STOCK_CATALOG_READERS\)/);
+    expect(source).toMatch(/router\.get\('\/categories',\s*requireRole\(STOCK_CATALOG_READERS\)/);
+    expect(source).toMatch(/'accounts'/);
+    expect(source).toMatch(/'hr_officer'/ === null ? /./ : /STOCK_CATALOG_READERS/);
+    expect(source).not.toMatch(/STOCK_CATALOG_READERS[^;]*'hr_officer'/);
+  });
+
   it('allows the pharmacy role to allocate departmental stock', () => {
     const source = read(path.join(modulesDir, 'stockItem', 'StockItemRoutes.ts'));
     expect(source).toMatch(/router\.post\('\/:id\/allocate-stock',\s*requireRole\(\['admin', 'super_admin', 'pharmacist'\]\)/);
