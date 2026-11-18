@@ -263,6 +263,75 @@ describe('claim batch month totals', () => {
   });
 });
 
+describe('monthly batch remittance tracking', () => {
+  it('records partial payments against the selected provider-month batch', async () => {
+    const batch = {
+      id: 'batch-2026-10-provider-a',
+      batchNumber: 'BATCH-2026-10-A',
+      status: 'finalized',
+      totalAmount: '100.00',
+    };
+    const findManyEvents = vi.fn().mockResolvedValue([{ amount: '40.00' }]);
+    const createEvent = vi.fn(async ({ data }: any) => ({ id: 'payment-1', ...data }));
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      claimBatchTrackingEvent: { findMany: findManyEvents, create: createEvent },
+    };
+    const { service, prisma } = makeRepo({
+      claimBatch: { findUnique: vi.fn().mockResolvedValue(batch) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    });
+
+    const event = await service.recordBatchTrackingEvent('batch-2026-10-provider-a', {
+      eventType: 'payment',
+      amount: 30,
+      paymentReference: 'REMIT-OCT-PART-1',
+      paymentMethod: 'bank_transfer',
+    }, 'accounts-user');
+
+    expect(event).toMatchObject({
+      batchId: 'batch-2026-10-provider-a',
+      eventType: 'payment',
+      amount: 30,
+      paymentReference: 'REMIT-OCT-PART-1',
+      recordedById: 'accounts-user',
+    });
+    expect(findManyEvents).toHaveBeenCalledWith({
+      where: { batchId: 'batch-2026-10-provider-a', eventType: 'payment' },
+      select: { amount: true },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+  });
+
+  it('prevents monthly remittances from exceeding the submitted batch amount', async () => {
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      claimBatchTrackingEvent: {
+        findMany: vi.fn().mockResolvedValue([{ amount: '40.00' }]),
+        create: vi.fn(),
+      },
+    };
+    const { service } = makeRepo({
+      claimBatch: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'batch-2026-10-provider-a',
+          batchNumber: 'BATCH-2026-10-A',
+          status: 'finalized',
+          totalAmount: '100.00',
+        }),
+      },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    });
+
+    await expect(service.recordBatchTrackingEvent('batch-2026-10-provider-a', {
+      eventType: 'payment',
+      amount: 60.01,
+      paymentReference: 'REMIT-OCT-PART-2',
+    }, 'accounts-user')).rejects.toThrow(/Payment exceeds the ₵100.00 submitted/);
+    expect(tx.claimBatchTrackingEvent.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('claim batch period validation', () => {
   it('refuses a month that has no calendar', async () => {
     const { service } = makeRepo();
