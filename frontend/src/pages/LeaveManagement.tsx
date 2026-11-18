@@ -311,6 +311,7 @@ export default function LeaveManagement() {
         meta={<>{total} total loaded • {pendingCount} pending</>}
         icon={FileText}
         accent="cyan"
+        backTo="/dashboard"
         actions={<>
           <Button icon={RefreshCw} loading={isLoading} onClick={reload}>{isLoading ? 'Refreshing...' : 'Refresh'}</Button>
           <Button variant="secondary" icon={Printer} disabled={printing} onClick={handlePrintRegister} title="Print yearly leave register (landscape)">Print Register</Button>
