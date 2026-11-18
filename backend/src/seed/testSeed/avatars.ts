@@ -5,7 +5,17 @@ import { hashOf } from './shared.js';
 export type SeedAvatarCategory = 'patients' | 'users';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-const CONCURRENCY = 12;
+const CONCURRENCY = 8;
+const MIN_REQUEST_INTERVAL_MS = 125;
+let nextRequestAt = 0;
+
+const reserveApiSlot = async (): Promise<void> => {
+  const now = Date.now();
+  const slot = Math.max(now, nextRequestAt);
+  nextRequestAt = slot + MIN_REQUEST_INTERVAL_MS;
+  const wait = slot - now;
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+};
 
 const avatarFile = (category: SeedAvatarCategory, key: string) =>
   `seed-${hashOf(`${category}:${key}`)}.png`;
@@ -57,6 +67,8 @@ export const seedAvatarImages = async (
 
         const seed = hashOf(key).toString(36);
         const url = `https://api.dicebear.com/9.x/avataaars/png?seed=${encodeURIComponent(seed)}&size=256&backgroundColor=f1f5f9`;
+        // DiceBear documents a 10 requests/second limit for raster formats; stay below it.
+        await reserveApiSlot();
         const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
         if (!response.ok) throw new Error(`image API returned HTTP ${response.status}`);
 
