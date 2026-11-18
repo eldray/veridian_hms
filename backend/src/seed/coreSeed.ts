@@ -636,9 +636,9 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     const adminId = adminUser.id;
 
     // ── STEP 1b: RBAC catalogue ───────────────────────────────
-    // Installed databases used to have no Role/Permission rows at all, so every
-    // permission-based guard fell through to the enum role. Seed the same matrix the demo
-    // seed uses, so `users.manage` belongs to super_admin alone from the very first boot.
+    // Seed the complete facility role/permission catalogue and synchronize every
+    // existing account's RBAC relation from its canonical User.role value. Platform
+    // controls remain separately reserved for super_admin.
     await upsertRbac(prisma, {
       [superAdminUser.username]: 'super_admin',
       [adminUser.username]: 'admin',
