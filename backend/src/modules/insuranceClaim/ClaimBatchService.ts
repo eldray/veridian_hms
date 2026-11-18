@@ -283,6 +283,11 @@ export class ClaimBatchService extends BaseService {
       );
     }
 
+    const totalAmount = batchClaims.reduce(
+      (sum, claim) => sum.plus(claim.totalClaimAmount),
+      new Prisma.Decimal(0),
+    );
+
     // Serialize generation by payer + service month. The database's composite
     // unique key includes nullable columns, and PostgreSQL treats NULLs as distinct;
     // the advisory lock closes that race for NHIS/private rows with no corporate account.
