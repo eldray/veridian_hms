@@ -7,11 +7,13 @@ interface PatientAvatarProps {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   fallbackClassName?: string;
+  fallbackText?: string;
+  fallbackIcon?: React.ComponentType<{ className?: string }>;
 }
 
 /** Consistent patient photo rendering with a reliable fallback when no photo is available. */
 export const PatientAvatar: React.FC<PatientAvatarProps> = ({
-  imageUrl, name, size = 'md', className = '', fallbackClassName = '',
+  imageUrl, name, size = 'md', className = '', fallbackClassName = '', fallbackText, fallbackIcon: FallbackIcon = User,
 }) => {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const showImage = Boolean(imageUrl) && failedUrl !== imageUrl;
@@ -30,7 +32,11 @@ export const PatientAvatar: React.FC<PatientAvatarProps> = ({
           onError={() => setFailedUrl(imageUrl || null)}
         />
       ) : (
-        <User className={`w-1/2 h-1/2 ${fallbackClassName || 'text-white'}`} aria-hidden="true" />
+        fallbackText ? (
+          <span className={`text-xs font-bold tracking-wide ${fallbackClassName || 'text-white'}`}>{fallbackText}</span>
+        ) : (
+          <FallbackIcon className={`w-1/2 h-1/2 ${fallbackClassName || 'text-white'}`} aria-hidden="true" />
+        )
       )}
     </div>
   );
