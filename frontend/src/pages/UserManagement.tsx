@@ -359,7 +359,7 @@ export default function UserManagement() {
           <Shield className="w-16 h-16 text-[var(--icon-red-text)] mx-auto mb-4" />
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Access Denied</h2>
           <p className="text-[var(--text-secondary)] text-sm mb-6">Administrator privileges required.</p>
-          <button onClick={() => navigate('/dashboard')} className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg font-semibold text-sm"><ArrowLeft className="w-4 h-4" /> Back to Dashboard</button>
+          <button onClick={goBack} className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg font-semibold text-sm"><ArrowLeft className="w-4 h-4" /> Back</button>
         </div>
       </div>
     );
