@@ -3773,7 +3773,7 @@
       "tariffGhC": 723.56
     },
     {
-      "gdrgCode": "RSURO1A",
+      "gdrgCode": "RSUR01A",
       "mdc": "RSUR",
       "description": "Reconstructive repair",
       "ageSplit": "A",
@@ -3783,7 +3783,7 @@
       "tariffGhC": 711.92
     },
     {
-      "gdrgCode": "RSURO1C",
+      "gdrgCode": "RSUR01C",
       "mdc": "RSUR",
       "description": "Reconstructive repair",
       "ageSplit": "C",
@@ -3793,7 +3793,7 @@
       "tariffGhC": 668.42
     },
     {
-      "gdrgCode": "RSURO2A",
+      "gdrgCode": "RSUR02A",
       "mdc": "RSUR",
       "description": "Shaving and skin grafting",
       "ageSplit": "A",
@@ -3803,7 +3803,7 @@
       "tariffGhC": 1002.79
     },
     {
-      "gdrgCode": "RSURO2C",
+      "gdrgCode": "RSUR02C",
       "mdc": "RSUR",
       "description": "Shaving and skin grafting",
       "ageSplit": "C",
@@ -3813,7 +3813,7 @@
       "tariffGhC": 970.08
     },
     {
-      "gdrgCode": "RSURO3A",
+      "gdrgCode": "RSUR03A",
       "mdc": "RSUR",
       "description": "Excisional debridement and dressing",
       "ageSplit": "A",
@@ -3823,7 +3823,7 @@
       "tariffGhC": 783.07
     },
     {
-      "gdrgCode": "RSURO3C",
+      "gdrgCode": "RSUR03C",
       "mdc": "RSUR",
       "description": "Excisional debridement and dressing",
       "ageSplit": "C",
@@ -3833,7 +3833,7 @@
       "tariffGhC": 739.40
     },
     {
-      "gdrgCode": "RSURO4A",
+      "gdrgCode": "RSUR04A",
       "mdc": "RSUR",
       "description": "Excisional debridement with suturing",
       "ageSplit": "A",
@@ -3843,7 +3843,7 @@
       "tariffGhC": 486.77
     },
     {
-      "gdrgCode": "RSURO4C",
+      "gdrgCode": "RSUR04C",
       "mdc": "RSUR",
       "description": "Excisional debridement with suturing",
       "ageSplit": "C",
@@ -3853,7 +3853,7 @@
       "tariffGhC": 431.06
     },
     {
-      "gdrgCode": "RSURO5A",
+      "gdrgCode": "RSUR05A",
       "mdc": "RSUR",
       "description": "Excisional debridement with skin grafting",
       "ageSplit": "A",
@@ -3863,7 +3863,7 @@
       "tariffGhC": 746.24
     },
     {
-      "gdrgCode": "RSURO5C",
+      "gdrgCode": "RSUR05C",
       "mdc": "RSUR",
       "description": "Excisional debridement with skin grafting",
       "ageSplit": "C",
@@ -3873,7 +3873,7 @@
       "tariffGhC": 705.05
     },
     {
-      "gdrgCode": "RSURO6A",
+      "gdrgCode": "RSUR06A",
       "mdc": "RSUR",
       "description": "Excisional debridement with flap reconstruction",
       "ageSplit": "A",
@@ -3883,7 +3883,7 @@
       "tariffGhC": 877.37
     },
     {
-      "gdrgCode": "RSURO6C",
+      "gdrgCode": "RSUR06C",
       "mdc": "RSUR",
       "description": "Excisional debridement with flap reconstruction",
       "ageSplit": "C",
@@ -3893,7 +3893,7 @@
       "tariffGhC": 798.82
     },
     {
-      "gdrgCode": "RSURO7A",
+      "gdrgCode": "RSUR07A",
       "mdc": "RSUR",
       "description": "Excision biopsy",
       "ageSplit": "A",
@@ -3903,7 +3903,7 @@
       "tariffGhC": 310.13
     },
     {
-      "gdrgCode": "RSURO7C",
+      "gdrgCode": "RSUR07C",
       "mdc": "RSUR",
       "description": "Excision biopsy",
       "ageSplit": "C",
@@ -3913,7 +3913,7 @@
       "tariffGhC": 291.66
     },
     {
-      "gdrgCode": "RSURO8A",
+      "gdrgCode": "RSUR08A",
       "mdc": "RSUR",
       "description": "Escharotomy",
       "ageSplit": "A",
@@ -3923,7 +3923,7 @@
       "tariffGhC": 852.61
     },
     {
-      "gdrgCode": "RSURO8C",
+      "gdrgCode": "RSUR08C",
       "mdc": "RSUR",
       "description": "Escharotomy",
       "ageSplit": "C",
@@ -3933,7 +3933,7 @@
       "tariffGhC": 816.42
     },
     {
-      "gdrgCode": "RSURO9A",
+      "gdrgCode": "RSUR09A",
       "mdc": "RSUR",
       "description": "Z-plasty",
       "ageSplit": "A",
@@ -3943,7 +3943,7 @@
       "tariffGhC": 596.84
     },
     {
-      "gdrgCode": "RSURO9C",
+      "gdrgCode": "RSUR09C",
       "mdc": "RSUR",
       "description": "Z-plasty",
       "ageSplit": "C",

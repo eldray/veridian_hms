@@ -618,8 +618,8 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'S61.209A', gdrgCodes: ['ZOOM07A', 'ZOOM07C', 'ORTH05A', 'ORTH05C'], isPrimaryGdrg: 'ZOOM07A' },
 
   // Burns → RSUR procedures; PSUR26C/27C/28C for children
-  { icdCode: 'T22.009A', gdrgCodes: ['RSURO3A', 'RSURO3C', 'PSUR26C', 'PSUR27C'], isPrimaryGdrg: 'RSURO3A' },
-  { icdCode: 'T20.00XA', gdrgCodes: ['RSURO3A', 'RSURO3C', 'PSUR26C', 'PSUR27C'], isPrimaryGdrg: 'RSURO3A' },
+  { icdCode: 'T22.009A', gdrgCodes: ['RSUR03A', 'RSUR03C', 'PSUR26C', 'PSUR27C'], isPrimaryGdrg: 'RSUR03A' },
+  { icdCode: 'T20.00XA', gdrgCodes: ['RSUR03A', 'RSUR03C', 'PSUR26C', 'PSUR27C'], isPrimaryGdrg: 'RSUR03A' },
 
   // Dog bite → MEDI37A (animal bites) adult; PAED44C child
   { icdCode: 'W54.0XXA', gdrgCodes: ['MEDI37A', 'PAED44C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI37A' },
