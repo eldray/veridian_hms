@@ -71,8 +71,8 @@ export class AuthService {
       permissions,
       departmentId: departmentId || '',
     };
-    const accessToken = jwt.sign(payload, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] });
-    const refreshToken = jwt.sign({ userId, type: 'refresh' }, getJwtSecret(), { expiresIn: REFRESH_TOKEN_EXPIRY as SignOptions['expiresIn'] });
+    const accessToken = jwt.sign(payload, getJwtSecret(), { algorithm: 'HS256', expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] });
+    const refreshToken = jwt.sign({ userId, type: 'refresh' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: REFRESH_TOKEN_EXPIRY as SignOptions['expiresIn'] });
     return { accessToken, refreshToken, expiresIn: this.parseExpiresIn(JWT_EXPIRES_IN) };
   }
 
@@ -177,7 +177,7 @@ export class AuthService {
       // store has already been rotated: treat it as possible theft and revoke
       // every session for that user. Expired/invalid signatures are ignored.
       try {
-        const decoded = jwt.verify(refreshToken, getJwtSecret()) as { userId?: string; type?: string };
+        const decoded = jwt.verify(refreshToken, getJwtSecret(), { algorithms: ['HS256'] }) as { userId?: string; type?: string };
         if (decoded.type === 'refresh' && decoded.userId) {
           await this.repository.deleteRefreshTokenForUser(decoded.userId);
         }
