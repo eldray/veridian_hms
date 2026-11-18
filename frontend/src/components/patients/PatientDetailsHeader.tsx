@@ -1,5 +1,6 @@
 // src/components/patients/PatientDetailsHeader.tsx
 import { User, Edit, Plus, ArrowLeft, Folder } from 'lucide-react';
+import { PatientAvatar } from './PatientAvatar';
 
 interface PatientDetailsHeaderProps {
   patient: any;
@@ -29,19 +30,7 @@ export const PatientDetailsHeader: React.FC<PatientDetailsHeaderProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg border-2 border-white/20 overflow-hidden">
-              {patient.imageUrl ? (
-                <img 
-                  src={patient.imageUrl} 
-                  alt={patient.fullName}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              ) : null}
-              {!patient.imageUrl && <User className="w-6 h-6 text-white" />}
-            </div>
+            <PatientAvatar patient={patient} size="xl" className="rounded-xl border-2 border-white/20 shadow-lg" />
             <div>
               <h1 className="text-xl font-bold text-white">{patient.fullName}</h1>
               <div className="flex items-center gap-3 text-blue-100 mt-1 text-sm">
