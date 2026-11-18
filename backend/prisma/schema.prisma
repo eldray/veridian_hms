@@ -4164,3 +4164,20 @@ enum NursingTaskStatus {
   completed
   skipped
 }
+ 
+// Administrator-approved password recovery. Codes are stored only as hashes.
+model PasswordResetRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  status        String   @default("pending")
+  requestedAt   DateTime @default(now())
+  reviewedAt    DateTime?
+  reviewedById  String?
+  codeHash      String?
+  expiresAt     DateTime?
+  completedAt   DateTime?
+
+  @@index([status, requestedAt])
+  @@index([userId, status])
+  @@map("password_reset_requests")
+}
