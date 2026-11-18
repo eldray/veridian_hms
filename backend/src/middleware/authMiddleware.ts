@@ -125,10 +125,12 @@ export const requireRole = (roles: string[]) =>
     if (!req.user) {
       return res.status(401).json({ success: false, status: 'fail', message: 'Authentication required' });
     }
-    // Normalize role casing consistently so Super Admin inherits all ordinary roles.
+    // System Admin and Super Admin can enter every role-gated application area.
+    // Super Admin-only operations must use requireSuperAdmin explicitly; this keeps
+    // platform-level controls (for example database restore) above the System Admin.
     const userRole = String(req.user.role || '').toLowerCase();
     const allowedRoles = roles.map((role) => String(role).toLowerCase());
-    if (userRole === 'super_admin') return next();
+    if (userRole === 'admin' || userRole === 'super_admin') return next();
     if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
