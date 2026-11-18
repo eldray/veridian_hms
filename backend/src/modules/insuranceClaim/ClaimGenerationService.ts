@@ -51,7 +51,10 @@ export async function buildNHISClaimItems(
       },
       Medication: {
         where: { status: { in: ['dispensed', 'administered'] } },
-        include: { StockItem: true, ServiceCatalog: { include: { pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } } },
+        include: {
+          StockItem: { include: { payerRules: true } },
+          ServiceCatalog: { include: { pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } },
+        },
       },
       ServiceRendered: {
         include: { ServiceCatalog: { include: { pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } } },
@@ -142,13 +145,23 @@ export async function buildNHISClaimItems(
 
   // 2. Investigations (labs + scans)
   for (const lab of att.LabTest) {
+    // NHIS investigation lines must carry the payer's INVE code, never the
+    // facility's internal LAB-* service-catalog code.
+    const investigationCode = String(
+      lab.LabTestTemplate?.investigationCode ?? lab.ServiceCatalog?.nhisServiceCode ?? '',
+    ).trim().toUpperCase();
+    if (!/^INVE[0-9]/.test(investigationCode)) {
+      throw new ValidationError(
+        `Completed lab test "${lab.LabTestTemplate?.name ?? lab.id}" has no valid NHIS INVE investigation code.`,
+      );
+    }
     push(
       {
         labTest: { connect: { id: lab.id } },
         serviceCatalog: lab.serviceCatalogId ? { connect: { id: lab.serviceCatalogId } } : undefined,
         itemCategory: 'investigation',
         itemType: 'N',
-        code: lab.LabTestTemplate?.investigationCode ?? lab.ServiceCatalog?.code ?? '',
+        code: investigationCode,
         description: lab.LabTestTemplate?.name ?? lab.ServiceCatalog?.name ?? '',
         quantity: 1,
         serviceDate: lab.completedAt ?? lab.requestedAt,
@@ -158,6 +171,9 @@ export async function buildNHISClaimItems(
       extractNHISPrice(lab.ServiceCatalog),
     );
   }
+  // NHIS treats all imaging performed by the facility under its ultrasound
+  // investigation code, regardless of the local modality or scan-template code.
+  const NHIS_ULTRASOUND_INVESTIGATION_CODE = 'INVE30E';
   for (const scan of att.Scan) {
     push(
       {
@@ -165,8 +181,8 @@ export async function buildNHISClaimItems(
         serviceCatalog: scan.serviceCatalogId ? { connect: { id: scan.serviceCatalogId } } : undefined,
         itemCategory: 'investigation',
         itemType: 'N',
-        code: scan.ScanTemplate?.investigationCode ?? scan.ServiceCatalog?.code ?? '',
-        description: scan.ScanTemplate?.name ?? scan.ServiceCatalog?.name ?? '',
+        code: NHIS_ULTRASOUND_INVESTIGATION_CODE,
+        description: scan.ScanTemplate?.name ?? scan.ServiceCatalog?.name ?? 'Ultrasound',
         quantity: 1,
         serviceDate: scan.completedAt ?? scan.requestedAt,
         clinician: primaryPhysicianLicense,
@@ -196,8 +212,22 @@ export async function buildNHISClaimItems(
   }
 
   // 4. Medications
+  // Only a medicine explicitly listed as covered for this NHIS provider and
+  // effective on the service date may enter the claim. Missing/unverified rules
+  // are treated as not listed; patient-pay medicines stay off the NHIS XML.
   for (const med of att.Medication) {
-    const code = med.StockItem?.drugCode ?? med.ServiceCatalog?.code ?? '';
+    const medicineServiceDate = med.dispensedAt ?? med.prescribedAt;
+    const payerRule = med.StockItem?.payerRules?.find(
+      (rule: any) => rule.insuranceProviderId === att.insuranceProviderId,
+    );
+    const ruleEffective = !!payerRule
+      && payerRule.isCovered === true
+      && (!payerRule.effectiveFrom || payerRule.effectiveFrom <= medicineServiceDate)
+      && (!payerRule.effectiveTo || payerRule.effectiveTo >= medicineServiceDate);
+    if (!med.StockItem || med.StockItem.isNHISCovered === false || !ruleEffective) {
+      continue;
+    }
+    const code = med.StockItem.drugCode;
     push(
       {
         medication: { connect: { id: med.id } },
