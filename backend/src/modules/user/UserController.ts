@@ -103,7 +103,6 @@ export class UserController extends BaseController {
     const requests = await this.prisma.passwordResetRequest.findMany({
       where: { status: { in: ['pending', 'approved'] } },
       orderBy: { requestedAt: 'desc' },
-      include: { },
     });
     const users = await this.prisma.user.findMany({
       where: { id: { in: requests.map((r: any) => r.userId) } },
