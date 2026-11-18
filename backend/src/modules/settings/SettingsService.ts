@@ -7,7 +7,21 @@ import prisma from '../../core/database/prisma.client';
 // ==========================================
 
 export const getHospitalDetails = async () => {
+  // Full record is retained for admin-only NHIS configuration controllers.
   return prisma.hospital.findFirst();
+};
+
+export const getHospitalProfileForStaff = async () => {
+  // Facility identity and accreditation fields only; never expose banking or NHIS API settings.
+  return prisma.hospital.findFirst({
+    select: {
+      id: true, name: true, address: true, phone: true, email: true, imageUrl: true,
+      nhisFacilityCode: true, nhisFacilityType: true, nhisAccreditationNumber: true,
+      nhisAccreditationDate: true, nhisAccreditationExpiry: true, nhisContactPerson: true,
+      nhisContactPhone: true, nhisContactEmail: true, ghsDistrictCode: true, ghaHFCode: true,
+      isActive: true, createdAt: true, updatedAt: true,
+    },
+  });
 };
 
 export const updateHospitalDetails = async (hospitalData: {

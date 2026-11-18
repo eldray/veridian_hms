@@ -20,7 +20,7 @@
   import { useAuthStore } from '../../store/authStore';
   import {
     currencyOf, columnMeta, EmptyRows, formatCell, isReportEmpty, kindFor, Pager, pickRows,
-    readPath, REPORT_EXPORT_ROLES, resolveFilter, resolveTotals, rowKeyOf, SHELL_PAGE_SIZES,
+    readPath, REPORT_EXPORT_ROLES, resolveFilter, resolveTotals, rowKeyOf, safeValueText, SHELL_PAGE_SIZES,
     SortIcons, sumColumn, unwrapReport, useSortedRows,
     type ReportShape, type ReportTable,
   } from './reportShell';
@@ -49,7 +49,7 @@
   };
 
   const labelOf = (value: unknown): string =>
-    String(value).replace(/_/g, ' ').replace(/\b\w/g, character => character.toUpperCase());
+    safeValueText(value).replace(/_/g, ' ').replace(/\b\w/g, character => character.toUpperCase());
 
   /**
    * The period printed on the page. Some services echo the query strings back ("2026-10-01") and
@@ -89,7 +89,7 @@
         const value = readPath(row, column.field);
         if (value == null) return false;
         const shown = formatCell(value, metas[columnIndex].value, currency, column.raw).toLowerCase();
-        return shown.includes(needle) || String(value).toLowerCase().includes(needle);
+        return shown.includes(needle) || safeValueText(value).toLowerCase().includes(needle);
       }));
     }, [rows, needle, table.columns, metas, currency]);
 

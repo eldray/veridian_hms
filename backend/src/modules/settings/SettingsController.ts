@@ -31,6 +31,19 @@ export const getHospitalDetails = async (req: Request, res: Response) => {
   }
 };
 
+export const getHospitalProfileForStaff = async (req: Request, res: Response) => {
+  try {
+    const hospital = await settingsService.getHospitalProfileForStaff();
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not configured' });
+    }
+    return res.json({ success: true, data: hospital });
+  } catch (error) {
+    console.error('Get staff hospital profile error:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching hospital profile' });
+  }
+};
+
 export const updateHospitalDetails = async (req: Request, res: Response) => {
   try {
     const errors = validationResult(req);
