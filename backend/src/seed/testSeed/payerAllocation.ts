@@ -9,6 +9,8 @@ export interface SeedPayerLineInput {
   nhisPrice?: number | null;
   isNHISCovered?: boolean;
   isMedication?: boolean;
+  existingInsuranceCoveredAmount?: number;
+  existingPatientPayableAmount?: number;
 }
 
 export interface SeedPayerLineAllocation {
@@ -40,8 +42,8 @@ export const allocateSeedPayerLine = (input: SeedPayerLineInput): SeedPayerLineA
     return {
       lineTotal,
       unitPrice: roundMoney(input.unitPrice),
-      insuranceCoveredAmount: 0,
-      patientPayableAmount: lineTotal,
+      insuranceCoveredAmount: roundMoney(input.existingInsuranceCoveredAmount ?? 0),
+      patientPayableAmount: roundMoney(input.existingPatientPayableAmount ?? lineTotal),
     };
   }
 
