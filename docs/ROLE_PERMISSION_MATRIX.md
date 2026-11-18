@@ -49,6 +49,6 @@ It separates page access from permission to perform sensitive actions.
 
 ## Implementation status
 
-The seeded RBAC catalogue now defines all eleven application roles and their permission grants. The seed synchronizes each existing user's RBAC role relation from the canonical `User.role` value, so the permissions are not limited to newly created demo users.
+The seeded RBAC catalogue now defines all eleven application roles and their permission grants. The seed synchronizes each existing user's RBAC role relation from the canonical `User.role` value. Runtime user creation connects the new account to its RBAC role, and role changes replace the prior role relation, so permission grants remain aligned after staff administration as well as during initial seeding.
 
 The permission catalogue is the foundation for action-level authorization. Existing routes still contain explicit `requireRole` and service-level checks; they should be migrated to named permissions in small, tested groups rather than replacing every route gate in one bulk change. This avoids accidentally broadening clinical, financial or HR access.
