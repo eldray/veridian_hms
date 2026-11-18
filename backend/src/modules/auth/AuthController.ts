@@ -23,6 +23,7 @@ export class AuthController {
     this.router.post('/login', loginLimiter, this.login.bind(this));
     this.router.post('/refresh-token', this.refreshToken.bind(this));
     this.router.post('/forgot-password', this.forgotPassword.bind(this));
+    this.router.post('/complete-password-reset', this.completePasswordReset.bind(this));
 
     // Logout is intentionally not access-token protected: an expired access token
     // must not prevent revocation of the refresh token supplied by the client.
@@ -133,4 +134,19 @@ export class AuthController {
       res.status(500).json({ success: false, message: 'Password reset failed' });
     }
   };
+  private completePasswordReset = async (req: Request, res: Response) => {
+    try {
+      const { username, code, newPassword } = req.body || {};
+      if (typeof username !== 'string' || typeof code !== 'string' || typeof newPassword !== 'string') {
+        res.status(400).json({ success: false, message: 'Username, reset code and new password are required' });
+        return;
+      }
+      const result: any = await this.authService.completePasswordReset(username, code, newPassword);
+      res.status(result.success ? 200 : 400).json(result);
+    } catch (error) {
+      console.error('[AUTH] Password reset completion failed:', error);
+      res.status(500).json({ success: false, message: 'Unable to complete password reset' });
+    }
+  };
+
 }
