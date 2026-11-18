@@ -239,7 +239,10 @@ describe('forgot password', () => {
 describe('refresh-token logout', () => {
   it('revokes the exact supplied refresh token without requiring an access token', async () => {
     const service = new AuthService({} as any);
-    const repository = { deleteRefreshToken: vi.fn().mockResolvedValue(undefined) };
+    const repository = {
+      deleteRefreshToken: vi.fn().mockResolvedValue(undefined),
+      deleteRefreshTokenForUser: vi.fn().mockResolvedValue(undefined),
+    };
     (service as any).repository = repository;
 
     const result = await service.logout('expired-access-session-refresh-token');
