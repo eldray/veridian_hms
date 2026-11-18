@@ -71,9 +71,10 @@ describe('route authorization, route by route', () => {
     expect(routes.filter((r) => MUTATING.has(r.method)).length).toBeGreaterThan(200);
   });
 
-  it('only the three public auth endpoints skip authentication', () => {
+  it('only the explicitly public auth endpoints skip authentication', () => {
     const open = routes.filter((r) => !r.protectedRoute).map((r) => r.id).sort();
     expect(open).toEqual([
+      'POST auth/AuthController.ts /complete-password-reset',
       'POST auth/AuthController.ts /forgot-password',
       'POST auth/AuthController.ts /login',
       'POST auth/AuthController.ts /logout',
