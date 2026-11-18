@@ -1,6 +1,7 @@
 // src/pages/PatientDetails.tsx - COMPACT REDESIGNED VERSION
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useSmartBack } from '../utils/useSmartBack';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
@@ -96,6 +97,7 @@ const EmptyState: React.FC<{ icon: React.ElementType; title: string; hint?: stri
 
 // ============ MAIN COMPONENT ============
 export default function PatientDetails() {
+  const goBack = useSmartBack('/dashboard/patients');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
@@ -193,7 +195,7 @@ export default function PatientDetails() {
     } catch (err: any) {
       const msg = err.response?.data?.message || err.message || 'Could not load patient data';
       toastError('Load failed', msg);
-      if (err.response?.status === 404) navigate('/dashboard/patients');
+      if (err.response?.status === 404) goBack();
     } finally { setIsLoading(false); setRefreshing(false); }
   };
   const loadDocuments = async () => {
@@ -310,7 +312,7 @@ export default function PatientDetails() {
           </div>
           <h2 className="text-base font-bold text-[var(--text-primary)] mb-1">Patient Not Found</h2>
           <p className="text-xs text-[var(--text-secondary)] mb-5">The patient record does not exist or has been removed.</p>
-          <Button variant="soft" accent="cyan" size="sm" icon={ArrowLeft} onClick={() => navigate('/dashboard/patients')}>Back to Patients</Button>
+          <Button variant="soft" accent="cyan" size="sm" icon={ArrowLeft} onClick={goBack}>Back</Button>
         </div>
       </div>
     );
