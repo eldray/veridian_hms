@@ -214,7 +214,8 @@ export const requireMinSeniority = (minSeniority: Seniority) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const authReq = req as AuthRequest;
     const user = authReq.user;
-    if (!user || seniorityLevels[user.seniority] < seniorityLevels[minSeniority]) {
+    const userLevel = user ? seniorityLevels[user.seniority] : undefined;
+    if (!user || userLevel === undefined || userLevel < seniorityLevels[minSeniority]) {
       res.status(403).json({ success: false, message: `Access denied. Requires ${minSeniority} seniority.` });
       return;
     }
@@ -237,10 +238,11 @@ export const requireRoleWithMinSeniority = (role: UserRole, minSeniority: Senior
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (user.role !== role || seniorityLevels[user.seniority] < seniorityLevels[minSeniority]) {
-      res.status(403).json({ 
-        success: false, 
-        message: `Access denied. Requires ${role} with ${minSeniority} seniority.` 
+    const userLevel = seniorityLevels[user.seniority];
+    if (user.role !== role || userLevel === undefined || userLevel < seniorityLevels[minSeniority]) {
+      res.status(403).json({
+        success: false,
+        message: `Access denied. Requires ${role} with ${minSeniority} seniority.`
       });
       return;
     }
@@ -293,9 +295,9 @@ export const requireAllRoles = (roles: UserRole[]) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    // Note: This is a simplified check - in practice, a user can only have one role
-    // This would be more useful with the dynamic RBAC system
-    if (isSuperAdmin(user.role) || isSystemAdmin(user.role) || roles.includes(user.role)) {
+    // The User model has one canonical role, so a non-administrator cannot
+    // satisfy a multi-role "all" requirement. Use requireAnyRole for alternatives.
+    if (isSuperAdmin(user.role) || isSystemAdmin(user.role) || (roles.length === 1 && roles[0] === user.role)) {
       next();
       return;
     }
