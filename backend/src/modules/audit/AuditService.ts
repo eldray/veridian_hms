@@ -50,6 +50,14 @@ export class AuditService extends BaseService {
     return this.auditRepository.verifyChain();
   }
 
+  // Spreadsheet applications interpret cells beginning with formula markers as code.
+  // Prefix an apostrophe (after optional control/space characters) before CSV quoting.
+  private csvSafeCell(value: unknown): string {
+    const text = String(value ?? '');
+    const safe = /^[\\u0000-\\u0020]*[=+\\-@]/.test(text) ? `'${text}` : text;
+    return `"${safe.replace(/"/g, '""')}"`;
+  }
+
   async exportLogs(filters: AuditLogExportFilters) {
     const logs = await this.auditRepository.exportLogs(filters);
 
