@@ -5,6 +5,7 @@ import { Badge, humanStatus, statusTone } from './Badge';
 import { accentVar, type Accent } from './accent';
 import { cn } from './cn';
 import { getPatientName } from '../../utils/patient';
+import { PatientAvatar } from '../patients/PatientAvatar';
 
 export interface HeaderField {
   label: string;
@@ -178,21 +179,16 @@ export function PatientVisitHeader({
       <div className="flex flex-col sm:flex-row sm:items-stretch">
         {/* ── Zone 1: identity ─────────────────────────────────────────── */}
         <div className="flex items-center gap-2.5 px-4 py-3 sm:flex-shrink-0 sm:max-w-[280px]">
-          <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border"
-            style={{
-              background: accentVar(accent, 'bg'),
-              // The theme defines no border variable per accent; tint the text colour instead.
-              borderColor: `color-mix(in srgb, ${accentVar(accent, 'text')} 30%, transparent)`,
-              color: accentVar(accent, 'text'),
-            }}
-          >
-            {initials ? (
-              <span className="text-[12px] font-bold tracking-wide">{initials}</span>
-            ) : (
-              <Icon className="w-4 h-4" />
-            )}
-          </div>
+          <PatientAvatar
+            imageUrl={patient?.imageUrl}
+            name={displayName}
+            size="md"
+            className="rounded-lg border"
+            fallbackClassName=""
+            fallbackText={initials}
+            fallbackIcon={Icon}
+            style={undefined}
+          />
           <div className="min-w-0">
             <h2 className="font-bold text-[var(--text-primary)] text-[14px] leading-tight truncate">
               {displayName || 'Unnamed patient'}
