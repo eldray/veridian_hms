@@ -48,6 +48,7 @@ This is a source review and a record of targeted changes, not a runtime security
 - Billing invoice lists, collection totals, statistics and revenue-line reports are now restricted to Accounts and administrators. Clinical and Records staff may still read individual bills and their line items for patient-facing workflows.
 - The legacy bill endpoints now apply the same separation between facility-wide financial reporting and individual bill reads.
 - These changes complement the RBAC catalogue and platform-permission boundary described in `ROLE_PERMISSION_MATRIX.md`.
+- Stock catalogue list, category and detail reads now require an operational, clinical or finance role (`admin`, `super_admin`, `accounts`, `pharmacist`, `doctor`, `nurse`, `midwife`, `records`, `lab_tech`, or `sonographer`). HR Officer is excluded because the role has no stock workflow. Existing department scoping remains in the controller/service; this route guard prevents unrelated authenticated roles from reading stock catalogue and pricing data.
 
 ## Verification status (2026-11-18)
 
