@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { requirePermission, requireRole, requireSuperAdmin } from '../src/middleware/authMiddleware';
+import { requirePermission, requireRole, requireRoleOrPermission, requireSuperAdmin } from '../src/middleware/authMiddleware';
 
 describe('role authorization', () => {
   it('allows super_admin to inherit ordinary roles regardless of role casing', () => {
@@ -86,5 +86,17 @@ describe('role authorization', () => {
     requirePermission('platform.manage')({ user: { role: 'super_admin', permissions: [] } } as any, res as any, next);
     expect(next).toHaveBeenCalledOnce();
     expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('does not let System Admin use a platform permission through the combined guard', () => {
+    const next = vi.fn();
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    requireRoleOrPermission('admin', 'platform.manage')(
+      { user: { role: 'admin', permissions: ['platform.manage'] } } as any,
+      res as any,
+      next,
+    );
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
   });
 });
