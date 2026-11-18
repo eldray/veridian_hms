@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLiveRefresh } from '../api/realtime';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useToast } from '../store/toastStore';
 import {
   Activity,
@@ -290,9 +291,7 @@ export default function Theatre() {
                   >
                     <td className={TD}>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[var(--icon-purple-bg)] rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-[var(--icon-purple-text)]" />
-                        </div>
+                        <PatientAvatar imageUrl={item.patient?.imageUrl} name={item.patient?.name} size="sm" className="rounded-full bg-[var(--icon-purple-bg)]" fallbackClassName="text-[var(--icon-purple-text)]" />
                         <div>
                           <p className="font-medium text-[var(--text-primary)] text-sm">{item.patient?.name}</p>
                           <p className="text-xs text-[var(--text-secondary)]">
