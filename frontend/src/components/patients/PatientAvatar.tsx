@@ -8,7 +8,7 @@ interface PatientAvatarProps {
   className?: string;
   fallbackClassName?: string;
   fallbackText?: string;
-  fallbackIcon?: React.ComponentType<{ className?: string }>;
+  fallbackIcon?: React.ElementType<{ className?: string }>;
 }
 
 /** Consistent patient photo rendering with a reliable fallback when no photo is available. */
