@@ -181,7 +181,7 @@ export default function CounterNewTicket() {
           </div>
 
           <div className="flex justify-end gap-2 mt-5">
-            <Button variant="secondary" onClick={() => navigate('/dashboard/counter')}>Cancel</Button>
+            <Button variant="secondary" onClick={goBack}>Cancel</Button>
             <Button variant="soft" accent="cyan" icon={UserPlus} loading={busy} disabled={busy} onClick={submit}>Open ticket</Button>
           </div>
         </section>
