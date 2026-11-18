@@ -421,6 +421,7 @@ export default function LabResultEntry() {
         patient: {
           id: row.patientId,
           name: row.name,
+          imageUrl: row.imageUrl,
           folderNumber: row.folderNumber,
           age: row.age,
           gender: row.gender,
