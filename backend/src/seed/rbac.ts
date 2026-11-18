@@ -23,7 +23,7 @@ export const PERMISSION_DEFINITIONS: Array<[string, string]> = [
 
 export const ROLE_DEFINITIONS: Array<{ name: string; description: string }> = [
   { name: 'super_admin', description: 'System owner; user and role administration' },
-  { name: 'admin', description: 'Facility administrator; cannot manage system users and roles' },
+  { name: 'admin', description: 'System administrator; full facility-page access and operational administration, but cannot manage Super Admin accounts or Super Admin-only platform controls' },
   { name: 'hr_officer', description: 'Human resources and staff administration' },
   { name: 'nurse', description: 'Nursing clinical workflows' },
   { name: 'doctor', description: 'Medical clinical workflows' },
