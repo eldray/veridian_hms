@@ -1,3 +1,4 @@
+import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/LabResultEntry.tsx — Laboratory Results Entry (Enhanced UI/UX)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -684,7 +685,7 @@ export default function LabResultEntry() {
 
   // The laboratory worklist opens this screen for one patient; arriving there
   // directly has no history to pop, so it falls back to the queue.
-  const goBack = () => (location.key === 'default' ? navigate('/dashboard/laboratory') : navigate(-1));
+  const goBack = useSmartBack('/dashboard/laboratory');
   const patientFullName = patient ? getPatientName(patient) : '';
   const patientAge = patient ? (patient.age || calculateAge(patient.dateOfBirth)) : 0;
   const totalTests = labTests.length;
