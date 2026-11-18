@@ -30,7 +30,8 @@ interface DecodedToken {
   type?: string;
 }
 
-const isSuperAdminOrAdmin = (role?: string) => role === 'super_admin' || role === 'admin';
+const isSuperAdmin = (role?: string) => String(role || '').toLowerCase() === 'super_admin';
+const isSystemAdmin = (role?: string) => String(role || '').toLowerCase() === 'admin';
 
 // JWT verification is followed by a database check so deactivated accounts and
 // changed roles/permissions take effect without waiting for token expiry.
@@ -186,7 +187,14 @@ export const requirePermission = (permission: string) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (isSuperAdminOrAdmin(user.role) || user.permissions?.includes(permission)) {
+    // Super Admin inherits every permission. System Admin inherits ordinary
+    // facility permissions, but platform-level controls remain Super Admin-only.
+    const isPlatformPermission = permission.startsWith('platform.');
+    if (
+      isSuperAdmin(user.role) ||
+      (isSystemAdmin(user.role) && !isPlatformPermission) ||
+      user.permissions?.includes(permission)
+    ) {
       next();
       return;
     }
@@ -254,7 +262,7 @@ export const requireRoleOrPermission = (role: UserRole, permission: string) => {
       res.status(401).json({ success: false, message: 'Authentication required.' });
       return;
     }
-    if (user.role === role || isSuperAdminOrAdmin(user.role) || user.permissions?.includes(permission)) {
+    if (user.role === role || isSuperAdmin(user.role) || (isSystemAdmin(user.role) && !permission.startsWith('platform.')) || user.permissions?.includes(permission)) {
       next();
       return;
     }
@@ -281,7 +289,7 @@ export const requireAllRoles = (roles: UserRole[]) => {
     }
     // Note: This is a simplified check - in practice, a user can only have one role
     // This would be more useful with the dynamic RBAC system
-    if (isSuperAdminOrAdmin(user.role) || roles.includes(user.role)) {
+    if (isSuperAdmin(user.role) || isSystemAdmin(user.role) || roles.includes(user.role)) {
       next();
       return;
     }
