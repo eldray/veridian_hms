@@ -183,8 +183,8 @@ export function PatientVisitHeader({
             imageUrl={patient?.imageUrl}
             name={displayName}
             size="md"
-            className="rounded-lg border"
-            fallbackClassName=""
+            className="rounded-lg border bg-[var(--icon-cyan-bg)]"
+            fallbackClassName="text-[var(--icon-cyan-text)]"
             fallbackText={initials}
             fallbackIcon={Icon}
           />
