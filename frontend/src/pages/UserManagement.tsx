@@ -381,8 +381,8 @@ export default function UserManagement() {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => getAllUsers()} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm text-[var(--text-primary)]"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh</button>
-          {activeTab === 'directory' && (
-            {canAdministerAccounts && <button onClick={() => setShowRegisterModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"><Plus className="w-4 h-4" /> Add User</button>}
+          {activeTab === 'directory' && canAdministerAccounts && (
+            <button onClick={() => setShowRegisterModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"><Plus className="w-4 h-4" /> Add User</button>
           )}
         </div>
       </div>
