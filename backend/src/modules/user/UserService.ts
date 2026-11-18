@@ -346,7 +346,10 @@ export class UserService extends BaseService {
     const permissions = await this.repository.getUserPermissions(userId);
     const effectiveRole = role || (await this.repository.findById(userId))?.role || 'unknown';
 
-    if ((effectiveRole === 'admin' || effectiveRole === 'super_admin') && !permissions.includes('*')) {
+    // Only Super Admin receives the global wildcard. System Admin's
+    // complete facility permissions are represented explicitly by the seeded
+    // RBAC matrix, which deliberately excludes platform.manage.
+    if (String(effectiveRole).toLowerCase() === 'super_admin' && !permissions.includes('*')) {
       permissions.unshift('*');
     }
     return { role: effectiveRole, permissions };
