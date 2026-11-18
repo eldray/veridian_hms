@@ -185,7 +185,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 22.33
   },
   {
     "name": "Malaria Parasite Test",
@@ -251,7 +252,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 8.99
   },
   {
     "name": "Blood Glucose (Random)",
@@ -272,7 +274,8 @@
         "highThreshold": 11.1
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 9.21
   },
   {
     "name": "Blood Glucose (Fasting)",
@@ -330,7 +333,8 @@
         "highThreshold": 7.8
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 24.24
   },
   {
     "name": "2 Hour Post Prandial Blood Glucose",
@@ -350,7 +354,8 @@
         "highThreshold": 7.8
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 19.59
   },
   {
     "name": "Urinalysis (Routine)",
@@ -553,7 +558,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 8.45
   },
   {
     "name": "Pregnancy Test",
@@ -575,7 +581,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 10.49
   },
   {
     "name": "Quantitative Beta-hCG",
@@ -595,7 +602,8 @@
         "highThreshold": 5
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 25.23
   },
   {
     "name": "Widal Test",
@@ -665,7 +673,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 10.71
   },
   {
     "name": "Typhi Dot",
@@ -697,7 +706,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 14.03
   },
   {
     "name": "HIV Screening",
@@ -720,7 +730,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 17.86
   },
   {
     "name": "HIV Confirmatory Test",
@@ -743,7 +754,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 19.71
   },
   {
     "name": "CD4 Count",
@@ -773,7 +785,8 @@
         "highThreshold": 60
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 70.86
   },
   {
     "name": "Hepatitis B Surface Antigen",
@@ -795,7 +808,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 10.23
   },
   {
     "name": "Hepatitis B Profile",
@@ -857,7 +871,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 23.07
   },
   {
     "name": "Hepatitis C Antibody",
@@ -879,7 +894,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 12.32
   },
   {
     "name": "Viral Serology",
@@ -917,7 +933,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 105.21
   },
   {
     "name": "Stool Microscopy",
@@ -1007,7 +1024,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 7.83
   },
   {
     "name": "Stool Culture & Sensitivity",
@@ -1048,7 +1066,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 20.02
   },
   {
     "name": "Stool for Occult Blood",
@@ -1070,7 +1089,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 9.32
   },
   {
     "name": "Helicobacter Pylori Blood Antigen",
@@ -1114,7 +1134,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 9.88
   },
   {
     "name": "Liver Function Tests",
@@ -1232,7 +1253,8 @@
       }
     ],
     "reportingTemplateVersion": "2.0",
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 30.72
   },
   {
     "name": "Renal Function Test",
@@ -1313,7 +1335,8 @@
       }
     ],
     "reportingTemplateVersion": "2.0",
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 20.98
   },
   {
     "name": "Electrolytes, Urea and Creatinine",
@@ -1379,7 +1402,8 @@
         "highThreshold": 106
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 22.42
   },
   {
     "name": "BUE & Creatinine",
@@ -1427,7 +1451,8 @@
         "highThreshold": 5.1
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 23.56
   },
   {
     "name": "Lipid Profile",
@@ -1519,7 +1544,8 @@
       }
     ],
     "reportingTemplateVersion": "2.0",
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 29.15
   },
   {
     "name": "Blood Grouping",
@@ -1553,7 +1579,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 10.78
   },
   {
     "name": "Sickling Test",
@@ -1575,7 +1602,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 8.16
   },
   {
     "name": "Hemoglobin Electrophoresis",
@@ -1623,7 +1651,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 15.15
   },
   {
     "name": "Hb Electrophoresis (Quantitative)",
@@ -1675,7 +1704,8 @@
         "referenceRange": "0"
       }
     ],
-    "isNHISCovered": false
+    "isNHISCovered": false,
+    "price": 12.75
   },
   {
     "name": "Thyroid Function Test (TSH, fT3, fT4)",
@@ -1721,7 +1751,8 @@
       }
     ],
     "reportingTemplateVersion": "2.0",
-    "isNHISCovered": false
+    "isNHISCovered": false,
+    "price": 30.49
   },
   {
     "name": "Thyroid Profile (TSH, FT3, FT4)",
@@ -1767,7 +1798,8 @@
       }
     ],
     "reportingTemplateVersion": "2.0",
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 67.59
   },
   {
     "name": "T3",
@@ -1788,7 +1820,8 @@
         "highThreshold": 2.8
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 50.28
   },
   {
     "name": "T4",
@@ -1809,7 +1842,8 @@
         "highThreshold": 150
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 50.28
   },
   {
     "name": "Prostate Specific Antigen",
@@ -1851,7 +1885,8 @@
       }
     ],
     "reportingTemplateVersion": "2.0",
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 28.18
   },
   {
     "name": "Glycosylated Haemoglobin",
@@ -1881,7 +1916,8 @@
         "highThreshold": 7
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 25.87
   },
   {
     "name": "C Reactive Protein",
@@ -1901,7 +1937,8 @@
         "highThreshold": 5
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 20.51
   },
   {
     "name": "Rheumatoid Factor",
@@ -1921,7 +1958,8 @@
         "highThreshold": 14
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 8.19
   },
   {
     "name": "ASO Titre",
@@ -1941,7 +1979,8 @@
         "highThreshold": 200
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 29.11
   },
   {
     "name": "VDRL/RPR",
@@ -1963,7 +2002,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 8.27
   },
   {
     "name": "TPHA",
@@ -1985,7 +2025,8 @@
         ]
       }
     ],
-    "isNHISCovered": false
+    "isNHISCovered": false,
+    "price": 237.36
   },
   {
     "name": "Blood Culture and Sensitivity",
@@ -2031,7 +2072,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 20.48
   },
   {
     "name": "Urine Culture and Sensitivity",
@@ -2087,7 +2129,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 18.48
   },
   {
     "name": "High Vaginal Swab for C/S",
@@ -2166,7 +2209,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 19.87
   },
   {
     "name": "Semen Analysis",
@@ -2276,7 +2320,8 @@
         "highThreshold": 1
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 51.1
   },
   {
     "name": "Erythrocyte Sedimentation Rate",
@@ -2297,7 +2342,8 @@
         "highThreshold": 15
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 8.16
   },
   {
     "name": "Prothrombin Time",
@@ -2336,7 +2382,8 @@
         "unit": "ratio"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 15.46
   },
   {
     "name": "Activated Partial Thromboplastin Time",
@@ -2366,7 +2413,8 @@
         "highThreshold": 35
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 16.45
   },
   {
     "name": "Bleeding and Clotting Time",
@@ -2396,7 +2444,8 @@
         "highThreshold": 11
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 10.05
   },
   {
     "name": "D-Dimer",
@@ -2416,7 +2465,8 @@
         "highThreshold": 0.5
       }
     ],
-    "isNHISCovered": false
+    "isNHISCovered": false,
+    "price": 62.55
   },
   {
     "name": "Troponin I",
@@ -2436,7 +2486,8 @@
         "highThreshold": 0.04
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 23.35
   },
   {
     "name": "CK-MB",
@@ -2456,7 +2507,8 @@
         "highThreshold": 25
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 18.94
   },
   {
     "name": "Creatine Kinase (CK)",
@@ -2477,7 +2529,8 @@
         "highThreshold": 200
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 15.86
   },
   {
     "name": "Amylase",
@@ -2498,7 +2551,8 @@
         "highThreshold": 100
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 19.4
   },
   {
     "name": "Lipase",
@@ -2519,7 +2573,8 @@
         "highThreshold": 53
       }
     ],
-    "isNHISCovered": false
+    "isNHISCovered": false,
+    "price": 17.07
   },
   {
     "name": "Cortisol (AM)",
@@ -2540,7 +2595,8 @@
         "highThreshold": 536
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 11.18
   },
   {
     "name": "Prolactin",
@@ -2561,7 +2617,8 @@
         "highThreshold": 324
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 26.23
   },
   {
     "name": "Testosterone",
@@ -2582,7 +2639,8 @@
         "highThreshold": 29
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 31.71
   },
   {
     "name": "Estradiol (E2)",
@@ -2603,7 +2661,8 @@
         "highThreshold": 550
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 24.64
   },
   {
     "name": "Progesterone",
@@ -2624,7 +2683,8 @@
         "highThreshold": 3
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 26.62
   },
   {
     "name": "Carcinoembryonic Antigen",
@@ -2644,7 +2704,8 @@
         "highThreshold": 2.5
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 12.35
   },
   {
     "name": "Alpha-Fetoprotein",
@@ -2664,7 +2725,8 @@
         "highThreshold": 7
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 13.63
   },
   {
     "name": "CA-125",
@@ -2704,7 +2766,8 @@
         "highThreshold": 37
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 85.99
   },
   {
     "name": "Ferritin",
@@ -2725,7 +2788,8 @@
         "highThreshold": 400
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 23.15
   },
   {
     "name": "Vitamin B12 and Folate",
@@ -2754,7 +2818,8 @@
         "lowThreshold": 3
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 102.75
   },
   {
     "name": "Serum Calcium",
@@ -2775,7 +2840,8 @@
         "highThreshold": 2.55
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 15.86
   },
   {
     "name": "Phosphate",
@@ -2796,7 +2862,8 @@
         "highThreshold": 1.5
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 12.8
   },
   {
     "name": "Magnesium",
@@ -2817,7 +2884,8 @@
         "highThreshold": 1
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 12.78
   },
   {
     "name": "Uric Acid",
@@ -2838,7 +2906,8 @@
         "highThreshold": 420
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 14.32
   },
   {
     "name": "Iron Studies",
@@ -2877,7 +2946,8 @@
         "highThreshold": 50
       }
     ],
-    "isNHISCovered": false
+    "isNHISCovered": false,
+    "price": 13.29
   },
   {
     "name": "Total Iron Binding Capacity",
@@ -2898,7 +2968,8 @@
         "highThreshold": 400
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 15.71
   },
   {
     "name": "Cerebrospinal Fluid Analysis",
@@ -2987,7 +3058,8 @@
         "referenceRange": "No organisms seen"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 22.21
   },
   {
     "name": "Pleural Fluid Analysis",
@@ -3042,7 +3114,8 @@
         "referenceRange": "0"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 17.27
   },
   {
     "name": "Peripheral Blood Film",
@@ -3088,7 +3161,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 21.64
   },
   {
     "name": "Platelet Count",
@@ -3109,7 +3183,8 @@
         "highThreshold": 450
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 9.53
   },
   {
     "name": "Absolute Eosinophil Count",
@@ -3129,7 +3204,8 @@
         "highThreshold": 500
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 14.06
   },
   {
     "name": "Reticulocyte Count",
@@ -3159,7 +3235,8 @@
         "highThreshold": 100
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 9.61
   },
   {
     "name": "WBC + Differential",
@@ -3225,7 +3302,8 @@
         "highThreshold": 1
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 12.21
   },
   {
     "name": "Arterial Blood Gas (ABG)",
@@ -3291,7 +3369,8 @@
         "highThreshold": 100
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 23.41
   },
   {
     "name": "ECG",
@@ -3309,7 +3388,8 @@
         "referenceRange": "Normal sinus rhythm"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 16.3
   },
   {
     "name": "EEG (Electroencephalogram)",
@@ -3327,7 +3407,8 @@
         "referenceRange": "Normal"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 62.97
   },
   {
     "name": "Pulmonary Function Test",
@@ -3363,7 +3444,8 @@
         "lowThreshold": 70
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 49.71
   },
   {
     "name": "Dengue NS1 Antigen",
@@ -3825,7 +3907,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 13.94
   },
   {
     "name": "CSF Latex Agglutination",
@@ -3861,7 +3944,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 14.78
   },
   {
     "name": "Donor Screening for HB & AG",
@@ -3903,7 +3987,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 21.38
   },
   {
     "name": "LE Cell",
@@ -3925,7 +4010,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 15.86
   },
   {
     "name": "Fungal Cultures",
@@ -3953,7 +4039,8 @@
         "referenceRange": "None"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 22.02
   },
   {
     "name": "High Vaginal Swab Routine",
@@ -4019,7 +4106,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 11.43
   },
   {
     "name": "Miscellaneous Cultures",
@@ -4054,7 +4142,8 @@
         "referenceRange": "None"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 18.17
   },
   {
     "name": "Skin Scraping for Fungal Elements",
@@ -4097,7 +4186,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 9.2
   },
   {
     "name": "Skin Snip",
@@ -4131,7 +4221,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 9.22
   },
   {
     "name": "Biopsy L/A (Macroscopic Description)",
@@ -4167,7 +4258,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 96.25
   },
   {
     "name": "Bone Marrow Aspirate",
@@ -4228,7 +4320,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 80.97
   },
   {
     "name": "Bone Marrow - Trephine Biopsy",
@@ -4276,7 +4369,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 122.55
   },
   {
     "name": "Cytology",
@@ -4311,7 +4405,8 @@
         "referenceRange": "No malignant cells seen"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 22.62
   },
   {
     "name": "Fine Needle Aspiration",
@@ -4345,7 +4440,8 @@
         "referenceRange": "Benign"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 31.25
   },
   {
     "name": "Histopathology",
@@ -4381,7 +4477,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 38.28
   },
   {
     "name": "Immunostaining",
@@ -4411,7 +4508,8 @@
         "referenceRange": "N/A"
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 71.3
   },
   {
     "name": "Pap Smear",
@@ -4455,7 +4553,8 @@
         "referenceRange": "None"
       }
     ],
-    "isNHISCovered": false
+    "isNHISCovered": false,
+    "price": 120.86
   },
   {
     "name": "Factor VIII Assay",
@@ -4476,7 +4575,8 @@
         "highThreshold": 150
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 66.68
   },
   {
     "name": "Factor IX Assay",
@@ -4497,7 +4597,8 @@
         "highThreshold": 150
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 30.49
   },
   {
     "name": "Glucose-6-Phosphate Dehydrogenase, G6PD",
@@ -4518,7 +4619,8 @@
         "highThreshold": 20.5
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 12.78
   },
   {
     "name": "Blood Grouping & Antibody Screen",
@@ -4562,7 +4664,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 13.8
   },
   {
     "name": "Crossmatching",
@@ -4584,7 +4687,8 @@
         ]
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 12.55
   },
   {
     "name": "Total Leucocyte Count",
@@ -4605,7 +4709,8 @@
         "highThreshold": 11
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 10.66
   },
   {
     "name": "Acid Phosphatase",
@@ -4625,7 +4730,8 @@
         "highThreshold": 3
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 11.44
   },
   {
     "name": "Aldolase",
@@ -4667,7 +4773,8 @@
         "highThreshold": 107
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 11.7
   },
   {
     "name": "Digoxin Level",
@@ -4688,7 +4795,8 @@
         "highThreshold": 2
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 10.92
   },
   {
     "name": "DHEA-S",
@@ -4709,7 +4817,8 @@
         "highThreshold": 560
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 11.75
   },
   {
     "name": "Follicle Stimulating Hormone",
@@ -4730,7 +4839,8 @@
         "highThreshold": 135
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 26.49
   },
   {
     "name": "Luteinizing Hormone",
@@ -4751,7 +4861,8 @@
         "highThreshold": 95
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 26.21
   },
   {
     "name": "Serum ACTH",
@@ -4772,7 +4883,8 @@
         "highThreshold": 60
       }
     ],
-    "isNHISCovered": true
+    "isNHISCovered": true,
+    "price": 10.92
   },
   {
     "name": "24hr Urine for Protein",
@@ -4789,7 +4901,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 14.5
   },
   {
     "name": "Alanine Aminotransferase (ALT)",
@@ -4806,7 +4919,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 14.63
   },
   {
     "name": "Anti-streptolysin test",
@@ -4823,7 +4937,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 21.87
   },
   {
     "name": "Aspartate Aminotransferase (AST)",
@@ -4840,7 +4955,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 12.78
   },
   {
     "name": "Bilirubin",
@@ -4857,7 +4973,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 12.78
   },
   {
     "name": "Blood Parasites",
@@ -4874,7 +4991,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 13.58
   },
   {
     "name": "Blood Sugar PP",
@@ -4891,7 +5009,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 7.75
   },
   {
     "name": "Blood Urea",
@@ -4908,7 +5027,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 20.33
   },
   {
     "name": "Calcium Infusion test",
@@ -4925,7 +5045,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 23.56
   },
   {
     "name": "Demonstration of Heinz bodies",
@@ -4942,7 +5063,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 13.15
   },
   {
     "name": "Direct Bilirubin/Total Bilirubin",
@@ -4959,7 +5081,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 14.68
   },
   {
     "name": "FT3",
@@ -4976,7 +5099,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 30.42
   },
   {
     "name": "FT4",
@@ -4993,7 +5117,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 30.42
   },
   {
     "name": "Full Blood Count FBC (Automation)",
@@ -5010,7 +5135,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 19.14
   },
   {
     "name": "Gamma Glutamyl Transferase (GGT)",
@@ -5027,7 +5153,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 18.94
   },
   {
     "name": "Haemoglobin Estimation (HB)",
@@ -5044,7 +5171,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 9.34
   },
   {
     "name": "HDL-Cholesterol",
@@ -5061,7 +5189,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 14.63
   },
   {
     "name": "Hematocrit",
@@ -5078,7 +5207,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 18.61
   },
   {
     "name": "LDL - Cholesterol",
@@ -5095,7 +5225,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 13.15
   },
   {
     "name": "Malaria Card Test (Dipstik assay/rapid card)",
@@ -5112,7 +5243,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 4.62
   },
   {
     "name": "NA+",
@@ -5129,7 +5261,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 12.1
   },
   {
     "name": "Potassium",
@@ -5146,7 +5279,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 12.8
   },
   {
     "name": "RH Typing",
@@ -5163,7 +5297,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 9.56
   },
   {
     "name": "Serum Albumin",
@@ -5180,7 +5315,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 12.62
   },
   {
     "name": "Serum Alkaline Phosphatase (ALP)",
@@ -5197,7 +5333,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 11.98
   },
   {
     "name": "Serum Creatinine",
@@ -5214,7 +5351,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 12.19
   },
   {
     "name": "Serum Electrolyte (Na+, K+",
@@ -5231,7 +5369,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 13.52
   },
   {
     "name": "Serum Lactate Dehydrogenase (LDH)",
@@ -5248,7 +5387,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 13.29
   },
   {
     "name": "Serum Total Protein",
@@ -5265,7 +5405,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 11.37
   },
   {
     "name": "Serum Triglyceride",
@@ -5282,7 +5423,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 12.29
   },
   {
     "name": "Total Proteins Blood",
@@ -5299,7 +5441,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 9.69
   },
   {
     "name": "Total Serum Cholesterol",
@@ -5316,7 +5459,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 11.75
   },
   {
     "name": "Trophozoite Count",
@@ -5333,7 +5477,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 14.18
   },
   {
     "name": "Urine For Bence Jones Protein",
@@ -5350,7 +5495,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 7.83
   },
   {
     "name": "Urine Sugar",
@@ -5367,7 +5513,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 7.49
   },
   {
     "name": "VCT",
@@ -5384,7 +5531,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 4
   },
   {
     "name": "Vitality Test",
@@ -5401,7 +5549,8 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 24.82
   },
   {
     "name": "VLDL",
@@ -5418,6 +5567,7 @@
         "fieldType": "textarea",
         "label": "Result / Findings"
       }
-    ]
+    ],
+    "price": 9.83
   }
 ]
