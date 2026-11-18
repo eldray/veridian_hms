@@ -6,6 +6,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { ArrowRight, CheckCircle2, Clock } from 'lucide-react';
 import { Badge, Button, Card, cn, type BadgeTone } from '../ui';
+import { PatientAvatar } from '../patients/PatientAvatar';
 
 export interface QueuedVisit {
   attendanceId: string;
@@ -14,6 +15,7 @@ export interface QueuedVisit {
   folderNumber?: string;
   age?: number | string | null;
   gender?: string;
+  imageUrl?: string | null;
   attendanceNumber?: string;
   visitDate?: string | null;
   detail?: string;
@@ -124,6 +126,7 @@ export function QueuedVisits({
                     'hover:bg-[var(--bg-main)] focus:outline-none focus-visible:bg-[var(--bg-main)]',
                   )}
                 >
+                  <PatientAvatar imageUrl={row.imageUrl} name={row.name} size="md" className="rounded-full bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm text-[var(--text-primary)] truncate">{row.name}</span>
