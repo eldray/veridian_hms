@@ -135,4 +135,9 @@ describe('route authorization coverage', () => {
     expect(service).toMatch(/Only Super Admin can deactivate administrator accounts/);
     expect(service).toMatch(/Only Super Admin can reset administrator passwords/);
   });
+
+  it('allows the pharmacy role to allocate departmental stock', () => {
+    const source = read(path.join(modulesDir, 'stockItem', 'StockItemRoutes.ts'));
+    expect(source).toMatch(/router\.post\('\/:id\/allocate-stock',\s*requireRole\(\['admin', 'super_admin', 'pharmacist'\]\)/);
+  });
 });
