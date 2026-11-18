@@ -31,6 +31,11 @@ export const createUserRoutes = (prisma: any): Router => {
   router.get('/me/payslips', controller.getMyPayslips);
   router.get('/me/documents', controller.getMyDocuments);
 
+  // Password recovery requests are visible to System Admin and Super Admin.
+  router.get('/password-reset-requests', requireRole([...ADMIN_ONLY]), controller.listPasswordResetRequests);
+  router.post('/password-reset-requests/:requestId/approve', requireRole([...ADMIN_ONLY]), controller.approvePasswordReset);
+  router.post('/password-reset-requests/:requestId/reject', requireRole([...ADMIN_ONLY]), controller.rejectPasswordReset);
+
   // ==========================================
   // USER MANAGEMENT
   // ==========================================
