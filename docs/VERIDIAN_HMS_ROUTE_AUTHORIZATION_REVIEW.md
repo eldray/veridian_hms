@@ -33,8 +33,8 @@ This is a source review and a record of targeted changes, not a runtime security
 - `backend/tests/route-authorization.test.ts` adds a static regression guard:
   every module router except the public auth endpoints must apply `protect`,
   mutating route files must reference a role/permission guard, and the auth
-  controller may register only login, refresh-token and forgot-password without
-  `protect`.
+  controller may register only login, refresh-token, forgot-password and logout
+  without `protect`. Logout revokes only the exact supplied refresh-token hash.
 - The guard catches missing wiring, not an incorrect role list. Runtime
   allowed/denied checks against a running API remain a manual or future
   integration-test task.
