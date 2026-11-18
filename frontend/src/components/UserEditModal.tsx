@@ -152,7 +152,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
                 required
               >
                 <option value="">Select Role</option>
-                <option value="admin">Admin</option>
+                <option value="admin">System Admin</option>
                 {(canManageSuperAdmin || user.role === 'super_admin') && <option value="super_admin" disabled={!canManageSuperAdmin}>Super Admin</option>}
                 <option value="hr_officer">HR Officer</option>
                 <option value="doctor">Doctor</option>
