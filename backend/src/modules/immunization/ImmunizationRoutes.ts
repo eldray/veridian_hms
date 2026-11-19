@@ -183,7 +183,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     const records = await prisma.immunizationRecord.findMany({
       where: { administeredAt: { gte: from, lte: to } },
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, sex: true } },
+        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true } },
         Vaccine: { select: { id: true, code: true, name: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
         AdministeredBy: { select: { id: true, fullName: true } },
