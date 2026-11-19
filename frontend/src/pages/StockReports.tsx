@@ -46,13 +46,14 @@ interface ReportConfig {
   accent: AccentKey;
   supportsDateRange: boolean;
   supportsPeriod: boolean;
+  supportsExpiryDays?: boolean;
   popular?: boolean;
 }
 
 const REPORT_CONFIGS: ReportConfig[] = [
   { id: 'stock-status',   name: 'Stock Status',   description: 'Current levels & low stock alerts',   icon: Package,     accent: 'cyan',   supportsDateRange: false, supportsPeriod: false, popular: true },
   { id: 'stock-movement', name: 'Stock Movement', description: 'In & out transactions over time',     icon: TrendingUp,  accent: 'green',  supportsDateRange: true,  supportsPeriod: false, popular: true },
-  { id: 'expiry',         name: 'Expiry',         description: 'Expiring & expired products',         icon: Calendar,    accent: 'yellow', supportsDateRange: false, supportsPeriod: false },
+  { id: 'expiry',         name: 'Expiry',         description: 'Expiring & expired products',         icon: Calendar,    accent: 'yellow', supportsDateRange: false, supportsPeriod: false, supportsExpiryDays: true }, 
   { id: 'financial',      name: 'Financial',      description: 'Inventory value & purchase summary',  icon: DollarSign,  accent: 'purple', supportsDateRange: false, supportsPeriod: false },
   { id: 'usage',          name: 'Usage',          description: 'Most dispensed & consumption trends', icon: BarChart3,   accent: 'cyan',   supportsDateRange: false, supportsPeriod: true, popular: true },
   { id: 'supplier',       name: 'Supplier',       description: 'Purchase history by supplier',        icon: Building,    accent: 'orange', supportsDateRange: false, supportsPeriod: false },
@@ -254,6 +255,7 @@ export default function StockReports() {
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
   const [period, setPeriod] = useState('month');
+  const [expiryDays, setExpiryDays] = useState(30);
   const [generating, setGenerating] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
   const [reportError, setReportError] = useState<string | null>(null);
@@ -294,7 +296,7 @@ export default function StockReports() {
           data = await getMovementSummary(dateRange.startDate || undefined, dateRange.endDate || undefined);
           break;
         case 'expiry':
-          data = await getExpiryReport(30);
+          data = await getExpiryReport(expiryDays);
           break;
         case 'usage':
           data = await getUsageReport(period, 20);
@@ -319,7 +321,7 @@ export default function StockReports() {
     } finally {
       setGenerating(false);
     }
-  }, [selectedReport, activeConfig, dateRange, period, getStockValueSummary, getMovementSummary, getExpiryReport, getUsageReport, getSupplierReport, getRequisitionSummary, success, toastError]);
+  }, [selectedReport, activeConfig, dateRange, period, expiryDays, getStockValueSummary, getMovementSummary, getExpiryReport, getUsageReport, getSupplierReport, getRequisitionSummary, success, toastError]);
 
   // ── CSV export ─────────────────────────────────────────────────────────
   const buildExportRows = (): { headers: string[]; rows: (string | number)[][] } => {
@@ -1097,7 +1099,7 @@ export default function StockReports() {
         <Card title={`${activeConfig.name} Report`} icon={activeConfig.icon} accent={activeConfig.accent}>
 
           {/* Filters */}
-          {(activeConfig.supportsDateRange || activeConfig.supportsPeriod) && (
+          {(activeConfig.supportsDateRange || activeConfig.supportsPeriod || activeConfig.supportsExpiryDays) && (
             <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 mb-2.5">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {activeConfig.supportsDateRange && (
@@ -1127,6 +1129,26 @@ export default function StockReports() {
                         Clear
                       </Button>
                     )}
+                  </div>
+                )}
+
+                {activeConfig.supportsExpiryDays && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <label htmlFor="stock-expiry-days" className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+                      Expiry window
+                    </label>
+                    <select
+                      id="stock-expiry-days"
+                      value={expiryDays}
+                      onChange={(e) => setExpiryDays(Number(e.target.value))}
+                      className={cn(INPUT, 'py-1 text-xs w-[150px]')}
+                    >
+                      <option value={30}>Next 30 days</option>
+                      <option value={60}>Next 60 days</option>
+                      <option value={90}>Next 90 days</option>
+                      <option value={180}>Next 180 days</option>
+                      <option value={365}>Next 365 days</option>
+                    </select>
                   </div>
                 )}
 
