@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../../api/api';
 import { Syringe, Plus, RefreshCw, AlertCircle, CalendarClock } from 'lucide-react';
 
-type Vaccine = { id: string; code: string; name: string; description?: string | null; defaultDoseVolume?: string | null; defaultRoute?: string | null; diseaseTargets?: string[]; recommendedAge?: string | null; StockItem?: { id: string; name: string; drugCode: string; currentStock: number } | null };
+type Vaccine = { id: string; code: string; name: string; isActive?: boolean; description?: string | null; defaultDoseVolume?: string | null; defaultRoute?: string | null; diseaseTargets?: string[]; recommendedAge?: string | null; StockItem?: { id: string; name: string; drugCode: string; currentStock: number } | null };
 type VaccineStockItem = { id: string; name: string; drugCode: string; currentStock: number; unitOfMeasure: string };
 type RecordRow = { id: string; doseNumber: string; administeredAt: string; doseVolume?: string | null; route?: string | null; administrationSite?: string | null; batchNumber?: string | null; expiryDate?: string | null; nextDoseDue?: string | null; adverseReaction?: string | null; notes?: string | null; stockTransactionId?: string | null; StockTransaction?: { id: string; transactionType: string; quantity: number } | null; Vaccine?: Vaccine; Attendance?: { attendanceNumber?: string; dateTime?: string }; AdministeredBy?: { fullName?: string } };
 type Visit = { id: string; attendanceType?: string; attendanceNumber?: string; dateTime?: string; createdAt?: string };
@@ -18,6 +18,7 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showCatalogue, setShowCatalogue] = useState(false);
+  const [editingVaccineId, setEditingVaccineId] = useState<string | null>(null);
   const [form, setForm] = useState({ attendanceId: '', vaccineId: '', doseNumber: '1', administeredAt: localToday(), doseVolume: '', route: '', administrationSite: '', batchNumber: '', expiryDate: '', nextDoseDue: '', adverseReaction: '', notes: '' });
   const [catalogue, setCatalogue] = useState({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '', stockItemId: '' });
   const immunizationVisits = useMemo(() => attendances.filter(v => v.attendanceType === 'immunization'), [attendances]);
@@ -56,8 +57,24 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
     e.preventDefault(); setError('');
     if (!catalogue.code.trim() || !catalogue.name.trim()) { setError('Vaccine code and name are required.'); return; }
     setSaving(true);
-    try { await api.post('/immunization/vaccines', catalogue); setCatalogue({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '', stockItemId: '' }); setShowCatalogue(false); await load(); }
+    try {
+      if (editingVaccineId) await api.put(`/immunization/vaccines/${editingVaccineId}`, catalogue);
+      else await api.post('/immunization/vaccines', catalogue);
+      setCatalogue({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '', stockItemId: '' });
+      setEditingVaccineId(null); setShowCatalogue(false); await load();
+    }
     catch (e: any) { setError(e.response?.data?.message || e.message || 'Could not save vaccine catalogue entry.'); }
+    finally { setSaving(false); }
+  };
+  const editVaccine = (v: Vaccine) => {
+    setEditingVaccineId(v.id);
+    setCatalogue({ code: v.code, name: v.name, description: v.description || '', defaultDoseVolume: v.defaultDoseVolume || '', defaultRoute: v.defaultRoute || '', stockItemId: v.StockItem?.id || '' });
+    setShowCatalogue(true);
+  };
+  const toggleVaccine = async (v: Vaccine) => {
+    setError(''); setSaving(true);
+    try { await api.put(`/immunization/vaccines/${v.id}`, { isActive: v.isActive === false }); await load(); }
+    catch (e: any) { setError(e.response?.data?.message || e.message || 'Could not update vaccine status.'); }
     finally { setSaving(false); }
   };
   return <section className="space-y-4">
@@ -65,7 +82,7 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
       <div><h2 className="text-sm font-semibold text-[var(--text-primary)]">Immunization history</h2><p className="text-xs text-[var(--text-tertiary)]">Recorded vaccinations and upcoming doses for this patient.</p></div>
       <div className="flex gap-2">
         <button onClick={load} disabled={loading} className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]"><RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh</button>
-        {canManageCatalogue && <button onClick={() => setShowCatalogue(s => !s)} className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]"><Plus className="h-3.5 w-3.5" /> Add vaccine</button>}
+        {canManageCatalogue && <button onClick={() => { setEditingVaccineId(null); setCatalogue({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '', stockItemId: '' }); setShowCatalogue(s => !s); }} className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] px-2.5 py-1.5 text-xs text-[var(--text-primary)]"><Plus className="h-3.5 w-3.5" /> Add vaccine</button>}
         {canRecord && <button onClick={() => setShowForm(s => !s)} className="inline-flex items-center gap-1.5 rounded-md bg-[var(--icon-cyan-bg)] px-2.5 py-1.5 text-xs font-semibold text-[var(--icon-cyan-text)]"><Syringe className="h-3.5 w-3.5" /> Record vaccination</button>}
       </div>
     </div>
@@ -82,8 +99,15 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
           {vaccineStockItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.drugCode}) · On hand: {item.currentStock}</option>)}
         </select>
       </label>
-      <div className="flex gap-2"><button disabled={saving} className="rounded-md bg-[var(--icon-green-bg)] px-3 py-2 text-xs font-semibold text-[var(--icon-green-text)]">{saving ? 'Saving…' : 'Save vaccine'}</button><button type="button" onClick={() => setShowCatalogue(false)} className="rounded-md border border-[var(--border-color)] px-3 py-2 text-xs">Cancel</button></div>
+      <div className="flex gap-2"><button disabled={saving} className="rounded-md bg-[var(--icon-green-bg)] px-3 py-2 text-xs font-semibold text-[var(--icon-green-text)]">{saving ? 'Saving…' : editingVaccineId ? 'Update vaccine' : 'Save vaccine'}</button><button type="button" onClick={() => { setShowCatalogue(false); setEditingVaccineId(null); }} className="rounded-md border border-[var(--border-color)] px-3 py-2 text-xs">Cancel</button></div>
     </form>}
+    {canManageCatalogue && <div className="rounded-lg border border-[var(--border-color)] overflow-hidden">
+      <div className="bg-[var(--bg-main)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)]">Vaccine catalogue</div>
+      <div className="divide-y divide-[var(--border-color)]">{vaccines.map(v => <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+        <div className="min-w-0"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.name} <span className="font-normal text-[var(--text-tertiary)]">({v.code})</span></p><p className="text-[10px] text-[var(--text-tertiary)]">{v.StockItem ? `Stock: ${v.StockItem.name} · ${v.StockItem.currentStock} on hand` : 'No stock item linked'} · {v.isActive === false ? 'Inactive' : 'Active'}</p></div>
+        <div className="flex gap-2"><button type="button" onClick={() => editVaccine(v)} className="rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px]">Edit</button><button type="button" disabled={saving} onClick={() => toggleVaccine(v)} className="rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px]">{v.isActive === false ? 'Reactivate' : 'Deactivate'}</button></div>
+      </div>)}</div>
+    </div>}
     {showForm && canRecord && <form onSubmit={saveRecord} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 space-y-3">
       {immunizationVisits.length === 0 ? <div className="rounded-md bg-[var(--icon-yellow-bg)] p-3 text-xs text-[var(--text-primary)]">A vaccination visit is required first. <button type="button" onClick={onCreateAttendance} className="font-semibold underline">Create immunization visit</button> then return here.</div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
       <label className="text-xs text-[var(--text-secondary)]">Immunization attendance<select required value={form.attendanceId} onChange={e => update('attendanceId', e.target.value)} className="mt-1 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]"><option value="">Select visit</option>{immunizationVisits.map(v => <option key={v.id} value={v.id}>{v.attendanceNumber || v.id} — {dateLabel(v.dateTime || v.createdAt)}</option>)}</select></label>
