@@ -86,7 +86,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
   router.get('/patients/:patientId/records', requireRole(readRoles), async (req: Request, res: Response) => {
     const records = await prisma.immunizationRecord.findMany({
       where: { patientId: req.params.patientId },
-      include: { Vaccine: true, Attendance: { select: { attendanceNumber: true, dateTime: true } }, AdministeredBy: { select: { id: true, fullName: true } }, RecordedBy: { select: { id: true, fullName: true } } },
+      include: { Vaccine: { include: { StockItem: { select: { id: true, name: true, drugCode: true } } } }, StockTransaction: { select: { id: true, transactionType: true, quantity: true, reference: true, departmentId: true, batchAllocations: true } }, Attendance: { select: { attendanceNumber: true, dateTime: true } }, AdministeredBy: { select: { id: true, fullName: true } }, RecordedBy: { select: { id: true, fullName: true } } },
       orderBy: { administeredAt: 'desc' }
     });
     return res.json({ success: true, data: records });
@@ -133,6 +133,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
         const departmentId = isAdmin
           ? ((req.body.departmentId || req.user?.departmentId) as string | undefined)
           : (req.user?.departmentId as string | undefined);
+        if (!isAdmin && !departmentId) throw new Error('Your staff account must be assigned to a department before vaccine stock can be issued.');
         const movement = await stockTransactions.createWithinTransaction(tx, {
           stockItemId: vaccine.stockItemId,
           transactionType: 'sale',
@@ -150,7 +151,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
             stockTransactionId: movement.id,
             ...(actualBatch ? { batchNumber: actualBatch.batchNumber, expiryDate: new Date(actualBatch.expiryDate) } : {})
           },
-          include: { Vaccine: { include: { StockItem: true } }, AdministeredBy: { select: { id: true, fullName: true } } }
+          include: { Vaccine: { include: { StockItem: true } }, StockTransaction: true, AdministeredBy: { select: { id: true, fullName: true } } }
         });
       }
 
