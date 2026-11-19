@@ -920,6 +920,31 @@ export default function StockReports() {
         );
         return (
           <>
+            <section className="mb-4">
+              <SectionHeader icon={Boxes} title="Inventory valuation by item" accent="purple" count={(reportData.items || []).length} />
+              <ReportTable
+                caption="Current quantity and acquisition-cost valuation by stock item"
+                empty="No stock items available for valuation"
+                searchable
+                pageSize={25}
+                columns={[
+                  { key: 'name', label: 'Item', sortable: true },
+                  { key: 'category', label: 'Category', sortable: true },
+                  { key: 'stock', label: 'Quantity', align: 'center', sortable: true },
+                  { key: 'batchValue', label: 'Batch Value', align: 'right', sortable: true },
+                  { key: 'unbatchedValue', label: 'Unbatched Value', align: 'right', sortable: true },
+                  { key: 'totalValue', label: 'Total Value', align: 'right', sortable: true },
+                ]}
+                rows={(reportData.items || []).map((item: any) => ({
+                  name: <span className="font-medium">{item.name}</span>,
+                  category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                  stock: Number(item.currentStock || 0),
+                  batchValue: `₵${Number(item.batchValue || 0).toFixed(2)}`,
+                  unbatchedValue: `₵${Number(item.unbatchedValue || 0).toFixed(2)}`,
+                  totalValue: <span className="font-semibold">₵{Number(item.totalValue || 0).toFixed(2)}</span>,
+                }))}
+              />
+            </section>
             {reportData.byCategory && (
               <section>
                 <SectionHeader icon={DollarSign} title="Inventory value by category" accent="purple" count={Object.keys(reportData.byCategory).length} />
