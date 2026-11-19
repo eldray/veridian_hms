@@ -46,7 +46,7 @@ export class ClinicalReportsService extends BaseService {
       collect(result);
       return values;
     };
-    const normalizeResult = (value: any): string => String(value ?? '').trim().toLowerCase().replace(/[()\\[\\]+]/g, '').replace(/[_-]/g, ' ');
+    const normalizeResult = (value: any): string => String(value ?? '').trim().toLowerCase().replace(/[\\s_-]+/g, ' ');
     const positive = (value: any) => /positive|reactive/.test(normalizeResult(value));
     const negative = (value: any) => /negative|non reactive|nonreactive/.test(normalizeResult(value));
     const indeterminate = (value: any) => /indeterminate|invalid|inconclusive/.test(normalizeResult(value));    const testCounts: Record<string, { count: number; completed: number; resulted: number; positive: number }> = {};
