@@ -192,7 +192,7 @@ export default function Appointments() {
                 <td className={TD}>{record.doseNumber || '—'}</td>
                 <td className={TD}>{new Date(record.nextDoseDue).toLocaleDateString()}</td>
                 <td className={TD}>{patient.phoneNumber || '—'}</td>
-                <td className={TD}><Badge tone={overdue ? 'danger' : 'info'} dot size="sm">{overdue ? 'Overdue' : 'Upcoming'}</Badge></td>
+                <td className={TD}><Badge tone={overdue ? 'red' : 'blue'} dot size="sm">{overdue ? 'Overdue' : 'Upcoming'}</Badge></td>
                 <td className={TD}><Button size="sm" variant="soft" accent="cyan" onClick={() => navigate(`/dashboard/patients/${patient.id}?tab=immunizations`)}>Open patient</Button></td>
               </tr>;
             })}
