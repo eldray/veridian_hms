@@ -1171,7 +1171,8 @@ export default function EditNHISClaim() {
     if (invFromServer.length) {
       const saved = invFromServer.map((i: any) => {
         const matchingScan = !!i.scanId || attendanceScans.some((scan: any) =>
-          scan.serviceCatalogId && scan.serviceCatalogId === i.serviceCatalogId);
+          (scan.serviceCatalogId && scan.serviceCatalogId === i.serviceCatalogId) ||
+          (scan.description && String(scan.description).trim().toLowerCase() === String(i.description || '').trim().toLowerCase()));
         return {
           id: i.id,
           gdrgCode: matchingScan ? 'INVE30E' : i.code,
@@ -1186,10 +1187,14 @@ export default function EditNHISClaim() {
       // Older claims can have incomplete itemization. Restore encounter investigations
       // missing from the saved lines, matching by source id or service-catalog identity.
       const savedSourceIds = new Set(invFromServer.flatMap((i: any) => [i.labTestId, i.scanId]).filter(Boolean));
-      const represented = new Set(saved.map((item: any) => `${item.type}:${item.serviceCatalogId || ''}`));
+      const represented = new Set(saved.flatMap((item: any) => [
+        item.serviceCatalogId ? `${item.type}:catalog:${item.serviceCatalogId}` : '',
+        item.description ? `${item.type}:name:${String(item.description).trim().toLowerCase()}` : '',
+      ]).filter(Boolean));
       const missingAttendanceItems = [...attendanceLabs, ...attendanceScans].filter((item: any) =>
         !savedSourceIds.has(item.id) &&
-        !(item.serviceCatalogId && represented.has(`${item.type}:${item.serviceCatalogId}`)),
+        !(item.serviceCatalogId && represented.has(`${item.type}:catalog:${item.serviceCatalogId}`)) &&
+        !(item.description && represented.has(`${item.type}:name:${String(item.description).trim().toLowerCase()}`)),
       );
       setInvestigations([...saved, ...missingAttendanceItems]);
     } else if (meta.investigations?.length) {
