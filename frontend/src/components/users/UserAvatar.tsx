@@ -13,7 +13,8 @@ interface UserAvatarProps {
 export default function UserAvatar({ imageUrl, name, size = 'sm', className = '', fallbackText }: UserAvatarProps) {
   const safeUrl = typeof imageUrl === 'string' && (
     /^\/(?:api\/)?uploads\/(?:users|staff|profiles)\/[A-Za-z0-9._-]+$/.test(imageUrl) ||
-    /^https?:\/\//i.test(imageUrl)
+    /^https?:\/\//i.test(imageUrl) ||
+    /^data:image\/(?:png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(imageUrl)
   ) ? imageUrl : null;
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => setFailed(false), [safeUrl]);
