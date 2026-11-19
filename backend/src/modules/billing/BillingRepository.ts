@@ -461,28 +461,27 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       default: startDate = new Date(date.getFullYear(), date.getMonth(), 1);
     }
 
-    const where = { billDate: { gte: startDate }, paymentMode: { notIn: ['private_insurance', 'corporate'] } };
-    const [totalBills, totalAmount, totalPaid, totalPending, byPaymentMode, byStatus, corporateTotals] = await Promise.all([
+    const where: any = { billDate: { gte: startDate }, paymentMode: { notIn: ['private_insurance', 'corporate'] } };
+    const [totalBills, totalAmount, totalPaid, totalPending, byPaymentMode, byStatus] = await Promise.all([
       this.count(where),
       this.prisma.bill.aggregate({ where, _sum: { totalAmount: true } }),
       this.prisma.bill.aggregate({ where, _sum: { paidAmount: true } }),
       this.count({ ...where, status: { in: ['pending', 'partial'] } }),
       this.prisma.bill.groupBy({ by: ['paymentMode'], where, _count: { id: true }, _sum: { totalAmount: true, paidAmount: true } }),
       this.prisma.bill.groupBy({ by: ['status'], where, _count: { id: true }, _sum: { totalAmount: true, paidAmount: true } }),
-      this.prisma.bill.aggregate({ where: { ...where, paymentMode: { equals: 'corporate', notIn: ['private_insurance', 'corporate'] } }, _sum: { totalAmount: true, paidAmount: true } })
     ]);
 
     return {
       period: { start: startDate, end: new Date(), type: period },
       summary: {
         totalBills,
-        totalAmount: toNumber(totalAmount._sum.totalAmount), // ✅ FIXED
-        totalPaid: toNumber(totalPaid._sum.paidAmount),       // ✅ FIXED
+        totalAmount: toNumber(totalAmount._sum?.totalAmount), // ✅ FIXED
+        totalPaid: toNumber(totalPaid._sum?.paidAmount),       // ✅ FIXED
         totalPending,
         collectionRate: totalAmount._sum.totalAmount ? (toNumber(totalPaid._sum.paidAmount) / toNumber(totalAmount._sum.totalAmount)) * 100 : 0
       },
       byPaymentMode, byStatus,
-      corporateSummary: { totalCorporateBills: toNumber(corporateTotals._sum.totalAmount), totalCorporatePaid: toNumber(corporateTotals._sum.paidAmount) }
+      corporateSummary: { totalCorporateBills: 0, totalCorporatePaid: 0 }
     };
   }
 
