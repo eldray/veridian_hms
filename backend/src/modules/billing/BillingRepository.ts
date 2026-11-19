@@ -478,7 +478,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         totalAmount: toNumber(totalAmount._sum?.totalAmount), // ✅ FIXED
         totalPaid: toNumber(totalPaid._sum?.paidAmount),       // ✅ FIXED
         totalPending,
-        collectionRate: totalAmount._sum.totalAmount ? (toNumber(totalPaid._sum.paidAmount) / toNumber(totalAmount._sum.totalAmount)) * 100 : 0
+        collectionRate: totalAmount._sum?.totalAmount ? (toNumber(totalPaid._sum?.paidAmount) / toNumber(totalAmount._sum?.totalAmount)) * 100 : 0
       },
       byPaymentMode, byStatus,
       corporateSummary: { totalCorporateBills: 0, totalCorporatePaid: 0 }
