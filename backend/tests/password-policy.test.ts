@@ -154,7 +154,7 @@ describe('administrator password reset', () => {
   };
 
   it('refuses a weak password and writes nothing', async () => {
-    const { service, repository } = buildService();
+    const { service, repository, prisma } = buildService();
 
     await expect(
       service.resetUserPassword('user-9', 'weak', { userId: 'admin-1', role: 'admin' }),
