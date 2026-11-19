@@ -79,7 +79,27 @@ interface InsuranceState {
   getInsuranceProviders: (filters?: any) => Promise<void>; getInsuranceProvider: (id: string) => Promise<void>; createInsuranceProvider: (data: any) => Promise<void>; updateInsuranceProvider: (id: string, data: any) => Promise<void>; toggleInsuranceProviderStatus: (id: string) => Promise<void>; deleteInsuranceProvider: (id: string) => Promise<void>;
   clearCurrentClaim: () => void; clearCurrentDraft: () => void; clearCurrentBatch: () => void; clearCurrentProvider: () => void; clearError: () => void; updateStats: () => void;
 }
-const normalizeClaim = (claim: any): InsuranceClaim => { if (!claim) return claim; return { ...claim, InsuranceProvider: claim.InsuranceProvider ?? claim.insuranceProvider, Patient: claim.Patient ?? claim.patient, Attendance: claim.Attendance ?? claim.attendance, Bill: claim.Bill ?? claim.bill, CorporateAccount: claim.CorporateAccount ?? claim.corporateAccount, totalClaimAmount: Number(claim.totalClaimAmount) || 0, items: (claim.items ?? []).map((i: any) => ({ ...i, quantity: Number(i.quantity) || 0, unitPrice: Number(i.unitPrice) || 0, lineTotal: Number(i.lineTotal) || 0 })) }; };
+const normalizeClaim = (claim: any): InsuranceClaim => {
+  if (!claim) return claim;
+  const insuranceProvider = claim.InsuranceProvider ?? claim.insuranceProvider ?? null;
+  const patient = claim.Patient ?? claim.patient ?? null;
+  const attendance = claim.Attendance ?? claim.attendance ?? null;
+  const bill = claim.Bill ?? claim.bill ?? null;
+  const corporateAccount = claim.CorporateAccount ?? claim.corporateAccount ?? null;
+  return {
+    ...claim,
+    InsuranceProvider: insuranceProvider, insuranceProvider,
+    Patient: patient, patient,
+    Attendance: attendance, attendance,
+    Bill: bill, bill,
+    CorporateAccount: corporateAccount, corporateAccount,
+    totalClaimAmount: Number(claim.totalClaimAmount) || 0,
+    items: (claim.items ?? []).map((i: any) => ({
+      ...i, quantity: Number(i.quantity) || 0, unitPrice: Number(i.unitPrice) || 0,
+      lineTotal: Number(i.lineTotal) || 0,
+    })),
+  };
+};
 /** Some controllers return `{ claim, ... }`, others return the claim directly. */
 const unwrapClaim = (raw: any): any => raw?.claim ?? raw;
 const normalizeBatch = (b: any): ClaimBatch => { if (!b) return b; return { ...b, totalAmount: Number(b.totalAmount) || 0, totalClaims: Number(b.totalClaims) || 0, claims: b.claims ? b.claims.map(normalizeClaim) : undefined }; };
