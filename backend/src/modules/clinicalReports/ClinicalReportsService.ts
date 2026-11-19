@@ -77,7 +77,7 @@ export class ClinicalReportsService extends BaseService {
     const hivTests = labTests.filter(test => {
       const name = (test.LabTestTemplate?.name || test.ServiceCatalog?.name || '').toLowerCase();
       // HIV screening and confirmatory assays only; CD4 is monitoring, not HIV diagnosis.
-      return /\\bhiv\\b/.test(name) && !/cd4/.test(name);
+      return /\bhiv\b/.test(name) && !/cd4/.test(name);
     });
     const hivCompleted = hivTests.filter(test => test.status === 'completed');
     const hivResultValues = (test: any): any[] => {
