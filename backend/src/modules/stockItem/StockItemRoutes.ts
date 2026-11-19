@@ -28,24 +28,24 @@ export const createStockItemRoutes = () => {
 
   // Alerts & Categories
   router.get('/categories', requireRole(STOCK_CATALOG_READERS), stockItemController.getCategories);
-  router.get('/low-stock', requireRole(['admin', 'pharmacist', 'super_admin']), stockItemController.getLowStockAlerts);
-  router.get('/expiring-batches', requireRole(['admin', 'pharmacist', 'super_admin']), stockItemController.getExpiringBatches);
+  router.get('/low-stock', requireRole(['admin', 'pharmacist']), stockItemController.getLowStockAlerts);
+  router.get('/expiring-batches', requireRole(['admin', 'pharmacist']), stockItemController.getExpiringBatches);
 
   // ==========================================
   // 2. DYNAMIC ID ROUTES
   // ==========================================
 
   router.get('/', requireRole(STOCK_CATALOG_READERS), stockItemController.getAll);
-  router.post('/', requireRole(['admin', 'pharmacist', 'super_admin']), stockItemController.create);
+  router.post('/', requireRole(['admin', 'pharmacist']), stockItemController.create);
   router.get('/:id', requireRole(STOCK_CATALOG_READERS), stockItemController.getById);
-  router.put('/:id', requireRole(['admin', 'pharmacist', 'super_admin']), stockItemController.update);
+  router.put('/:id', requireRole(['admin', 'pharmacist']), stockItemController.update);
   router.delete('/:id', requireRole(['admin']), stockItemController.delete);
 
   // Sub-resources
-  router.post('/:id/update-stock', requireRole(['admin', 'pharmacist', 'super_admin']), stockItemController.updateStockLevel);
+  router.post('/:id/update-stock', requireRole(['admin', 'pharmacist']), stockItemController.updateStockLevel);
   // Transaction history can expose purchasing, costing, and adjustment details.
   router.get('/:id/transactions', requireRole(['admin', 'super_admin', 'pharmacist', 'accounts']), stockItemController.getTransactions);
-  router.post('/:id/add-batch', requireRole(['admin', 'pharmacist', 'super_admin']), stockItemController.addStockBatch);
+  router.post('/:id/add-batch', requireRole(['admin', 'pharmacist']), stockItemController.addStockBatch);
   // Pharmacy is responsible for allocating stock between departments; administrators retain facility-wide override.
   router.post('/:id/allocate-stock', requireRole(['admin', 'super_admin', 'pharmacist']), stockItemController.allocateStock);
   // Medication history may contain patient-linked clinical information.
