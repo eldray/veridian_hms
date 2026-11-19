@@ -132,6 +132,27 @@ export default function Appointments() {
   const paginatedAppointments = filteredAppointments.slice(startIndex, startIndex + itemsPerPage);
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
+  const scheduleImmunizationFollowUp = (record: any) => {
+    const patient = record.Patient || {};
+    const patientId = patient.id || record.patientId;
+    if (!patientId) { error('Cannot Schedule', 'The patient linked to this vaccine record could not be identified.'); return; }
+    const dueDate = record.nextDoseDue ? new Date(record.nextDoseDue) : new Date();
+    const dateValue = Number.isNaN(dueDate.getTime()) ? new Date().toISOString().slice(0, 10) : dueDate.toISOString().slice(0, 10);
+    const vaccineName = record.Vaccine?.name || 'Vaccine';
+    setEditingAppointment(null);
+    setFormData({
+      patientId,
+      clinicianId: '',
+      title: `Immunization follow-up – ${vaccineName}`,
+      description: `Return for the next dose of ${vaccineName}. Previous dose recorded: ${record.doseNumber || '—'}.`,
+      appointmentDate: dateValue,
+      appointmentTime: '09:00',
+      duration: 15,
+      type: 'vaccination'
+    });
+    setActiveWorkspace('appointments');
+    setShowForm(true);
+  };
   const handleConvertToAttendance = (apt: any) => { setSelectedAppointmentForAttendance(apt); setShowAttendanceModal(true); };
   const handleAttendanceSuccess = async (attendance: any) => {
     setShowAttendanceModal(false);
@@ -194,7 +215,7 @@ export default function Appointments() {
                 <td className={TD}>{new Date(record.nextDoseDue).toLocaleDateString()}</td>
                 <td className={TD}>{patient.phoneNumber || '—'}</td>
                 <td className={TD}><Badge tone={overdue ? 'red' : 'blue'} dot size="sm">{overdue ? 'Overdue' : 'Upcoming'}</Badge></td>
-                <td className={TD}><Button size="sm" variant="soft" accent="cyan" onClick={() => navigate(`/dashboard/patients/${patient.id}?tab=immunizations`)}>Open patient</Button></td>
+                <td className={TD}><div className="flex flex-wrap gap-2"><Button size="sm" variant="soft" accent="cyan" onClick={() => scheduleImmunizationFollowUp(record)}>Schedule follow-up</Button><Button size="sm" variant="ghost" onClick={() => navigate(`/dashboard/patients/${patient.id}?tab=immunizations`)}>Open patient</Button></div></td>
               </tr>;
             })}
           </tbody></table></div></div>}
