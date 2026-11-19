@@ -2,6 +2,31 @@ import { describe, expect, it, vi } from 'vitest';
 import { BillRepository } from '../src/modules/bill/BillRepository';
 
 describe('billing payment concurrency guards', () => {
+  it('accepts an exact full-balance payment of GH₵699.32', async () => {
+    const billFindUnique = vi.fn()
+      .mockResolvedValueOnce({ id: 'bill-ghs', balance: '699.32', paidAmount: '0.00', patientPayable: '699.32', attendanceId: 'attendance-ghs' })
+      .mockResolvedValueOnce({ id: 'bill-ghs', totalAmount: '699.32', balance: '0.00', paidAmount: '699.32', patientPayable: '699.32', attendanceId: 'attendance-ghs' });
+    const billUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const tx: any = {
+      bill: { findUnique: billFindUnique, updateMany: billUpdateMany, update: vi.fn().mockResolvedValue({ id: 'bill-ghs', balance: '0.00', status: 'paid' }) },
+      payment: { create: vi.fn().mockResolvedValue({ id: 'payment-ghs', amount: '699.32' }) },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillRepository(prisma);
+
+    const result = await repository.addPayment('bill-ghs', {
+      amount: 699.32,
+      paymentMethod: 'cash' as any,
+    }, 'cashier-ghs');
+
+    const update = billUpdateMany.mock.calls[0][0];
+    expect(update.where.balance.gte.toString()).toBe('699.32');
+    expect(update.data.paidAmount.increment.toString()).toBe('699.32');
+    expect(update.data.balance.decrement.toString()).toBe('699.32');
+    expect(result.payment.id).toBe('payment-ghs');
+  });
+
   it('uses an atomic balance condition before recording a payment', async () => {
     const billFindUnique = vi.fn()
       .mockResolvedValueOnce({ id: 'bill-1', balance: 100, paidAmount: 0, patientPayable: 100, attendanceId: 'attendance-1' })
