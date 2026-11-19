@@ -30,7 +30,6 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, [patientId]);
-  const selectedVaccine = vaccines.find(v => v.id === form.vaccineId);
   const dueRecords = useMemo(() => records.filter(r => r.nextDoseDue).sort((a, b) => new Date(a.nextDoseDue!).getTime() - new Date(b.nextDoseDue!).getTime()), [records]);
   const todayKey = localToday();
   const overdueRecords = dueRecords.filter(r => r.nextDoseDue!.slice(0, 10) < todayKey);
@@ -64,7 +63,7 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
         {canRecord && <button onClick={() => setShowForm(s => !s)} className="inline-flex items-center gap-1.5 rounded-md bg-[var(--icon-cyan-bg)] px-2.5 py-1.5 text-xs font-semibold text-[var(--icon-cyan-text)]"><Syringe className="h-3.5 w-3.5" /> Record vaccination</button>}
       </div>
     </div>
-    {error && <div className="rounded-md border border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)] p-3 text-xs text-[var(--icon-red-text)] flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
+    {error && <div className="rounded-md border border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)] p-3 text-xs text-[var(--icon-red-text)]] flex items-center gap-2"><AlertCircle className="h-4 w-4 shrink-0" />{error}</div>}
     {showCatalogue && canManageCatalogue && <form onSubmit={saveVaccine} className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3">
       <input required placeholder="Code (e.g. BCG)" value={catalogue.code} onChange={e => setCatalogue(s => ({ ...s, code: e.target.value }))} className="rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]" />
       <input required placeholder="Vaccine name" value={catalogue.name} onChange={e => setCatalogue(s => ({ ...s, name: e.target.value }))} className="rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]" />
@@ -92,7 +91,7 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
     </form>}
     {records.length > 0 && <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">Vaccinations recorded</p><p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{records.length}</p></div>
-      <div className="rounded-lg border border-[var(--icon-yellow-text)]/30 bg-[var(--icon-yellow-bg)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-yellow-text)]">Upcoming doses</p><p className="mt-1 text-xl font-bold text-[var(--icon-yellow-text)]">{upcomingRecords.length}</p></div>
+      <div className="rounded-lg border border-[var(--icon-yellow-text)]/30 bg-[var(--icon-yellow-bg)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-yellow-text)]]">Upcoming doses</p><p className="mt-1 text-xl font-bold text-[var(--icon-yellow-text)]">{upcomingRecords.length}</p></div>
       <div className="rounded-lg border border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-red-text)]">Overdue doses</p><p className="mt-1 text-xl font-bold text-[var(--icon-red-text)]">{overdueRecords.length}</p></div>
     </div>}
     {dueRecords.length > 0 && <div className="rounded-lg border border-[var(--border-color)] overflow-hidden">
