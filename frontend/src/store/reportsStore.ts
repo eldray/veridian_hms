@@ -4,6 +4,7 @@ import {
   getGHSOPDReport,
   getGHSIPDReport,
   getGHSIDSRReport,
+  getGHSDeliveryReport,
   getGHSMalariaReport,
   getGHSFormAReport,
   getMorbidityMortalityReport,
@@ -47,6 +48,7 @@ interface ReportsState {
   opdReport: any | null;
   ipdReport: any | null;
   idsrReport: any | null;
+  deliveryReport: any | null;
   malariaReport: any | null;
   formAReport: any | null;
   morbidityMortalityReport: any | null;
@@ -82,6 +84,7 @@ interface ReportsState {
   getGHSOPDReport: (filters: ReportFilter) => Promise<void>;
   getGHSIPDReport: (filters: ReportFilter) => Promise<void>;
   getGHSIDSRReport: (filters: ReportFilter) => Promise<void>;
+  getGHSDeliveryReport: (filters: ReportFilter) => Promise<void>;
   getGHSMalariaReport: (filters: ReportFilter) => Promise<void>;
   getGHSFormAReport: (filters: ReportFilter) => Promise<void>;
   getMorbidityMortalityReport: (filters: ReportFilter) => Promise<void>;
@@ -143,7 +146,7 @@ export const useReportsStore = create<ReportsState>((set) => ({
   error: null,
 
   // initial state
-  opdReport: null, ipdReport: null, idsrReport: null, malariaReport: null,
+  opdReport: null, ipdReport: null, idsrReport: null, deliveryReport: null, malariaReport: null,
   formAReport: null, morbidityMortalityReport: null, topDiagnoses: null,
   familyPlanningReport: null, consultingRoomRegister: null,
   financialReport: null, stockMovementReport: null, insuranceClaimsReport: null, clinicalReport: null,
@@ -176,6 +179,14 @@ export const useReportsStore = create<ReportsState>((set) => ({
     try {
       const data = unwrap(await getGHSIDSRReport(filters));
       set({ idsrReport: data, isLoading: false });
+    } catch (e: any) { set({ error: e.message, isLoading: false }); throw e; }
+  },
+
+  getGHSDeliveryReport: async (filters) => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = unwrap(await getGHSDeliveryReport(filters));
+      set({ deliveryReport: data, isLoading: false });
     } catch (e: any) { set({ error: e.message, isLoading: false }); throw e; }
   },
 
@@ -387,7 +398,7 @@ export const useReportsStore = create<ReportsState>((set) => ({
   clearError: () => set({ error: null }),
 
   clearReports: () => set({
-    opdReport: null, ipdReport: null, idsrReport: null, malariaReport: null,
+    opdReport: null, ipdReport: null, idsrReport: null, deliveryReport: null, malariaReport: null,
     formAReport: null, morbidityMortalityReport: null, topDiagnoses: null,
     familyPlanningReport: null, consultingRoomRegister: null,
     financialReport: null, stockMovementReport: null, insuranceClaimsReport: null, clinicalReport: null,

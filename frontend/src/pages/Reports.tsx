@@ -99,6 +99,7 @@ const GHS_REPORTS = [
   { key: 'ipd', label: 'IPD & Mortality', icon: Hospital, color: 'purple' },
   { key: 'malaria', label: 'Malaria Data', icon: Droplet, color: 'green' },
   { key: 'idsr', label: 'IDSR (Notifiable)', icon: AlertTriangle, color: 'orange' },
+  { key: 'delivery-report', label: 'Delivery Report', icon: Baby, color: 'purple' },
   { key: 'family-planning', label: 'Family Planning', icon: Users, color: 'cyan' },
 ];
 const GHS_REPORT_ROLES = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'];
@@ -122,22 +123,6 @@ const EmptyState = ({ message }: { message: string }) => (
 
 // FIX #9 — statutory returns must match a printed form, so we do not invent labels.
 // If the backend hands us a section we have no curated map for, say so explicitly.
-const NotYetCurated = ({ title, section }: { title: string; section: string }) => (
-  <Card title={title} className="mb-5">
-    <div className="flex items-start gap-3">
-      <AlertTriangle className="w-4 h-4 mt-0.5 text-[var(--icon-orange-text)]" />
-      <div>
-        <p className="text-xs font-semibold text-[var(--text-primary)]">{section} is not rendered on screen yet</p>
-        <p className="text-[11px] text-[var(--text-tertiary)] mt-1 leading-relaxed">
-          The DHIMS2 field names for this section have not been curated against the printed
-          Form A, so it is left blank rather than guessed. Enter these rows directly on the
-          paper return, or raise it with the records officer to add the label map.
-        </p>
-      </div>
-    </div>
-  </Card>
-);
-
 export default function Reports() {
   const goBack = useSmartBack('/dashboard');
   const navigate = useNavigate();
@@ -163,9 +148,9 @@ export default function Reports() {
   const loadDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
-    getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport, getGHSFormAReport,
+    getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSDeliveryReport, getGHSMalariaReport, getGHSFormAReport,
     getFamilyPlanningReport, getMorbidityMortalityReport, getTopDiagnoses, getConsultingRoomRegister, exportReport,
-    opdReport, ipdReport, formAReport, malariaReport, idsrReport, familyPlanningReport,
+    opdReport, ipdReport, formAReport, malariaReport, idsrReport, deliveryReport, familyPlanningReport,
     morbidityMortalityReport, topDiagnoses, consultingRoomRegister, isLoading: storeLoading,
   } = useReportsStore();
 
@@ -192,13 +177,14 @@ export default function Reports() {
         case 'ipd': await getGHSIPDReport(f); break;
         case 'malaria': await getGHSMalariaReport(f); break;
         case 'idsr': await getGHSIDSRReport(f); break;
+        case 'delivery-report': await getGHSDeliveryReport(f); break;
         case 'family-planning': await getFamilyPlanningReport(f); break;
         case 'consulting-room-register': await getConsultingRoomRegister({ ...f, period: 'daily' }); break;
       }
       setGeneratedAt(new Date());
     } catch (err: any) { toastError('Report Error', err.message || 'Failed to generate report'); }
     finally { setIsLoading(false); }
-  }, [reportType, dateRange, getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport,
+  }, [reportType, dateRange, getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSDeliveryReport, getGHSMalariaReport,
       getGHSFormAReport, getFamilyPlanningReport, getMorbidityMortalityReport, getTopDiagnoses,
       getConsultingRoomRegister, toastError]);
 
@@ -228,7 +214,7 @@ export default function Reports() {
     const map: Record<string, any> = {
       'opd-attendance': opdReport, 'consulting-room-register': consultingRoomRegister,
       'opd-morbidity': morbidityMortalityReport, 'top-diagnoses': topDiagnoses, 'form-a': formAReport,
-      'ipd': ipdReport, 'malaria': malariaReport, 'idsr': idsrReport, 'family-planning': familyPlanningReport,
+      'ipd': ipdReport, 'malaria': malariaReport, 'idsr': idsrReport, 'delivery-report': deliveryReport, 'family-planning': familyPlanningReport,
     };
     return map[reportType] ?? null;
   };
@@ -274,7 +260,7 @@ export default function Reports() {
       'opd-attendance': 'OPD Attendance', 'consulting-room-register': 'Consulting Room Register',
       'opd-morbidity': 'OPD Morbidity (Form A)', 'top-diagnoses': 'Top 10 Diagnoses',
       'form-a': 'Form A — Maternal Health', 'ipd': 'IPD & Mortality', 'malaria': 'Malaria Data',
-      'idsr': 'IDSR Notifiable Diseases', 'family-planning': 'Family Planning',
+      'idsr': 'IDSR Notifiable Diseases', 'delivery-report': 'Delivery Report', 'family-planning': 'Family Planning',
     };
     return m[reportType] || 'Report';
   };
@@ -490,12 +476,9 @@ export default function Reports() {
         {renderDiseaseTable('Section 2: Communicable Non-Immunizable', report.communicableNonImmunizable, { uncomplicated_malaria_suspected: 'Malaria - Suspected', uncomplicated_malaria_tested: 'Malaria - Tested', uncomplicated_malaria_positive: 'Malaria - Positive', severe_malaria_lab_confirmed: 'Severe Malaria', typhoid_fever: 'Typhoid Fever', suspected_cholera: 'Suspected Cholera', diarrhoea_diseases: 'Diarrhoea', viral_hepatitis: 'Viral Hepatitis', pneumonia: 'Pneumonia', upper_respiratory_tract_infections: 'URTI' })}
         {renderDiseaseTable('Section 3: Non-Communicable Diseases', report.nonCommunicable, { malnutrition: 'Malnutrition', obesity: 'Obesity', anaemia: 'Anaemia', hypertension: 'Hypertension', cardiac_diseases: 'Cardiac Diseases', stroke: 'Stroke', diabetes_mellitus: 'Diabetes Mellitus', asthma: 'Asthma', sickle_cell_disease: 'Sickle Cell Disease' })}
         {renderDiseaseTable('Section 4: Mental Health', report.mentalHealth, { depression: 'Depression', epilepsy: 'Epilepsy', schizophrenia: 'Schizophrenia', substance_abuse: 'Substance Abuse' })}
-        {/* FIX #9 — Sections 5/6/7 previously passed `{}` and silently rendered nothing.
-            Now they name the gap so it is visible, in line with the "don't fake statutory
-            fields" rule used by the IDSR — and by FormAReportView's own n/c handling. */}
-        <NotYetCurated title="Section 5: Specialized Conditions" section="Section 5 (Specialized Conditions)" />
-        <NotYetCurated title="Section 6: Obstetrics & Gynaecology" section="Section 6 (Obstetrics & Gynaecology)" />
-        <NotYetCurated title="Section 7: Reproductive Tract" section="Section 7 (Reproductive Tract)" />
+        {renderDiseaseTable('Section 5: Specialized Conditions', report.specializedConditions, { acute_eye_infection: 'Acute Eye Infection', cataract: 'Cataract', trachoma: 'Trachoma', otitis_media: 'Otitis Media', other_acute_ear_infection: 'Other Acute Ear Infection', dental_caries: 'Dental Caries', dental_swellings: 'Dental Swellings', traumatic_conditions_oral: 'Traumatic Conditions of Oral Cavity', periodontal_diseases: 'Periodontal Diseases', cerebral_palsy: 'Cerebral Palsy', liver_diseases: 'Liver Diseases', acute_urinary_tract_infection: 'Acute Urinary Tract Infection', skin_diseases: 'Skin Diseases', ulcer: 'Ulcer', kidney_related_diseases: 'Kidney-Related Diseases', other_oral_conditions: 'Other Oral Conditions' })}
+        {renderDiseaseTable('Section 6: Obstetrics & Gynaecology', report.obstetricsGynaecology, { gynaecological_conditions: 'Gynaecological Conditions', pregnancy_related_complications: 'Pregnancy-Related Complications', anaemia_in_pregnancy: 'Anaemia in Pregnancy' })}
+        {renderDiseaseTable('Section 7: Reproductive Tract', report.reproductiveTract, { gonorrhoea: 'Gonorrhoea', genital_ulcer: 'Genital Ulcer', vaginal_discharge: 'Vaginal Discharge', urethral_discharge: 'Urethral Discharge', other_diseases_male_reproductive_system: 'Other Diseases of Male Reproductive System', other_diseases_female_reproductive_system: 'Other Diseases of Female Reproductive System' })}
         {renderDiseaseTable('Section 8: Injuries', report.injuries, { transport_injuries_road_traffic_accidents: 'Road Traffic Accidents', home_injuries: 'Home Injuries', burns: 'Burns', snake_bite: 'Snake Bite', domestic_violence: 'Domestic Violence' })}
         {renderDiseaseTable('Section 9: Re-Attendances & Referrals', report.reAttendancesReferrals, { re_attendances: 'Re-Attendances', referrals: 'Referrals' })}
         <p className="text-center text-[11px] text-[var(--text-tertiary)]">Generated {new Date().toLocaleString()}</p>
@@ -612,7 +595,7 @@ export default function Reports() {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Diseases Reported" value={diseases.length} icon={AlertTriangle} accent="orange" />
+          <StatCard label="Disease Indicators" value={diseases.length} icon={AlertTriangle} accent="orange" />
           <StatCard label="Total Suspected" value={totalSuspected.toLocaleString()} icon={Users} accent="cyan" />
           <StatCard label="Total Confirmed" value={hasAnyConfirmed ? totalConfirmed.toLocaleString() : '—'} icon={Shield} accent="green" />
           <StatCard label="Total Deaths" value={hasAnyDeaths ? totalDeaths.toLocaleString() : '—'} icon={AlertTriangle} accent="red" />
@@ -657,10 +640,76 @@ export default function Reports() {
           </div>
           {(diseases.some((d: any) => d.confirmed == null || d.deaths == null)) && (
             <p className="px-4 py-3 text-[11px] text-[var(--text-tertiary)] border-t border-[var(--border-color)]">
-              Suspected counts the attendances diagnosed with each disease in the period. Laboratory-confirmed cases and deaths are not recorded per
-              disease in the system yet, so they are left blank (—) instead of estimated. Complete them by hand before submitting the IDSR return.
+              Suspected counts are attendance-based diagnosis signals, not unique patients or validated surveillance cases. Laboratory-confirmed cases and deaths are not recorded per disease in this report, and notification status is not tracked here; these fields remain blank (—) instead of being estimated. Verify suspected cases, confirmation, deaths, and required notifications through the facility's surveillance process before submitting the IDSR return.
             </p>
           )}
+        </Card>
+      </div>
+    );
+  };
+
+  // -------------------------------------------------------------------------
+  // Delivery report — uses the existing GHS delivery endpoint and records.
+  // -------------------------------------------------------------------------
+  const renderDeliveryReport = () => {
+    const report = deliveryReport as any;
+    if (!report) return <EmptyState message="No delivery data available" />;
+    const summary = report.summary || {};
+    const breakdowns = report.breakdowns || {};
+    const humanizeKey = (key: string) => humanize(key);
+    const renderBreakdown = (title: string, data: Record<string, number>) => (
+      <Card title={title} icon={ClipboardList} padded={false}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs table-fixed">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr><th className={TEXT_TH}>Category</th><th className={NUM_TH}>Count</th></tr></thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {Object.entries(data || {}).map(([key, value]) => (
+                <tr key={key}><td className={TEXT_TD}>{humanizeKey(key)}</td><td className={NUM_TD_BOLD}>{Number(value || 0).toLocaleString()}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    );
+    const deliveries = Array.isArray(report.deliveries) ? report.deliveries : [];
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <StatCard label="Deliveries" value={Number(summary.totalDeliveries || 0).toLocaleString()} icon={Baby} accent="cyan" />
+          <StatCard label="Caesarean Rate" value={`${Number(summary.csRate || 0).toFixed(1)}%`} icon={Activity} accent="purple" />
+          <StatCard label="Stillbirth Rate / 1,000" value={Number(summary.stillbirthRate || 0).toFixed(1)} icon={AlertTriangle} accent="red" />
+          <StatCard label="Maternal Mortality / 100,000" value={Number(summary.maternalMortalityRate || 0).toLocaleString()} icon={Heart} accent="red" />
+          <StatCard label="Average Birth Weight (g)" value={Number(summary.avgBirthWeight || 0).toLocaleString()} icon={Activity} accent="green" />
+          <StatCard label="Low Birth Weight" value={`${Number(summary.lowBirthWeightRate || 0).toFixed(1)}%`} icon={Baby} accent="orange" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {renderBreakdown("Delivery Type", breakdowns.deliveryType)}
+          {renderBreakdown("Birth Outcomes", breakdowns.outcome)}
+          {renderBreakdown("Maternal Outcomes", breakdowns.maternalOutcome)}
+          {renderBreakdown("Payer Mix", breakdowns.paymentMode)}
+        </div>
+        <Card title="Delivery Records" description={deliveries.length >= 100 ? "The endpoint returns up to 100 records in this report." : `${deliveries.length} delivery record(s)`} icon={Baby} padded={false}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs table-fixed">
+              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr>
+                <th className={TEXT_TH}>Date</th><th className={TEXT_TH}>Folder</th><th className={TEXT_TH}>Type</th><th className={TEXT_TH}>Outcome</th><th className={NUM_TH}>Weight (g)</th><th className={TEXT_TH}>Attendant</th><th className={TEXT_TH}>Maternal outcome</th>
+              </tr></thead>
+              <tbody className="divide-y divide-[var(--border-color)]">
+                {deliveries.map((d: any, index: number) => (
+                  <tr key={d.id || index} className="hover:bg-[var(--bg-main)]">
+                    <td className={TEXT_TD}>{d.deliveryDate ? new Date(d.deliveryDate).toLocaleDateString() : "—"}</td>
+                    <td className={TEXT_TD}>{d.patient?.folderNumber || "—"}</td>
+                    <td className={TEXT_TD}>{humanizeKey(d.deliveryType || "—")}</td>
+                    <td className={TEXT_TD}>{humanizeKey(d.deliveryOutcome || "—")}</td>
+                    <td className={NUM_TD}>{d.birthWeight != null ? Number(d.birthWeight).toLocaleString() : "—"}</td>
+                    <td className={TEXT_TD}>{d.attendant || "—"}</td>
+                    <td className={TEXT_TD}>{humanizeKey(d.maternalOutcome || "—")}</td>
+                  </tr>
+                ))}
+                {!deliveries.length && <tr><td colSpan={7} className="p-6 text-center text-[var(--text-tertiary)]">No deliveries recorded for this period.</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
     );
@@ -723,7 +772,7 @@ export default function Reports() {
     const map: Record<string, () => React.ReactNode> = {
       'consulting-room-register': renderConsultingRoomRegister, 'opd-attendance': renderOPDAttendanceReport,
       'opd-morbidity': renderFullMorbidityReport, 'top-diagnoses': renderTopDiagnoses, 'form-a': renderFormAReport,
-      'ipd': renderIPDReport, 'malaria': renderMalariaReport, 'idsr': renderIDSRReport, 'family-planning': renderFamilyPlanningReport,
+      'ipd': renderIPDReport, 'malaria': renderMalariaReport, 'idsr': renderIDSRReport, 'delivery-report': renderDeliveryReport, 'family-planning': renderFamilyPlanningReport,
     };
     return map[reportType]?.() ?? <EmptyState message="Select a report type to view data" />;
   };
