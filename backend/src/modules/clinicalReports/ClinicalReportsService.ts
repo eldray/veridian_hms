@@ -24,26 +24,77 @@ export class ClinicalReportsService extends BaseService {
   async generateLabReport(filters: ClinicalReportFilters): Promise<LabReportData> {
     this.logInfo('Generating lab report', { startDate: filters.startDate, endDate: filters.endDate });
     const labTests = await this.repository.getLabTests(filters);
-
     const completedTests = labTests.filter(t => t.status === 'completed');
     const totalTurnaround = completedTests.reduce((sum, t) => sum + (t.turnaroundMinutes || 0), 0);
 
-    const testCounts: Record<string, { count: number; positive: number }> = {};
+    // Lab result payloads may be scalar, a {value} object, or the parameters
+    // object saved by LabResultsEntry. Read only structured test fields for HIV.
+    const resultFields = (test: any): Record<string, any> => {
+      const result = test.result;
+      if (result == null) return {};
+      if (typeof result === 'string') return { result };
+      if (typeof result !== 'object') return { result };
+      return { ...(result.parameters && typeof result.parameters === 'object' ? result.parameters : {}), ...result };
+    };
+    const normalizeResult = (value: any): string => String(value ?? '').trim().toLowerCase().replace(/[()\[\]+]/g, '').replace(/[_-]/g, ' ');
+    const positive = (value: any) => /(^|\\b)positive(\\b|$)|reactive/.test(normalizeResult(value));
+    const negative = (value: any) => /(^|\\b)negative(\\b|$)|non reactive|nonreactive/.test(normalizeResult(value));
+    const indeterminate = (value: any) => /indeterminate|invalid|inconclusive/.test(normalizeResult(value));
+    const testCounts: Record<string, { count: number; completed: number; resulted: number; positive: number }> = {};
     for (const test of labTests) {
-      const testName = test.LabTestTemplate?.name || 'Unknown';
-      if (!testCounts[testName]) testCounts[testName] = { count: 0, positive: 0 };
+      const testName = test.LabTestTemplate?.name || test.ServiceCatalog?.name || 'Unknown';
+      if (!testCounts[testName]) testCounts[testName] = { count: 0, completed: 0, resulted: 0, positive: 0 };
       testCounts[testName].count++;
-
-      const result = test.result as any;
-      if (result && (result.result?.toLowerCase().includes('positive') || result.value === 'positive')) {
-        testCounts[testName].positive++;
+      if (test.status === 'completed') {
+        testCounts[testName].completed++;
+        const fields = resultFields(test);
+        const vals = Object.values(fields).filter(v => v != null && String(v).trim() !== '');
+        if (vals.length) testCounts[testName].resulted++;
+        if (vals.some(positive)) testCounts[testName].positive++;
       }
     }
+    const allTests = Object.entries(testCounts).map(([testName, data]) => ({
+      testName, count: data.count, completed: data.completed, resulted: data.resulted,
+      positive: data.positive, positiveRate: data.resulted ? (data.positive / data.resulted) * 100 : 0,
+    })).sort((a, b) => b.count - a.count || a.testName.localeCompare(b.testName));
+    const topTests = allTests.slice(0, 10);
 
-    const topTests = Object.entries(testCounts)
-      .map(([name, data]) => ({ testName: name, count: data.count, positiveRate: (data.positive / data.count) * 100 }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+    const hivTests = labTests.filter(test => {
+      const name = (test.LabTestTemplate?.name || test.ServiceCatalog?.name || '').toLowerCase();
+      // HIV screening and confirmatory assays only; CD4 is monitoring, not HIV diagnosis.
+      return /\\bhiv\\b/.test(name) && !/cd4/.test(name);
+    });
+    const hivCompleted = hivTests.filter(test => test.status === 'completed');
+    const hivResults = hivCompleted.map(test => {
+      const fields = resultFields(test);
+      const values = Object.entries(fields).filter(([key, value]) =>
+        /hiv|screen|confirm|result/i.test(key) && value != null && String(value).trim() !== '',
+      ).map(([, value]) => value);
+      const positiveResult = values.some(positive);
+      const negativeResult = values.some(negative);
+      const indeterminateResult = values.some(indeterminate);
+      return { test, positive: positiveResult, negative: negativeResult && !positiveResult, indeterminate: indeterminateResult, hasResult: values.length > 0 };
+    });
+    const hivTestCounts: Record<string, { ordered: number; completed: number; positive: number; negative: number; indeterminate: number; resultsEntered: number }> = {};
+    hivTests.forEach(test => {
+      const name = test.LabTestTemplate?.name || test.ServiceCatalog?.name || 'HIV test';
+      if (!hivTestCounts[name]) hivTestCounts[name] = { ordered: 0, completed: 0, positive: 0, negative: 0, indeterminate: 0, resultsEntered: 0 };
+      hivTestCounts[name].ordered++;
+    });
+    hivResults.forEach(item => {
+      const name = item.test.LabTestTemplate?.name || item.test.ServiceCatalog?.name || 'HIV test';
+      const row = hivTestCounts[name];
+      row.completed++;
+      if (item.hasResult) row.resultsEntered++;
+      if (item.positive) row.positive++;
+      if (item.negative) row.negative++;
+      if (item.indeterminate) row.indeterminate++;
+    });
+    const hivBreakdown = Object.entries(hivTestCounts).map(([testName, counts]) => ({ testName, ...counts })).sort((a,b) => b.ordered-a.ordered);
+    const hivPositive = hivResults.filter(r => r.positive).length;
+    const hivNegative = hivResults.filter(r => r.negative).length;
+    const hivIndeterminate = hivResults.filter(r => r.indeterminate).length;
+    const hivResultsEntered = hivResults.filter(r => r.hasResult).length;
 
     return {
       period: { startDate: filters.startDate, endDate: filters.endDate },
@@ -61,8 +112,20 @@ export class ClinicalReportsService extends BaseService {
           stat: labTests.filter(t => t.priority === 'stat').length,
         },
         averageTurnaroundTime: completedTests.length > 0 ? Math.round(totalTurnaround / completedTests.length) : 0,
+        hiv: {
+          testsOrdered: hivTests.length,
+          completed: hivCompleted.length,
+          resultsEntered: hivResultsEntered,
+          positive: hivPositive,
+          negative: hivNegative,
+          indeterminate: hivIndeterminate,
+          pending: hivTests.filter(t => t.status === 'requested' || t.status === 'in_progress').length,
+          positivityRate: hivResultsEntered ? Math.round((hivPositive / hivResultsEntered) * 1000) / 10 : null,
+        },
       },
       topTests,
+      allTests,
+      hivTestBreakdown: hivBreakdown,
       positivityRates: topTests.map(t => ({ testName: t.testName, rate: t.positiveRate.toFixed(1) })),
     };
   }
