@@ -640,8 +640,14 @@ export class UserService extends BaseService {
     if (!target) throw new Error('User not found');
     const targetRole = String(target.role).toLowerCase();
     const actorRole = String(actor.role).toLowerCase();
+    if (['admin', 'super_admin'].includes(targetRole) && actorRole !== 'super_admin' && !isSelf) {
+      throw new ForbiddenError('Only Super Admin can modify another administrator account');
+    }
     if (targetRole === 'super_admin' && actorRole !== 'super_admin') {
       throw new ForbiddenError('Only super admins can modify a super-admin account');
+    }
+    if (isSelf && payload.user?.role && String(payload.user.role).toLowerCase() !== targetRole) {
+      throw new ForbiddenError('You cannot change your own role through this endpoint');
     }
 
     if (payload.user && Object.keys(payload.user).length > 0) {
