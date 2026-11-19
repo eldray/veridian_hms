@@ -72,9 +72,9 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
       this.getModel().findMany({
         where,
         include: {
-          patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, dateOfBirth: true, gender: true, paymentMode: true, nhisNumber: true, insuranceProviderId: true } },
+          patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, dateOfBirth: true, gender: true, imageUrl: true, paymentMode: true, nhisNumber: true, insuranceProviderId: true } },
           attendance: { select: { id: true, attendanceNumber: true, dateTime: true, attendanceType: true, encounterCategory: true, paymentMode: true, InsuranceProvider: { select: { id: true, name: true, type: true } }, CorporateAccount: { select: { id: true, companyName: true } } } },
-          createdBy: { select: { id: true, fullName: true, username: true, role: true } }
+          createdBy: { select: { id: true, fullName: true, username: true, role: true, imageUrl: true } }
         },
         orderBy: { referralDate: 'desc' },
         skip, take: limitNum
@@ -100,9 +100,9 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
     const referral = await this.getModel().findUnique({
       where: { id },
       include: {
-        patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, address: true, dateOfBirth: true, gender: true, paymentMode: true, nhisNumber: true, insuranceProviderId: true, InsuranceProvider: { select: { id: true, name: true, type: true } } } },
+        patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, address: true, dateOfBirth: true, gender: true, imageUrl: true, paymentMode: true, nhisNumber: true, insuranceProviderId: true, InsuranceProvider: { select: { id: true, name: true, type: true } } } },
         attendance: { select: { id: true, attendanceNumber: true, dateTime: true, attendanceType: true, encounterCategory: true, paymentMode: true, nhisCCC: true, InsuranceProvider: { select: { id: true, name: true, type: true } }, CorporateAccount: { select: { id: true, companyName: true } }, AttendanceDiagnosis: { include: { Diagnosis: { select: { name: true, icdCode: true, morbidityGroup: true } } } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } } },
-        createdBy: { select: { id: true, fullName: true, role: true } }
+        createdBy: { select: { id: true, fullName: true, role: true, imageUrl: true } }
       }
     });
 
@@ -130,7 +130,7 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
         referralNotes: data.referralNotes, status: 'pending', createdById,
         structuredForm: (data.structuredForm as Prisma.InputJsonValue) ?? Prisma.JsonNull
       },
-      include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, createdBy: { select: { fullName: true, role: true } } }
+      include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true } }, createdBy: { select: { fullName: true, role: true, imageUrl: true } } }
     });
   }
 
