@@ -39,6 +39,7 @@ export default function Appointments() {
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [activeWorkspace, setActiveWorkspace] = useState<'appointments' | 'immunizations'>('appointments');
+  const canViewImmunizationFollowups = ['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records'].includes(String(user?.role || ''));
   const [immunizationDue, setImmunizationDue] = useState<any[]>([]);
   const [immunizationLoading, setImmunizationLoading] = useState(false);
   const [immunizationError, setImmunizationError] = useState('');
@@ -164,9 +165,9 @@ export default function Appointments() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4"><StatCard label="Total Appointments" value={stats.total} /><StatCard label="Scheduled" value={stats.scheduled} accent="blue" /><StatCard label="Confirmed" value={stats.confirmed} accent="green" /><StatCard label="Today" value={stats.today} accent="purple" /></div>
       <div className="flex flex-wrap gap-2 border-b border-[var(--border-color)] pb-3">
         <Button size="sm" variant={activeWorkspace === 'appointments' ? 'soft' : 'ghost'} accent="purple" icon={Calendar} onClick={() => setActiveWorkspace('appointments')}>Appointments</Button>
-        <Button size="sm" variant={activeWorkspace === 'immunizations' ? 'soft' : 'ghost'} accent="cyan" icon={Syringe} onClick={() => setActiveWorkspace('immunizations')}>Immunization follow-ups</Button>
+        {canViewImmunizationFollowups && <Button size="sm" variant={activeWorkspace === 'immunizations' ? 'soft' : 'ghost'} accent="cyan" icon={Syringe} onClick={() => setActiveWorkspace('immunizations')}>Immunization follow-ups</Button>}
       </div>
-      {activeWorkspace === 'immunizations' && (
+      {activeWorkspace === 'immunizations' && canViewImmunizationFollowups && (
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><h2 className="text-lg font-semibold text-[var(--text-primary)]">Vaccine doses due and overdue</h2><p className="text-sm text-[var(--text-secondary)]">Patients with a recorded next-dose date up to the next 30 days, including overdue doses.</p></div>
