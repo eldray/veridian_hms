@@ -16,6 +16,14 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     res.json({ success: true, data: vaccines });
   });
 
+  router.get('/vaccines/manage', requireRole(['admin', 'super_admin'] as UserRole[]), async (_req: Request, res: Response) => {
+    const vaccines = await prisma.vaccine.findMany({
+      include: { StockItem: { select: { id: true, name: true, drugCode: true, category: true, currentStock: true } } },
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }]
+    });
+    return res.json({ success: true, data: vaccines });
+  });
+
   router.get('/vaccine-stock-items', requireRole(['admin', 'super_admin'] as UserRole[]), async (_req: Request, res: Response) => {
     const items = await prisma.stockItem.findMany({
       where: { isActive: true, category: { equals: 'vaccine', mode: 'insensitive' } },
