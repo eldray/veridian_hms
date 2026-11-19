@@ -46,7 +46,10 @@ export class BillRepository extends BaseRepository<any, any, any> {
     if (counterClientId) where.counterClientId = counterClientId;
     if (attendanceId) where.attendanceId = attendanceId;
     if (status) where.status = Array.isArray(status) ? { in: status } : status;
-    if (paymentMode) where.paymentMode = paymentMode;
+    // Private-insurance and corporate visits are Claims-only, never operational Bills.
+    where.paymentMode = paymentMode
+      ? { equals: paymentMode, notIn: ['private_insurance', 'corporate'] }
+      : { notIn: ['private_insurance', 'corporate'] };
     if (dateFrom || dateTo) {
       where.billDate = {};
       if (dateFrom) where.billDate.gte = dateFrom;
@@ -343,7 +346,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
   async getStatistics(dateFrom?: Date, dateTo?: Date) {
     const startDate = dateFrom || new Date(new Date().setMonth(new Date().getMonth() - 1));
     const endDate = dateTo || new Date();
-    const where = { billDate: { gte: startDate, lte: endDate } };
+    const where = { billDate: { gte: startDate, lte: endDate }, paymentMode: { notIn: ['private_insurance', 'corporate'] } };
 
     const [totalBills, totalAmount, totalPaid, totalPending, byPaymentMode, byStatus] = await Promise.all([
       this.count(where),
