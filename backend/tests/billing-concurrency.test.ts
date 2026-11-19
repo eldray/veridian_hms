@@ -21,9 +21,9 @@ describe('billing payment concurrency guards', () => {
     }, 'cashier-ghs');
 
     const update = billUpdateMany.mock.calls[0][0];
-    expect(update.where.balance.gte.toString()).toBe('699.32');
-    expect(update.data.paidAmount.increment.toString()).toBe('699.32');
-    expect(update.data.balance.decrement.toString()).toBe('699.32');
+    expect(update.where.balance.gte.toFixed(2)).toBe('699.32');
+    expect(update.data.paidAmount.increment.toFixed(2)).toBe('699.32');
+    expect(update.data.balance.decrement.toFixed(2)).toBe('699.32');
     expect(result.payment.id).toBe('payment-ghs');
   });
 
@@ -50,9 +50,9 @@ describe('billing payment concurrency guards', () => {
 
     const paymentUpdate = billUpdateMany.mock.calls[0][0];
     expect(paymentUpdate.where).toMatchObject({ id: 'bill-1', status: { not: 'cancelled' } });
-    expect(paymentUpdate.where.balance.gte.toString()).toBe('100.00');
-    expect(paymentUpdate.data.paidAmount.increment.toString()).toBe('100.00');
-    expect(paymentUpdate.data.balance.decrement.toString()).toBe('100.00');
+    expect(paymentUpdate.where.balance.gte.toFixed(2)).toBe('100.00');
+    expect(paymentUpdate.data.paidAmount.increment.toFixed(2)).toBe('100.00');
+    expect(paymentUpdate.data.balance.decrement.toFixed(2)).toBe('100.00');
     expect(result.payment.id).toBe('payment-1');
     expect(attendanceUpdate).toHaveBeenCalledWith({
       where: { id: 'attendance-1' },
@@ -81,7 +81,7 @@ describe('billing payment concurrency guards', () => {
 
     expect(paymentCreate).not.toHaveBeenCalled();
     const rejectedUpdate = billUpdateMany.mock.calls[0][0];
-    expect(rejectedUpdate.where.balance.gte.toString()).toBe('80.00');
+    expect(rejectedUpdate.where.balance.gte.toFixed(2)).toBe('80.00');
   });
 });
 
