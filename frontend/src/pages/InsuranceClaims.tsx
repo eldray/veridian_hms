@@ -36,7 +36,7 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
     const filters: any = {}; if (startDate) filters.startDate = startDate; if (endDate) filters.endDate = endDate;
     try { if (activeTab === 'nhis') await getNHISClaims(filters); else if (activeTab === 'private') await getPrivateInsuranceClaims(filters); else await getCorporateClaims(filters); }
     catch (e: any) { toastError('Load failed', e?.response?.data?.message || e?.message || 'Could not fetch claims'); }
-    try { const w: any = { status: 'completed', paymentMode: paymentModeForTab, limit: 200 }; w.dateFrom = startDate ? new Date(startDate).toISOString() : new Date(Date.now()-30*86400000).toISOString(); if (endDate) { const to=new Date(endDate); to.setHours(23,59,59,999); w.dateTo=to.toISOString(); } await getAttendances(w); } catch {}
+    try { const w: any = { status: 'completed', paymentMode: paymentModeForTab, limit: 5000 }; w.dateFrom = startDate ? new Date(startDate).toISOString() : new Date(Date.now()-30*86400000).toISOString(); if (endDate) { const to=new Date(endDate); to.setHours(23,59,59,999); w.dateTo=to.toISOString(); } await getAttendances(w); } catch {}
     try { await getClaimsSummary(activeTab); } catch {}
   };
   useEffect(() => { loadData(); }, [activeTab, startDate, endDate]);
