@@ -57,6 +57,14 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
 
   // PRODUCTION FIX: Thread-safe inventory update using atomic decrement
   async createSafely(data: any) {
+    // Preserve boundary validation before opening a transaction. Besides avoiding
+    // unnecessary DB work, callers and tests rely on malformed quantities failing
+    // even when the transaction adapter is mocked.
+    const numericQuantity = Number(data.quantity);
+    if (!data.stockItemId || !Number.isSafeInteger(numericQuantity) || numericQuantity === 0 ||
+        (numericQuantity < 0 && data.transactionType !== 'adjustment')) {
+      throw new ValidationError('Stock quantity must be a non-zero whole number; negative quantities are only allowed for adjustments');
+    }
     return this.prisma.$transaction((tx) => this.createWithinTransaction(tx, data));
   }
 
