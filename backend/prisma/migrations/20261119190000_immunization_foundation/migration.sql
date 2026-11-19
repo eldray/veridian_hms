@@ -1,3 +1,5 @@
+ALTER TYPE "AttendanceType" ADD VALUE IF NOT EXISTS 'immunization';
+
 -- Immunization catalogue and administration history
 CREATE TABLE "vaccines" (
   "id" TEXT NOT NULL,
