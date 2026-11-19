@@ -55,6 +55,7 @@ interface InvestigationItem {
   date: string;
   serviceCatalogId?: string;
   type?: 'lab' | 'scan';
+  sourceId?: string;
   /** What the claim line was billed at; null until the claim is saved. */
   unitPrice?: number | null;
   lineTotal?: number | null;
@@ -122,6 +123,8 @@ const moneyCell = (value: any): string => {
   return value === null || value === undefined ? '—' : `GHS ${n.toFixed(2)}`;
 };
 
+const NHIS_ULTRASOUND_INVESTIGATION_CODE = 'INVE30E';
+
 const buildItemPayload = (args: {
   diagnoses: DiagnosisItem[];
   investigations: InvestigationItem[];
@@ -155,6 +158,8 @@ const buildItemPayload = (args: {
       lineTotal: inv.lineTotal ?? 0,
       serviceDate: inv.date || null,
       serviceCatalogId: inv.serviceCatalogId ?? null,
+      labTestId: inv.type === 'lab' ? inv.sourceId ?? null : null,
+      scanId: inv.type === 'scan' ? inv.sourceId ?? null : null,
     });
   }
 
@@ -495,6 +500,7 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }:
 
   const items = kind === 'lab' ? labTestTemplates : scanTemplates;
   const codeField = kind === 'lab' ? 'investigationCode' : 'scanCode';
+  const nhisCodeFor = (item: any) => kind === 'scan' ? NHIS_ULTRASOUND_INVESTIGATION_CODE : String(item?.investigationCode || '');
 
   // Current selection: what the user picked, else the row being edited
   const selectedItem = pickedItem ?? (editing
@@ -505,14 +511,16 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }:
 
   const filtered = items.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item[codeField] || '').toLowerCase().includes(searchTerm.toLowerCase())
+    String((item as any)[codeField] || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String((item as any).investigationCode || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
     if (!selectedItem) return;
     onAdd({
       id: editing?.id,
-      gdrgCode: selectedItem[codeField] || selectedItem.code || 'INVE000',
+      gdrgCode: nhisCodeFor(selectedItem) || (selectedItem as any)[codeField] || (selectedItem as any).code || '',
+      sourceId: selectedItem.id,
       description: selectedItem.name,
       date: serviceDate,
       serviceCatalogId: selectedItem.id,
@@ -582,7 +590,7 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }:
                 }`}
               >
                 <div className="font-medium text-sm">{item.name}</div>
-                <div className="text-xs text-[var(--text-secondary)]">Code: {item[codeField] || item.code}</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {nhisCodeFor(item) || (item as any)[codeField] || (item as any).code || 'Missing INVE code'}</div>
               </button>
             ))}
           </div>
@@ -1155,7 +1163,9 @@ export default function EditNHISClaim() {
         description: i.description,
         date: i.serviceDate ? String(i.serviceDate).split('T')[0] : '',
         serviceCatalogId: i.serviceCatalogId,
-        type: 'lab' as const,
+        type: (i.scanId ? 'scan' : 'lab') as 'lab' | 'scan',
+        sourceId: i.scanId || i.labTestId || undefined,
+        gdrgCode: i.scanId ? NHIS_ULTRASOUND_INVESTIGATION_CODE : (i.code || ''),
         unitPrice: i.unitPrice,
         lineTotal: i.lineTotal,
       })));
@@ -1164,7 +1174,8 @@ export default function EditNHISClaim() {
     } else {
       const labs = (attendance?.labTest ?? attendance?.LabTest ?? []).map((l: any) => ({
         id: l.id,
-        gdrgCode: l.serviceCatalog?.investigationCode || l.ServiceCatalog?.investigationCode || '',
+        gdrgCode: l.LabTestTemplate?.investigationCode || l.labTestTemplate?.investigationCode || l.serviceCatalog?.nhisServiceCode || l.ServiceCatalog?.nhisServiceCode || '',
+        sourceId: l.id,
         description: l.serviceCatalog?.name || l.ServiceCatalog?.name || l.name || '',
         date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : '',
         serviceCatalogId: l.serviceCatalogId,
@@ -1172,7 +1183,8 @@ export default function EditNHISClaim() {
       }));
       const scans = (attendance?.scan ?? attendance?.Scan ?? []).map((s: any) => ({
         id: s.id,
-        gdrgCode: s.serviceCatalog?.investigationCode || s.ServiceCatalog?.investigationCode || '',
+        gdrgCode: NHIS_ULTRASOUND_INVESTIGATION_CODE,
+        sourceId: s.id,
         description: s.serviceCatalog?.name || s.ServiceCatalog?.name || s.name || '',
         date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : '',
         serviceCatalogId: s.serviceCatalogId,
