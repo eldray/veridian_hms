@@ -364,7 +364,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         totalAmount: toNumber(totalAmount._sum?.totalAmount), // ✅ FIXED: Parse Decimal
         totalPaid: toNumber(totalPaid._sum?.paidAmount),       // ✅ FIXED: Parse Decimal
         totalPending,
-        collectionRate: totalAmount._sum.totalAmount ? (toNumber(totalPaid._sum.paidAmount) / toNumber(totalAmount._sum.totalAmount)) * 100 : 0
+        collectionRate: totalAmount._sum?.totalAmount ? (toNumber(totalPaid._sum?.paidAmount) / toNumber(totalAmount._sum?.totalAmount)) * 100 : 0
       },
       byPaymentMode, byStatus
     };
