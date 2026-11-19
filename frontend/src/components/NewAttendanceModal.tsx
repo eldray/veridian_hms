@@ -7,7 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
 import { describeApiError } from '../utils/apiError';
-import { X, Save, User, CheckCircle, CreditCard, Tag, Shield, Building, AlertCircle, Calendar, Clock, FileText, Stethoscope } from 'lucide-react';
+import { X, Save, User, CheckCircle, CreditCard, Tag, Shield, Building, AlertCircle, Calendar, Clock, FileText, Stethoscope, Syringe } from 'lucide-react';
 import type { AttendanceType, PaymentMode, AttendanceStatus } from '../types';
 import ComplaintInput from './ComplaintInput';
 
@@ -257,7 +257,8 @@ export default function NewAttendanceModal({
     { id: 'chronic_followup', name: 'Chronic Follow-up', icon: <Clock className="w-3.5 h-3.5" /> },
     { id: 'specialist_consultation', name: 'Specialist Consultation', icon: <Stethoscope className="w-3.5 h-3.5" /> },
     { id: 'delivery', name: 'Delivery', icon: <User className="w-3.5 h-3.5" /> },
-    { id: 'surgery', name: 'Surgery', icon: <FileText className="w-3.5 h-3.5" /> }
+    { id: 'surgery', name: 'Surgery', icon: <FileText className="w-3.5 h-3.5" /> },
+    { id: 'immunization', name: 'Immunization / Vaccination', icon: <Syringe className="w-3.5 h-3.5" /> }
   ];
 
   const getColorClasses = (color: string) => {
