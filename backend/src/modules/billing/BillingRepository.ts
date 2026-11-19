@@ -42,7 +42,11 @@ export class BillingRepository extends BaseRepository<any, any, any> {
 
     if (patientId) where.patientId = patientId;
     if (status) where.status = Array.isArray(status) ? { in: status } : status;
-    if (paymentMode) where.paymentMode = paymentMode;
+    // Insurance and corporate attendances belong in Claims, never the operational Billing register.
+    // Keep historical Bill rows in storage; exclude them from this view.
+    where.paymentMode = paymentMode
+      ? { in: [paymentMode], notIn: ['private_insurance', 'corporate'] }
+      : { notIn: ['private_insurance', 'corporate'] };
     if (dateFrom || dateTo) {
       where.billDate = {};
       if (dateFrom) where.billDate.gte = new Date(dateFrom);
