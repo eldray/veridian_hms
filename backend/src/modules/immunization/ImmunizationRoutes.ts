@@ -10,8 +10,17 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
   const writeRoles: UserRole[] = ['admin', 'super_admin', 'doctor', 'nurse', 'midwife'];
 
   router.get('/vaccines', requireRole(readRoles), async (_req: Request, res: Response) => {
-    const vaccines = await prisma.vaccine.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
+    const vaccines = await prisma.vaccine.findMany({ where: { isActive: true }, include: { StockItem: { select: { id: true, name: true, drugCode: true, category: true, currentStock: true } } }, orderBy: { name: 'asc' } });
     res.json({ success: true, data: vaccines });
+  });
+
+  router.get('/vaccine-stock-items', requireRole(['admin', 'super_admin'] as UserRole[]), async (_req: Request, res: Response) => {
+    const items = await prisma.stockItem.findMany({
+      where: { isActive: true, category: { equals: 'vaccine', mode: 'insensitive' } },
+      select: { id: true, name: true, drugCode: true, currentStock: true, unitOfMeasure: true },
+      orderBy: { name: 'asc' }
+    });
+    return res.json({ success: true, data: items });
   });
 
   router.post('/vaccines', requireRole(['admin', 'super_admin'] as UserRole[]), async (req: AuthRequest, res: Response) => {
@@ -19,8 +28,13 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     if (!String(code ?? '').trim() || !String(name ?? '').trim()) {
       return res.status(400).json({ success: false, message: 'Vaccine code and name are required.' });
     }
+    const stockItemId = req.body.stockItemId || null;
+    if (stockItemId) {
+      const item = await prisma.stockItem.findUnique({ where: { id: stockItemId }, select: { id: true, category: true } });
+      if (!item || item.category.toLowerCase() !== 'vaccine') return res.status(400).json({ success: false, message: 'Select a medicine item in the Vaccine category.' });
+    }
     const vaccine = await prisma.vaccine.create({ data: {
-      code: String(code).trim().toUpperCase(), name: String(name).trim(),
+      code: String(code).trim().toUpperCase(), name: String(name).trim(), stockItemId,
       description: req.body.description || null,
       diseaseTargets: Array.isArray(req.body.diseaseTargets) ? req.body.diseaseTargets : [],
       recommendedAge: req.body.recommendedAge || null,
@@ -35,6 +49,10 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     const { code, name } = req.body ?? {};
     if (code !== undefined && !String(code).trim()) return res.status(400).json({ success: false, message: 'Vaccine code cannot be empty.' });
     if (name !== undefined && !String(name).trim()) return res.status(400).json({ success: false, message: 'Vaccine name cannot be empty.' });
+    if (req.body.stockItemId) {
+      const item = await prisma.stockItem.findUnique({ where: { id: req.body.stockItemId }, select: { id: true, category: true } });
+      if (!item || item.category.toLowerCase() !== 'vaccine') return res.status(400).json({ success: false, message: 'Select a medicine item in the Vaccine category.' });
+    }
     const vaccine = await prisma.vaccine.update({ where: { id: req.params.id }, data: {
       ...(code !== undefined ? { code: String(code).trim().toUpperCase() } : {}),
       ...(name !== undefined ? { name: String(name).trim() } : {}),
@@ -44,6 +62,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
       ...(req.body.doseSchedule !== undefined ? { doseSchedule: req.body.doseSchedule } : {}),
       ...(req.body.defaultDoseVolume !== undefined ? { defaultDoseVolume: req.body.defaultDoseVolume || null } : {}),
       ...(req.body.defaultRoute !== undefined ? { defaultRoute: req.body.defaultRoute || null } : {}),
+      ...(req.body.stockItemId !== undefined ? { stockItemId: req.body.stockItemId || null } : {}),
       ...(req.body.isActive !== undefined ? { isActive: Boolean(req.body.isActive) } : {})
     }});
     return res.json({ success: true, data: vaccine });
