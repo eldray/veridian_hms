@@ -577,7 +577,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     const itemsPromise = this.getModel().findMany({
       where,
       select: {
-        id: true, name: true, category: true, currentStock: true,
+        id: true, name: true, category: true, currentStock: true, unitOfMeasure: true,
         costPrice: true, reorderLevel: true, isMedication: true,
         _count: { select: { StockBatch: true } },
         StockBatch: {
