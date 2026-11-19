@@ -14,12 +14,15 @@ export interface LabReportSummary {
   byStatus: Record<string, number>;
   byPriority: Record<string, number>;
   averageTurnaroundTime: number;
+  hiv: { testsOrdered: number; completed: number; resultsEntered: number; positive: number; negative: number; indeterminate: number; pending: number; positivityRate: number | null };
 }
 
 export interface LabReportData {
   period: ClinicalReportPeriod;
   summary: LabReportSummary;
-  topTests: Array<{ testName: string; count: number; positiveRate: number }>;
+  topTests: Array<{ testName: string; count: number; completed: number; resulted: number; positive: number; positiveRate: number }>;
+  allTests: Array<{ testName: string; count: number; completed: number; resulted: number; positive: number; positiveRate: number }>;
+  hivTestBreakdown: Array<{ testName: string; ordered: number; completed: number; positive: number; negative: number; indeterminate: number; resultsEntered: number }>;
   positivityRates: Array<{ testName: string; rate: string }>;
 }
 
