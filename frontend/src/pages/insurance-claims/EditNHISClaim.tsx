@@ -1169,21 +1169,28 @@ export default function EditNHISClaim() {
       type: 'scan' as const,
     }));
     if (invFromServer.length) {
-      const saved = invFromServer.map((i: any) => ({
-        id: i.id,
-        gdrgCode: i.scanId ? 'INVE30E' : i.code,
-        description: i.description,
-        date: i.serviceDate ? String(i.serviceDate).split('T')[0] : '',
-        serviceCatalogId: i.serviceCatalogId,
-        type: (i.scanId ? 'scan' : 'lab') as 'lab' | 'scan',
-        unitPrice: i.unitPrice,
-        lineTotal: i.lineTotal,
-      }));
-      // Older claims can have incomplete itemization. Restore any encounter investigation
-      // that has no saved claim line, without duplicating lines already represented.
+      const saved = invFromServer.map((i: any) => {
+        const matchingScan = !!i.scanId || attendanceScans.some((scan: any) =>
+          scan.serviceCatalogId && scan.serviceCatalogId === i.serviceCatalogId);
+        return {
+          id: i.id,
+          gdrgCode: matchingScan ? 'INVE30E' : i.code,
+          description: i.description,
+          date: i.serviceDate ? String(i.serviceDate).split('T')[0] : '',
+          serviceCatalogId: i.serviceCatalogId,
+          type: (matchingScan ? 'scan' : 'lab') as 'lab' | 'scan',
+          unitPrice: i.unitPrice,
+          lineTotal: i.lineTotal,
+        };
+      });
+      // Older claims can have incomplete itemization. Restore encounter investigations
+      // missing from the saved lines, matching by source id or service-catalog identity.
       const savedSourceIds = new Set(invFromServer.flatMap((i: any) => [i.labTestId, i.scanId]).filter(Boolean));
-      const missingAttendanceItems = [...attendanceLabs, ...attendanceScans]
-        .filter((item: any) => !savedSourceIds.has(item.id));
+      const represented = new Set(saved.map((item: any) => `${item.type}:${item.serviceCatalogId || ''}`));
+      const missingAttendanceItems = [...attendanceLabs, ...attendanceScans].filter((item: any) =>
+        !savedSourceIds.has(item.id) &&
+        !(item.serviceCatalogId && represented.has(`${item.type}:${item.serviceCatalogId}`)),
+      );
       setInvestigations([...saved, ...missingAttendanceItems]);
     } else if (meta.investigations?.length) {
       setInvestigations(meta.investigations.map((item: any) => ({
