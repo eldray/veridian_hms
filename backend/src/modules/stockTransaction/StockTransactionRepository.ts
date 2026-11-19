@@ -73,7 +73,6 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     const effectiveQuantity = Math.abs(numericQuantity);
     const adjustmentDirection = transactionType === 'adjustment' ? (numericQuantity < 0 ? 'decrease' : 'increase') : undefined;
 
-    {
 
       if (transactionType === 'transfer_in' || transactionType === 'transfer_out') {
         throw new ValidationError('Internal transfers must use the dedicated stock transfer or requisition fulfilment workflow');
