@@ -1841,7 +1841,7 @@ export default function EditNHISClaim() {
           ) : undefined}
         >
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>INVE Code</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {investigations.map((inv, idx) => (
                 <tr key={idx} className="border-t border-gray-100">
