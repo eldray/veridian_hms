@@ -4312,6 +4312,7 @@ model ImmunizationRecord {
 
   @@index([patientId, administeredAt])
   @@index([attendanceId])
+  @@unique([attendanceId, vaccineId, doseNumber])
   @@index([vaccineId, administeredAt])
   @@index([nextDoseDue])
   @@index([batchNumber])
