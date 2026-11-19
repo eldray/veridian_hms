@@ -784,7 +784,7 @@ ${claimsXml}
 
       const att = await tx.attendance.findUnique({
         where: { id: attendanceId },
-        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: 'dispensed' }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true } } }
+        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: 'dispensed' }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { LabTestTemplate: true, ServiceCatalog: true } }, Scan: { where: { status: 'completed' }, include: { ScanTemplate: true, ServiceCatalog: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true } } }
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
@@ -1073,23 +1073,34 @@ ${claimsXml}
           diagnosisId: d.diagnosisId,
           gdrgTariffId: gdrgIdForDiagnosis(d.diagnosisId),
         })),
-        ...att.LabTest.map((l) => ({
-          itemCategory: 'investigation',
-          itemType: 'N',
-          code: l.ServiceCatalog?.nhisServiceCode ?? l.ServiceCatalog?.code ?? '',
-          description: l.ServiceCatalog?.name ?? '',
-          quantity: 1,
-          unitPrice: 0,
-          lineTotal: 0,
-          serviceDate: l.completedAt ?? att.dateTime,
-          labTestId: l.id,
-          serviceCatalogId: l.serviceCatalogId ?? null,
-        })),
+        ...att.LabTest.map((l) => {
+          const investigationCode = String(
+            l.LabTestTemplate?.investigationCode ?? l.ServiceCatalog?.nhisServiceCode ?? '',
+          ).trim().toUpperCase();
+          if (!/^INVE[0-9]/.test(investigationCode)) {
+            throw new ValidationError(
+              `Completed lab test "${l.LabTestTemplate?.name ?? l.id}" has no valid NHIS INVE investigation code.`,
+            );
+          }
+          return {
+            itemCategory: 'investigation',
+            itemType: 'N',
+            code: investigationCode,
+            description: l.LabTestTemplate?.name ?? l.ServiceCatalog?.name ?? '',
+            quantity: 1,
+            unitPrice: 0,
+            lineTotal: 0,
+            serviceDate: l.completedAt ?? att.dateTime,
+            labTestId: l.id,
+            serviceCatalogId: l.serviceCatalogId ?? null,
+          };
+        }),
         ...att.Scan.map((s) => ({
           itemCategory: 'investigation',
           itemType: 'N',
-          code: s.ServiceCatalog?.nhisServiceCode ?? s.ServiceCatalog?.code ?? '',
-          description: s.ServiceCatalog?.name ?? '',
+          // NHIS maps every imaging modality to its accepted ultrasound INVE code.
+          code: 'INVE30E',
+          description: s.ScanTemplate?.name ?? s.ServiceCatalog?.name ?? 'Ultrasound',
           quantity: 1,
           unitPrice: 0,
           lineTotal: 0,
