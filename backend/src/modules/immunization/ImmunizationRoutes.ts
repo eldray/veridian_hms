@@ -95,7 +95,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     const to = req.query.to ? new Date(String(req.query.to)) : new Date(Date.now() + 30 * 86400000);
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) return res.status(400).json({ success: false, message: 'Valid due-date range is required.' });
     const records = await prisma.immunizationRecord.findMany({ where: { nextDoseDue: { gte: from, lte: to } }, include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, phoneNumber: true } }, Vaccine: true }, orderBy: { nextDoseDue: 'asc' } });
-    res.json({ success: true, data: records });
+    return res.json({ success: true, data: records });
   });
 
   return router;
