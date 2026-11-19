@@ -180,7 +180,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     const from = fromValue ? new Date(fromValue) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const to = toValue ? new Date(toValue) : new Date();
     // Date-picker values are date-only strings; include the entire selected end date.
-    if (toValue && /^\\d{4}-\\d{2}-\\d{2}$/.test(toValue)) to.setHours(23, 59, 59, 999);
+    if (toValue && /^\d{4}-\d{2}-\d{2}$/.test(toValue)) to.setHours(23, 59, 59, 999);
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) {
       return res.status(400).json({ success: false, message: 'Valid administration date range is required.' });
     }
