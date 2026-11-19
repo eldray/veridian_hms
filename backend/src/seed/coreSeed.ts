@@ -1058,6 +1058,36 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       console.log(`✅ Completed ${file} - ${items.length} items processed`);
     }
     console.log(`✅ TOTAL: ${totalStockProcessed} stock items configured`);
+    // Seed the standard immunization catalogue and link each schedule vaccine to
+    // the matching medicine/stock product. Dose timing is configured by the facility;
+    // this seed deliberately does not invent clinical intervals.
+    const standardVaccines = [
+      { code: 'BCG', name: 'BCG Vaccine', stockCode: 'BCG-VACCINE', diseaseTargets: ['Tuberculosis'] },
+      { code: 'OPV', name: 'Oral Polio Vaccine (OPV)', stockCode: 'OPV-VACCINE', diseaseTargets: ['Poliomyelitis'] },
+      { code: 'IPV', name: 'Inactivated Polio Vaccine (IPV)', stockCode: 'IPV-VACCINE', diseaseTargets: ['Poliomyelitis'] },
+      { code: 'PENTA', name: 'Pentavalent Vaccine', stockCode: 'PENTA-VACCINE', diseaseTargets: ['Diphtheria', 'Tetanus', 'Pertussis', 'Hepatitis B', 'Haemophilus influenzae type b'] },
+      { code: 'PCV', name: 'Pneumococcal Conjugate Vaccine (PCV)', stockCode: 'PCV-VACCINE', diseaseTargets: ['Pneumococcal disease'] },
+      { code: 'ROTA', name: 'Rotavirus Vaccine', stockCode: 'ROTA-VACCINE', diseaseTargets: ['Rotavirus gastroenteritis'] },
+      { code: 'MR', name: 'Measles-Rubella Vaccine (MR)', stockCode: 'MR-VACCINE', diseaseTargets: ['Measles', 'Rubella'] },
+      { code: 'YF', name: 'Yellow Fever Vaccine', stockCode: 'YF-VACCINE', diseaseTargets: ['Yellow fever'] },
+    ];
+    for (const item of standardVaccines) {
+      const stockItem = stockItemMap.get(item.stockCode);
+      if (!stockItem) {
+        console.warn(`⚠️ Vaccine ${item.code}: stock item ${item.stockCode} not found; schedule entry skipped`);
+        continue;
+      }
+      await prisma.vaccine.upsert({
+        where: { code: item.code },
+        create: {
+          code: item.code, name: item.name, diseaseTargets: item.diseaseTargets,
+          stockItemId: stockItem.id,
+        },
+        update: { stockItemId: stockItem.id },
+      });
+    }
+    console.log(`💉 ${standardVaccines.length} standard immunization catalogue entries linked to vaccine stock products`);
+
 
     // ── STEP 12a: Payer-specific NHIS medicine rules ──────────
     // The 2025 NHIS JSON includes source-verified prescribing levels where available.
