@@ -11,6 +11,7 @@ const dateLabel = (v?: string | null) => v ? new Date(v).toLocaleDateString() : 
 
 export default function ImmunizationPanel({ patientId, attendances, canRecord, canManageCatalogue, onCreateAttendance }: { patientId: string; attendances: Visit[]; canRecord: boolean; canManageCatalogue: boolean; onCreateAttendance: () => void }) {
   const [vaccines, setVaccines] = useState<Vaccine[]>([]);
+  const [catalogueVaccines, setCatalogueVaccines] = useState<Vaccine[]>([]);
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [vaccineStockItems, setVaccineStockItems] = useState<VaccineStockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,11 +29,12 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
     setLoading(true); setError('');
     try {
       const requests: Promise<any>[] = [api.get('/immunization/vaccines'), api.get(`/immunization/patients/${patientId}/records`)];
-      if (canManageCatalogue) requests.push(api.get('/immunization/vaccine-stock-items'));
-      const [v, r, stock] = await Promise.all(requests);
+      if (canManageCatalogue) requests.push(api.get('/immunization/vaccine-stock-items'), api.get('/immunization/vaccines/manage'));
+      const [v, r, stock, managed] = await Promise.all(requests);
       setVaccines(v.data?.data ?? []);
       setRecords(r.data?.data ?? []);
       if (stock) setVaccineStockItems(stock.data?.data ?? []);
+      if (managed) setCatalogueVaccines(managed.data?.data ?? []);
     } catch (e: any) { setError(e.response?.data?.message || e.message || 'Unable to load immunization records.'); }
     finally { setLoading(false); }
   };
@@ -103,7 +105,7 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
     </form>}
     {canManageCatalogue && <div className="rounded-lg border border-[var(--border-color)] overflow-hidden">
       <div className="bg-[var(--bg-main)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)]">Vaccine catalogue</div>
-      <div className="divide-y divide-[var(--border-color)]">{vaccines.map(v => <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+      <div className="divide-y divide-[var(--border-color)]">{catalogueVaccines.map(v => <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
         <div className="min-w-0"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.name} <span className="font-normal text-[var(--text-tertiary)]">({v.code})</span></p><p className="text-[10px] text-[var(--text-tertiary)]">{v.StockItem ? `Stock: ${v.StockItem.name} · ${v.StockItem.currentStock} on hand` : 'No stock item linked'} · {v.isActive === false ? 'Inactive' : 'Active'}</p></div>
         <div className="flex gap-2"><button type="button" onClick={() => editVaccine(v)} className="rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px]">Edit</button><button type="button" disabled={saving} onClick={() => toggleVaccine(v)} className="rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px]">{v.isActive === false ? 'Reactivate' : 'Deactivate'}</button></div>
       </div>)}</div>
