@@ -55,7 +55,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
       include: { Vaccine: true, Attendance: { select: { attendanceNumber: true, dateTime: true } }, AdministeredBy: { select: { id: true, fullName: true } }, RecordedBy: { select: { id: true, fullName: true } } },
       orderBy: { administeredAt: 'desc' }
     });
-    res.json({ success: true, data: records });
+    return res.json({ success: true, data: records });
   });
 
   router.post('/records', requireRole(writeRoles), async (req: AuthRequest, res: Response) => {
