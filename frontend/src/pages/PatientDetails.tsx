@@ -1,6 +1,6 @@
 // src/pages/PatientDetails.tsx - COMPACT REDESIGNED VERSION
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../utils/useSmartBack';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -107,7 +107,8 @@ export default function PatientDetails() {
   const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
   const { getInsuranceProviders } = useInsuranceStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'attendances' | 'medical-records' | 'overview' | 'diagnoses' | 'medications' | 'lab-tests' | 'procedures' | 'vitals' | 'billing' | 'immunizations'>('overview');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'attendances' | 'medical-records' | 'overview' | 'diagnoses' | 'medications' | 'lab-tests' | 'procedures' | 'vitals' | 'billing' | 'immunizations'>(searchParams.get('tab') === 'immunizations' ? 'immunizations' : 'overview');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Attendance | null>(null);
