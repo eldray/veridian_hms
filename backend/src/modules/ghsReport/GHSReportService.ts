@@ -274,7 +274,9 @@ export class GHSReportService extends BaseService {
   async generateFormAReport(startDate: Date, endDate: Date): Promise<FormAReport> {
     const end = this.eod(endDate);
     const { hospital, ...inputs } = await this.repository.getFormAInputs(startDate, end);
-    const form = buildFormA(inputs as any);
+    // Form A reads facility service availability from the hospital record.
+    // Preserve that context for the builder; it is not period-based data.
+    const form = buildFormA({ ...inputs, hospital } as any);
     return {
       period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1, monthName: startDate.toLocaleString('en-GB', { month: 'long' }) },
       facility: { name: hospital?.name ?? 'Private Health Facility', district: hospital?.ghsDistrictCode ?? 'Unknown', region: 'Unknown', ghfCode: hospital?.ghaHFCode ?? 'Unknown' },
