@@ -105,7 +105,7 @@ export const PAGES: PageDef[] = [
   { key: 'inventory', paths: ['/dashboard/inventory'], roles: ['pharmacist'], label: 'Inventory', icon: Package, group: 'Pharmacy' },
   { key: 'stock_management', paths: ['/dashboard/stock'], roles: ['pharmacist'], label: 'Stock', icon: Warehouse, group: 'Pharmacy' },
   { key: 'stock_transactions', paths: ['/dashboard/transactions'], roles: ['pharmacist', 'accounts'], label: 'Stock Transactions', icon: FileText, group: 'Pharmacy' },
-  { key: 'stock_reports', paths: ['/dashboard/stock/reports'], roles: ['pharmacist', 'accounts'], label: 'Stock Reports', icon: BarChart3, group: 'Pharmacy' },
+  { key: 'stock_reports', paths: ['/dashboard/stock/reports'], roles: ['pharmacist', 'accounts', 'admin', 'super_admin'], label: 'Stock Reports', icon: BarChart3, group: 'Pharmacy' },
   { key: 'stock_transfers', paths: ['/dashboard/stock/transfers'], roles: ['pharmacist', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer', 'records'], label: 'Stock Transfers', icon: ArrowLeftRight, group: 'Pharmacy' },
   { key: 'requisitions', paths: ['/dashboard/requisitions', '/dashboard/requisitions/create'], patterns: ['/dashboard/requisitions/:id'], roles: ['pharmacist', 'nurse', 'midwife', 'doctor', 'lab_tech', 'sonographer', 'records'], navRoles: ['pharmacist', 'nurse', 'midwife'], label: 'Requisitions', icon: ClipboardList, group: 'Pharmacy' },
 
