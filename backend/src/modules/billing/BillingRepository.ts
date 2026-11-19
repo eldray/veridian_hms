@@ -1,4 +1,4 @@
-import { PrismaClient, BillStatus } from '@prisma/client';
+import { Prisma, PrismaClient, BillStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilters } from './BillingTypes';
 import { resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
@@ -219,8 +219,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         }
         const bill = await tx.bill.findUnique({ where: { id } });
         if (!bill) throw new Error('Bill not found');
-        const amount = Math.round(toNumber(paymentData.amount) * 100) / 100;
-        if (!Number.isFinite(amount) || amount <= 0) throw new Error('Payment amount must be greater than zero.');
+        const amountCents = Math.round(toNumber(paymentData.amount) * 100);
+        if (!Number.isFinite(amountCents) || amountCents <= 0) throw new Error('Payment amount must be greater than zero.');
+        // Keep the conditional balance check and arithmetic in exact decimal currency.
+        const amount = new Prisma.Decimal((amountCents / 100).toFixed(2));
         const changed = await tx.bill.updateMany({
           where: { id, balance: { gte: amount }, status: { not: 'cancelled' } },
           data: { paidAmount: { increment: amount }, balance: { decrement: amount } }
