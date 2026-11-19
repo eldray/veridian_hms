@@ -802,6 +802,7 @@ export default function UserManagement() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]" onClick={() => setIssuedResetCode(null)}>
           <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md border border-[var(--border-color)]" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">One-time reset code</h3>
+            {issuedResetCode.username && <p className="text-sm font-medium text-[var(--text-primary)] mb-2">For account @{issuedResetCode.username}</p>}
             <p className="text-sm text-[var(--text-secondary)] mb-4">Give this code only to the staff member after verifying their identity. It expires at {new Date(issuedResetCode.expiresAt).toLocaleTimeString()}.</p>
             <div className="text-center text-2xl font-mono font-bold tracking-[0.25em] p-4 rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] select-all">{issuedResetCode.code}</div>
             <p className="text-xs text-[var(--text-secondary)] mt-3">The code is shown only now and is stored on the server as a hash.</p>

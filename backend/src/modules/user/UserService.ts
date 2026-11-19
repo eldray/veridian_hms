@@ -34,9 +34,11 @@ const ADMIN_LIKE_ROLES = ['admin', 'super_admin', 'hr_officer'];
 export class UserService extends BaseService {
   private repository: UserRepository;
   private auditLogger: AuditLogger;
+  private prisma: PrismaClient;
 
   constructor(prisma: PrismaClient) {
     super('UserService');
+    this.prisma = prisma;
     this.repository = new UserRepository(prisma);
     this.auditLogger = new AuditLogger(prisma);
   }
@@ -324,7 +326,24 @@ export class UserService extends BaseService {
       resetExpiry: null,
     });
 
-    await this.repository.deleteAllRefreshTokens(userId);
+    // A direct administrator reset resolves any outstanding recovery request and
+    // invalidates a code that may already have been issued. Otherwise an older
+    // approved one-time code could still change the password after this reset.
+    const resolvedAt = new Date();
+    await this.prisma.$transaction([
+      this.prisma.passwordResetRequest.updateMany({
+        where: { userId, status: { in: ['pending', 'approved'] } },
+        data: {
+          status: 'completed',
+          reviewedAt: resolvedAt,
+          reviewedById: actor.userId,
+          completedAt: resolvedAt,
+          codeHash: null,
+          expiresAt: null,
+        },
+      }),
+      this.prisma.refreshToken.deleteMany({ where: { userId } }),
+    ]);
 
     await this.auditLogger.log({
       entityType: 'User',
@@ -621,8 +640,14 @@ export class UserService extends BaseService {
     if (!target) throw new Error('User not found');
     const targetRole = String(target.role).toLowerCase();
     const actorRole = String(actor.role).toLowerCase();
+    if (['admin', 'super_admin'].includes(targetRole) && actorRole !== 'super_admin' && !isSelf) {
+      throw new ForbiddenError('Only Super Admin can modify another administrator account');
+    }
     if (targetRole === 'super_admin' && actorRole !== 'super_admin') {
       throw new ForbiddenError('Only super admins can modify a super-admin account');
+    }
+    if (isSelf && payload.user?.role && String(payload.user.role).toLowerCase() !== targetRole) {
+      throw new ForbiddenError('You cannot change your own role through this endpoint');
     }
 
     if (payload.user && Object.keys(payload.user).length > 0) {

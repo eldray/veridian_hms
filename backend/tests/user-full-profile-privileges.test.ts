@@ -18,11 +18,11 @@ import { UserService } from '../src/modules/user/UserService';
 const target = { id: 'target-1', role: 'doctor', fullName: 'Dr Target', seniority: 'JUNIOR', isActive: true, departmentId: null, username: 'dtarget' };
 const HASH = '$2a$12$attackerChosenHashAttackerChosenHashAttackerChosenHashAtt';
 
-function serviceWith(captured: any[]) {
+function serviceWith(captured: any[], targetUser: any = target) {
   const svc: any = new UserService({} as any);
   svc.repository = {
-    findFullProfile: async () => ({ ...target, staffProfile: null }),
-    findById: async () => target,
+    findFullProfile: async () => ({ ...targetUser, staffProfile: null }),
+    findById: async () => targetUser,
     updateUserFields: async (_id: string, data: any) => { captured.push(data); return target; },
     updateStaffProfileFields: async () => ({}),
   };
@@ -44,6 +44,26 @@ describe('updateFullProfile: privileges are administrator-only', () => {
     await expect(serviceWith(captured).updateFullProfile('target-1', { user: { fullName: 'New Name', [field]: value } }, actor('hr_officer')))
       .rejects.toMatchObject({ statusCode: 403 });
     expect(captured).toEqual([]);                                     // not even the harmless fullName: all or nothing
+  });
+
+  it('a System Admin cannot edit another System Admin account through the full-profile route', async () => {
+    const otherAdmin = { ...target, role: 'admin' };
+    await expect(serviceWith(captured, otherAdmin).updateFullProfile(
+      'target-1',
+      { user: { fullName: 'Changed Admin' } },
+      actor('admin', 'system-admin-1'),
+    )).rejects.toMatchObject({ statusCode: 403 });
+    expect(captured).toEqual([]);
+  });
+
+  it('an administrator cannot change their own role through the full-profile route', async () => {
+    const selfAdmin = { ...target, role: 'admin' };
+    await expect(serviceWith(captured, selfAdmin).updateFullProfile(
+      'target-1',
+      { user: { role: 'doctor' } },
+      actor('admin', 'target-1'),
+    )).rejects.toMatchObject({ statusCode: 403 });
+    expect(captured).toEqual([]);
   });
 
   it('an hr_officer cannot promote THEMSELVES', async () => {

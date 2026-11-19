@@ -174,7 +174,7 @@ export default function Login() {
       setResetComplete(true);
       success('Password updated', 'You can now sign in using your new password.');
     } catch (err: any) {
-      toastError('Reset failed', err?.response?.data?.message || err?.message || 'The code may be invalid or expired.');
+      toastError('Reset failed', err?.response?.data?.message || err?.response?.data?.error || err?.message || 'The code may be invalid or expired.');
     } finally {
       setResetLoading(false);
     }

@@ -119,7 +119,7 @@ export class UserController extends BaseController {
   approvePasswordReset = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const request = await this.prisma.passwordResetRequest.findUnique({ where: { id: req.params.requestId } });
     if (!request || request.status !== 'pending') return this.notFound(res, 'Pending password reset request');
-    const target = await this.prisma.user.findUnique({ where: { id: request.userId }, select: { id: true, role: true, isActive: true } });
+    const target = await this.prisma.user.findUnique({ where: { id: request.userId }, select: { id: true, username: true, fullName: true, role: true, isActive: true } });
     if (!target || !target.isActive) return this.notFound(res, 'Active user');
     if (['admin', 'super_admin'].includes(String(target.role).toLowerCase()) && String(req.user?.role).toLowerCase() !== 'super_admin') {
       return res.status(403).json({ success: false, message: 'Only Super Admin can approve a password reset for an administrator account' });
@@ -131,7 +131,7 @@ export class UserController extends BaseController {
       where: { id: request.id },
       data: { status: 'approved', reviewedAt: new Date(), reviewedById: req.user!.userId, codeHash, expiresAt },
     });
-    return this.ok(res, { requestId: request.id, resetCode: code, expiresAt }, 'Reset approved. Give this one-time code to the verified staff member in person.');
+    return this.ok(res, { requestId: request.id, username: target.username, fullName: target.fullName, resetCode: code, expiresAt }, 'Reset approved. Give this one-time code to the verified staff member in person.');
   });
 
   rejectPasswordReset = this.asyncHandler(async (req: AuthRequest, res: Response) => {

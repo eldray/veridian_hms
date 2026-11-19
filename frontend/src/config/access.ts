@@ -85,6 +85,7 @@ export const PAGES: PageDef[] = [
   { key: 'theatre', paths: ['/dashboard/theatre'], patterns: ['/dashboard/theatre/:id'], roles: CLINICAL, label: 'Theatre', icon: Scissors, group: 'Clinical' },
   { key: 'nursing', paths: ['/dashboard/nursing'], patterns: ['/dashboard/nursing/patient/:attendanceId'], roles: ['nurse', 'midwife', 'doctor'], navRoles: ['nurse', 'midwife'], label: 'Nursing', icon: Syringe, group: 'Clinical' },
   { key: 'maternal_waiting_list', paths: ['/dashboard/maternal-waiting-list'], roles: ['doctor', 'midwife'], label: 'Maternal Health', icon: Baby, group: 'Clinical' },
+  { key: 'antenatal', paths: ['/dashboard/antenatal'], patterns: ['/dashboard/maternal/:attendanceId'], roles: ['doctor', 'midwife'] },
   { key: 'family_planning', paths: ['/dashboard/family-planning'], roles: ['doctor', 'midwife'], label: 'Family Planning', icon: Heart, group: 'Clinical' },
   { key: 'admissions', paths: ['/dashboard/admissions'], patterns: ['/dashboard/admissions/:id'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Admissions', icon: BedDouble, group: 'Ward' },
   { key: 'wards', paths: ['/dashboard/wards'], roles: CLINICAL, label: 'Wards', icon: BedDouble, group: 'Ward' },
@@ -93,6 +94,7 @@ export const PAGES: PageDef[] = [
   // ── Diagnostics ────────────────────────────────────────────────────────────
   { key: 'laboratory', paths: ['/dashboard/laboratory'], patterns: ['/dashboard/laboratory/:id'], roles: ['lab_tech', ...CLINICAL], navRoles: ['lab_tech'], label: 'Laboratory', icon: Microscope, group: 'Diagnostics' },
   { key: 'scans', paths: ['/dashboard/scans'], patterns: ['/dashboard/scans/:id'], roles: ['sonographer', 'doctor', 'midwife'], navRoles: ['sonographer'], label: 'Scans', icon: Scan, group: 'Diagnostics' },
+  { key: 'service_catalog', paths: ['/dashboard/medicalservices'], roles: ['doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer', 'accounts', 'records'] },
 
   // ── Pharmacy & stock ───────────────────────────────────────────────────────
   // Dispensing is pharmacist-only in the API (PUT /encounters/:id/medications/
@@ -112,13 +114,13 @@ export const PAGES: PageDef[] = [
   { key: 'billing', paths: ['/dashboard/billing'], patterns: ['/dashboard/patients/:patientId/billing', '/dashboard/billing/:billId/payment'], roles: ['accounts', 'doctor'], navRoles: ['accounts'], label: 'Billing', icon: DollarSign, group: 'Revenue' },
   // Insurance is a single sidebar entry. The payer family and the section live in the URL
   // (/dashboard/insurance/<family>/<section>), so each tab is a deep link the guard can name.
-  { key: 'insurance_claims', paths: ['/dashboard/insurance', '/dashboard/insurance/nhis/claims', '/dashboard/insurance/nhis/batches', '/dashboard/insurance/nhis/tracking', '/dashboard/insurance/private/claims', '/dashboard/insurance/private/batches', '/dashboard/insurance/private/tracking', '/dashboard/insurance/corporate/claims', '/dashboard/insurance/corporate/batches', '/dashboard/insurance/corporate/tracking'], patterns: ['/dashboard/insurance/claims/:id/edit', '/dashboard/insurance/claims/nhis/:id/edit', '/dashboard/insurance/claims/private/:id/edit', '/dashboard/insurance/claims/corporate/:id/edit'], roles: ['accounts', 'doctor'], navRoles: ['accounts'], label: 'Insurance', icon: Shield, group: 'Revenue' },
+  { key: 'insurance_claims', paths: ['/dashboard/insurance', '/dashboard/insurance/nhis/claims', '/dashboard/insurance/nhis/batches', '/dashboard/insurance/nhis/tracking', '/dashboard/insurance/private/claims', '/dashboard/insurance/private/batches', '/dashboard/insurance/private/tracking', '/dashboard/insurance/corporate/claims', '/dashboard/insurance/corporate/batches', '/dashboard/insurance/corporate/tracking', '/dashboard/insurance-claims', '/dashboard/insurance-claims/tracking', '/dashboard/insurance-claims/batches'], patterns: ['/dashboard/insurance/claims/:id/edit', '/dashboard/insurance/claims/nhis/:id/edit', '/dashboard/insurance/claims/private/:id/edit', '/dashboard/insurance/claims/corporate/:id/edit'], roles: ['accounts', 'doctor'], navRoles: ['accounts'], label: 'Insurance', icon: Shield, group: 'Revenue' },
   // Guard-only entries: the insurance tab bar opens and hides these sections, and every path
   // still has to resolve here or ProtectedRoute answers Access Denied. They are deliberately
   // not folded into insurance_claims — that would hand doctors the providers and corporate
   // screens, which the API keeps to accounts.
-  { key: 'insurance_providers', paths: ['/dashboard/insurance/nhis/providers', '/dashboard/insurance/private/providers'], roles: ['accounts'] },
-  { key: 'corporate', paths: ['/dashboard/insurance/corporate/accounts'], patterns: ['/dashboard/insurance/corporate/accounts/:id', '/dashboard/corporate-accounts/:id'], roles: ['accounts'] },
+  { key: 'insurance_providers', paths: ['/dashboard/insurance/nhis/providers', '/dashboard/insurance/private/providers', '/dashboard/insurance-providers'], roles: ['accounts'] },
+  { key: 'corporate', paths: ['/dashboard/insurance/corporate/accounts', '/dashboard/corporate-accounts'], patterns: ['/dashboard/insurance/corporate/accounts/:id', '/dashboard/corporate-accounts/:id'], roles: ['accounts'] },
   { key: 'estimates', paths: ['/dashboard/estimates', '/dashboard/estimates/new'], patterns: ['/dashboard/estimates/:id', '/dashboard/estimates/:id/edit'], roles: ['accounts'], label: 'Estimates', icon: FileText, group: 'Revenue' },
   // Counter mirrors COUNTER_STAFF in backend/src/modules/counter/CounterRoutes.ts.
   // Doctors and nurses are deliberately absent: a consultation is opened from the visit
