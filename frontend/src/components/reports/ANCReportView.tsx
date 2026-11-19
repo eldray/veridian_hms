@@ -156,7 +156,7 @@ const TableView: React.FC<{ t: FormATable }> = ({ t }) => {
 // ── EMONC strip, as in the picture ──
 const EMONC_SERVICES = ['None', 'Basic', 'Comprehensive', 'Blood transfusion services', 'PMTCT', 'EID Services', 'Conduct Delivery', 'Baby Friendly Services'];
 const EmoncStrip: React.FC = () => {
-  const [sel, setSel] = useState<Record<string, 'Yes' | 'No'>>(() => Object.fromEntries(EMONC_SERVICES.map(s => [s, s === 'None' ? 'No' : 'Yes'])));
+  const [sel, setSel] = useState<Record<string, 'Yes' | 'No'>>({});
   return (
     <div className="border border-[var(--border-color)] mb-4 overflow-x-auto">
       <table className="w-full border-collapse text-[11px]">
@@ -172,7 +172,7 @@ const EmoncStrip: React.FC = () => {
               <td key={s} className="border border-[var(--border-color)] px-2 py-1.5 whitespace-nowrap">
                 <label className="inline-flex items-center gap-1 mr-2 cursor-pointer"><input type="radio" name={`emonc-${s}`} checked={sel[s] === 'Yes'} onChange={() => setSel(o => ({ ...o, [s]: 'Yes' }))} className="accent-[var(--icon-green-text)]" />Yes</label>
                 <label className="inline-flex items-center gap-1 mr-2 cursor-pointer"><input type="radio" name={`emonc-${s}`} checked={sel[s] === 'No'} onChange={() => setSel(o => ({ ...o, [s]: 'No' }))} className="accent-[var(--icon-green-text)]" />No</label>
-                <button type="button" onClick={() => setSel(o => { const n = { ...o }; delete (n as any)[s]; return n; })} className="text-[10px] text-[var(--icon-green-text)] underline underline-offset-2">Clear</button>
+                {!sel[s] && <span className="text-[10px] text-[var(--text-tertiary)] mr-2">n/c</span>}<button type="button" onClick={() => setSel(o => { const n = { ...o }; delete (n as any)[s]; return n; })} className="text-[10px] text-[var(--icon-green-text)] underline underline-offset-2">Clear</button>
               </td>
             ))}
           </tr>
@@ -192,6 +192,10 @@ const FormAReportView: React.FC<{ data: FormAData | null | undefined }> = ({ dat
       [q('Facility'), q(data.facility.name)].join(','),
       [q('Period'), q(`${data.period.monthName} ${data.period.year}`)].join(','),
       '',
+      q('EMONC SERVICE AVAILABILITY (MANUAL CONFIRMATION)'),
+      [q('Service'), q('Status')].join(','),
+      ...EMONC_SERVICES.map(s => [q(s), q(sel[s] ?? 'n/c')].join(',')),
+      '',
     ];
     data.form.sections.forEach(s => {
       rows.push(q(s.title.toUpperCase()));
@@ -204,7 +208,7 @@ const FormAReportView: React.FC<{ data: FormAData | null | undefined }> = ({ dat
       });
     });
     return rows.join('\n');
-  }, [data]);
+  }, [data, sel]);
   if (!data || !data.form) return <div className="p-6 text-sm text-[var(--text-secondary)]">No Form A data for this period.</div>;
   const download = () => {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
