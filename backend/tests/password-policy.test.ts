@@ -122,7 +122,16 @@ describe('account creation enforces the policy', () => {
 
 describe('administrator password reset', () => {
   const buildService = (role = 'nurse') => {
-    const service = new UserService({} as any);
+    const prisma = {
+      passwordResetRequest: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      refreshToken: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      $transaction: vi.fn().mockResolvedValue([]),
+    };
+    const service = new UserService(prisma as any);
     const repository = {
       findById: vi.fn().mockResolvedValue({
         id: 'user-9',
@@ -138,11 +147,10 @@ describe('administrator password reset', () => {
         isActive: true,
         ...data,
       })),
-      deleteAllRefreshTokens: vi.fn().mockResolvedValue(undefined),
     };
     (service as any).repository = repository;
     (service as any).auditLogger = { log: vi.fn() };
-    return { service, repository };
+    return { service, repository, prisma };
   };
 
   it('refuses a weak password and writes nothing', async () => {
@@ -153,11 +161,11 @@ describe('administrator password reset', () => {
     ).rejects.toThrow(/at least 12/);
 
     expect(repository.update).not.toHaveBeenCalled();
-    expect(repository.deleteAllRefreshTokens).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('stores a hashed password, clears any reset token and revokes the sessions', async () => {
-    const { service, repository } = buildService();
+    const { service, repository, prisma } = buildService();
 
     await service.resetUserPassword('user-9', 'Ward-Round-2026!', {
       userId: 'admin-1',
@@ -170,7 +178,12 @@ describe('administrator password reset', () => {
     expect(await bcrypt.compare('Ward-Round-2026!', data.password)).toBe(true);
     expect(data.resetToken).toBeNull();
     expect(data.resetExpiry).toBeNull();
-    expect(repository.deleteAllRefreshTokens).toHaveBeenCalledWith('user-9');
+    expect(prisma.passwordResetRequest.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: 'user-9', status: { in: ['pending', 'approved'] } },
+      data: expect.objectContaining({ status: 'completed', reviewedById: 'admin-1', codeHash: null, expiresAt: null }),
+    }));
+    expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-9' } });
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
   });
 
   it('audits the reset without recording the password', async () => {
