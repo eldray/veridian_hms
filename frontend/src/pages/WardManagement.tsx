@@ -71,7 +71,7 @@ const EMPTY_WARD_FORM: WardFormState = {
   dailyInsuranceRate: 135,
   dailyCorporateRate: 0, // 0 = bill corporate patients at the cash rate (or the account discount)
   vatRate: 15,
-  isTaxable: true,
+  isTaxable: false,
   isNHISCovered: true,
   nhisRequiresAuth: false,
   isPrivateInsExempted: false,
@@ -416,7 +416,7 @@ export default function WardManagement() {
       dailyInsuranceRate: ward.dailyInsuranceRate || 0,
       dailyCorporateRate: Number(ward.dailyCorporateRate) || 0,
       vatRate: ward.vatRate || 0,
-      isTaxable: ward.isTaxable ?? true,
+      isTaxable: ward.isTaxable ?? false,
       isNHISCovered: ward.isNHISCovered ?? true,
       nhisRequiresAuth: ward.nhisRequiresAuth || false,
       isPrivateInsExempted: ward.isPrivateInsExempted || false,

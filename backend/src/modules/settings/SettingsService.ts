@@ -1,6 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 
 import prisma from '../../core/database/prisma.client';
+import {
+  PAYER_MODES,
+  normaliseComponents,
+  normaliseTaxConfiguration,
+  publicTaxConfiguration,
+  invalidateTaxConfigurationCache,
+} from '../../utils/tax';
 
 // ==========================================
 // HOSPITAL DETAILS SERVICES
@@ -87,4 +94,65 @@ export const updateNHISSettings = async (nhisData: {
   if (nhisData.nhisContactEmail) updateData.nhisContactEmail = nhisData.nhisContactEmail;
 
   return prisma.hospital.update({ where: { id: hospital.id }, data: updateData });
+};
+// ==========================================
+// TAX CONFIGURATION SERVICES
+// ==========================================
+
+export const getTaxConfiguration = async () => {
+  const row = await prisma.taxConfiguration.findUnique({ where: { id: 'default' } });
+  return publicTaxConfiguration(normaliseTaxConfiguration(row));
+};
+
+export interface TaxConfigurationInput {
+  isEnabled?: boolean;
+  defaultExempt?: boolean;
+  taxId?: string | null;
+  payerModes?: string[];
+  components?: unknown;
+}
+
+export const updateTaxConfiguration = async (data: TaxConfigurationInput, userId?: string) => {
+  const isEnabled = data.isEnabled === true;
+  const components = normaliseComponents(data.components);
+
+  const seen = new Set<string>();
+  for (const component of components) {
+    if (seen.has(component.code)) throw new Error(`Duplicate tax component code: ${component.code}`);
+    seen.add(component.code);
+  }
+
+  if (isEnabled) {
+    if (components.length === 0) throw new Error('Add at least one tax component before enabling tax');
+    if (!components.some((component) => component.active !== false && component.rate > 0)) {
+      throw new Error('At least one active tax component needs a rate above zero');
+    }
+  }
+
+  const payerModes = Array.isArray(data.payerModes)
+    ? data.payerModes
+        .map((mode) => String(mode))
+        .filter((mode, index, list) => (PAYER_MODES as readonly string[]).includes(mode) && list.indexOf(mode) === index)
+    : [];
+  if (isEnabled && payerModes.length === 0) {
+    throw new Error('Choose at least one payer type that tax applies to');
+  }
+
+  const payload = {
+    isEnabled,
+    defaultExempt: data.defaultExempt !== false,
+    taxId: data.taxId ? String(data.taxId).trim().slice(0, 50) : null,
+    payerModes: payerModes.length > 0 ? payerModes : ['cash'],
+    components,
+    updatedById: userId ?? null,
+  };
+
+  const row = await prisma.taxConfiguration.upsert({
+    where: { id: 'default' },
+    create: { id: 'default', ...payload },
+    update: payload,
+  });
+
+  invalidateTaxConfigurationCache();
+  return publicTaxConfiguration(normaliseTaxConfiguration(row));
 };

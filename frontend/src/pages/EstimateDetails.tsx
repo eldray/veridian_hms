@@ -201,7 +201,7 @@ export default function EstimateDetails() {
               <tbody>
                 <tr><td className="py-1.5 text-right text-[var(--text-secondary)]">Subtotal</td><td className="py-1.5 text-right pl-4">GHS {fmt(est.subtotal)}</td></tr>
                 <tr><td className="py-1.5 text-right text-[var(--text-secondary)]">Discount</td><td className="py-1.5 text-right pl-4">- GHS {fmt(est.discount)}</td></tr>
-                <tr><td className="py-1.5 text-right text-[var(--text-secondary)]">Tax (VAT)</td><td className="py-1.5 text-right pl-4">GHS {fmt(est.taxAmount)}</td></tr>
+                <tr><td className="py-1.5 text-right text-[var(--text-secondary)]">VAT &amp; levies</td><td className="py-1.5 text-right pl-4">GHS {fmt(est.taxAmount)}</td></tr>
                 <tr><td className="py-2.5 text-right font-bold text-[17px] border-t-2 border-[var(--text-primary)]">Total (estimate)</td><td className="py-2.5 text-right pl-4 font-bold text-[17px] border-t-2 border-[var(--text-primary)]">GHS {fmt(est.totalAmount)}</td></tr>
               </tbody>
             </table>

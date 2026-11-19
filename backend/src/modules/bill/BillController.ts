@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { BillService } from './BillService';
 import { AuthRequest } from '../../middleware/authMiddleware';
-import { CreateBillInput, AddPaymentInput, VoidLineItemInput } from './BillTypes';
+import { CreateBillInput, AddPaymentInput, VoidLineItemInput, RefundPaymentInput } from './BillTypes';
 
 import prisma from '../../core/database/prisma.client';
 const billService = new BillService(prisma);
@@ -48,6 +48,14 @@ export const addPaymentValidation = [
 
 export const voidLineItemValidation = [
   body('reason').notEmpty().withMessage('Void reason is required')
+];
+
+export const refundPaymentValidation = [
+  body('paymentId').notEmpty().withMessage('Select the payment being refunded'),
+  body('amount').isFloat({ gt: 0 }).withMessage('A refund amount greater than zero is required'),
+  body('refundMethod').optional().isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid refund method'),
+  body('reference').optional().isString().isLength({ max: 120 }).withMessage('Reference is too long'),
+  body('reason').trim().isLength({ min: 3, max: 500 }).withMessage('A refund reason of at least 3 characters is required')
 ];
 
 export const applyWaiverValidation = [
@@ -150,6 +158,30 @@ export class BillController extends BaseController {
     })
   ];
 
+  refundPayment = [
+    ...refundPaymentValidation,
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+      if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+
+      try {
+        const result = await billService.refundPayment(req.params.id, req.body as RefundPaymentInput, req.user.id);
+        return this.ok(res, result, 'Refund processed successfully');
+      } catch (error: any) {
+        if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+        if (error?.statusCode === 404 || error.message === 'Payment not found on this bill.') return this.notFound(res, 'Payment');
+        if (error?.statusCode === 400 || /refund amount must be greater than zero|refund reason is required/i.test(error.message || '')) {
+          return this.badRequest(res, error.message);
+        }
+        if (error?.statusCode === 409 || /refund exceeds|was voided|cancelled bill/i.test(error.message || '')) {
+          return this.conflict(res, error.message);
+        }
+        throw error;
+      }
+    })
+  ];
+
   voidBillLineItem = [
     ...voidLineItemValidation,
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -191,12 +223,17 @@ export class BillController extends BaseController {
       return this.ok(res, {
         bill: { id: bill?.id, billNumber: bill?.billNumber, status: bill?.status, totalAmount: bill?.totalAmount, paidAmount: bill?.paidAmount, balance: bill?.balance },
         lineItems,
-        summary: {
-          totalItems: lineItems.length,
-          subtotal: lineItems.reduce((sum, i) => sum + toNum(i.lineTotal), 0),
-          insuranceCovered: lineItems.reduce((sum, i) => sum + toNum(i.insuranceCoveredAmount), 0),
-          patientPayable: lineItems.reduce((sum, i) => sum + toNum(i.patientPayableAmount), 0)
-        }
+        summary: (() => {
+          const subtotal = lineItems.reduce((sum, i) => sum + toNum(i.lineTotal), 0);
+          const taxAmount = lineItems.reduce((sum, i) => sum + toNum(i.vatAmount), 0);
+          return {
+            totalItems: lineItems.length,
+            subtotal,
+            taxAmount,
+            insuranceCovered: lineItems.reduce((sum, i) => sum + toNum(i.insuranceCoveredAmount), 0),
+            patientPayable: lineItems.reduce((sum, i) => sum + toNum(i.patientPayableAmount), 0) + taxAmount
+          };
+        })()
       }, 'Line items retrieved successfully');
     } catch (error: any) {
       if (error.message === 'Bill not found') return this.notFound(res, 'Bill');

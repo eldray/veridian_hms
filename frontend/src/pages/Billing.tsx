@@ -13,7 +13,7 @@ import { getBillingCollections, getBillingInvoice } from '../api';
 import { promptDialog } from '../context/PromptDialog';
 import {
   RefreshCw, FileText, DollarSign, CreditCard, Eye,
-  Receipt, TrendingUp,
+  Receipt, TrendingUp, Percent,
   CheckCircle, Clock, Shield, User, Calendar, X,
   Filter, Printer, Hospital, Gift
 } from 'lucide-react';
@@ -489,6 +489,11 @@ const handlePrintStatement = async (billId: string) => {
           <Button variant="secondary" icon={FileText} onClick={() => navigate('/dashboard/estimates')}>
             Estimates
           </Button>
+          {isAccountsStaff && (
+            <Button variant="secondary" icon={Percent} onClick={() => navigate('/dashboard/billing/tax-summary')}>
+              Tax Summary
+            </Button>
+          )}
           <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>Refresh</Button>
         </>
       )}

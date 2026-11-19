@@ -1,10 +1,11 @@
 import { PrismaClient, BillStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { BillingRepository } from './BillingRepository';
-import { CreateBillDTO, AddPaymentDTO, UpdateBillStatusDTO, BillFilters } from './BillingTypes';
+import { CreateBillDTO, AddPaymentDTO, UpdateBillStatusDTO, BillFilters, RefundPaymentDTO } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
 import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
+import { computeLineTax, loadTaxConfiguration, mergeTaxBreakdowns, type TaxBreakdown } from '../../utils/tax';
 
 type CollectionPatient = { surname: string; otherNames: string; folderNumber: string } | null;
 type CollectionClient = { name: string } | null;
@@ -40,6 +41,8 @@ type CollectionRow = {
   isVoided: boolean;
   voidedAt: Date | null;
   voidReason: string | null;
+  /** True for a refund row; both reversals and refunds reduce the cashbook. */
+  isRefund?: boolean;
   User: { id: string; fullName: string; username: string } | null;
   Bill: {
     id: string;
@@ -222,6 +225,7 @@ function allocateCollection(payment: CollectionRow) {
     isVoided: payment.isVoided,
     voidedAt: payment.voidedAt,
     voidReason: payment.voidReason,
+    isRefund: payment.isRefund === true,
     collector: payment.User,
     bill: {
       id: payment.Bill.id,
@@ -277,8 +281,11 @@ export class BillingService extends BaseService {
     // Payer rules and tariffs are evaluated on the date care was delivered, not
     // the day someone happens to generate the bill or submit the claim.
     const serviceDate = attendance.dateTime;
+    const taxConfig = await loadTaxConfiguration(this.prisma);
 
     let totalAmount = 0;
+    let patientPayableTotal = 0;
+    const lineTaxes: TaxBreakdown[] = [];
     const itemsWithPrices = [];
 
     for (const item of data.items) {
@@ -393,7 +400,17 @@ export class BillingService extends BaseService {
         sourceKey = 'nhis-medicine-payer-rule';
       }
 
+      const pricingRow = service.pricing?.[0];
+      const lineTax = computeLineTax(
+        patientPayableAmount,
+        { isTaxable: pricingRow?.isTaxable === true, overrideRate: pricingRow?.vatRate ?? 0 },
+        taxConfig,
+        String(data.paymentMode),
+      );
+
       totalAmount += lineTotal;
+      patientPayableTotal += patientPayableAmount;
+      if (lineTax.total > 0) lineTaxes.push(lineTax);
 
       itemsWithPrices.push({
         serviceCatalogId: item.serviceId,
@@ -401,6 +418,9 @@ export class BillingService extends BaseService {
         quantity: item.quantity,
         unitPrice: price,
         pricingBasis: data.paymentMode,
+        vatRate: lineTax.effectiveRate,
+        vatAmount: lineTax.total,
+        taxBreakdown: lineTax.total > 0 ? lineTax : undefined,
         lineTotal: lineTotal,
         insuranceCoveredAmount,
         patientPayableAmount,
@@ -410,18 +430,24 @@ export class BillingService extends BaseService {
       });
     }
     
+    const taxAmount = Math.round(lineTaxes.reduce((sum, line) => sum + line.total, 0) * 100) / 100;
+    const grossTotal = Math.round((totalAmount + taxAmount) * 100) / 100;
+    const patientPayable = Math.round((patientPayableTotal + taxAmount) * 100) / 100;
+    const taxBreakdown = mergeTaxBreakdowns(lineTaxes, String(data.paymentMode));
+
     const billData = {
       patientId: data.patientId,
       attendanceId: data.attendanceId,
       paymentMode: data.paymentMode,
       billNumber: getCounterService().nextBillNumber(), // ✅ FIXED: Uses CounterService
       subtotal: totalAmount,
-      taxAmount: 0,
-      totalAmount: totalAmount,
+      taxAmount,
+      taxBreakdown: taxBreakdown ?? undefined,
+      totalAmount: grossTotal,
       insuranceCovered: 0,
-      patientPayable: totalAmount,
+      patientPayable,
       paidAmount: 0,
-      balance: totalAmount,
+      balance: patientPayable,
       status: 'pending' as any,
       createdById: userId,
       billDate: new Date(),
@@ -444,6 +470,19 @@ export class BillingService extends BaseService {
   async addConfirmedMomoPayment(id: string, data: AddPaymentDTO, userId: string, momoIntentId: string) {
     if (!momoIntentId) throw new Error('A verified Mobile Money intent is required.');
     return this.recordPaymentToBill(id, data, userId, momoIntentId);
+  }
+
+  /**
+   * Give money back against a payment that was actually recorded on this bill.
+   * Amounts and the payment relationship are validated under the bill lock in the
+   * repository; the permission gate is on the route (finance only).
+   */
+  async refundPayment(billId: string, data: RefundPaymentDTO, userId: string) {
+    this.logInfo('Refunding bill payment', { billId, paymentId: data.paymentId, amount: data.amount });
+    if (!data.paymentId) {
+      throw Object.assign(new Error('Select the payment being refunded.'), { statusCode: 400 });
+    }
+    return this.repository.createRefund(billId, data, userId);
   }
 
   private async recordPaymentToBill(id: string, data: AddPaymentDTO, userId: string, momoIntentId?: string) {
@@ -508,8 +547,28 @@ export class BillingService extends BaseService {
    */
   async getCollections(dateFrom: Date, dateTo: Date) {
     this.logInfo('Fetching payment collections', { dateFrom, dateTo });
-    const rows = (await this.repository.findCollections(dateFrom, dateTo)) as unknown as CollectionRow[];
-    const allocated = rows.map(allocateCollection);
+    const [rows, refundRows] = await Promise.all([
+      this.repository.findCollections(dateFrom, dateTo),
+      this.repository.findRefunds(dateFrom, dateTo),
+    ]);
+    // A refund reverses the collection it came from, so it is fed through the same
+    // allocator as a voided payment. Unlike a void, the original payment row stays
+    // in `payments`; the refund appears only in `reversals`.
+    const refundRowsAsReversals = refundRows.map((refund) => ({
+      id: refund.id,
+      transactionDate: refund.refundedAt,
+      amount: refund.amount,
+      paymentMethod: refund.refundMethod,
+      reference: refund.refundNumber,
+      notes: refund.reason,
+      isVoided: true,
+      voidedAt: refund.refundedAt,
+      voidReason: refund.reason,
+      isRefund: true,
+      User: refund.processedBy,
+      Bill: refund.bill,
+    } as unknown as CollectionRow));
+    const allocated = [...rows, ...refundRowsAsReversals].map(allocateCollection);
 
     const payments = allocated.filter((payment) => !payment.isVoided);
     const reversals = allocated.filter((payment) => payment.isVoided);
@@ -631,6 +690,124 @@ export class BillingService extends BaseService {
           cashAtHand: cashier.cash / 100,
         }))
         .sort((a, b) => b.collections - a.collections),
+    };
+  }
+
+  /**
+   * Tax summary for a period: what was taxed, what was exempt, and how much of
+   * each levy was charged. This is the filing view — it reads the component trail
+   * stored on every bill rather than applying today's rates to old invoices.
+   */
+  async getTaxSummary(dateFrom: Date, dateTo: Date) {
+    this.logInfo('Building tax summary', { dateFrom, dateTo });
+    const num = (value: unknown) => {
+      const parsed = Number(value ?? 0);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const bills = await this.prisma.bill.findMany({
+      where: { billDate: { gte: dateFrom, lte: dateTo }, status: { not: 'cancelled' } },
+      select: {
+        id: true, billNumber: true, billDate: true, paymentMode: true, status: true,
+        subtotal: true, taxAmount: true, totalAmount: true, taxBreakdown: true,
+      },
+      orderBy: { billDate: 'asc' },
+    });
+
+    const byComponent = new Map<string, { code: string; name: string; rate: number; amount: number }>();
+    const byPayer = new Map<string, { paymentMode: string; invoiceCount: number; taxableSales: number; exemptSales: number; taxCollected: number }>();
+    const byDay = new Map<string, { date: string; invoiceCount: number; taxableSales: number; exemptSales: number; taxCollected: number }>();
+
+    let taxableSales = 0;
+    let exemptSales = 0;
+    let taxCollected = 0;
+    let grossSales = 0;
+    let invoicesWithTax = 0;
+
+    for (const bill of bills) {
+      const subtotal = num(bill.subtotal);
+      const tax = num(bill.taxAmount);
+      const breakdown: any = bill.taxBreakdown;
+      // Bills raised before this feature have no component trail; their whole
+      // subtotal is treated as taxable when a tax amount was recorded.
+      const base = breakdown && Number.isFinite(Number(breakdown.base))
+        ? num(breakdown.base)
+        : (tax > 0 ? subtotal : 0);
+      const exempt = Math.max(0, subtotal - base);
+
+      taxableSales += base;
+      exemptSales += exempt;
+      taxCollected += tax;
+      grossSales += num(bill.totalAmount);
+      if (tax > 0) invoicesWithTax += 1;
+
+      const components = Array.isArray(breakdown?.components) ? breakdown.components : [];
+      if (components.length > 0) {
+        for (const component of components) {
+          const key = String(component.code || component.name || 'TAX');
+          const existing = byComponent.get(key);
+          if (existing) existing.amount += num(component.amount);
+          else byComponent.set(key, {
+            code: key,
+            name: String(component.name || key),
+            rate: num(component.rate),
+            amount: num(component.amount),
+          });
+        }
+      } else if (tax > 0) {
+        const existing = byComponent.get('TAX');
+        if (existing) existing.amount += tax;
+        else byComponent.set('TAX', { code: 'TAX', name: 'Tax', rate: 0, amount: tax });
+      }
+
+      const payerKey = String(bill.paymentMode);
+      const payer = byPayer.get(payerKey) || { paymentMode: payerKey, invoiceCount: 0, taxableSales: 0, exemptSales: 0, taxCollected: 0 };
+      payer.invoiceCount += 1;
+      payer.taxableSales += base;
+      payer.exemptSales += exempt;
+      payer.taxCollected += tax;
+      byPayer.set(payerKey, payer);
+
+      const day = new Date(bill.billDate).toISOString().slice(0, 10);
+      const row = byDay.get(day) || { date: day, invoiceCount: 0, taxableSales: 0, exemptSales: 0, taxCollected: 0 };
+      row.invoiceCount += 1;
+      row.taxableSales += base;
+      row.exemptSales += exempt;
+      row.taxCollected += tax;
+      byDay.set(day, row);
+    }
+
+    const round = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+    return {
+      period: { start: dateFrom, end: dateTo },
+      summary: {
+        invoiceCount: bills.length,
+        invoicesWithTax,
+        grossSales: round(grossSales),
+        taxableSales: round(taxableSales),
+        exemptSales: round(exemptSales),
+        taxCollected: round(taxCollected),
+      },
+      byComponent: Array.from(byComponent.values())
+        .map((row) => ({ ...row, amount: round(row.amount) }))
+        .sort((a, b) => a.code.localeCompare(b.code)),
+      byPayer: Array.from(byPayer.values())
+        .map((row) => ({
+          ...row,
+          taxableSales: round(row.taxableSales),
+          exemptSales: round(row.exemptSales),
+          taxCollected: round(row.taxCollected),
+        }))
+        .sort((a, b) => b.taxCollected - a.taxCollected),
+      daily: Array.from(byDay.values())
+        .map((row) => ({
+          ...row,
+          taxableSales: round(row.taxableSales),
+          exemptSales: round(row.exemptSales),
+          taxCollected: round(row.taxCollected),
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date)),
     };
   }
 

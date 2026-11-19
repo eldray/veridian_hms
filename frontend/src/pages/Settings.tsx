@@ -26,10 +26,11 @@ import { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import {
   Building, Shield, Database, ClipboardList,
-  Settings as SettingsIcon, Package, DollarSign, Palette,
+  Settings as SettingsIcon, Package, DollarSign, Palette, Percent,
 } from 'lucide-react';
 import CompanySettingsTab from '../components/settings/CompanySettingsTab';
 import ServiceCatalogTab from '../components/settings/ServiceCatalogTab';
+import TaxSettingsTab from '../components/settings/TaxSettingsTab';
 import MedicalServicesManagement from './MedicalServicesManagement';
 import NHISConfigTab from '../components/settings/NHISConfigTab';
 import BackupRestoreTab from '../components/settings/BackupRestoreTab';
@@ -37,7 +38,7 @@ import GDRGManagement from './GDRGManagement';
 import ThemePicker from '../components/ThemePicker';
 import { PageHeader } from '../components/ui';
 
-type SettingsTab = 'company' | 'services' | 'medical' | 'gdrg' | 'nhis' | 'appearance' | 'backup';
+type SettingsTab = 'company' | 'services' | 'medical' | 'gdrg' | 'nhis' | 'tax' | 'appearance' | 'backup';
 
 export default function Settings() {
   const { hasRole } = useAuthStore();
@@ -50,6 +51,7 @@ export default function Settings() {
     { id: 'medical' as const, label: 'Medical Services', icon: ClipboardList },
     { id: 'gdrg' as const, label: 'G-DRG Tariffs', icon: DollarSign },
     { id: 'nhis' as const, label: 'NHIS', icon: Shield },
+    { id: 'tax' as const, label: 'Tax', icon: Percent },
     { id: 'appearance' as const, label: 'Appearance', icon: Palette },
     { id: 'backup' as const, label: 'Backup', icon: Database },
   ];
@@ -100,6 +102,7 @@ export default function Settings() {
         {activeTab === 'medical' && <MedicalServicesManagement />}
         {activeTab === 'gdrg' && <GDRGManagement />}
         {activeTab === 'nhis' && <NHISConfigTab />}
+        {activeTab === 'tax' && <TaxSettingsTab />}
         {activeTab === 'appearance' && (
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3">
             <ThemePicker />

@@ -1,7 +1,8 @@
-import { PrismaClient, ProformaInvoiceStatus } from '@prisma/client';
+import { PrismaClient, Prisma, ProformaInvoiceStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { ProformaInvoiceRepository } from './ProformaInvoiceRepository';
 import { NotFoundError, ValidationError } from '../../utils/errors';
+import { computeLineTax, loadTaxConfiguration, mergeTaxBreakdowns } from '../../utils/tax';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -28,12 +29,10 @@ export class ProformaInvoiceService extends BaseService {
   // ✅ FIXED: Safely parse Decimals before math
   private calculateTotals(items: any[], discount: number = 0) {
     const subtotal = items.reduce((sum, item) => sum + (toNumber(item.unitPrice) * item.quantity), 0);
-    const totalVat = items.reduce((sum, item) => {
-      const vatRate = item.vatRate || 0;
-      const itemTotal = toNumber(item.unitPrice) * item.quantity;
-      return sum + (itemTotal * vatRate / 100);
-    }, 0);
-    return { subtotal, taxAmount: totalVat, totalAmount: subtotal + totalVat - discount };
+    // Line tax is already component-resolved (VAT + levies), so the invoice total
+    // is the sum of the stored amounts rather than a fresh percentage calculation.
+    const taxAmount = items.reduce((sum, item) => sum + toNumber(item.vatAmount), 0);
+    return { subtotal, taxAmount, totalAmount: subtotal + taxAmount - discount };
   }
 
   // The catalog carries a price per payment mode, so a line left blank is filled
@@ -58,14 +57,18 @@ export class ProformaInvoiceService extends BaseService {
     if (data.corporateAccountId && !(await this.prisma.corporateAccount.findUnique({ where: { id: data.corporateAccountId } }))) throw new NotFoundError('Corporate account not found');
 
     const processedItems = [];
+    const taxConfig = await loadTaxConfiguration(this.prisma);
+    const lineTaxes = [];
     for (const item of data.items) {
+      let pricing: any = null;
       if (item.serviceCatalogId) {
         const service = await this.prisma.serviceCatalog.findUnique({
           where: { id: item.serviceCatalogId },
           include: { pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' } } } // ✅ FIXED: 1-to-N pricing
         });
         if (!service) throw new NotFoundError(`Service catalog item not found: ${item.serviceCatalogId}`);
-        
+        pricing = Array.isArray(service.pricing) ? service.pricing[0] : service.pricing;
+
         if (item.unitPrice === undefined || item.unitPrice === null || item.unitPrice === '') {
           item.unitPrice = this.tierPrice(service.pricing, item.pricingBasis);
         }
@@ -73,14 +76,35 @@ export class ProformaInvoiceService extends BaseService {
 
       const unitPrice = toNumber(item.unitPrice);
       const totalPrice = unitPrice * item.quantity;
-      const vatAmount = totalPrice * (item.vatRate || 0) / 100;
       const insuranceCoverage = toNumber(item.insuranceCoverage) || 0;
       const patientResponsibility = item.isInsuranceCovered ? totalPrice - insuranceCoverage : totalPrice;
 
-      processedItems.push({ ...item, unitPrice, vatAmount, totalPrice, patientResponsibility });
+      // Tax is derived from the catalog, never trusted from the browser. Custom lines
+      // (no catalog link) stay exempt unless the caller supplies an explicit rate.
+      const lineTax = computeLineTax(
+        patientResponsibility,
+        {
+          isTaxable: pricing ? pricing.isTaxable === true : item.isTaxable === true,
+          overrideRate: pricing ? pricing.vatRate ?? 0 : item.vatRate ?? 0,
+        },
+        taxConfig,
+        item.pricingBasis || 'cash',
+      );
+      if (lineTax.total > 0) lineTaxes.push(lineTax);
+
+      processedItems.push({
+        ...item,
+        unitPrice,
+        vatRate: lineTax.effectiveRate,
+        vatAmount: lineTax.total,
+        taxBreakdown: lineTax.total > 0 ? lineTax : undefined,
+        totalPrice,
+        patientResponsibility,
+      });
     }
 
     const { subtotal, taxAmount, totalAmount } = this.calculateTotals(processedItems, data.discount || 0);
+    const taxBreakdown = mergeTaxBreakdowns(lineTaxes, processedItems[0]?.pricingBasis || 'cash');
     const validityDays = data.validityDays || 7;
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + validityDays);
@@ -89,7 +113,7 @@ export class ProformaInvoiceService extends BaseService {
       referenceNumber: await this.generateReferenceNumber(),
       patientId: data.patientId, attendanceId: data.attendanceId, admissionId: data.admissionId,
       corporateAccountId: data.corporateAccountId, status: 'DRAFT', subtotal, discount: data.discount || 0,
-      taxAmount, totalAmount, validityDays, expiresAt, notes: data.notes, termsAndConditions: data.termsAndConditions,
+      taxAmount, taxBreakdown, totalAmount, validityDays, expiresAt, notes: data.notes, termsAndConditions: data.termsAndConditions,
       createdById: userId, items: processedItems
     });
   }
@@ -118,25 +142,49 @@ export class ProformaInvoiceService extends BaseService {
 
     if (Array.isArray(data.items)) {
       if (data.items.length === 0) throw new ValidationError('At least one proforma invoice item is required');
+      const taxConfig = await loadTaxConfiguration(this.prisma);
       const processedItems = [];
+      const lineTaxes = [];
       for (const item of data.items) {
+        let pricing: any = null;
         if (item.serviceCatalogId) {
           const service = await this.prisma.serviceCatalog.findUnique({
             where: { id: item.serviceCatalogId },
             include: { pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' } } }
           });
           if (!service) throw new NotFoundError(`Service catalog item not found: ${item.serviceCatalogId}`);
+          pricing = Array.isArray(service.pricing) ? service.pricing[0] : service.pricing;
           if (item.unitPrice === undefined || item.unitPrice === null || item.unitPrice === '') {
             item.unitPrice = this.tierPrice(service.pricing, item.pricingBasis);
           }
         }
         const unitPrice = toNumber(item.unitPrice);
         const totalPrice = unitPrice * item.quantity;
-        const vatAmount = totalPrice * (item.vatRate || 0) / 100;
-        processedItems.push({ ...item, unitPrice, vatAmount, totalPrice });
+        const insuranceCoverage = toNumber(item.insuranceCoverage) || 0;
+        const patientResponsibility = item.isInsuranceCovered ? totalPrice - insuranceCoverage : totalPrice;
+        const lineTax = computeLineTax(
+          patientResponsibility,
+          {
+            isTaxable: pricing ? pricing.isTaxable === true : item.isTaxable === true,
+            overrideRate: pricing ? pricing.vatRate ?? 0 : item.vatRate ?? 0,
+          },
+          taxConfig,
+          item.pricingBasis || 'cash',
+        );
+        if (lineTax.total > 0) lineTaxes.push(lineTax);
+        processedItems.push({
+          ...item,
+          unitPrice,
+          vatRate: lineTax.effectiveRate,
+          vatAmount: lineTax.total,
+          taxBreakdown: lineTax.total > 0 ? lineTax : undefined,
+          totalPrice,
+          patientResponsibility,
+        });
       }
       const { subtotal, taxAmount, totalAmount } = this.calculateTotals(processedItems, data.discount || existing.discount);
-      updateData = { ...updateData, subtotal, taxAmount, totalAmount, items: processedItems };
+      const taxBreakdown = mergeTaxBreakdowns(lineTaxes, processedItems[0]?.pricingBasis || 'cash');
+      updateData = { ...updateData, subtotal, taxAmount, taxBreakdown: taxBreakdown ?? Prisma.DbNull, totalAmount, items: processedItems };
     }
 
     if (data.validityDays && data.validityDays !== existing.validityDays) {

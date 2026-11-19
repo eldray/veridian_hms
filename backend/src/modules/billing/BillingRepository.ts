@@ -1,11 +1,52 @@
-import { PrismaClient, BillStatus } from '@prisma/client';
+import { PrismaClient, Prisma, BillStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilters } from './BillingTypes';
+import { getCounterService } from '../../services/CounterService';
 import { resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
+import { mergeTaxBreakdowns } from '../../utils/tax';
+import { roundMoney, refundableAmount, billStatusAfterRefund } from '../../utils/refunds';
 import { latestSubmissionEvent, withSubmissionDate } from '../insuranceClaim/helpers/claimSubmission';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
+
+/**
+ * The bill shape the cashbook needs to allocate money to the services it bought.
+ * Shared by payment and refund rows so a reversal lands on the same lines the
+ * original collection did.
+ */
+const COLLECTION_BILL_SELECT = {
+  id: true,
+  billNumber: true,
+  Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
+  // A counter ticket bills a walk-in customer who is not in the patient register,
+  // so the collections report has to know who paid as well as how much.
+  CounterClient: { select: { name: true } },
+  BillLineItem: {
+    where: { isVoided: false },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      description: true,
+      quantity: true,
+      lineTotal: true,
+      patientPayableAmount: true,
+      serviceType: true,
+      serviceCatalog: {
+        select: {
+          serviceCategory: true,
+          subType: true,
+          // A pharmacy line is a drug or a consumable depending on the stock card
+          // behind it; the bill line alone cannot tell them apart.
+          StockItem: { select: { isMedication: true, category: true } },
+        },
+      },
+      // Bed days are charged by the ward itself and carry no catalog card, so the
+      // ward behind the charge record is the only thing that says which one was paid for.
+      wardChargeRecord: { select: { ward: { select: { wardName: true } } } },
+    },
+  },
+} as const;
 
 export class BillingRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
@@ -88,7 +129,14 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         admission: { select: { id: true, admissionNumber: true, admissionDate: true, dischargeDate: true } },
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
         CorporateAccount: { select: { id: true, companyName: true, creditLimit: true, currentBalance: true, discountPercentage: true } },
-        Payment: { orderBy: { transactionDate: 'desc' } },
+        Payment: {
+          orderBy: { transactionDate: 'desc' },
+          include: { refunds: { orderBy: { refundedAt: 'asc' } } }
+        },
+        Refund: {
+          orderBy: { refundedAt: 'desc' },
+          include: { processedBy: { select: { id: true, fullName: true, username: true } } }
+        },
         InsuranceClaim: {
           select: {
             id: true,
@@ -142,12 +190,14 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const lineItems = await tx.billLineItem.findMany({ where: { billId: bill.id, isVoided: false } });
 
       const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
-      const totalAmount = money(lineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
-      // The service layer records payer allocation per line. Trust those explicit
-      // allocations instead of applying a blanket provider coverage percentage to
-      // uncovered/exempted services that were correctly priced at the cash tariff.
-      let patientPayable = money(lineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0));
+      // Subtotal is net of tax; totalAmount includes it. Tax is charged only on the
+      // patient-payable portion of each line, so insurer-covered amounts stay exempt.
+      const subtotal = money(lineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
+      const taxAmount = money(lineItems.reduce((sum, item) => sum + toNumber(item.vatAmount), 0));
+      const totalAmount = money(subtotal + taxAmount);
+      let patientPayable = money(lineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0) + taxAmount);
       let insuranceCovered = money(lineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0));
+      const taxBreakdown = mergeTaxBreakdowns(lineItems.map((item) => item.taxBreakdown as any), String(data.paymentMode));
 
       if (data.paymentMode === 'corporate' && data.corporateAccountId) {
         const corporate = await tx.corporateAccount.findUnique({ where: { id: data.corporateAccountId } });
@@ -160,7 +210,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
   
       const updatedBill = await tx.bill.update({
         where: { id: bill.id },
-        data: { totalAmount, patientPayable, balance: patientPayable, subtotal: totalAmount, insuranceCovered, waiverAmount: 0 },
+        data: { subtotal, taxAmount, totalAmount, patientPayable, balance: patientPayable, insuranceCovered, waiverAmount: 0, taxBreakdown: taxBreakdown ?? undefined },
         include: { Patient: true, Attendance: true, BillLineItem: true, CorporateAccount: true }
       });
       if (updatedBill.attendanceId) {
@@ -275,6 +325,103 @@ export class BillingRepository extends BaseRepository<any, any, any> {
   }
 
   /**
+   * Hand money back against one recorded payment.
+   *
+   * The bill row is locked first, so a refund and a concurrent payment cannot both
+   * read the same balance. The payment itself is never mutated: the refund row and
+   * the reduced paid amount are the audit trail.
+   */
+  async createRefund(
+    billId: string,
+    data: { paymentId: string; amount: number; refundMethod?: string; reference?: string; reason: string },
+    userId: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${billId} FOR UPDATE`;
+      }
+
+      const bill = await tx.bill.findUnique({ where: { id: billId } });
+      if (!bill) throw Object.assign(new Error('Bill not found'), { statusCode: 404 });
+      if (bill.status === 'cancelled') {
+        throw Object.assign(new Error('Cannot refund a cancelled bill.'), { statusCode: 409 });
+      }
+
+      const payment = await tx.payment.findUnique({ where: { id: data.paymentId } });
+      if (!payment || payment.billId !== billId) {
+        throw Object.assign(new Error('Payment not found on this bill.'), { statusCode: 404 });
+      }
+      if (payment.isVoided) {
+        throw Object.assign(new Error('This payment was voided and cannot be refunded.'), { statusCode: 409 });
+      }
+
+      const reason = String(data.reason || '').trim();
+      if (!reason) throw Object.assign(new Error('A refund reason is required.'), { statusCode: 400 });
+
+      const priorRefunds = await tx.refund.findMany({
+        where: { paymentId: payment.id },
+        select: { amount: true },
+      });
+      const alreadyRefunded = priorRefunds.reduce((sum, row) => sum + toNumber(row.amount), 0);
+      const refundable = refundableAmount(toNumber(payment.amount), alreadyRefunded);
+      const amount = roundMoney(Number(data.amount));
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw Object.assign(new Error('Refund amount must be greater than zero.'), { statusCode: 400 });
+      }
+      if (amount > refundable) {
+        throw Object.assign(
+          new Error(`Refund exceeds the unrefunded amount on this payment (${refundable.toFixed(2)}).`),
+          { statusCode: 409 },
+        );
+      }
+
+      const paidNow = toNumber(bill.paidAmount);
+      if (amount > roundMoney(paidNow)) {
+        throw Object.assign(
+          new Error('Refund exceeds the amount currently recorded as paid on this bill.'),
+          { statusCode: 409 },
+        );
+      }
+
+      const refund = await tx.refund.create({
+        data: {
+          refundNumber: getCounterService().nextRefundNumber(),
+          billId,
+          paymentId: payment.id,
+          amount,
+          refundMethod: (data.refundMethod || payment.paymentMethod) as any,
+          reference: data.reference?.trim() || null,
+          reason,
+          processedById: userId,
+        },
+      });
+
+      const paidAfter = roundMoney(paidNow - amount);
+      const balanceAfter = roundMoney(toNumber(bill.balance) + amount);
+      const updated = await tx.bill.update({
+        where: { id: billId },
+        data: {
+          paidAmount: paidAfter,
+          balance: balanceAfter,
+          status: billStatusAfterRefund(paidAfter, balanceAfter),
+          updatedAt: new Date(),
+        },
+        include: {
+          Patient: { select: { surname: true, otherNames: true, folderNumber: true, contact: true } },
+          Attendance: { select: { attendanceNumber: true, attendanceType: true } },
+          CorporateAccount: true,
+        },
+      });
+
+      if (updated.attendanceId) {
+        await this.syncAttendanceFinancials(tx, updated.attendanceId, updated);
+      }
+
+      return { bill: updated, refund };
+    });
+  }
+
+  /**
    * Every charged line in a date window, for the revenue-lines report. The bill travels with
    * each line because it is the bill that carries the payer and the customer — the alternative
    * was a lookup per row.
@@ -353,41 +500,24 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       orderBy: { transactionDate: 'desc' },
       include: {
         User: { select: { id: true, fullName: true, username: true } },
-        Bill: {
-          select: {
-            id: true,
-            billNumber: true,
-            Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
-            // A counter ticket bills a walk-in customer who is not in the patient register,
-            // so the collections report has to know who paid as well as how much.
-            CounterClient: { select: { name: true } },
-            BillLineItem: {
-              where: { isVoided: false },
-              orderBy: { createdAt: 'asc' },
-              select: {
-                id: true,
-                description: true,
-                quantity: true,
-                lineTotal: true,
-                patientPayableAmount: true,
-                serviceType: true,
-                serviceCatalog: {
-                  select: {
-                    serviceCategory: true,
-                    subType: true,
-                    // A pharmacy line is a drug or a consumable depending on the stock card
-                    // behind it; the bill line alone cannot tell them apart.
-                    StockItem: { select: { isMedication: true, category: true } },
-                  },
-                },
-                // Bed days are charged by the ward itself and carry no catalog card, so the
-                // ward behind the charge record is the only thing that says which one was paid for.
-                wardChargeRecord: { select: { ward: { select: { wardName: true } } } },
-              }
-            }
-          }
-        }
+        Bill: { select: COLLECTION_BILL_SELECT }
       }
+    });
+  }
+
+  /**
+   * Refunds in the same window, shaped like a payment so the cashbook allocator
+   * can place them on the lines they reverse. `processedBy` is the cashier who
+   * handed the money back.
+   */
+  async findRefunds(dateFrom: Date, dateTo: Date) {
+    return this.prisma.refund.findMany({
+      where: { refundedAt: { gte: dateFrom, lte: dateTo } },
+      orderBy: { refundedAt: 'desc' },
+      include: {
+        processedBy: { select: { id: true, fullName: true, username: true } },
+        bill: { select: COLLECTION_BILL_SELECT },
+      },
     });
   }
 
@@ -503,12 +633,17 @@ export class BillingRepository extends BaseRepository<any, any, any> {
 
     return {
       bill, lineItems,
-      summary: {
-        totalItems: lineItems.length,
-        subtotal: lineItems.reduce((sum, i) => sum + toNumber(i.lineTotal), 0),
-        insuranceCovered: lineItems.reduce((sum, i) => sum + toNumber(i.insuranceCoveredAmount), 0),
-        patientPayable: lineItems.reduce((sum, i) => sum + toNumber(i.patientPayableAmount), 0)
-      }
+      summary: (() => {
+        const subtotal = lineItems.reduce((sum, i) => sum + toNumber(i.lineTotal), 0);
+        const taxAmount = lineItems.reduce((sum, i) => sum + toNumber(i.vatAmount), 0);
+        return {
+          totalItems: lineItems.length,
+          subtotal,
+          taxAmount,
+          insuranceCovered: lineItems.reduce((sum, i) => sum + toNumber(i.insuranceCoveredAmount), 0),
+          patientPayable: lineItems.reduce((sum, i) => sum + toNumber(i.patientPayableAmount), 0) + taxAmount
+        };
+      })()
     };
   }
 
@@ -525,8 +660,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
 
       const activeLineItems = await tx.billLineItem.findMany({ where: { billId: lineItem.billId, isVoided: false } });
       const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
-      const newTotal = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
-      const grossPatientLiability = money(activeLineItems.reduce((sum, item) => {
+      const newSubtotal = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
+      const newTax = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.vatAmount), 0));
+      const newTotal = money(newSubtotal + newTax);
+      const lineLiability = money(activeLineItems.reduce((sum, item) => {
         const explicitPatient = toNumber(item.patientPayableAmount);
         const explicitInsurance = toNumber(item.insuranceCoveredAmount);
         // Older cash bills predate line-level payer allocation and have zero defaults.
@@ -536,7 +673,9 @@ export class BillingRepository extends BaseRepository<any, any, any> {
           : explicitPatient;
         return sum + legacyCashLiability;
       }, 0));
+      const grossPatientLiability = money(lineLiability + newTax);
       const newInsuranceCovered = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0));
+      const taxBreakdown = mergeTaxBreakdowns(activeLineItems.map((item) => item.taxBreakdown as any));
       const currentBill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
       if (!currentBill) throw new Error('Bill not found');
       const newPatientPayable = Math.max(0, money(grossPatientLiability - toNumber(currentBill.waiverAmount)));
@@ -546,12 +685,14 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       await tx.bill.update({
         where: { id: lineItem.billId },
         data: {
-          subtotal: newTotal,
+          subtotal: newSubtotal,
+          taxAmount: newTax,
           totalAmount: newTotal,
           insuranceCovered: newInsuranceCovered,
           patientPayable: newPatientPayable,
           balance: newBalance,
           status: newStatus,
+          taxBreakdown: taxBreakdown ?? Prisma.DbNull,
           updatedAt: new Date()
         }
       });

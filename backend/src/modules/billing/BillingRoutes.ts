@@ -30,6 +30,9 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   // Get actual payment collections for a date range
   router.get('/collections', requireRole(FINANCIAL_READERS), controller.getCollections.bind(controller));
 
+  // Per-levy tax summary for a date range (filing view)
+  router.get('/tax-summary', requireRole(FINANCIAL_READERS), controller.getTaxSummary.bind(controller));
+
   // Get bill by ID
   router.get('/invoices/:id', requireRole(BILLING_READERS), controller.getById.bind(controller));
 
@@ -41,6 +44,9 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
 
   // Add payment to bill
   router.post('/invoices/:id/pay', requireRole(['admin', 'accounts', 'records']), controller.addPayment);
+
+  // Refund a recorded payment (finance only: money leaving the till)
+  router.post('/invoices/:id/refunds', requireRole(['admin', 'accounts']), controller.refundPayment);
 
   // Get bill line items
   router.get('/invoices/:id/items', requireRole(BILLING_READERS), controller.getLineItems.bind(controller));

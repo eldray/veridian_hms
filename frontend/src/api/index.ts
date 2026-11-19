@@ -2182,6 +2182,62 @@ export const getBillingCollections = async (params?: {
   return response.data?.data ?? response.data;
 };
 
+// ──────────────────────────────────────────────
+// TAX (configuration + filing summary)
+// ──────────────────────────────────────────────
+
+export interface BillingTaxComponentRow {
+  code: string;
+  name: string;
+  rate: number;
+  amount: number;
+}
+
+export interface BillingTaxPayerRow {
+  paymentMode: string;
+  invoiceCount: number;
+  taxableSales: number;
+  exemptSales: number;
+  taxCollected: number;
+}
+
+export interface BillingTaxDailyRow {
+  date: string;
+  invoiceCount: number;
+  taxableSales: number;
+  exemptSales: number;
+  taxCollected: number;
+}
+
+export interface BillingTaxSummary {
+  period: { start: string; end: string };
+  summary: {
+    invoiceCount: number;
+    invoicesWithTax: number;
+    grossSales: number;
+    taxableSales: number;
+    exemptSales: number;
+    taxCollected: number;
+  };
+  byComponent: BillingTaxComponentRow[];
+  byPayer: BillingTaxPayerRow[];
+  daily: BillingTaxDailyRow[];
+}
+
+export const getBillingTaxSummary = async (params: {
+  dateFrom: string;
+  dateTo: string;
+}): Promise<BillingTaxSummary> => {
+  const response = await api.get('/billing/tax-summary', { params });
+  return response.data?.data ?? response.data;
+};
+
+export const getTaxConfiguration = () =>
+  api.get('/settings/tax').then(r => r.data?.data ?? r.data);
+
+export const updateTaxConfiguration = (data: any) =>
+  api.put('/settings/tax', data).then(r => r.data?.data ?? r.data);
+
 /**
  * One charged line of a bill — the row the money reports are built from. A line remembers who
  * it was raised for only through its bill, and a counter ticket's customer is not a patient.
@@ -4487,6 +4543,7 @@ export default {
 
   // Settings
   getHospitalDetails, updateHospitalDetails,
+  getTaxConfiguration, updateTaxConfiguration,
 
   // NHIS SETTINGS
   getHospitalNHISSettings, updateHospitalNHISSettings,
@@ -4551,7 +4608,7 @@ export default {
   getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
   getBillingInvoice,
   generateBillReport, getBillingBreakdownForBill, updateBillStatus, getBillStatistics,
-  getBillLineItems, voidBillLineItem, getBillingCollections, getBillingRevenueLines,
+  getBillLineItems, voidBillLineItem, getBillingCollections, getBillingRevenueLines, getBillingTaxSummary,
 
   // Consumables (non-medication stock used during the visit)
   recordEncounterConsumableUse,

@@ -16,6 +16,7 @@ let referralCounter = NUMBER_BASE;     // REFERRAL SEQUENCE - independent
 let appointmentCounter = NUMBER_BASE;  // APPOINTMENT SEQUENCE - independent
 let requisitionCounter = NUMBER_BASE;  // REQUISITION SEQUENCE - independent (was a 6-digit timestamp that repeats every ~17 minutes)
 let transferCounter = NUMBER_BASE;     // STOCK TRANSFER SEQUENCE - independent (same problem)
+let refundCounter = NUMBER_BASE;       // REFUND SEQUENCE - independent (RFD-n)
 
 /**
  * A place where numbers from one counter are stored.
@@ -96,7 +97,7 @@ export class CounterService {
 
     console.log('📊 Initializing counters...');
 
-    const [patientMax, attendanceMax, receiptMax, referralMax, appointmentMax, requisitionMax, transferMax] = await Promise.all([
+    const [patientMax, attendanceMax, receiptMax, referralMax, appointmentMax, requisitionMax, transferMax, refundMax] = await Promise.all([
       this.maxNumberAcross([{ model: 'Patient', field: 'folderNumber' }]),
 
       // The attendance counter is SHARED: it also generates bill, admission and
@@ -119,7 +120,8 @@ export class CounterService {
       this.maxNumberAcross([{ model: 'ReferralRecord', field: 'referralNumber' }]),
       this.maxNumberAcross([{ model: 'Appointment', field: 'appointmentNumber' }]),
       this.maxNumberAcross([{ model: 'Requisition', field: 'requisitionNumber' }]),
-      this.maxNumberAcross([{ model: 'StockTransfer', field: 'transferNumber' }])
+      this.maxNumberAcross([{ model: 'StockTransfer', field: 'transferNumber' }]),
+      this.maxNumberAcross([{ model: 'Refund', field: 'refundNumber' }])
     ]);
 
     // Counters only ever move forward.
@@ -130,9 +132,10 @@ export class CounterService {
     appointmentCounter = Math.max(appointmentCounter, appointmentMax);
     requisitionCounter = Math.max(requisitionCounter, requisitionMax);
     transferCounter = Math.max(transferCounter, transferMax);
+    refundCounter = Math.max(refundCounter, refundMax);
 
     this.initialized = true;
-    console.log(`✅ Counters initialized: Patient=${patientCounter}, Attendance=${attendanceCounter}, Receipt=${receiptCounter}, Referral=${referralCounter}, Appointment=${appointmentCounter}, Requisition=${requisitionCounter}, Transfer=${transferCounter}`);
+    console.log(`✅ Counters initialized: Patient=${patientCounter}, Attendance=${attendanceCounter}, Receipt=${receiptCounter}, Referral=${referralCounter}, Appointment=${appointmentCounter}, Requisition=${requisitionCounter}, Transfer=${transferCounter}, Refund=${refundCounter}`);
   }
 
   // ============================================
@@ -244,6 +247,10 @@ export class CounterService {
     return `TRN-${padNumber(++transferCounter)}`;
   }
 
+  nextRefundNumber(): string {
+    return `RFD-${padNumber(++refundCounter)}`;
+  }
+
   // ============================================
   // HELPER METHODS
   // ============================================
@@ -258,7 +265,8 @@ export class CounterService {
       attendance: attendanceCounter,
       receipt: receiptCounter,
       referral: referralCounter,
-      appointment: appointmentCounter
+      appointment: appointmentCounter,
+      refund: refundCounter
     };
   }
 }

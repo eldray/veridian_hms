@@ -45,7 +45,7 @@ const defaultFormData = {
     isPrivateInsExempted: false,
     tariffCode: '',
     vatRate: 0,
-    isTaxable: true
+    isTaxable: false
   },
   procedures: {
     name: '',
@@ -58,7 +58,7 @@ const defaultFormData = {
     isPrivateInsExempted: false,
     tariffCode: '',
     vatRate: 0,
-    isTaxable: true,
+    isTaxable: false,
     duration: 30
   },
   scans: {
@@ -74,7 +74,7 @@ const defaultFormData = {
     isPrivateInsExempted: false,
     tariffCode: '',
     vatRate: 0,
-    isTaxable: true,
+    isTaxable: false,
     duration: 30,
     contrastRequired: false
   }

@@ -2,6 +2,7 @@
 import { PrismaClient, Prisma, PaymentMode } from '@prisma/client';
 import { getCounterService } from '../services/CounterService';
 import { resolveWardDailyRate } from '../utils/pricing';
+import { computeLineTax, loadTaxConfiguration, mergeTaxBreakdowns } from '../utils/tax';
 
 import prisma from '../core/database/prisma.client';
 
@@ -276,9 +277,7 @@ export class WardChargeService {
 
     // ✅ FIXED: Use toNumber() for all Decimal calculations
     const dailyRate = toNumber(wardCharge.dailyRate);
-    const vatRate = toNumber(wardCharge.ward.vatRate);
-    const vatAmount = dailyRate * (vatRate / 100);
-    const lineTotal = dailyRate + vatAmount;
+    const netLineTotal = dailyRate;
 
     // Calculate insurance coverage and patient payable
     let insuranceCoveredAmount = 0;
@@ -287,19 +286,19 @@ export class WardChargeService {
 
     switch (wardCharge.paymentMode) {
       case 'nhis':
-        insuranceCoveredAmount = lineTotal;
+        insuranceCoveredAmount = netLineTotal;
         patientPayableAmount = 0;
         description += ' (NHIS Covered)';
         break;
 
       case 'private_insurance':
-        insuranceCoveredAmount = lineTotal;
+        insuranceCoveredAmount = netLineTotal;
         patientPayableAmount = 0;
         description += ' (Private Insurance)';
         break;
 
       case 'corporate':
-        insuranceCoveredAmount = lineTotal;
+        insuranceCoveredAmount = netLineTotal;
         patientPayableAmount = 0;
         description += ' (Corporate Account)';
         if (wardCharge.attendance?.CorporateAccount) {
@@ -310,12 +309,20 @@ export class WardChargeService {
       case 'cash':
       default:
         insuranceCoveredAmount = 0;
-        patientPayableAmount = lineTotal;
+        patientPayableAmount = netLineTotal;
         description += ' (Cash)';
         break;
     }
 
-    // Create bill line item
+    const taxConfig = await loadTaxConfiguration(prisma);
+    const lineTax = computeLineTax(
+      patientPayableAmount,
+      { isTaxable: wardCharge.ward.isTaxable === true, overrideRate: toNumber(wardCharge.ward.vatRate) },
+      taxConfig,
+      String(wardCharge.paymentMode),
+    );
+
+    // Create bill line item (net unit price; tax is carried separately)
     const lineItem = await prisma.billLineItem.create({
       data: {
         billId,
@@ -324,9 +331,10 @@ export class WardChargeService {
         quantity: 1,
         unitPrice: dailyRate,
         pricingBasis: wardCharge.paymentMode,
-        vatRate,
-        vatAmount,
-        lineTotal,
+        vatRate: lineTax.effectiveRate,
+        vatAmount: lineTax.total,
+        taxBreakdown: lineTax.total > 0 ? lineTax : undefined,
+        lineTotal: netLineTotal,
         insuranceCoveredAmount,
         patientPayableAmount,
         discount: 0,
@@ -361,9 +369,11 @@ export class WardChargeService {
 
     // ✅ FIXED: Use toNumber() for all Decimal math
     const subtotal = lineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
+    const taxAmount = lineItems.reduce((sum, item) => sum + toNumber(item.vatAmount), 0);
     const insuranceCovered = lineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0);
-    const patientPayable = lineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
-    const totalAmount = subtotal;
+    const patientPayable = lineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0) + taxAmount;
+    const totalAmount = subtotal + taxAmount;
+    const taxBreakdown = mergeTaxBreakdowns(lineItems.map((item) => item.taxBreakdown as any));
 
     const bill = await prisma.bill.findUnique({
       where: { id: billId }
@@ -388,6 +398,8 @@ export class WardChargeService {
       where: { id: billId },
       data: {
         subtotal,
+        taxAmount,
+        taxBreakdown: taxBreakdown ?? Prisma.DbNull,
         totalAmount,
         insuranceCovered,
         patientPayable,

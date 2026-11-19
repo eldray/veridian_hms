@@ -122,7 +122,8 @@ model ServicePricing {
   insurancePrice   Decimal        @db.Decimal(15, 2)
   corporatePrice   Decimal        @default(0) @db.Decimal(15, 2)
   vatRate          Float          @default(0)
-  isTaxable        Boolean        @default(true)
+  // Tax is opt-in: healthcare is exempt unless an item is deliberately marked taxable.
+  isTaxable        Boolean        @default(false)
   effectiveDate    DateTime       @default(now())
   expiryDate       DateTime?
   isActive         Boolean        @default(true)
@@ -851,7 +852,7 @@ model Ward {
   requiresAuthorization Boolean  @default(false)
   tariffCode            String?
   vatRate               Float    @default(0)
-  isTaxable             Boolean  @default(true)
+  isTaxable             Boolean  @default(false)
   dailyCashRate         Decimal  @default(0) @db.Decimal(15, 2)
   dailyNHISRate         Decimal  @default(0) @db.Decimal(15, 2)
   dailyInsuranceRate    Decimal  @default(0) @db.Decimal(15, 2)
@@ -992,6 +993,8 @@ model Bill {
   discount            Decimal     @default(0) @db.Decimal(15, 2)
   waiverAmount        Decimal     @default(0) @db.Decimal(15, 2)
   taxAmount           Decimal     @default(0) @db.Decimal(15, 2)
+  // Component-level audit trail: { base, total, effectiveRate, payerMode, components[] }.
+  taxBreakdown        Json?
   totalAmount         Decimal     @default(0) @db.Decimal(15, 2)
   insuranceCovered    Decimal     @default(0) @db.Decimal(15, 2)
   patientPayable      Decimal     @default(0) @db.Decimal(15, 2)
@@ -1027,6 +1030,7 @@ model Bill {
   User_Bill_updatedByIdToUser User?              @relation("Bill_updatedByIdToUser", fields: [updatedById], references: [id])
   InsuranceClaim              InsuranceClaim[]
   Payment                     Payment[]
+  Refund                      Refund[]
   BillLineItem                BillLineItem[]
   PatientWaiver               PatientWaiver[]
   ProformaInvoice             ProformaInvoice?
@@ -1056,6 +1060,7 @@ model BillLineItem {
   pricingBasis           PaymentMode
   vatRate                Float       @default(0)
   vatAmount              Decimal     @default(0) @db.Decimal(15, 2)
+  taxBreakdown           Json?
   lineTotal              Decimal     @db.Decimal(15, 2)
   insuranceCoveredAmount Decimal     @default(0) @db.Decimal(15, 2)
   patientPayableAmount   Decimal     @default(0) @db.Decimal(15, 2)
@@ -1128,9 +1133,40 @@ model Payment {
   Bill     Bill  @relation(fields: [billId], references: [id])
   User     User  @relation("Payment_receivedBy", fields: [receivedById], references: [id])
   voidedBy User? @relation("Payment_voidedBy", fields: [voidedById], references: [id])
+  refunds  Refund[]
 
   @@index([billId])
   @@index([transactionDate])
+}
+
+/**
+ * Money handed back to the patient against a recorded payment.
+ *
+ * A refund is a first-class ledger row rather than a void: the original payment
+ * stays intact for the receipt trail, and the amount, method, reason and operator
+ * are kept for the cashbook and audit.
+ */
+model Refund {
+  id            String        @id @default(cuid())
+  refundNumber  String        @unique
+  billId        String
+  paymentId     String?
+  amount        Decimal       @db.Decimal(15, 2)
+  refundMethod  PaymentMethod
+  reference     String?
+  reason        String
+  refundedAt    DateTime      @default(now())
+  processedById String
+  createdAt     DateTime      @default(now())
+
+  bill        Bill     @relation(fields: [billId], references: [id], onDelete: Restrict)
+  payment     Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  processedBy User     @relation("Refund_processedBy", fields: [processedById], references: [id])
+
+  @@index([billId])
+  @@index([paymentId])
+  @@index([refundedAt])
+  @@map("refunds")
 }
 
 
@@ -1787,7 +1823,7 @@ model LabTestTemplate {
   isActive               Boolean      @default(true)
   tariffCode             String?
   vatRate                Float        @default(0)
-  isTaxable              Boolean      @default(true)
+  isTaxable              Boolean      @default(false)
   specimenType           SpecimenType
   resultTemplate         Json?
   normalRangeTemplate    Json?
@@ -1813,7 +1849,7 @@ model ScanTemplate {
   isActive                Boolean      @default(true)
   tariffCode              String?
   vatRate                 Float        @default(0)
-  isTaxable               Boolean      @default(true)
+  isTaxable               Boolean      @default(false)
   preparationInstructions String?
   duration                Int
   contrastRequired        Boolean      @default(false)
@@ -1840,7 +1876,7 @@ model ProcedureTemplate {
   isActive               Boolean           @default(true)
   tariffCode             String?
   vatRate                Float             @default(0)
-  isTaxable              Boolean           @default(true)
+  isTaxable              Boolean           @default(false)
   duration               Int               @default(30)
   createdAt              DateTime          @default(now())
   updatedAt              DateTime          @updatedAt
@@ -1890,7 +1926,7 @@ model StockItem {
   isActive               Boolean   @default(true)
   tariffCode             String?
   vatRate                Float     @default(0)
-  isTaxable              Boolean   @default(true)
+  isTaxable              Boolean   @default(false)
   isMedication           Boolean   @default(true)
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
@@ -2298,6 +2334,28 @@ model Hospital {
 }
 
 // ============================================================
+// TAX CONFIGURATION (Ghana VAT + levies)
+// ============================================================
+//
+// One row holds the facility's tax regime. Rates are stored as components so a
+// return can be filed per levy (VAT, NHIL, GETFund, COVID-19) rather than as a
+// single opaque percentage. `payerModes` decides which payer types are taxed;
+// `defaultExempt` documents that healthcare is exempt unless an item opts in.
+model TaxConfiguration {
+  id            String   @id @default("default")
+  isEnabled     Boolean  @default(false)
+  defaultExempt Boolean  @default(true)
+  taxId         String?
+  payerModes    String[] @default(["cash"])
+  components    Json
+  updatedById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("tax_configuration")
+}
+
+// ============================================================
 // USER, RBAC & NOTIFICATIONS (FIXED: Dynamic RBAC, HR Models)
 // ============================================================
 
@@ -2355,6 +2413,7 @@ model User {
   Medication_Medication_prescribedByIdToUser      Medication[]              @relation("Medication_prescribedByIdToUser")
   Payment                                         Payment[]                 @relation("Payment_receivedBy")
   Payment_voidedBy                                Payment[]                 @relation("Payment_voidedBy")
+  Refund_processedBy                              Refund[]                  @relation("Refund_processedBy")
   Procedure_Procedure_assistantIdToUser           Procedure[]               @relation("Procedure_assistantIdToUser")
   Procedure_Procedure_createdByIdToUser           Procedure[]               @relation("Procedure_createdByIdToUser")
   Procedure_Procedure_performedByIdToUser         Procedure[]               @relation("Procedure_performedByIdToUser")
@@ -2690,6 +2749,7 @@ model ProformaInvoice {
   subtotal           Decimal               @default(0) @db.Decimal(15, 2)
   discount           Decimal               @default(0) @db.Decimal(15, 2)
   taxAmount          Decimal               @default(0) @db.Decimal(15, 2)
+  taxBreakdown       Json?
   totalAmount        Decimal               @default(0) @db.Decimal(15, 2)
   validityDays       Int                   @default(7)
   expiresAt          DateTime?
@@ -2734,6 +2794,7 @@ model ProformaInvoiceItem {
   pricingBasis          PaymentMode
   vatRate               Float       @default(0)
   vatAmount             Decimal     @default(0) @db.Decimal(15, 2)
+  taxBreakdown          Json?
   totalPrice            Decimal     @db.Decimal(15, 2)
   isInsuranceCovered    Boolean     @default(false)
   insuranceCoverage     Decimal     @default(0) @db.Decimal(15, 2)

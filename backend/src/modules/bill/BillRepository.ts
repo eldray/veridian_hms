@@ -1,10 +1,12 @@
 import { ValidationError, NotFoundError } from '../../utils/errors';
-import { PrismaClient, BillStatus, PaymentMethod, PaymentMode, ServiceType } from '@prisma/client';
+import { PrismaClient, Prisma, BillStatus, PaymentMethod, PaymentMode, ServiceType } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
-import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput } from './BillTypes';
+import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput, RefundPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
+import { roundMoney, refundableAmount, billStatusAfterRefund } from '../../utils/refunds';
 import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff, resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
+import { computeLineTax, loadTaxConfiguration, mergeTaxBreakdowns, type TaxBreakdown } from '../../utils/tax';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -77,7 +79,15 @@ export class BillRepository extends BaseRepository<any, any, any> {
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, dateTime: true } },
         BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } },
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
-        Payment: true
+        // A payment carries its own refunds so the bill screen can show what is still refundable.
+        Payment: {
+          orderBy: { transactionDate: 'desc' },
+          include: { refunds: { orderBy: { refundedAt: 'asc' } } }
+        },
+        Refund: {
+          orderBy: { refundedAt: 'desc' },
+          include: { processedBy: { select: { id: true, fullName: true, username: true } } }
+        }
       }
     });
   }
@@ -269,6 +279,93 @@ export class BillRepository extends BaseRepository<any, any, any> {
       }
       throw error;
     }
+  }
+
+  /**
+   * Hand money back against one recorded payment.
+   *
+   * The bill row is locked first so a refund and a concurrent payment cannot both
+   * read the same balance. The payment row is never mutated: the refund row and the
+   * reduced paid amount are the audit trail, and the original receipt stays intact.
+   */
+  async createRefund(billId: string, data: RefundPaymentInput, processedById: string) {
+    return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${billId} FOR UPDATE`;
+      }
+
+      const bill = await tx.bill.findUnique({ where: { id: billId } });
+      if (!bill) throw new Error('Bill not found');
+      if (bill.status === 'cancelled') {
+        throw Object.assign(new Error('Cannot refund a cancelled bill.'), { statusCode: 409 });
+      }
+
+      const payment = await tx.payment.findUnique({ where: { id: data.paymentId } });
+      if (!payment || payment.billId !== billId) {
+        throw Object.assign(new Error('Payment not found on this bill.'), { statusCode: 404 });
+      }
+      if (payment.isVoided) {
+        throw Object.assign(new Error('This payment was voided and cannot be refunded.'), { statusCode: 409 });
+      }
+
+      const reason = String(data.reason || '').trim();
+      if (!reason) throw Object.assign(new Error('A refund reason is required.'), { statusCode: 400 });
+
+      const priorRefunds = await tx.refund.findMany({
+        where: { paymentId: payment.id },
+        select: { amount: true }
+      });
+      const alreadyRefunded = priorRefunds.reduce((sum, row) => sum + toNumber(row.amount), 0);
+      const refundable = refundableAmount(toNumber(payment.amount), alreadyRefunded);
+      const amount = roundMoney(Number(data.amount));
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new ValidationError('Refund amount must be greater than zero.');
+      }
+      if (amount > refundable) {
+        throw Object.assign(
+          new Error(`Refund exceeds the unrefunded amount on this payment (${refundable.toFixed(2)}).`),
+          { statusCode: 409 }
+        );
+      }
+
+      const paidNow = roundMoney(toNumber(bill.paidAmount));
+      if (amount > paidNow) {
+        throw Object.assign(
+          new Error('Refund exceeds the amount currently recorded as paid on this bill.'),
+          { statusCode: 409 }
+        );
+      }
+
+      const refund = await tx.refund.create({
+        data: {
+          refundNumber: getCounterService().nextRefundNumber(),
+          billId,
+          paymentId: payment.id,
+          amount,
+          refundMethod: (data.refundMethod || payment.paymentMethod) as PaymentMethod,
+          reference: data.reference?.trim() || null,
+          reason,
+          processedById
+        }
+      });
+
+      const paidAfter = roundMoney(paidNow - amount);
+      const balanceAfter = roundMoney(toNumber(bill.balance) + amount);
+      const updatedBill = await tx.bill.update({
+        where: { id: billId },
+        data: {
+          paidAmount: paidAfter,
+          balance: balanceAfter,
+          status: billStatusAfterRefund(paidAfter, balanceAfter)
+        }
+      });
+
+      if (updatedBill.attendanceId) {
+        await this.syncAttendanceFinancials(tx, updatedBill.attendanceId, updatedBill);
+      }
+
+      return { bill: updatedBill, refund };
+    });
   }
 
   async voidLineItem(lineItemId: string, userId: string, reason: string) {
@@ -497,6 +594,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
   // ✅ Generates a Bill from an attendance's billable items (ServiceRendered, LabTest, Scan, Procedure, Medication).
   async generateFromEncounter(encounterId: string, createdBy: string) {
+    // Tax is resolved once per bill; every line is computed with the same regime.
+    const taxConfig = await loadTaxConfiguration(this.prisma);
     return this.prisma.$transaction(async (tx) => {
       const attendanceDate = await tx.attendance.findUnique({
         where: { id: encounterId },
@@ -525,7 +624,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
           Scan: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing } } },
           Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing } } },
           Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: { include: activePricing } } },
-          WardChargeRecord: { where: { isBilled: false } }
+          WardChargeRecord: { where: { isBilled: false }, include: { ward: true } }
         }
       });
       if (!attendance) throw new Error('Encounter not found');
@@ -646,6 +745,13 @@ export class BillRepository extends BaseRepository<any, any, any> {
           unitPrice = quantity > 0 ? money(lineTotal / quantity) : 0;
         }
 
+        const lineTax = computeLineTax(
+          patientPayableAmount,
+          { isTaxable: pricing?.isTaxable === true, overrideRate: pricing?.vatRate ?? 0 },
+          taxConfig,
+          String(paymentMode),
+        );
+
         lineItemsData.push({
           serviceCatalogId: catalog?.id ?? null,
           sourceKey,
@@ -654,6 +760,9 @@ export class BillRepository extends BaseRepository<any, any, any> {
           quantity,
           unitPrice,
           pricingBasis: paymentMode,
+          vatRate: lineTax.effectiveRate,
+          vatAmount: lineTax.total,
+          taxBreakdown: lineTax.total > 0 ? lineTax : undefined,
           lineTotal,
           insuranceCoveredAmount,
           patientPayableAmount,
@@ -699,6 +808,12 @@ export class BillRepository extends BaseRepository<any, any, any> {
           (paymentMode === 'private_insurance' && toNumber(charge.insurancePrice) > 0);
         const insuranceCoveredAmount = insurerCovers && payerProvider ? money(lineTotal * coverageRate) : 0;
         const patientPayableAmount = money(lineTotal - insuranceCoveredAmount);
+        const lineTax = computeLineTax(
+          patientPayableAmount,
+          { isTaxable: charge.ward?.isTaxable === true, overrideRate: charge.ward?.vatRate ?? 0 },
+          taxConfig,
+          String(paymentMode),
+        );
         lineItemsData.push({
           serviceCatalogId: null,
           sourceKey: `ward-charge:${charge.id}`,
@@ -707,6 +822,9 @@ export class BillRepository extends BaseRepository<any, any, any> {
           quantity: 1,
           unitPrice,
           pricingBasis: paymentMode,
+          vatRate: lineTax.effectiveRate,
+          vatAmount: lineTax.total,
+          taxBreakdown: lineTax.total > 0 ? lineTax : undefined,
           lineTotal,
           insuranceCoveredAmount,
           patientPayableAmount,
@@ -741,9 +859,12 @@ export class BillRepository extends BaseRepository<any, any, any> {
         throw new Error('No billable items found for this encounter');
       }
       if (!existingBill) {
-        const totalAmount = lineItemsData.reduce((sum, item) => sum + item.lineTotal, 0);
+        const subtotal = lineItemsData.reduce((sum, item) => sum + item.lineTotal, 0);
+        const taxAmount = money(lineItemsData.reduce((sum, item) => sum + (item.vatAmount || 0), 0));
+        const totalAmount = money(subtotal + taxAmount);
         const insuranceCovered = lineItemsData.reduce((sum, item) => sum + item.insuranceCoveredAmount, 0);
-        const patientPayable = lineItemsData.reduce((sum, item) => sum + item.patientPayableAmount, 0);
+        const patientPayable = money(lineItemsData.reduce((sum, item) => sum + item.patientPayableAmount, 0) + taxAmount);
+        const taxBreakdown = mergeTaxBreakdowns(lineItemsData.map((item) => item.taxBreakdown), String(paymentMode));
         bill = await tx.bill.create({
           data: {
             patientId: attendance.patientId,
@@ -752,7 +873,9 @@ export class BillRepository extends BaseRepository<any, any, any> {
             paymentMode,
             billNumber: getCounterService().getBillNumberFromAttendance(attendance.attendanceNumber),
             status: patientPayable <= 0 ? 'paid' : 'pending',
-            subtotal: totalAmount,
+            subtotal,
+            taxAmount,
+            taxBreakdown: taxBreakdown ?? undefined,
             totalAmount,
             patientPayable,
             balance: patientPayable,
@@ -760,7 +883,6 @@ export class BillRepository extends BaseRepository<any, any, any> {
             insuranceCovered,
             waiverAmount: 0,
             discount: 0,
-            taxAmount: 0,
             createdById: createdBy,
             billDate: new Date(),
             insuranceProviderId: attendance.insuranceProviderId ?? undefined,
@@ -797,21 +919,26 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       const activeLines = await tx.billLineItem.findMany({
         where: { billId: bill.id, isVoided: false },
-        select: { lineTotal: true, patientPayableAmount: true, insuranceCoveredAmount: true }
+        select: { lineTotal: true, vatAmount: true, taxBreakdown: true, patientPayableAmount: true, insuranceCoveredAmount: true }
       });
-      const totalAmount = activeLines.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
-      const insuranceCovered = activeLines.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0);
-      const grossPatientLiability = activeLines.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
+      const subtotal = money(activeLines.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
+      const taxAmount = money(activeLines.reduce((sum, item) => sum + toNumber(item.vatAmount), 0));
+      const totalAmount = money(subtotal + taxAmount);
+      const taxBreakdown = mergeTaxBreakdowns(activeLines.map((item) => item.taxBreakdown as any), String(paymentMode));
+      const insuranceCovered = money(activeLines.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0));
+      const grossPatientLiability = money(activeLines.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0) + taxAmount);
       const waiverAmount = toNumber(existingBill?.waiverAmount);
-      const patientPayable = Math.max(0, grossPatientLiability - waiverAmount);
+      const patientPayable = Math.max(0, money(grossPatientLiability - waiverAmount));
       const paidAmount = toNumber(existingBill?.paidAmount);
-      const balance = Math.max(0, patientPayable - paidAmount);
+      const balance = Math.max(0, money(patientPayable - paidAmount));
       const status = balance <= 0 ? 'paid' : paidAmount > 0 ? 'partial' : 'pending';
 
       const updatedBill = await tx.bill.update({
         where: { id: bill.id },
         data: {
-          subtotal: totalAmount,
+          subtotal,
+          taxAmount,
+          taxBreakdown: taxBreakdown ?? Prisma.DbNull,
           totalAmount,
           insuranceCovered,
           patientPayable,

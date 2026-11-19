@@ -27,6 +27,11 @@ export const createSettingsRoutes = () => {
   // Authentication is applied to the router; writes remain admin-only.
   router.get('/hospital', settingsController.getHospitalProfileForStaff);
 
+  // Tax configuration is read by billing, estimates and the settings screen, so
+  // every authenticated user can read it; only administrators may change it.
+  router.get('/tax', settingsController.getTaxConfiguration);
+  router.put('/tax', requireRole(['admin']), settingsController.updateTaxConfiguration);
+
   router.put(
     '/hospital',
     requireRole(['admin']),

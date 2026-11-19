@@ -27,6 +27,18 @@ export interface AddPaymentDTO {
   idempotencyKey?: string;
 }
 
+/**
+ * A refund is always against a specific recorded payment. The amount may be less
+ * than that payment's unrefunded remainder; several partial refunds are allowed.
+ */
+export interface RefundPaymentDTO {
+  paymentId: string;
+  amount: number;
+  refundMethod?: PaymentMethod;
+  reference?: string;
+  reason: string;
+}
+
 export interface UpdateBillStatusDTO {
   status: BillStatus;
 }

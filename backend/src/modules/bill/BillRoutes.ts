@@ -50,6 +50,9 @@ export const createBillRoutes = () => {
   // POST /api/bills/:id/payment - Add payment to a bill
   router.post('/:id/payment', requireRole(['admin', 'accounts', 'records']), billController.addPaymentToBill);
 
+  // POST /api/bills/:id/refunds - Refund a recorded payment (finance only: money leaving the till)
+  router.post('/:id/refunds', requireRole(['admin', 'accounts']), billController.refundPayment);
+
   // POST /api/bills/line-items/:lineItemId/void - Void a bill line item (Admin/Accounts only)
   router.post('/line-items/:lineItemId/void', requireRole(['admin', 'accounts']), billController.voidBillLineItem);
 

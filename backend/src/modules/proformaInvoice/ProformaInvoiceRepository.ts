@@ -53,7 +53,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
         data: {
           referenceNumber: data.referenceNumber, patientId: data.patientId, attendanceId: data.attendanceId,
           admissionId: data.admissionId, corporateAccountId: data.corporateAccountId, status: data.status || 'DRAFT',
-          subtotal: data.subtotal, discount: data.discount || 0, taxAmount: data.taxAmount, totalAmount: data.totalAmount,
+          subtotal: data.subtotal, discount: data.discount || 0, taxAmount: data.taxAmount, taxBreakdown: data.taxBreakdown ?? undefined, totalAmount: data.totalAmount,
           validityDays: data.validityDays || 7, expiresAt: data.expiresAt, notes: data.notes,
           termsAndConditions: data.termsAndConditions, createdById: data.createdById
         }
@@ -64,7 +64,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
           data: data.items.map((item: any) => ({
             proformaInvoiceId: invoice.id, serviceCatalogId: item.serviceCatalogId, description: item.description,
             serviceType: item.serviceType, quantity: item.quantity, unitPrice: item.unitPrice, pricingBasis: item.pricingBasis,
-            vatRate: item.vatRate || 0, vatAmount: item.vatAmount || 0, totalPrice: item.totalPrice,
+            vatRate: item.vatRate || 0, vatAmount: item.vatAmount || 0, taxBreakdown: item.taxBreakdown ?? undefined, totalPrice: item.totalPrice,
             isInsuranceCovered: item.isInsuranceCovered || false, insuranceCoverage: item.insuranceCoverage || 0,
             patientResponsibility: item.patientResponsibility || item.totalPrice
           }))
@@ -120,7 +120,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
           data: data.items.map((item: any) => ({
             proformaInvoiceId: id, serviceCatalogId: item.serviceCatalogId, description: item.description,
             serviceType: item.serviceType, quantity: item.quantity, unitPrice: item.unitPrice, pricingBasis: item.pricingBasis,
-            vatRate: item.vatRate || 0, vatAmount: item.vatAmount || 0, totalPrice: item.totalPrice,
+            vatRate: item.vatRate || 0, vatAmount: item.vatAmount || 0, taxBreakdown: item.taxBreakdown ?? undefined, totalPrice: item.totalPrice,
             isInsuranceCovered: item.isInsuranceCovered || false, insuranceCoverage: item.insuranceCoverage || 0,
             patientResponsibility: item.patientResponsibility || item.totalPrice
           }))

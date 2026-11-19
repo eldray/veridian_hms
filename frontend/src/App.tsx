@@ -73,6 +73,7 @@ const StockTransactions = lazy(() => import('./pages/StockTransactions'));
 const StockTransfers = lazy(() => import('./pages/StockTransfers'));
 const StockReports = lazy(() => import('./pages/StockReports'));
 const PatientBillingItems = lazy(() => import('./pages/PatientBillingItems'));
+const TaxSummary = lazy(() => import('./pages/TaxSummary'));
 const NursingPatientWorkspace = lazy(() => import('./pages/NursingPatientWorkspace'));
 const Referrals = lazy(() => import('./pages/Referrals'));
 const Estimates = lazy(() => import('./pages/Estimates'));
@@ -259,6 +260,7 @@ function App() {
           {/* Billing & Insurance */}
           <Route path="patients/:patientId/billing" element={<ProtectedRoute><PatientBillingItems /></ProtectedRoute>} />
           <Route path="billing/:billId/payment"     element={<ProtectedRoute><ProcessPayment /></ProtectedRoute>} />
+          <Route path="billing/tax-summary"         element={<ProtectedRoute><TaxSummary /></ProtectedRoute>} />
           <Route path="billing"                     element={<ProtectedRoute><Billing /></ProtectedRoute>} />
           {/* Insurance — one page per payer family; every tab is its own route so the
               back button, deep links and the quick-access launcher all agree. */}

@@ -9,11 +9,12 @@ import {
   Plus, Save, Trash2, FileText, Search, X,
   User as UserIcon, Building2, ChevronDown, Check, Calendar, Percent, Receipt,
 } from 'lucide-react';
-import { getCorporateAccounts, getPatient, getPatients, getServiceCatalog } from '../api';
+import { getCorporateAccounts, getPatient, getPatients, getServiceCatalog, getTaxConfiguration } from '../api';
 import { useEstimatesStore } from '../store/estimatesStore';
 import { MAX_PICKER_ROWS } from '../components/reusable/PickerLimit';
 import { useToast } from '../store/toastStore';
 import { Button, cn, INPUT, PageHeader, SELECT } from '../components/ui';
+import { computeLineTax, DEFAULT_TAX_CONFIGURATION, type TaxConfiguration } from '../utils/tax';
 
 // ─────────────────────────────────────────────
 // Types & helpers (unchanged)
@@ -28,6 +29,7 @@ interface FormItem {
   unitPrice: number;
   pricingBasis: string;
   vatRate: number;
+  isTaxable?: boolean;
   isInsuranceCovered: boolean;
   insuranceCoverage: number;
   tiers?: Record<string, number>;
@@ -40,6 +42,7 @@ const emptyItem = (): FormItem => ({
   unitPrice: 0,
   pricingBasis: 'cash',
   vatRate: 0,
+  isTaxable: false,
   isInsuranceCovered: false,
   insuranceCoverage: 0,
 });
@@ -203,6 +206,7 @@ export default function EstimateForm() {
   const [patientSearching, setPatientSearching] = useState(false);
   const [patientSearchBlocked, setPatientSearchBlocked] = useState(false);
   const [services, setServices] = useState<any[]>([]);
+  const [taxConfig, setTaxConfig] = useState<TaxConfiguration>(DEFAULT_TAX_CONFIGURATION);
   const [corporateAccounts, setCorporateAccounts] = useState<any[]>([]);
   const [patientId, setPatientId] = useState<string>(carriedPatient?.id || '');
   const [corporateAccountId, setCorporateAccountId] = useState('');
@@ -259,6 +263,16 @@ export default function EstimateForm() {
   }, [id]);
 
   useEffect(() => {
+    let cancelled = false;
+    // The preview must use the same regime the server will charge with; if the
+    // endpoint is unavailable the estimate simply previews without tax.
+    getTaxConfiguration()
+      .then((config) => { if (!cancelled) setTaxConfig(config || DEFAULT_TAX_CONFIGURATION); })
+      .catch(() => { /* preview stays exempt */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     if (!patientId) { setChosenPatient(null); return; }
     if (chosenPatient?.id === patientId) return;
     if (currentEstimate?.patient?.id === patientId) { setChosenPatient(currentEstimate.patient); return; }
@@ -292,7 +306,10 @@ export default function EstimateForm() {
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice || 0),
         pricingBasis: item.pricingBasis || 'cash',
-        vatRate: Number(item.vatRate || 0), // carried from the catalog, never typed per line
+        // Stored vatRate is the effective rate that was quoted; a line that carried
+        // tax is previewed as taxable so an edit does not silently drop it.
+        vatRate: Number(item.vatRate || 0),
+        isTaxable: Number(item.vatAmount || 0) > 0,
         isInsuranceCovered: item.isInsuranceCovered,
         insuranceCoverage: Number(item.insuranceCoverage || 0),
       })),
@@ -300,9 +317,23 @@ export default function EstimateForm() {
   }, [currentEstimate, id]);
 
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0), [items]);
-  const tax = useMemo(() => items.reduce((sum, item) => sum + (item.quantity * item.unitPrice * item.vatRate) / 100, 0), [items]);
+
+  // Preview with the same engine the server uses: opt-in per line, per payer type,
+  // charged on the patient's share. An item-level rate replaces the facility mix.
+  const lineTax = useCallback((item: FormItem) => {
+    const gross = item.quantity * item.unitPrice;
+    const patientShare = item.isInsuranceCovered ? gross - Number(item.insuranceCoverage || 0) : gross;
+    return computeLineTax(
+      Math.max(0, patientShare),
+      { isTaxable: item.isTaxable === true, overrideRate: item.vatRate },
+      taxConfig,
+      item.pricingBasis || pricingBasis,
+    );
+  }, [taxConfig, pricingBasis]);
+
+  const tax = useMemo(() => items.reduce((sum, item) => sum + lineTax(item).total, 0), [items, lineTax]);
   const total = subtotal + tax - discount;
-  const lineTotal = (item: FormItem) => item.quantity * item.unitPrice * (1 + item.vatRate / 100);
+  const lineTotal = (item: FormItem) => item.quantity * item.unitPrice + lineTax(item).total;
 
   const toPatientOption = (p: any): SearchableOption => ({
     value: p.id,
@@ -356,6 +387,7 @@ export default function EstimateForm() {
       serviceType: service.serviceType || 'miscellaneous',
       unitPrice: tiers[pricingBasis] ?? 0,
       vatRate: Number(pricing?.vatRate || 0),
+      isTaxable: pricing?.isTaxable === true,
       tiers,
     });
   };
@@ -409,6 +441,7 @@ export default function EstimateForm() {
           unitPrice: line.unitPrice,
           pricingBasis, // one basis for the whole estimate
           vatRate: line.vatRate,
+          isTaxable: line.isTaxable === true,
           isInsuranceCovered: line.isInsuranceCovered,
           insuranceCoverage: line.insuranceCoverage,
         })),
@@ -562,7 +595,7 @@ export default function EstimateForm() {
             </div>
             <div className="bg-[var(--bg-main)] border border-[var(--border-color)] rounded-xl p-4 space-y-2 text-sm w-full md:w-[340px] shrink-0 h-fit">
               <div className="flex justify-between"><span className="text-[var(--text-secondary)]">Subtotal</span><span>GHS {subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-[var(--text-secondary)]">Tax (VAT)</span><span>GHS {tax.toFixed(2)}</span></div>
+              <div className="flex justify-between"><span className="text-[var(--text-secondary)]">VAT &amp; levies</span><span>GHS {tax.toFixed(2)}</span></div>
               <div className="flex justify-between"><span className="text-[var(--text-secondary)]">Discount</span><span className={discount > 0 ? 'text-[var(--icon-red-text)]' : ''}>- GHS {discount.toFixed(2)}</span></div>
               <div className="flex justify-between border-t-2 border-[var(--border-color)] pt-2.5 text-base font-bold"><span>Total (estimate)</span><span>GHS {total.toFixed(2)}</span></div>
               <p className="text-xs text-[var(--text-tertiary)] text-right pt-1">Valid for {validityDays} day{validityDays === 1 ? '' : 's'}</p>

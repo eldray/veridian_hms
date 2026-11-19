@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { BillRepository } from './BillRepository';
 import { BillingService } from '../billing/BillingService';
-import { BillWithRelations, CreateBillInput, UpdateBillInput, BillFilter, AddPaymentInput } from './BillTypes';
+import { BillWithRelations, CreateBillInput, UpdateBillInput, BillFilter, AddPaymentInput, RefundPaymentInput } from './BillTypes';
 
 export class BillService extends BaseService {
   private billRepository: BillRepository;
@@ -96,6 +96,16 @@ export class BillService extends BaseService {
       throw new Error('Cannot add payment to a fully paid bill');
     }
     return this.billRepository.addPayment(billId, paymentData, receivedById);
+  }
+
+  /**
+   * Give money back against a payment recorded on this bill. Amount, payment link
+   * and the bill's paid balance are re-checked under the bill lock in the repository.
+   */
+  async refundPayment(billId: string, data: RefundPaymentInput, processedById: string) {
+    this.logInfo('Refunding bill payment', { billId, paymentId: data.paymentId, amount: data.amount });
+    if (!data.paymentId) throw new Error('Select the payment being refunded');
+    return this.billRepository.createRefund(billId, data, processedById);
   }
 
   async voidLineItem(lineItemId: string, userId: string, reason: string) {

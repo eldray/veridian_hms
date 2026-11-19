@@ -411,6 +411,8 @@ export class CorporateRepository extends BaseRepository<any, any, any> {
           status: 'DRAFT',
           subtotal,
           discount: discountAmount,
+          // These lines are copied from bills that were already taxed at the point
+          // of service, so charging tax again on the monthly recap would double it.
           taxAmount: 0,
           totalAmount,
           validityDays: account.paymentTerms || 30,

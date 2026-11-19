@@ -244,3 +244,31 @@ export const generateCCC = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: 'Server error generating CCC' });
   }
 };
+// ==========================================
+// TAX CONFIGURATION CONTROLLERS
+// ==========================================
+
+export const getTaxConfiguration = async (req: Request, res: Response) => {
+  try {
+    const data = await settingsService.getTaxConfiguration();
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error('Get tax configuration error:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching tax configuration' });
+  }
+};
+
+export const updateTaxConfiguration = async (req: AuthRequest, res: Response) => {
+  try {
+    const data = await settingsService.updateTaxConfiguration(req.body, req.user?.userId);
+    return res.json({ success: true, message: 'Tax configuration updated successfully', data });
+  } catch (error: any) {
+    const message = error?.message || 'Server error updating tax configuration';
+    // Validation failures are the caller's fault, not a server fault.
+    if (/Duplicate tax component|at least one|Choose at least one|rate above zero/i.test(message)) {
+      return res.status(400).json({ success: false, message });
+    }
+    console.error('Update tax configuration error:', error);
+    return res.status(500).json({ success: false, message: 'Server error updating tax configuration' });
+  }
+};

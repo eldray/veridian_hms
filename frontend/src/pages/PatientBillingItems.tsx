@@ -36,6 +36,7 @@ interface BillLineItem {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  vatAmount: number;
   insuranceCoveredAmount: number;
   patientPayableAmount: number;
   paidAmount: number;
@@ -54,6 +55,7 @@ interface ProcessedBill {
   status: string;
   paymentMode: string;
   subtotal: number;
+  taxAmount: number;
   totalAmount: number;
   paidAmount: number;
   balance: number;
@@ -428,10 +430,15 @@ export default function PatientBillingItems() {
   const totals = useMemo(() => {
     if (!selectedBill) return null;
     const allItems = selectedBill.BillLineItem?.filter((i) => !i.isVoided) || [];
+    const lineSubtotal = allItems.reduce((s, i) => s + i.lineTotal, 0);
+    const taxAmount = Number(selectedBill.taxAmount || 0);
     return {
-      subtotal: allItems.reduce((s, i) => s + i.lineTotal, 0),
+      subtotal: lineSubtotal,
+      taxAmount,
       insuranceCovered: allItems.reduce((s, i) => s + i.insuranceCoveredAmount, 0),
-      patientPayable: allItems.reduce((s, i) => s + i.patientPayableAmount, 0),
+      // The bill's own figure already includes tax; the line sum is the fallback
+      // for older bills whose header was never re-totalled.
+      patientPayable: Number(selectedBill.patientPayable ?? (lineSubtotal + taxAmount)),
       totalPaid: selectedBill.paidAmount || 0,
       balance: selectedBill.balance || 0,
     };
@@ -442,7 +449,7 @@ export default function PatientBillingItems() {
     let total = 0;
     selectedBill.BillLineItem?.forEach((item) => {
       if (!item.isVoided && selectedItems.has(item.id) && !item.isFullyPaid)
-        total += item.patientPayableAmount;
+        total += Number(item.patientPayableAmount || 0) + Number(item.vatAmount || 0);
     });
     return total;
   }, [selectedBill, selectedItems]);
@@ -463,7 +470,7 @@ export default function PatientBillingItems() {
       (i) => !i.isVoided && !i.isFullyPaid && i.patientPayableAmount > 0
     );
     setSelectedItems(new Set(unpaid.map((i) => i.id)));
-    setPaymentAmount(unpaid.reduce((s, i) => s + i.patientPayableAmount, 0));
+    setPaymentAmount(unpaid.reduce((s, i) => s + Number(i.patientPayableAmount || 0) + Number(i.vatAmount || 0), 0));
   }, [selectedBill]);
 
   const deselectAll = useCallback(() => {
@@ -1090,6 +1097,11 @@ export default function PatientBillingItems() {
                                               <p className="text-sm font-medium text-[var(--text-primary)]">
                                                 {item.description}
                                               </p>
+                                              {Number(item.vatAmount || 0) > 0 && (
+                                                <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
+                                                  incl. {formatCurrency(item.vatAmount)} VAT &amp; levies
+                                                </p>
+                                              )}
                                             </td>
                                             <td className="px-3 py-3 text-center text-sm text-[var(--text-secondary)] tabular-nums">{item.quantity}</td>
                                             <td className="px-3 py-3 text-right text-sm text-[var(--text-secondary)] tabular-nums">{formatCurrency(item.unitPrice)}</td>
@@ -1156,9 +1168,15 @@ export default function PatientBillingItems() {
                         {/* 4-up summary bar */}
                         {totals && (
                           <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
+                            {totals.taxAmount > 0 && (
+                              <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] text-sm">
+                                <span className="text-[var(--text-secondary)]">VAT &amp; levies on patient share</span>
+                                <span className="font-semibold text-[var(--text-primary)] tabular-nums">{formatCurrency(totals.taxAmount)}</span>
+                              </div>
+                            )}
                             <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[var(--border-color)] text-sm">
                               <div className="p-3">
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Subtotal</p>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Subtotal{totals.taxAmount > 0 ? ' (excl. tax)' : ''}</p>
                                 <p className="mt-0.5 font-semibold text-[var(--text-primary)] tabular-nums">{formatCurrency(totals.subtotal)}</p>
                               </div>
                               {!isCashPayment && (

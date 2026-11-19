@@ -58,6 +58,18 @@ export interface AddPaymentInput {
   idempotencyKey?: string;
 }
 
+/**
+ * Money handed back against a payment recorded on this bill. The amount may be
+ * less than the payment's unrefunded remainder; several partial refunds are allowed.
+ */
+export interface RefundPaymentInput {
+  paymentId: string;
+  amount: number;
+  refundMethod?: PaymentMethod;
+  reference?: string;
+  reason: string;
+}
+
 export interface BillFilter {
   patientId?: string;
   counterClientId?: string;

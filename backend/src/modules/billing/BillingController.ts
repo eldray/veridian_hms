@@ -90,6 +90,34 @@ export class BillingController extends BaseController {
   ];
 
   // ============================================
+  // REFUND A RECORDED PAYMENT
+  // ============================================
+  refundPayment = [
+    body('paymentId').notEmpty().withMessage('Select the payment being refunded'),
+    body('amount').isFloat({ gt: 0 }).withMessage('A refund amount greater than zero is required'),
+    body('refundMethod').optional().isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Valid refund method is required'),
+    body('reference').optional().isString().isLength({ max: 120 }).withMessage('Reference is too long'),
+    body('reason').trim().isLength({ min: 3, max: 500 }).withMessage('A refund reason of at least 3 characters is required'),
+
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+
+      try {
+        const result = await this.service.refundPayment(req.params.id, req.body, req.user!.id);
+        return this.ok(res, result, 'Refund processed successfully');
+      } catch (error: any) {
+        if (error?.statusCode === 404 || error?.message === 'Bill not found') return this.notFound(res, 'Bill');
+        if (error?.statusCode === 400) return this.badRequest(res, error.message);
+        if (error?.statusCode === 409 || /refund exceeds|was voided|cancelled bill/i.test(error?.message || '')) {
+          return this.conflict(res, error.message);
+        }
+        throw error;
+      }
+    })
+  ];
+
+  // ============================================
   // UPDATE BILL STATUS
   // ============================================
   updateStatus = [
@@ -127,6 +155,18 @@ export class BillingController extends BaseController {
 
     const collections = await this.service.getCollections(range.from, range.to);
     return this.ok(res, collections, 'Payment collections retrieved successfully');
+  });
+
+  // ============================================
+  // TAX SUMMARY (per-levy filing view)
+  // ============================================
+  getTaxSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const range = this.parseReportRange(req);
+    if (!range) return this.badRequest(res, 'Valid dateFrom and dateTo query parameters are required');
+    if (range.from > range.to) return this.badRequest(res, 'dateFrom must be earlier than or equal to dateTo');
+
+    const summary = await this.service.getTaxSummary(range.from, range.to);
+    return this.ok(res, summary, 'Tax summary retrieved successfully');
   });
 
   // ============================================

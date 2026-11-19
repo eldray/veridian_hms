@@ -43,7 +43,7 @@ export type PageKey =
   | 'pharmacy' | 'dispense_medication' | 'inventory' | 'stock_management'
   | 'stock_transactions' | 'stock_reports' | 'stock_transfers'
   | 'requisitions' | 'invoices'
-  | 'billing' | 'insurance_claims' | 'insurance_providers' | 'corporate'
+  | 'billing' | 'billing_tax_summary' | 'insurance_claims' | 'insurance_providers' | 'corporate'
   | 'estimates' | 'counter'
   | 'user_management' | 'shifts' | 'leaves'
   | 'staff_directory' | 'staff_profile' | 'job_grades' | 'payslip_management'
@@ -122,6 +122,10 @@ export const PAGES: PageDef[] = [
   { key: 'insurance_providers', paths: ['/dashboard/insurance/nhis/providers', '/dashboard/insurance/private/providers', '/dashboard/insurance-providers'], roles: ['accounts'] },
   { key: 'corporate', paths: ['/dashboard/insurance/corporate/accounts', '/dashboard/corporate-accounts'], patterns: ['/dashboard/insurance/corporate/accounts/:id', '/dashboard/corporate-accounts/:id'], roles: ['accounts'] },
   { key: 'estimates', paths: ['/dashboard/estimates', '/dashboard/estimates/new'], patterns: ['/dashboard/estimates/:id', '/dashboard/estimates/:id/edit'], roles: ['accounts'], label: 'Estimates', icon: FileText, group: 'Revenue' },
+  // Guard-only entry: the Tax Summary is reached from Billing, and its API is
+  // limited to FINANCIAL_READERS (admin, accounts) — doctors can open Billing
+  // but cannot read the filing report.
+  { key: 'billing_tax_summary', paths: ['/dashboard/billing/tax-summary'], roles: ['accounts'] },
   // Counter mirrors COUNTER_STAFF in backend/src/modules/counter/CounterRoutes.ts.
   // Doctors and nurses are deliberately absent: a consultation is opened from the visit
   // screen, and the API refuses any ticket that is not a walk-in.

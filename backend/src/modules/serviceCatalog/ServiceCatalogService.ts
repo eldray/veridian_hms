@@ -3,6 +3,7 @@ import { BaseService } from '../../shared/base/BaseService';
 import { ServiceCatalogRepository } from './ServiceCatalogRepository';
 import { ValidationError, NotFoundError } from '../../utils/errors';
 import { resolveMedicationUnitPrice, resolveUnitPrice, isPayerCovered } from '../../utils/pricing';
+import { computeLineTax, loadTaxConfiguration } from '../../utils/tax';
 
 export class ServiceCatalogService extends BaseService {
   private repo: ServiceCatalogRepository;
@@ -353,7 +354,7 @@ export class ServiceCatalogService extends BaseService {
 
     const p = service.pricing;
     const qty = Math.max(1, quantity);
-    let unitPrice = 0, totalAmount = 0, coverageAmount = 0, patientAmount = 0, vatAmount = 0;
+    let unitPrice = 0, totalAmount = 0, coverageAmount = 0, patientAmount = 0, vatAmount = 0, vatRate = 0;
 
     // Same rules everywhere (utils/pricing.ts): uncovered NHIS / exempted insurance / missing corporate price fall back to cash
     const opts = { isNHISCovered: service.isNHISCovered, isPrivateInsuranceExempted: service.isPrivateInsuranceExempted };
@@ -364,9 +365,20 @@ export class ServiceCatalogService extends BaseService {
       case 'corporate': unitPrice = service.serviceType === ServiceType.medication ? resolveMedicationUnitPrice(p, 'corporate', opts) : resolveUnitPrice(p, 'corporate', opts); totalAmount = unitPrice * qty; coverageAmount = totalAmount; patientAmount = 0; break;
     }
 
-    if (p.isTaxable && p.vatRate > 0) { vatAmount = (patientAmount * p.vatRate) / 100; patientAmount += vatAmount; }
+    // Tax follows the same engine billing uses: opt-in per service, per payer type,
+    // and charged on the patient-payable share (insurer-covered amounts stay exempt).
+    const taxConfig = await loadTaxConfiguration(this.prisma);
+    const lineTax = computeLineTax(
+      patientAmount,
+      { isTaxable: p.isTaxable === true, overrideRate: p.vatRate ?? 0 },
+      taxConfig,
+      paymentMode,
+    );
+    vatAmount = lineTax.total;
+    vatRate = lineTax.effectiveRate;
+    patientAmount += vatAmount;
 
-    return { service: { id: service.id, name: service.name, code: service.code }, quantity: qty, paymentMode, totalAmount, coverageAmount, patientAmount, vatAmount, breakdown: { unitPrice, cashPrice: p.cashPrice, nhisPrice: p.nhisPrice, insurancePrice: p.insurancePrice, corporatePrice: p.corporatePrice, vatRate: p.vatRate, isTaxable: p.isTaxable } };
+    return { service: { id: service.id, name: service.name, code: service.code }, quantity: qty, paymentMode, totalAmount, coverageAmount, patientAmount, vatAmount, taxBreakdown: lineTax, breakdown: { unitPrice, cashPrice: p.cashPrice, nhisPrice: p.nhisPrice, insurancePrice: p.insurancePrice, corporatePrice: p.corporatePrice, vatRate: p.vatRate, effectiveVatRate: vatRate, isTaxable: p.isTaxable } };
   }
 
   async getStatistics() {
