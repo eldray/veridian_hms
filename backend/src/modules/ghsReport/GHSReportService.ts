@@ -415,8 +415,35 @@ export class GHSReportService extends BaseService {
     
     const NOTIFIABLE_DISEASES = [ { name: 'Acute Flaccid Paralysis', code: 'AFP' }, { name: 'Meningitis', code: 'MEN' }, { name: 'Neonatal Tetanus', code: 'NT' }, { name: 'Pertussis', code: 'PERT' }, { name: 'Diphtheria', code: 'DIPH' }, { name: 'Measles', code: 'MEAS' }, { name: 'Yellow Fever', code: 'YF' }, { name: 'Tetanus', code: 'TET' }, { name: 'Tuberculosis', code: 'TB' }, { name: 'Cholera', code: 'CHOL' }, { name: 'Diarrhoea with blood', code: 'DWB' }, { name: 'Acute watery diarrhoea', code: 'AWD' }, { name: 'Malaria', code: 'MAL' }, { name: 'Pneumonia', code: 'PN' }, { name: 'HIV/AIDS', code: 'HIV' }, { name: 'Hepatitis B', code: 'HEPB' }, { name: 'Typhoid Fever', code: 'TYPH' } ];
     
+    // Match normalized diagnosis names and approved common variants. These are
+    // attendance-based suspected signals only; they must never be presented as
+    // confirmed cases or notifications.
+    const idsrAliases: Record<string, string[]> = {
+      AFP: ['acute flaccid paralysis', 'afp'],
+      MEN: ['meningitis', 'meningococcal meningitis'],
+      NT: ['neonatal tetanus', 'tetanus neonatorum'],
+      PERT: ['pertussis', 'whooping cough'],
+      DIPH: ['diphtheria'],
+      MEAS: ['measles'],
+      YF: ['yellow fever'],
+      TET: ['tetanus'],
+      TB: ['tuberculosis', 'pulmonary tb', 'tb'],
+      CHOL: ['cholera'],
+      DWB: ['diarrhoea with blood', 'diarrhea with blood', 'bloody diarrhoea', 'bloody diarrhea', 'dysentery'],
+      AWD: ['acute watery diarrhoea', 'acute watery diarrhea', 'watery diarrhoea', 'watery diarrhea'],
+      MAL: ['malaria'],
+      PN: ['pneumonia'],
+      HIV: ['hiv', 'aids'],
+      HEPB: ['hepatitis b', 'hepatitis-b'],
+      TYPH: ['typhoid', 'paratyphoid'],
+    };
+    const normalizeDiseaseText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     const diseases = NOTIFIABLE_DISEASES.map(disease => {
-      const count = attendances.filter((a: any) => a.AttendanceDiagnosis?.some((dx: any) => dx.Diagnosis?.name.toLowerCase().includes(disease.name.toLowerCase()))).length;
+      const terms = (idsrAliases[disease.code] || [disease.name]).map(normalizeDiseaseText).filter(Boolean);
+      const count = attendances.filter((a: any) => a.AttendanceDiagnosis?.some((dx: any) => {
+        const diagnosisName = normalizeDiseaseText(dx.Diagnosis?.name || '');
+        return terms.some(term => diagnosisName === term || diagnosisName.includes(term));
+      })).length;
       // confirmed / deaths are not recorded per disease; null means "not captured", never an estimate
       return { disease: disease.name, code: disease.code, suspected: count, confirmed: null, deaths: null };
     });
