@@ -271,22 +271,36 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       } else if (f.limit === undefined && (f.dateFrom || f.dateTo)) {
         f.limit = 5000;
       }
-      const response = await apiGetAttendances(f);
-      let attendances: Attendance[] = [];
+      // The API caps each page at 100 rows. Explicit larger limits must walk
+      // every page; otherwise bulk workflows silently miss completed visits.
+      const pageSize = Math.min(100, Math.max(1, Number(f.limit) || 100));
+      const requestedLimit = Math.max(1, Number(f.limit) || pageSize);
+      const shouldWalkPages = explicit && requestedLimit > pageSize && f.page === undefined;
+      const allRows: Attendance[] = [];
       let pagination: Pagination | null = null;
-
-      if (Array.isArray(response)) {
-        attendances = response;
-      } else if (response.attendances) {
-        attendances = response.attendances;
-        pagination = response.pagination;
-      } else if (response.data?.attendances) {
-        attendances = response.data.attendances;
-        pagination = response.data.pagination;
-      } else if (response.data && Array.isArray(response.data)) {
-        attendances = response.data;
-      }
-      attendances = withRelationAliases(attendances);
+      let page = Number(f.page) || 1;
+      let response: any;
+      do {
+        response = await apiGetAttendances({
+          ...f,
+          limit: shouldWalkPages ? pageSize : requestedLimit,
+          ...(shouldWalkPages ? { page } : {}),
+        });
+        let rows: Attendance[] = [];
+        let meta: Pagination | null = null;
+        if (Array.isArray(response)) rows = response;
+        else if (response.attendances) { rows = response.attendances; meta = response.pagination ?? null; }
+        else if (response.data?.attendances) { rows = response.data.attendances; meta = response.data.pagination ?? null; }
+        else if (response.data && Array.isArray(response.data)) rows = response.data;
+        allRows.push(...rows);
+        pagination = meta ?? pagination;
+        if (!shouldWalkPages || rows.length === 0) break;
+        if (meta?.pages && page >= meta.pages) break;
+        if (!meta?.pages && rows.length < pageSize) break;
+        if (allRows.length >= requestedLimit) break;
+        page += 1;
+      } while (page <= 50);
+      let attendances: Attendance[] = withRelationAliases(allRows.slice(0, requestedLimit));
 
       if (requestSequence === attendanceListFetchSequence) {
         set({
