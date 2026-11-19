@@ -1180,6 +1180,42 @@ ${claimsXml}
     return { data: claims, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } };
   }
 
+  async getPrivateInsuranceClaims(status?: string, patientId?: string, startDate?: Date, endDate?: Date, page = 1, limit = 50) {
+    const where: any = { InsuranceProvider: { type: 'private' } };
+    if (status) where.status = status;
+    if (patientId) where.patientId = patientId;
+    if (startDate || endDate) {
+      where.Attendance = {};
+      if (startDate) where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: startDate };
+      if (endDate) {
+        const d = new Date(endDate);
+        d.setHours(23, 59, 59, 999);
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: d };
+      }
+    }
+
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(100, limit);
+    const skip = (pageNum - 1) * limitNum;
+    const [claims, total] = await Promise.all([
+      this.prisma.insuranceClaim.findMany({
+        where,
+        include: {
+          InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
+          Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+          Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
+          Bill: { select: { id: true, billNumber: true, totalAmount: true } },
+          items: CLAIM_LINE_LIST_SELECT,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.insuranceClaim.count({ where }),
+    ]);
+    return { data: claims, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } };
+  }
+
   // ==========================================
   // PRIVATE INSURANCE SERVICES (Fully Restored)
   // ==========================================
@@ -1308,7 +1344,7 @@ ${claimsXml}
       if (att.insuranceProviderId && att.insuranceProviderId !== corp.insuranceProviderId) throw new ValidationError(`The insurance provider selected for attendance ${att.attendanceNumber} does not match corporate account "${corp.companyName}".`);
       const items = await this.buildDirectPayerClaimItems(tx, att, 'corporate', 100, Number(corp.discountPercentage) || 0);
       const claimAmt = Math.round(items.reduce((sum: number, item: any) => sum + toNumber(item.lineTotal), 0) * 100) / 100;
-      const outstanding = await tx.insuranceClaim.aggregate({ where: { corporateAccountId: att.corporateAccountId, status: { in: ['finalized', 'approved'] } }, _sum: { totalClaimAmount: true } });
+      const outstanding = await tx.insuranceClaim.aggregate({ where: { corporateAccountId: att.corporateAccountId, status: 'finalized' }, _sum: { totalClaimAmount: true } });
       const currentBal = toNumber(outstanding._sum?.totalClaimAmount), projected = currentBal + claimAmt, limit = toNumber(corp.creditLimit);
       if (limit > 0 && projected > limit) throw new ValidationError(`Exceeds credit limit. Current: GHS ${currentBal.toFixed(2)}, New claim: GHS ${claimAmt.toFixed(2)}, Limit: GHS ${limit.toFixed(2)}.`);
       const claim = await tx.insuranceClaim.create({ data: {
