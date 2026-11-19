@@ -419,6 +419,10 @@ export class StockItemService extends BaseService {
       nonMedications: valuedItems.filter((item: any) => !item.isMedication).length,
       totalValue,
       lowStockItems: valuedItems.filter((item: any) => item.currentStock <= item.reorderLevel).length,
+      lowStockItemDetails: valuedItems.filter((item: any) => item.currentStock <= item.reorderLevel).map((item: any) => ({
+        id: item.id, name: item.name, category: item.category, currentStock: item.currentStock,
+        reorderLevel: item.reorderLevel, costPrice: item.costPrice, unitOfMeasure: item.unitOfMeasure,
+      })),
       outOfStockItems: valuedItems.filter((item: any) => item.currentStock === 0).length,
       batchQuantityDiscrepancies: valuedItems.filter((item: any) => item.stockDiscrepancy > 0).length,
       byCategory: valuedItems.reduce((acc: Record<string, any>, item: any) => {
@@ -819,9 +823,21 @@ export class StockItemService extends BaseService {
     requisitions.forEach(r => byStatus[r.status]++);
 
     const fulfillmentRate = requisitions.length > 0 ? (byStatus.fulfilled / requisitions.length * 100).toFixed(1) : 0;
+    const departmentSummary = new Map<string, { id: string | null; name: string; total: number; fulfilled: number; items: number }>();
+    for (const requisition of requisitions) {
+      const departmentId = requisition.departments?.id ?? null;
+      const name = requisition.departments?.name || 'Unassigned department';
+      const key = departmentId || name;
+      const current = departmentSummary.get(key) || { id: departmentId, name, total: 0, fulfilled: 0, items: 0 };
+      current.total += 1;
+      if (requisition.status === 'fulfilled') current.fulfilled += 1;
+      current.items += requisition.RequisitionItem?.length || 0;
+      departmentSummary.set(key, current);
+    }
 
     return {
       summary: { total: requisitions.length, byStatus, fulfillmentRate: `${fulfillmentRate}%` },
+      byDepartment: [...departmentSummary.values()].sort((a, b) => b.total - a.total),
       recentRequisitions: requisitions.slice(0, 20).map(r => ({ id: r.id, requisitionNumber: r.requisitionNumber, status: r.status, urgency: r.urgency, createdAt: r.createdAt, department: r.departments?.name, requestedBy: r.requestedBy?.fullName, itemCount: r.RequisitionItem?.length || 0 }))
     };
   }
