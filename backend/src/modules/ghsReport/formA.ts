@@ -151,7 +151,8 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     return null; // no explicit record — fall through to period evidence below
   };
 
-  const conducts = facilityFlags?.conductsDelivery ?? (hospital.conductsDeliveries ?? hospital.conductsDelivery) ?? (deliveries.length > 0 ? true : null);
+  const conductsExplicit = fromFlagOrHospital(facilityFlags?.conductsDelivery, 'conductsDeliveries', 'conductsDelivery');
+  const conducts = conductsExplicit ?? (deliveries.length > 0 ? true : null);
 
   // Period activity is evidence that a service was provided, not proof that the
   // facility offers it year-round. When no facility setting or activity exists,
