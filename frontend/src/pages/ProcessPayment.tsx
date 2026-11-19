@@ -1,5 +1,6 @@
 // src/pages/ProcessPayment.tsx - FIXED VERSION
 import { useState, FormEvent, useEffect, useRef } from 'react'; 
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { uuid } from '../utils/uuid';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSmartBack } from '../utils/useSmartBack';
