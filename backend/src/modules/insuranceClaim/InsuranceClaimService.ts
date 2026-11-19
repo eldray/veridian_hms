@@ -1507,14 +1507,18 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   // The forms may send ids that are not valid foreign keys (e.g. a lab/scan *template* id in
   // `serviceCatalogId`). Keep only ids that exist, otherwise the whole save fails on the FK.
   const idsOf = (field: string) => Array.from(new Set((items || []).map((it: any) => it[field]).filter(Boolean))) as string[];
-  const [catalogIds, diagnosisIds, tariffIds] = await Promise.all([
+  const [catalogIds, diagnosisIds, tariffIds, labRows, scanRows] = await Promise.all([
     this.prisma.serviceCatalog.findMany({ where: { id: { in: idsOf('serviceCatalogId') } }, select: { id: true } }),
     this.prisma.diagnosis.findMany({ where: { id: { in: idsOf('diagnosisId') } }, select: { id: true } }),
     this.prisma.gDRGTariff.findMany({ where: { id: { in: idsOf('gdrgTariffId') } }, select: { id: true } }),
+    this.prisma.labTest.findMany({ where: { id: { in: idsOf('labTestId') }, attendanceId: claim.attendanceId }, select: { id: true } }),
+    this.prisma.scan.findMany({ where: { id: { in: idsOf('scanId') }, attendanceId: claim.attendanceId }, select: { id: true } }),
   ]);
   const validCatalog = new Set(catalogIds.map(r => r.id));
   const validDiagnosis = new Set(diagnosisIds.map(r => r.id));
   const validTariff = new Set(tariffIds.map(r => r.id));
+  const validLabTests = new Set(labRows.map(r => r.id));
+  const validScans = new Set(scanRows.map(r => r.id));
   const requestedBillLineIds = idsOf('billLineItemId');
   const billLineRows = claim.billId && requestedBillLineIds.length
     ? await this.prisma.billLineItem.findMany({
@@ -1554,8 +1558,9 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       billLineItemId: it.billLineItemId && validBillLineIds.has(it.billLineItemId)
         ? it.billLineItemId
         : null,
-      labTestId: null,
-      scanId: null,
+      // Preserve clinical source links only when the source belongs to this claim's attendance.
+      labTestId: it.labTestId && validLabTests.has(it.labTestId) ? it.labTestId : null,
+      scanId: it.scanId && validScans.has(it.scanId) ? it.scanId : null,
       procedureId: null,
       medicationId: null,
     };
