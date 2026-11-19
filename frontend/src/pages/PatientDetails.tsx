@@ -114,6 +114,7 @@ export default function PatientDetails() {
   const [showMedicalDetails, setShowMedicalDetails] = useState(false);
   const [stats, setStats] = useState({ totalVisits: 0, completedVisits: 0, pendingVisits: 0, totalMedications: 0, totalLabTests: 0 });
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [returnToImmunizations, setReturnToImmunizations] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [vitalsList, setVitalsList] = useState<any[]>([]);
@@ -221,12 +222,15 @@ export default function PatientDetails() {
     setShowAttendanceModal(false);
     try {
       await getAttendances({ patientId: patient?.id || id });
-      setActiveTab('attendances'); setRefreshTrigger(p => p + 1);
+      setActiveTab(returnToImmunizations ? 'immunizations' : 'attendances');
+      setReturnToImmunizations(false);
+      setRefreshTrigger(p => p + 1);
       success('Check-in complete', 'New visit created');
     } catch { toastError('Refresh failed', 'Could not update visit list'); }
   };
   const handleEdit = () => navigate(`/dashboard/patients/register?edit=true&id=${patient?.id}`);
   const handleNewAttendance = () => setShowAttendanceModal(true);
+  const handleCreateImmunizationAttendance = () => { setReturnToImmunizations(true); setShowAttendanceModal(true); };
   const handleDeletePatient = async () => {
     if (!patient?.id) return;
     try { await deletePatient(patient.id); success('Patient Deleted', 'Patient record has been removed'); navigate('/dashboard/patients'); }
@@ -617,7 +621,7 @@ export default function PatientDetails() {
               attendances={patientAttendances as any}
               canRecord={hasRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife'])}
               canManageCatalogue={hasRole(['admin', 'super_admin'])}
-              onCreateAttendance={handleNewAttendance}
+              onCreateAttendance={handleCreateImmunizationAttendance}
             />
           )}
           {activeTab === 'billing' && (
