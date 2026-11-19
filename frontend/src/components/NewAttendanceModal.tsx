@@ -150,7 +150,8 @@ export default function NewAttendanceModal({
       errors.push('Corporate account is required for corporate patients');
     }
 
-    if (!complaints.trim()) {
+    // Routine vaccination check-ins do not require an illness complaint.
+    if (attendanceType !== 'immunization' && !complaints.trim()) {
       errors.push('Patient complaints are required');
     }
 
@@ -200,7 +201,7 @@ export default function NewAttendanceModal({
         insuranceProviderId
       }),
       ...(paymentMode === 'corporate' && corporateAccountId && { corporateAccountId }),
-      complaints: complaints.trim() || 'No complaints recorded',
+      complaints: complaints.trim() || (attendanceType === 'immunization' ? 'Routine immunization / vaccination' : 'No complaints recorded'),
       createdById: isEditMode ? attendanceData.createdById : user.id,
       ...(isEditMode && { updatedById: user.id }),
       ...(isEditMode ? { status } : { status: 'pending' }),
