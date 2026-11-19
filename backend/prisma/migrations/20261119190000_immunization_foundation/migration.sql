@@ -46,8 +46,8 @@ CREATE INDEX "immunization_records_attendanceId_idx" ON "immunization_records"("
 CREATE INDEX "immunization_records_vaccineId_administeredAt_idx" ON "immunization_records"("vaccineId", "administeredAt");
 CREATE INDEX "immunization_records_nextDoseDue_idx" ON "immunization_records"("nextDoseDue");
 CREATE INDEX "immunization_records_batchNumber_idx" ON "immunization_records"("batchNumber");
-ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_attendanceId_fkey" FOREIGN KEY ("attendanceId") REFERENCES "attendances"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_attendanceId_fkey" FOREIGN KEY ("attendanceId") REFERENCES "Attendance"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_vaccineId_fkey" FOREIGN KEY ("vaccineId") REFERENCES "vaccines"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_administeredById_fkey" FOREIGN KEY ("administeredById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_administeredById_fkey" FOREIGN KEY ("administeredById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_recordedById_fkey" FOREIGN KEY ("recordedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
