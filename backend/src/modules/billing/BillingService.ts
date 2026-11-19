@@ -310,7 +310,7 @@ export class BillingService extends BaseService {
 
       // Only allocate insurer coverage when the service has an applicable payer tariff
       // and is configured as covered. A cash fallback must remain fully patient-payable.
-      if (data.paymentMode === 'nhis' || data.paymentMode === 'private_insurance') {
+      if (data.paymentMode === 'nhis' || String(data.paymentMode) === 'private_insurance') {
         const provider = data.insuranceProviderId
           ? await this.prisma.insuranceProvider.findUnique({ where: { id: data.insuranceProviderId }, select: { coveragePercentage: true } })
           : null;
