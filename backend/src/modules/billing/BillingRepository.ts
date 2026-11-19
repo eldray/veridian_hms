@@ -461,7 +461,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       default: startDate = new Date(date.getFullYear(), date.getMonth(), 1);
     }
 
-    const where = { billDate: { gte: startDate } };
+    const where = { billDate: { gte: startDate }, paymentMode: { notIn: ['private_insurance', 'corporate'] } };
     const [totalBills, totalAmount, totalPaid, totalPending, byPaymentMode, byStatus, corporateTotals] = await Promise.all([
       this.count(where),
       this.prisma.bill.aggregate({ where, _sum: { totalAmount: true } }),
