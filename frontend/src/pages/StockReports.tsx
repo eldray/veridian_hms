@@ -79,6 +79,14 @@ const ALIGN: Record<'left' | 'center' | 'right', string> = {
 // Reusable pieces (compact)
 // ─────────────────────────────────────────────────────────────────────────────
 
+function searchableText(value: any): string {
+  if (value === null || value === undefined || typeof value === 'boolean') return '';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return value.map(searchableText).join(' ');
+  if (typeof value === 'object' && value.props) return searchableText(value.props.children);
+  return '';
+}
+
 function ReportTable({
   caption, columns, rows, empty, searchable = false, pageSize = 0,
 }: {
@@ -97,7 +105,7 @@ function ReportTable({
   const filteredRows = useMemo(() => {
     if (!searchable || !search.trim()) return rows;
     const q = search.toLowerCase();
-    return rows.filter((row) => Object.values(row).some((v) => String(v).toLowerCase().includes(q)));
+    return rows.filter((row) => Object.values(row).some((v) => searchableText(v).toLowerCase().includes(q)));
   }, [rows, search, searchable]);
 
   const sortedRows = useMemo(() => {
@@ -332,10 +340,6 @@ export default function StockReports() {
           }),
         };
       case 'financial': {
-        const issues = (reportData.items || []).filter((item: any) =>
-          Number(item.stockDiscrepancy || 0) > 0 ||
-          (Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0)
-        );
         return {
           headers: ['Item Name', 'Category', 'Current Stock', 'Batch Quantity', 'Unbatched Quantity', 'Batch Value', 'In-transit Batch Value', 'Total Stock Value', 'Batch Difference', 'Transfer Issues'],
           rows: (reportData.items || []).map((item: any) => [
