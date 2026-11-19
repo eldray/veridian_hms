@@ -47,11 +47,11 @@ export interface Estimate {
   convertedToBillId?: string | null;
   createdAt: string;
   updatedAt: string;
-  patient?: { id: string; folderNumber: string; surname: string; otherNames: string; contact?: string } | null;
+  patient?: { id: string; folderNumber: string; surname: string; otherNames: string; contact?: string; imageUrl?: string | null } | null;
   corporateAccount?: { id: string; companyName: string; companyCode: string };
   attendance?: { id: string; attendanceNumber: string; dateTime: string };
   items?: EstimateItem[];
-  createdBy?: { id: string; fullName: string; username: string };
+  createdBy?: { id: string; fullName: string; username: string; imageUrl?: string | null };
   approvedBy?: { id: string; fullName: string; username: string };
   bill?: { id: string; billNumber: string } | null;
 }
