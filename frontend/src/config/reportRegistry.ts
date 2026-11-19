@@ -451,7 +451,7 @@ export const REPORT_REGISTRY: ReportShape[] = [
     cards: [
       { label: 'Tests ordered', field: 'summary.totalTests', value: 'number' },
       { label: 'Completed', field: 'summary.byStatus.completed', value: 'number' },
-      { label: 'Awaiting result', field: 'summary.byStatus.requested', value: 'number' },
+      { label: 'Requested', field: 'summary.byStatus.requested', value: 'number' },
       { label: 'Avg turnaround (min)', field: 'summary.averageTurnaroundTime', value: 'number', hint: 'Completed tests only' },
       { label: 'HIV tests ordered', field: 'summary.hiv.testsOrdered', value: 'number' },
       { label: 'HIV results entered', field: 'summary.hiv.resultsEntered', value: 'number' },
@@ -477,7 +477,7 @@ export const REPORT_REGISTRY: ReportShape[] = [
           { header: 'Negative', field: 'negative', value: 'number' },
           { header: 'Indeterminate/invalid', field: 'indeterminate', value: 'number' },
         ],
-        note: 'HIV screening and confirmatory tests only. CD4 monitoring is excluded. Counts use recorded structured test results.',
+        note: 'HIV screening and confirmatory tests only. CD4 monitoring is excluded. Counts are test events, not unique people. Screening positives are not automatically treated as confirmed HIV diagnoses.',
       },
       {
         title: 'All laboratory tests',
