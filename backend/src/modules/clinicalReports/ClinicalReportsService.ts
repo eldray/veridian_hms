@@ -80,11 +80,25 @@ export class ClinicalReportsService extends BaseService {
       return /\\bhiv\\b/.test(name) && !/cd4/.test(name);
     });
     const hivCompleted = hivTests.filter(test => test.status === 'completed');
+    const hivResultValues = (test: any): any[] => {
+      const result = test.result;
+      if (result == null) return [];
+      if (typeof result !== 'object') return [result];
+      const values: any[] = [];
+      const scan = (source: any, root = false) => {
+        if (!source || typeof source !== 'object') return;
+        Object.entries(source).forEach(([key, value]) => {
+          if (['testName', 'parameters', 'metadata'].includes(key.toLowerCase())) return;
+          if (value && typeof value === 'object') scan(value);
+          else if ((/hiv|screen|confirm/i.test(key) || (root && key.toLowerCase() === 'result')) && value != null && String(value).trim() !== '') values.push(value);
+        });
+      };
+      scan(result.parameters);
+      scan(result, true);
+      return values;
+    };
     const hivResults = hivCompleted.map(test => {
-      const fields = resultFields(test);
-      const values = Object.entries(fields).filter(([key, value]) =>
-        /hiv|screen|confirm|result/i.test(key) && value != null && String(value).trim() !== '',
-      ).map(([, value]) => value);
+      const values = hivResultValues(test);
       const positiveResult = values.some(positive);
       const negativeResult = values.some(negative);
       const indeterminateResult = values.some(indeterminate);
