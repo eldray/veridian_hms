@@ -73,12 +73,18 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     ]);
     if (!patient) return res.status(404).json({ success: false, message: 'Patient not found.' });
     if (!attendance || attendance.patientId !== patientId) return res.status(400).json({ success: false, message: 'Attendance must belong to the selected patient.' });
+    if (attendance.attendanceType !== 'immunization') return res.status(400).json({ success: false, message: 'Vaccination records must be linked to an Immunization attendance.' });
     if (!vaccine || !vaccine.isActive) return res.status(400).json({ success: false, message: 'Vaccine is missing or inactive.' });
+    const expiryDate = req.body.expiryDate ? new Date(req.body.expiryDate) : null;
+    const nextDoseDue = req.body.nextDoseDue ? new Date(req.body.nextDoseDue) : null;
+    if (expiryDate && Number.isNaN(expiryDate.getTime())) return res.status(400).json({ success: false, message: 'Invalid vaccine expiry date.' });
+    if (nextDoseDue && Number.isNaN(nextDoseDue.getTime())) return res.status(400).json({ success: false, message: 'Invalid next-dose due date.' });
+    if (expiryDate && expiryDate < date) return res.status(400).json({ success: false, message: 'Vaccine expiry must be on or after administration date.' });
     const record = await prisma.immunizationRecord.create({ data: {
       patientId, attendanceId, vaccineId, doseNumber: String(doseNumber).trim(), administeredAt: date,
       doseVolume: req.body.doseVolume || null, route: req.body.route || null, administrationSite: req.body.administrationSite || null,
-      batchNumber: req.body.batchNumber || null, expiryDate: req.body.expiryDate ? new Date(req.body.expiryDate) : null,
-      nextDoseDue: req.body.nextDoseDue ? new Date(req.body.nextDoseDue) : null, adverseReaction: req.body.adverseReaction || null,
+      batchNumber: req.body.batchNumber || null, expiryDate,
+      nextDoseDue, adverseReaction: req.body.adverseReaction || null,
       notes: req.body.notes || null, administeredById: req.body.administeredById || req.user?.id || null, recordedById: recordedBy
     }, include: { Vaccine: true, AdministeredBy: { select: { id: true, fullName: true } } }});
     return res.status(201).json({ success: true, data: record });
