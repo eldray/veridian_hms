@@ -10,7 +10,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
   // (Patient, Attendance, CorporateAccount, Bill, User_createdBy, User_approvedBy).
   private getBaseInclude() {
     return {
-      Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
+      Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true, imageUrl: true } },
       Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
       admission: { select: { id: true, admissionNumber: true } },
       CorporateAccount: { select: { id: true, companyName: true, registrationNumber: true } },
@@ -25,7 +25,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
           }
         }
       },
-      User_createdBy: { select: { id: true, fullName: true, username: true } },
+      User_createdBy: { select: { id: true, fullName: true, username: true, imageUrl: true } },
       User_approvedBy: { select: { id: true, fullName: true, username: true } },
       Bill: true
     };
@@ -99,10 +99,10 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
       this.getModel().findMany({
         where, skip: (page - 1) * limit, take: limit, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         include: {
-          Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
+          Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true, imageUrl: true } },
           CorporateAccount: { select: { id: true, companyName: true } },
           items: { include: { serviceCatalog: true } },
-          User_createdBy: { select: { id: true, fullName: true } }
+          User_createdBy: { select: { id: true, fullName: true, imageUrl: true } }
         }
       }),
       this.getModel().count({ where })
