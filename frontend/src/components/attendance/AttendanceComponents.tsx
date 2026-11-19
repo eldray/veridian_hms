@@ -1,5 +1,6 @@
 // src/components/attendance/AttendanceCard.tsx
 import { Link } from 'react-router-dom';
+import { PatientAvatar } from '../patients/PatientAvatar';
 import { User, Eye, Edit, Pill, FlaskConical, Scissors, DollarSign, Calendar, Stethoscope } from 'lucide-react';
 
 interface AttendanceCardProps {

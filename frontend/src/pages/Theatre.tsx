@@ -1,5 +1,6 @@
 // src/pages/Theatre.tsx — Theatre queue on the shared UI primitives
 import { useEffect, useMemo, useState } from 'react';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useNavigate } from 'react-router-dom';
 import { useLiveRefresh } from '../api/realtime';
 import { useWorklistStore } from '../store/worklistStore';

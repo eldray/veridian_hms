@@ -1,4 +1,5 @@
 import { useSmartBack } from '../utils/useSmartBack';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 // src/pages/PatientBillingItems.tsx — Redesigned
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';

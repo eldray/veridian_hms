@@ -1,5 +1,6 @@
 // src/pages/NursingPatientWorkspace.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSmartBack } from '../utils/useSmartBack';
 import { useAttendanceStore } from '../store/attendanceStore';
