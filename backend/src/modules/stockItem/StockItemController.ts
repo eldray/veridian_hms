@@ -93,7 +93,7 @@ export class StockItemController extends BaseController {
   });
 
   getExpiringBatches = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const includeAllStockLocations = ['admin', 'super_admin', 'accounts'].includes(String(req.user?.role || '').toLowerCase());
     const result = await this.service.getExpiringBatches(
       req.query.days ? parseInt(req.query.days as string) : 90,
       { departmentId: req.user?.departmentId, includeAllStockLocations },
@@ -116,13 +116,13 @@ export class StockItemController extends BaseController {
   });
 
   getValueSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const allLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const allLocations = ['admin', 'super_admin', 'accounts'].includes(String(req.user?.role || '').toLowerCase());
     const result = await this.service.getValueSummary(req.query.category as string, { departmentId: req.user?.departmentId, includeAllStockLocations: allLocations });
     return this.ok(res, result, 'Value summary retrieved');
   });
 
   getExpiryReport = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const includeAllStockLocations = ['admin', 'super_admin', 'accounts'].includes(String(req.user?.role || '').toLowerCase());
     const result = await this.service.getExpiryReport(
       req.query.days ? parseInt(req.query.days as string) : 30,
       req.query.category as string,
@@ -133,7 +133,7 @@ export class StockItemController extends BaseController {
 
   getMovementSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const range = parseReportRange(req.query.startDate as string | undefined, req.query.endDate as string | undefined);
-    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const includeAllStockLocations = ['admin', 'super_admin', 'accounts'].includes(String(req.user?.role || '').toLowerCase());
     const result = await this.service.getMovementSummary(range?.gte, range?.lte, req.query.category as string | undefined, {
       stockItemId: req.query.stockItemId as string | undefined,
       transactionType: req.query.transactionType as string | undefined,
@@ -144,7 +144,7 @@ export class StockItemController extends BaseController {
   });
 
   getUsageReport = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const includeAllStockLocations = ['admin', 'super_admin', 'accounts'].includes(String(req.user?.role || '').toLowerCase());
     const result = await this.service.getUsageReport(
       req.query.period as string,
       parsePageSize(req.query.limit, 20),

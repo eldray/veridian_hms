@@ -19,12 +19,13 @@ export const createStockItemRoutes = () => {
   // ==========================================
 
   // Reports
-  router.get('/reports/value-summary', requireRole(['admin', 'pharmacist', 'accounts']), stockItemController.getValueSummary);
-  router.get('/reports/expiry', requireRole(['admin', 'pharmacist']), stockItemController.getExpiryReport);
-  router.get('/reports/movement-summary', requireRole(['admin', 'pharmacist', 'accounts']), stockItemController.getMovementSummary);
-  router.get('/reports/usage', requireRole(['admin', 'pharmacist']), stockItemController.getUsageReport);
-  router.get('/reports/supplier', requireRole(['admin', 'accounts']), stockItemController.getSupplierReport);
-  router.get('/reports/requisition-summary', requireRole(['admin', 'pharmacist']), stockItemController.getRequisitionSummary);
+  const STOCK_REPORT_READERS = ['admin', 'super_admin', 'pharmacist', 'accounts'];
+  router.get('/reports/value-summary', requireRole(STOCK_REPORT_READERS), stockItemController.getValueSummary);
+  router.get('/reports/expiry', requireRole(STOCK_REPORT_READERS), stockItemController.getExpiryReport);
+  router.get('/reports/movement-summary', requireRole(STOCK_REPORT_READERS), stockItemController.getMovementSummary);
+  router.get('/reports/usage', requireRole(STOCK_REPORT_READERS), stockItemController.getUsageReport);
+  router.get('/reports/supplier', requireRole(STOCK_REPORT_READERS), stockItemController.getSupplierReport);
+  router.get('/reports/requisition-summary', requireRole(STOCK_REPORT_READERS), stockItemController.getRequisitionSummary);
 
   // Alerts & Categories
   router.get('/categories', requireRole(STOCK_CATALOG_READERS), stockItemController.getCategories);

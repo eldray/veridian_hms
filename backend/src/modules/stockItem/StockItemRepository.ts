@@ -577,7 +577,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     const itemsPromise = this.getModel().findMany({
       where,
       select: {
-        id: true, name: true, category: true, currentStock: true,
+        id: true, name: true, category: true, currentStock: true, unitOfMeasure: true,
         costPrice: true, reorderLevel: true, isMedication: true,
         _count: { select: { StockBatch: true } },
         StockBatch: {
@@ -856,7 +856,11 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
 
   async getRequisitionsForSummaryReport(startDate?: Date, endDate?: Date, status?: RequisitionStatus) {
     const where: any = {};
-    if (startDate && endDate) where.createdAt = { gte: startDate, lte: endDate };
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) where.createdAt.gte = startDate;
+      if (endDate) where.createdAt.lte = endDate;
+    }
     if (status) where.status = status;
     return this.prisma.requisition.findMany({
       where, include: { RequisitionItem: { include: { StockItem: { select: { name: true, category: true, unitOfMeasure: true } } } }, departments: { select: { id: true, name: true } }, requestedBy: { select: { id: true, fullName: true, username: true } } },
