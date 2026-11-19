@@ -34,9 +34,11 @@ const ADMIN_LIKE_ROLES = ['admin', 'super_admin', 'hr_officer'];
 export class UserService extends BaseService {
   private repository: UserRepository;
   private auditLogger: AuditLogger;
+  private prisma: PrismaClient;
 
   constructor(prisma: PrismaClient) {
     super('UserService');
+    this.prisma = prisma;
     this.repository = new UserRepository(prisma);
     this.auditLogger = new AuditLogger(prisma);
   }
@@ -324,7 +326,24 @@ export class UserService extends BaseService {
       resetExpiry: null,
     });
 
-    await this.repository.deleteAllRefreshTokens(userId);
+    // A direct administrator reset resolves any outstanding recovery request and
+    // invalidates a code that may already have been issued. Otherwise an older
+    // approved one-time code could still change the password after this reset.
+    const resolvedAt = new Date();
+    await this.prisma.$transaction([
+      this.prisma.passwordResetRequest.updateMany({
+        where: { userId, status: { in: ['pending', 'approved'] } },
+        data: {
+          status: 'completed',
+          reviewedAt: resolvedAt,
+          reviewedById: actor.userId,
+          completedAt: resolvedAt,
+          codeHash: null,
+          expiresAt: null,
+        },
+      }),
+      this.prisma.refreshToken.deleteMany({ where: { userId } }),
+    ]);
 
     await this.auditLogger.log({
       entityType: 'User',
