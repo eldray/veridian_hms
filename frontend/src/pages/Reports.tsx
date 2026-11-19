@@ -595,7 +595,7 @@ export default function Reports() {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Diseases Reported" value={diseases.length} icon={AlertTriangle} accent="orange" />
+          <StatCard label="Disease Indicators" value={diseases.length} icon={AlertTriangle} accent="orange" />
           <StatCard label="Total Suspected" value={totalSuspected.toLocaleString()} icon={Users} accent="cyan" />
           <StatCard label="Total Confirmed" value={hasAnyConfirmed ? totalConfirmed.toLocaleString() : '—'} icon={Shield} accent="green" />
           <StatCard label="Total Deaths" value={hasAnyDeaths ? totalDeaths.toLocaleString() : '—'} icon={AlertTriangle} accent="red" />
@@ -640,8 +640,7 @@ export default function Reports() {
           </div>
           {(diseases.some((d: any) => d.confirmed == null || d.deaths == null)) && (
             <p className="px-4 py-3 text-[11px] text-[var(--text-tertiary)] border-t border-[var(--border-color)]">
-              Suspected counts the attendances diagnosed with each disease in the period. Laboratory-confirmed cases and deaths are not recorded per
-              disease in the system yet, so they are left blank (—) instead of estimated. Complete them by hand before submitting the IDSR return.
+              Suspected counts are attendance-based diagnosis signals, not unique patients or validated surveillance cases. Laboratory-confirmed cases and deaths are not recorded per disease in this report, and notification status is not tracked here; these fields remain blank (—) instead of being estimated. Verify suspected cases, confirmation, deaths, and required notifications through the facility's surveillance process before submitting the IDSR return.
             </p>
           )}
         </Card>
