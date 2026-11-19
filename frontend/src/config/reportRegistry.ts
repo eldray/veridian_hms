@@ -456,6 +456,8 @@ export const REPORT_REGISTRY: ReportShape[] = [
       { label: 'HIV tests ordered', field: 'summary.hiv.testsOrdered', value: 'number' },
       { label: 'HIV results entered', field: 'summary.hiv.resultsEntered', value: 'number' },
       { label: 'HIV positive results', field: 'summary.hiv.positive', value: 'number', hint: 'Recorded screening/confirmatory results only' },
+      { label: 'HIV negative results', field: 'summary.hiv.negative', value: 'number' },
+      { label: 'HIV tests pending', field: 'summary.hiv.pending', value: 'number' },
       { label: 'HIV positivity (%)', field: 'summary.hiv.positivityRate', value: 'percent', hint: 'Among HIV test results entered; blank when none' },
     ],
     tables: [
