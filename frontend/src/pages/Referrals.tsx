@@ -26,6 +26,8 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
+import PatientAvatar from '../components/patients/PatientAvatar';
+import UserAvatar from '../components/users/UserAvatar';
 import SendDocumentModal from '../components/SendDocumentModal';
 import ReferralDetailModal from '../components/referral/ReferralDetailModal';
 import ReferralReportBackModal from '../components/referral/ReferralReportBackModal';
@@ -74,13 +76,13 @@ interface Referral {
   referralDate: string;
   patient: {
     id: string; surname: string; otherNames: string; folderNumber: string;
-    dateOfBirth: string; gender: string; contact: string;
+    dateOfBirth: string; gender: string; contact: string; imageUrl?: string | null;
   };
   attendance?: {
     id: string; attendanceNumber: string; dateTime?: string;
     attendanceType?: string; encounterCategory?: string;
   } | null;
-  createdBy?: { fullName: string; role: string };
+  createdBy?: { fullName: string; role: string; imageUrl?: string | null };
   outcomeNotes?: string;
   structuredForm?: { partI?: Record<string, unknown>; partII?: Record<string, unknown> } | null;
 }
@@ -685,9 +687,7 @@ export default function Referrals() {
                     <td className={TD}><span className="font-mono text-xs font-semibold text-[var(--text-primary)] bg-[var(--bg-main)] px-2 py-1 rounded">{ref.referralNumber}</span></td>
                     <td className={`${TD} sticky left-0 z-10 bg-[var(--bg-card)]`}>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
-                          <span className="text-[10px] font-bold text-[var(--icon-cyan-text)]">{initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}</span>
-                        </div>
+                        <PatientAvatar imageUrl={ref.patient?.imageUrl} name={`${ref.patient?.surname || ''} ${ref.patient?.otherNames || ''}`} size="sm" />
                         <p className="font-medium text-sm text-[var(--text-primary)] truncate">{ref.patient?.surname} {ref.patient?.otherNames}</p>
                       </div>
                     </td>
@@ -695,6 +695,7 @@ export default function Referrals() {
                     <td className={`${TD} font-mono text-xs`}>{ref.attendance?.attendanceNumber || '—'}</td>
                     <td className={TD}><TypeBadge type={ref.referralType} /></td>
                     <td className={TD}>
+                      <div className="flex items-center gap-2 mb-1"><UserAvatar imageUrl={ref.createdBy?.imageUrl} name={ref.createdBy?.fullName} size="xs" /><span className="text-[10px] text-[var(--text-tertiary)] truncate">{ref.createdBy?.fullName || 'Staff member'}</span></div>
                       <p className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[200px]">{ref.referralType === 'outgoing' ? ref.referredToFacility : ref.referredFromFacility}</p>
                       {(ref.referredToDoctor || ref.referredFromDoctor) && (
                         <p className="text-[10px] text-[var(--text-tertiary)] truncate flex items-center gap-1"><Stethoscope className="w-2.5 h-2.5" />Dr. {ref.referralType === 'outgoing' ? ref.referredToDoctor : ref.referredFromDoctor}</p>
@@ -719,11 +720,10 @@ export default function Referrals() {
                 <div className="p-4 pb-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
                   <div className="flex items-start justify-between gap-3 mb-3"><TypeBadge type={ref.referralType} size="md" /><UrgencyBadge urgency={ref.urgency} size="md" /></div>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-[var(--icon-cyan-text)]">{initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}</span>
-                    </div>
+                    <PatientAvatar imageUrl={ref.patient?.imageUrl} name={`${ref.patient?.surname || ''} ${ref.patient?.otherNames || ''}`} size="md" className="rounded-xl" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-[var(--text-primary)] truncate">{ref.patient?.surname} {ref.patient?.otherNames}</p>
+                      <div className="flex items-center gap-1.5 mt-1"><UserAvatar imageUrl={ref.createdBy?.imageUrl} name={ref.createdBy?.fullName} size="xs" /><span className="text-[10px] text-[var(--text-tertiary)] truncate">{ref.createdBy?.fullName || 'Staff member'}</span></div>
                       <p className="text-[10px] text-[var(--text-tertiary)] font-mono">{ref.patient?.folderNumber}</p>
                     </div>
                   </div>
@@ -818,7 +818,7 @@ export default function Referrals() {
                       at a glance instead of re-typing name / folder / age / sex. */}
                   {selectedPatient && (
                     <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-xl px-4 py-3">
-                      <div><span className="text-[var(--text-tertiary)] block">Patient</span><b className="text-[var(--text-primary)]">{getPatientName(selectedPatient)}</b></div>
+                      <div className="flex items-center gap-2 col-span-2 sm:col-span-1"><PatientAvatar patient={selectedPatient} size="md" /><div><span className="text-[var(--text-tertiary)] block">Patient</span><b className="text-[var(--text-primary)]">{getPatientName(selectedPatient)}</b></div></div>
                       <div><span className="text-[var(--text-tertiary)] block">Folder #</span><b className="text-[var(--text-primary)]">{selectedPatient.folderNumber || '—'}</b></div>
                       <div><span className="text-[var(--text-tertiary)] block">Age / Sex</span><b className="text-[var(--text-primary)]">{(selectedPatient.ageDisplay || selectedPatient.age || ageFromDob(selectedPatient.dateOfBirth || selectedPatient.dob)) || '—'} · {selectedPatient.gender || selectedPatient.sex || '—'}</b></div>
                       <div><span className="text-[var(--text-tertiary)] block">Contact</span><b className="text-[var(--text-primary)]">{selectedPatient.contact || selectedPatient.phone || selectedPatient.phoneNumber || '—'}</b></div>
