@@ -46,10 +46,17 @@ export class ClinicalReportsService extends BaseService {
       collect(result);
       return values;
     };
-    const normalizeResult = (value: any): string => String(value ?? '').trim().toLowerCase().replace(/[\\s_-]+/g, ' ');
-    const positive = (value: any) => /positive|reactive/.test(normalizeResult(value));
-    const negative = (value: any) => /negative|non reactive|nonreactive/.test(normalizeResult(value));
-    const indeterminate = (value: any) => /indeterminate|invalid|inconclusive/.test(normalizeResult(value));    const testCounts: Record<string, { count: number; completed: number; resulted: number; positive: number }> = {};
+    const normalizeResult = (value: any): string => String(value ?? '').trim().toLowerCase().replace(/[\s_-]+/g, ' ');
+    const positive = (value: any) => {
+      const normalized = normalizeResult(value);
+      return normalized.includes('positive') || (normalized.includes('reactive') && !normalized.includes('non reactive') && !normalized.includes('nonreactive'));
+    };
+    const negative = (value: any) => {
+      const normalized = normalizeResult(value);
+      return normalized.includes('negative') || normalized.includes('non reactive') || normalized.includes('nonreactive');
+    };
+    const indeterminate = (value: any) => /indeterminate|invalid|inconclusive/.test(normalizeResult(value));
+    const testCounts: Record<string, { count: number; completed: number; resulted: number; positive: number }> = {};
     for (const test of labTests) {
       const testName = test.LabTestTemplate?.name || test.ServiceCatalog?.name || 'Unknown';
       if (!testCounts[testName]) testCounts[testName] = { count: 0, completed: 0, resulted: 0, positive: 0 };
