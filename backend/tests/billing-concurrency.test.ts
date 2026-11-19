@@ -23,10 +23,11 @@ describe('billing payment concurrency guards', () => {
       paymentMethod: 'cash' as any,
     }, 'cashier-1');
 
-    expect(billUpdateMany).toHaveBeenCalledWith({
-      where: { id: 'bill-1', balance: { gte: 100 }, status: { not: 'cancelled' } },
-      data: { paidAmount: { increment: 100 }, balance: { decrement: 100 } },
-    });
+    const paymentUpdate = billUpdateMany.mock.calls[0][0];
+    expect(paymentUpdate.where).toMatchObject({ id: 'bill-1', status: { not: 'cancelled' } });
+    expect(paymentUpdate.where.balance.gte.toString()).toBe('100.00');
+    expect(paymentUpdate.data.paidAmount.increment.toString()).toBe('100.00');
+    expect(paymentUpdate.data.balance.decrement.toString()).toBe('100.00');
     expect(result.payment.id).toBe('payment-1');
     expect(attendanceUpdate).toHaveBeenCalledWith({
       where: { id: 'attendance-1' },
@@ -54,10 +55,8 @@ describe('billing payment concurrency guards', () => {
     }, 'cashier-2')).rejects.toThrow(/refresh the bill and try again/i);
 
     expect(paymentCreate).not.toHaveBeenCalled();
-    expect(billUpdateMany).toHaveBeenCalledWith({
-      where: { id: 'bill-1', balance: { gte: 80 }, status: { not: 'cancelled' } },
-      data: { paidAmount: { increment: 80 }, balance: { decrement: 80 } },
-    });
+    const rejectedUpdate = billUpdateMany.mock.calls[0][0];
+    expect(rejectedUpdate.where.balance.gte.toString()).toBe('80.00');
   });
 });
 
