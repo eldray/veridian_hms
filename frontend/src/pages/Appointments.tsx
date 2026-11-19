@@ -1,5 +1,6 @@
 // src/pages/Appointments.tsx - FIXED with NewAttendanceModal + View All + Sort
 import { useEffect, useState, useMemo } from 'react';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useAppointmentStore } from '../store/appointmentStore';
 import { useAuthStore } from '../store/authStore';
