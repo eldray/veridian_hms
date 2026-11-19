@@ -13,6 +13,8 @@ import {
   FileText, MessageSquare, ClipboardList, BadgeCheck, Activity, ChevronRight,
 } from 'lucide-react';
 import { ReferralPartReadOnly } from './ReferralStructuredParts';
+import PatientAvatar from '../patients/PatientAvatar';
+import UserAvatar from '../users/UserAvatar';
 import {
   PART_I_SECTIONS, PART_II_SECTIONS, partHasContent, readPartI, readPartII,
 } from './referralForm';
@@ -142,9 +144,7 @@ export default function ReferralDetailModal({ open, referral, onClose, onPrint }
         <div className={`shrink-0 px-4 sm:px-6 pt-4 sm:pt-5 pb-4 border-b border-[var(--border-color)] ${outgoing ? 'bg-[var(--icon-blue-bg)]/40' : 'bg-[var(--icon-green-bg)]/40'}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3 min-w-0">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-color)] flex items-center justify-center text-base font-bold text-[var(--icon-cyan-text)] shrink-0 shadow-sm">
-                {initials(patientName)}
-              </div>
+              <PatientAvatar imageUrl={p.imageUrl} name={patientName} size="xl" className="rounded-2xl border border-[var(--border-color)] shadow-sm" />
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] truncate">{patientName}</h2>
@@ -211,7 +211,7 @@ export default function ReferralDetailModal({ open, referral, onClose, onPrint }
               <Field label={outgoing ? 'Receiving doctor' : 'Referring doctor'} value={doctor} />
               <Field label="Department" value={humanize(r.referredToDepartment || r.referredFromDepartment)} />
               <Field label="Visit" value={r.attendance ? `${r.attendance.attendanceNumber || ''}${r.attendance.attendanceType ? ` · ${humanize(r.attendance.attendanceType)}` : ''}`.trim() : undefined} />
-              <Field label="Referred by" value={r.createdBy ? `${titleCase(r.createdBy.fullName)}${r.createdBy.role ? ` · ${humanize(r.createdBy.role)}` : ''}` : undefined} />
+              <div className="flex items-center gap-2"><UserAvatar imageUrl={r.createdBy?.imageUrl} name={r.createdBy?.fullName} size="sm" /><Field label="Referred by" value={r.createdBy ? `${titleCase(r.createdBy.fullName)}${r.createdBy.role ? ` · ${humanize(r.createdBy.role)}` : ''}` : undefined} /></div>
             </dl>
             {(r.referralReason || partI.reasonForReferral) && (
               <div className="mt-4 border-t border-[var(--border-color)] pt-4">
