@@ -1157,20 +1157,40 @@ export default function EditNHISClaim() {
     }
 
     if (invFromServer.length) {
-      setInvestigations(invFromServer.map((i: any) => ({
-        id: i.id,
-        gdrgCode: i.code,
-        description: i.description,
-        date: i.serviceDate ? String(i.serviceDate).split('T')[0] : '',
-        serviceCatalogId: i.serviceCatalogId,
-        type: (i.scanId ? 'scan' : 'lab') as 'lab' | 'scan',
-        sourceId: i.scanId || i.labTestId || undefined,
-        gdrgCode: i.scanId ? NHIS_ULTRASOUND_INVESTIGATION_CODE : (i.code || ''),
-        unitPrice: i.unitPrice,
-        lineTotal: i.lineTotal,
-      })));
+      setInvestigations(invFromServer.map((i: any) => {
+        const linkedScan = (attendance?.scan ?? attendance?.Scan ?? []).find((s: any) =>
+          s.id === i.scanId || (i.description && (
+            s.ScanTemplate?.name === i.description || s.scanTemplate?.name === i.description ||
+            s.ServiceCatalog?.name === i.description || s.serviceCatalog?.name === i.description
+          ))
+        );
+        const linkedLab = (attendance?.labTest ?? attendance?.LabTest ?? []).find((l: any) =>
+          l.id === i.labTestId || (i.description && (
+            l.LabTestTemplate?.name === i.description || l.labTestTemplate?.name === i.description
+          ))
+        );
+        const isScan = Boolean(i.scanId || linkedScan || /^scan/i.test(String(i.code || '')));
+        return {
+          id: i.id,
+          gdrgCode: isScan
+            ? NHIS_ULTRASOUND_INVESTIGATION_CODE
+            : (linkedLab?.LabTestTemplate?.investigationCode || linkedLab?.labTestTemplate?.investigationCode || i.code || ''),
+          description: i.description,
+          date: i.serviceDate ? String(i.serviceDate).split('T')[0] : '',
+          serviceCatalogId: i.serviceCatalogId,
+          type: (isScan ? 'scan' : 'lab') as 'lab' | 'scan',
+          sourceId: i.scanId || linkedScan?.id || i.labTestId || linkedLab?.id || undefined,
+          unitPrice: i.unitPrice,
+          lineTotal: i.lineTotal,
+        };
+      }));
     } else if (meta.investigations?.length) {
-      setInvestigations(meta.investigations);
+      setInvestigations(meta.investigations.map((i: any) => ({
+        ...i,
+        gdrgCode: i.type === 'scan' || /^scan/i.test(String(i.gdrgCode || ''))
+          ? NHIS_ULTRASOUND_INVESTIGATION_CODE
+          : i.gdrgCode,
+      })));
     } else {
       const labs = (attendance?.labTest ?? attendance?.LabTest ?? []).map((l: any) => ({
         id: l.id,
