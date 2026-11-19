@@ -47,5 +47,5 @@ CREATE INDEX "immunization_records_batchNumber_idx" ON "immunization_records"("b
 ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "patients"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_attendanceId_fkey" FOREIGN KEY ("attendanceId") REFERENCES "attendances"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_vaccineId_fkey" FOREIGN KEY ("vaccineId") REFERENCES "vaccines"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_administeredById_fkey" FOREIGN KEY ("administeredById") REFERENCES "users"("id")" ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_administeredById_fkey" FOREIGN KEY ("administeredById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "immunization_records" ADD CONSTRAINT "immunization_records_recordedById_fkey" FOREIGN KEY ("recordedById") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
