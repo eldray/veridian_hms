@@ -22,7 +22,7 @@ import {
   type ResolverTariff,
 } from './helpers/NHISPrincipalGdrgResolver';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
-import { calculateNHISMedicineAllocation } from '../../utils/pricing';
+import { calculateNHISMedicineAllocation, isPayerCovered, resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
@@ -1183,6 +1183,74 @@ ${claimsXml}
   // ==========================================
   // PRIVATE INSURANCE SERVICES (Fully Restored)
   // ==========================================
+  /**
+   * Build payer-priced claim lines directly from completed attendance records.
+   * Private/corporate claims intentionally have no Bill or BillLineItem dependency.
+   */
+  private async buildDirectPayerClaimItems(
+    tx: Prisma.TransactionClient,
+    att: any,
+    payer: 'private_insurance' | 'corporate',
+    coveragePercentage = 100,
+    corporateDiscountPercentage = 0,
+  ) {
+    const serviceDate = new Date(att.dateTime);
+    const lines: any[] = [];
+    const money = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const addCatalogLine = async (record: any, catalog: any, quantity: number, category: string, source: string, id: string) => {
+      if (!catalog) throw new ValidationError(`Cannot generate this claim: ${source} "${record.name || record.description || id}" has no linked service-catalog item.`);
+      const pricing = await tx.servicePricing.findFirst({
+        where: { serviceCatalogId: catalog.id, isActive: true, effectiveDate: { lte: serviceDate }, OR: [{ expiryDate: null }, { expiryDate: { gt: serviceDate } }] },
+        orderBy: { effectiveDate: 'desc' },
+      });
+      if (!pricing) throw new ValidationError(`Cannot price ${catalog.name}: no active tariff exists for the date of service.`);
+      const qty = Number(quantity || 1);
+      if (!Number.isFinite(qty) || qty <= 0) throw new ValidationError(`Cannot price ${catalog.name}: quantity is invalid.`);
+      const priceRow = { cashPrice: pricing.cashPrice, insurancePrice: pricing.insurancePrice, corporatePrice: pricing.corporatePrice };
+      let unit = payer === 'corporate'
+        ? resolveMedicationUnitPrice(priceRow, 'corporate', { corporateDiscountPercent: corporateDiscountPercentage })
+        : resolveMedicationUnitPrice(priceRow, 'private_insurance');
+      if (String(catalog.serviceType).toLowerCase() !== 'medication') {
+        unit = payer === 'corporate'
+          ? resolveUnitPrice(priceRow, 'corporate', { corporateDiscountPercent: corporateDiscountPercentage })
+          : resolveUnitPrice(priceRow, 'private_insurance', { isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted });
+      }
+      const gross = money(unit * qty);
+      const covered = payer === 'private_insurance'
+        ? (isPayerCovered(priceRow, 'private_insurance', { isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted })
+            ? money(gross * Math.min(100, Math.max(0, coveragePercentage)) / 100)
+            : 0)
+        : gross;
+      if (covered <= 0) return;
+      const type = String(catalog.serviceType || '').toLowerCase();
+      const itemCategory = category || (type === 'lab_test' || type === 'scan' ? 'investigation' : type === 'medication' ? 'medicine' : type === 'procedure' ? 'procedure' : 'service');
+      lines.push({
+        itemCategory: itemCategory as any,
+        itemType: type || source,
+        code: catalog.code || type.toUpperCase(),
+        description: catalog.name || record.name || record.description || source,
+        quantity: qty,
+        unitPrice: money(covered / qty),
+        lineTotal: covered,
+        serviceDate: record.completedAt || record.performedAt || record.date || record.dispensedAt || serviceDate,
+        serviceCatalogId: catalog.id,
+        ...(source === 'medication' ? { medicationId: id } : {}),
+        ...(source === 'lab' ? { labTestId: id } : {}),
+        ...(source === 'scan' ? { scanId: id } : {}),
+        ...(source === 'procedure' ? { procedureId: id } : {}),
+      });
+    };
+
+    for (const row of att.ServiceRendered || []) await addCatalogLine(row, row.ServiceCatalog, row.quantity, 'service', 'service', row.id);
+    for (const row of att.LabTest || []) if (row.status === 'completed') await addCatalogLine(row, row.ServiceCatalog, 1, 'investigation', 'lab', row.id);
+    for (const row of att.Scan || []) if (row.status === 'completed') await addCatalogLine(row, row.ServiceCatalog, 1, 'investigation', 'scan', row.id);
+    for (const row of att.Procedure || []) if (row.status === 'completed') await addCatalogLine(row, row.ServiceCatalog, 1, 'procedure', 'procedure', row.id);
+    for (const row of att.Medication || []) if (row.status === 'dispensed') await addCatalogLine(row, row.ServiceCatalog, row.quantity, 'medicine', 'medication', row.id);
+
+    if (!lines.length) throw new ValidationError(`Attendance ${att.attendanceNumber} has no completed, priced services or dispensed medicines eligible for this claim.`);
+    return lines.map((line, index) => ({ ...line, itemNumber: index + 1 }));
+  }
+
   async generatePrivateInsuranceClaim(attendanceId: string, userId: string) {
     return this.prisma.$transaction(async (tx) => {
       if (!attendanceId) throw new ValidationError('attendanceId is required');
