@@ -30,6 +30,9 @@ export class BillService extends BaseService {
 
   async createBill(data: CreateBillInput, createdBy: string) {
     this.logInfo('Creating new bill', { patientId: data.patientId, itemCount: data.items.length });
+    if (data.paymentMode === 'private_insurance' || data.paymentMode === 'corporate') {
+      throw new Error('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+    }
     if (!data.items || data.items.length === 0) throw new Error('At least one line item is required');
 
     for (const item of data.items) {

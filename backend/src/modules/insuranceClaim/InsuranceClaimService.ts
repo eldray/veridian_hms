@@ -22,7 +22,7 @@ import {
   type ResolverTariff,
 } from './helpers/NHISPrincipalGdrgResolver';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
-import { calculateNHISMedicineAllocation } from '../../utils/pricing';
+import { calculateNHISMedicineAllocation, isPayerCovered, resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
@@ -1180,92 +1180,6 @@ ${claimsXml}
     return { data: claims, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } };
   }
 
-  // ==========================================
-  // PRIVATE INSURANCE SERVICES (Fully Restored)
-  // ==========================================
-  async generatePrivateInsuranceClaim(attendanceId: string, userId: string) {
-    return this.prisma.$transaction(async (tx) => {
-      if (!attendanceId) throw new ValidationError('attendanceId is required');
-      const existing = await this.findExistingClaim(tx, attendanceId, 'private');
-      if (existing) return { claim: existing, isExisting: true };
-
-      const att = await tx.attendance.findUnique({
-        where: { id: attendanceId },
-        include: { Patient: true, InsuranceProvider: true, Bill: { include: { BillLineItem: { include: { serviceCatalog: true } } } }, AttendanceDiagnosis: { include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true } }, Medication: { include: { ServiceCatalog: true } }, Procedure: { include: { ServiceCatalog: true } }, Scan: { include: { ServiceCatalog: true } } }
-      });
-
-      if (!att) throw new NotFoundError('Attendance', attendanceId);
-      if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
-      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'private') {
-        throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a private insurance provider on the attendance first.`);
-      }
-
-      // A private-insurance claim represents the insurer's liability, not the
-      // whole bill. Patient co-payments remain on the bill but must not be claimed
-      // again from the insurer.
-      const billItems = (att.Bill?.BillLineItem ?? []).filter(
-        (item: any) => !item.isVoided && toNumber(item.insuranceCoveredAmount) > 0,
-      );
-      if (!att.Bill?.id || billItems.length === 0) {
-        throw new ValidationError('A private insurance claim requires at least one active bill line with a positive insurer-covered amount. Check the payer tariff, coverage and patient co-payment allocation.');
-      }
-
-      const insurerClaimAmount = Math.round(
-        billItems.reduce((sum: number, item: any) => sum + toNumber(item.insuranceCoveredAmount), 0) * 100,
-      ) / 100;
-      if (!Number.isFinite(insurerClaimAmount) || insurerClaimAmount <= 0) {
-        throw new ValidationError('The private-insurance claim amount must be greater than zero.');
-      }
-
-      const claimNumber = getCounterService().nextPrivateClaimNumber();
-      const claim = await tx.insuranceClaim.create({
-        data: {
-          claimNumber, billId: att.Bill.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
-          totalClaimAmount: insurerClaimAmount, status: 'draft', createdById: userId,
-          diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
-          procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
-          labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.code),
-          scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.code),
-          serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.code),
-          medicationCodes: safeMap(att.Medication, m => m.StockItem?.drugCode || m.ServiceCatalog?.code),
-          notes: 'Private insurance claim - itemized billing',
-          items: {
-            create: billItems.map((item: any, index: number) => {
-              const serviceType = String(item.serviceType || 'miscellaneous').toLowerCase();
-              const itemCategory = serviceType === 'lab_test' || serviceType === 'scan'
-                ? 'investigation'
-                : serviceType === 'medication'
-                  ? 'medicine'
-                  : serviceType === 'procedure'
-                    ? 'procedure'
-                    : 'service';
-              return {
-                itemNumber: index + 1,
-                itemCategory,
-                itemType: serviceType,
-                code: item.serviceCatalog?.code || serviceType.toUpperCase(),
-                description: item.description,
-                quantity: item.quantity,
-                // Store the insurer's share as the claim line amount so claim totals
-                // reconcile to totalClaimAmount; the patient's co-pay is not claimed.
-                unitPrice: item.quantity > 0
-                  ? Math.round((toNumber(item.insuranceCoveredAmount) / item.quantity) * 100) / 100
-                  : 0,
-                lineTotal: toNumber(item.insuranceCoveredAmount),
-                serviceDate: att.dateTime,
-                billLineItemId: item.id,
-                serviceCatalogId: item.serviceCatalogId || null
-              };
-            })
-          }
-        },
-        include: { items: { orderBy: { itemNumber: 'asc' } } }
-      });
-
-      return { claim, isExisting: false };
-    });
-  }
-
   async getPrivateInsuranceClaims(status?: string, patientId?: string, startDate?: Date, endDate?: Date, page = 1, limit = 50) {
     const where: any = { InsuranceProvider: { type: 'private' } };
     if (status) where.status = status;
@@ -1273,116 +1187,179 @@ ${claimsXml}
     if (startDate || endDate) {
       where.Attendance = {};
       if (startDate) where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: startDate };
-      if (endDate) { const d = new Date(endDate); d.setHours(23, 59, 59, 999); where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: d }; }
+      if (endDate) {
+        const d = new Date(endDate);
+        d.setHours(23, 59, 59, 999);
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: d };
+      }
     }
 
     const pageNum = Math.max(1, page);
     const limitNum = Math.min(100, limit);
     const skip = (pageNum - 1) * limitNum;
-
     const [claims, total] = await Promise.all([
-      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } }, items: CLAIM_LINE_LIST_SELECT }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
-      this.prisma.insuranceClaim.count({ where })
+      this.prisma.insuranceClaim.findMany({
+        where,
+        include: {
+          InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
+          Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+          Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
+          Bill: { select: { id: true, billNumber: true, totalAmount: true } },
+          items: CLAIM_LINE_LIST_SELECT,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      this.prisma.insuranceClaim.count({ where }),
     ]);
-
     return { data: claims, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } };
   }
 
   // ==========================================
-  // CORPORATE SERVICES (Fully Restored)
+  // PRIVATE INSURANCE SERVICES (Fully Restored)
   // ==========================================
+  /**
+   * Build payer-priced claim lines directly from completed attendance records.
+   * Private/corporate claims intentionally have no Bill or BillLineItem dependency.
+   */
+  private async buildDirectPayerClaimItems(
+    tx: Prisma.TransactionClient,
+    att: any,
+    payer: 'private_insurance' | 'corporate',
+    coveragePercentage = 100,
+    corporateDiscountPercentage = 0,
+  ) {
+    const serviceDate = new Date(att.dateTime);
+    const lines: any[] = [];
+    const money = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const addCatalogLine = async (record: any, catalog: any, quantity: number, category: string, source: string, id: string) => {
+      if (!catalog) throw new ValidationError(`Cannot generate this claim: ${source} "${record.name || record.description || id}" has no linked service-catalog item.`);
+      const pricing = await tx.servicePricing.findFirst({
+        where: { serviceCatalogId: catalog.id, isActive: true, effectiveDate: { lte: serviceDate }, OR: [{ expiryDate: null }, { expiryDate: { gt: serviceDate } }] },
+        orderBy: { effectiveDate: 'desc' },
+      });
+      if (!pricing) throw new ValidationError(`Cannot price ${catalog.name}: no active tariff exists for the date of service.`);
+      const qty = Number(quantity || 1);
+      if (!Number.isFinite(qty) || qty <= 0) throw new ValidationError(`Cannot price ${catalog.name}: quantity is invalid.`);
+      const priceRow = { cashPrice: pricing.cashPrice, insurancePrice: pricing.insurancePrice, corporatePrice: pricing.corporatePrice };
+      let unit = payer === 'corporate'
+        ? resolveMedicationUnitPrice(priceRow, 'corporate', { corporateDiscountPercent: corporateDiscountPercentage })
+        : resolveMedicationUnitPrice(priceRow, 'private_insurance');
+      if (String(catalog.serviceType).toLowerCase() !== 'medication') {
+        unit = payer === 'corporate'
+          ? resolveUnitPrice(priceRow, 'corporate', { corporateDiscountPercent: corporateDiscountPercentage })
+          : resolveUnitPrice(priceRow, 'private_insurance', { isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted });
+      }
+      const gross = money(unit * qty);
+      const covered = payer === 'private_insurance'
+        ? (isPayerCovered(priceRow, 'private_insurance', { isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted })
+            ? money(gross * Math.min(100, Math.max(0, coveragePercentage)) / 100)
+            : 0)
+        : gross;
+      if (covered <= 0) return;
+      const type = String(catalog.serviceType || '').toLowerCase();
+      const itemCategory = category || (type === 'lab_test' || type === 'scan' ? 'investigation' : type === 'medication' ? 'medicine' : type === 'procedure' ? 'procedure' : 'service');
+      lines.push({
+        itemCategory: itemCategory as any,
+        itemType: type || source,
+        code: catalog.code || type.toUpperCase(),
+        description: catalog.name || record.name || record.description || source,
+        quantity: qty,
+        unitPrice: money(covered / qty),
+        lineTotal: covered,
+        serviceDate: record.completedAt || record.performedAt || record.date || record.dispensedAt || serviceDate,
+        serviceCatalogId: catalog.id,
+        ...(source === 'medication' ? { medicationId: id } : {}),
+        ...(source === 'lab' ? { labTestId: id } : {}),
+        ...(source === 'scan' ? { scanId: id } : {}),
+        ...(source === 'procedure' ? { procedureId: id } : {}),
+      });
+    };
+
+    for (const row of att.ServiceRendered || []) await addCatalogLine(row, row.ServiceCatalog, row.quantity, 'service', 'service', row.id);
+    for (const row of att.LabTest || []) if (row.status === 'completed') await addCatalogLine(row, row.ServiceCatalog, 1, 'investigation', 'lab', row.id);
+    for (const row of att.Scan || []) if (row.status === 'completed') await addCatalogLine(row, row.ServiceCatalog, 1, 'investigation', 'scan', row.id);
+    for (const row of att.Procedure || []) if (row.status === 'completed') await addCatalogLine(row, row.ServiceCatalog, 1, 'procedure', 'procedure', row.id);
+    for (const row of att.Medication || []) if (row.status === 'dispensed') await addCatalogLine(row, row.ServiceCatalog, row.quantity, 'medicine', 'medication', row.id);
+
+    if (!lines.length) throw new ValidationError(`Attendance ${att.attendanceNumber} has no completed, priced services or dispensed medicines eligible for this claim.`);
+    return lines.map((line, index) => ({ ...line, itemNumber: index + 1 }));
+  }
+
+  async generatePrivateInsuranceClaim(attendanceId: string, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      if (!attendanceId) throw new ValidationError('attendanceId is required');
+      const existing = await this.findExistingClaim(tx, attendanceId, 'private');
+      if (existing) return { claim: existing, isExisting: true };
+      const att = await tx.attendance.findUnique({ where: { id: attendanceId }, include: {
+        Patient: true, InsuranceProvider: true, AttendanceDiagnosis: { include: { Diagnosis: true } },
+        ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true } },
+        Medication: { include: { ServiceCatalog: true, StockItem: true } }, Procedure: { include: { ServiceCatalog: true } },
+        Scan: { include: { ServiceCatalog: true } },
+      }});
+      if (!att) throw new NotFoundError('Attendance', attendanceId);
+      if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
+      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'private') throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit. Select a private insurance provider on the attendance first.`);
+      const coverage = Math.min(100, Math.max(0, Number(att.InsuranceProvider.coveragePercentage) || 0));
+      const items = await this.buildDirectPayerClaimItems(tx, att, 'private_insurance', coverage);
+      const total = Math.round(items.reduce((sum: number, item: any) => sum + toNumber(item.lineTotal), 0) * 100) / 100;
+      if (!Number.isFinite(total) || total <= 0) throw new ValidationError('The private-insurance claim amount must be greater than zero.');
+      const claim = await tx.insuranceClaim.create({ data: {
+        claimNumber: getCounterService().nextPrivateClaimNumber(), billId: null, patientId: att.patientId, attendanceId: att.id,
+        insuranceProviderId: att.insuranceProviderId!, totalClaimAmount: total, status: 'draft', createdById: userId,
+        metadata: { source: 'attendance_direct', coveragePercentage: coverage },
+        diagnosisCodes: safeMap(att.AttendanceDiagnosis, (d: any) => d.Diagnosis?.icdCode),
+        procedureCodes: safeMap(att.Procedure, (p: any) => p.ServiceCatalog?.code),
+        labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? l.ServiceCatalog?.code : null),
+        scanCodes: safeMap(att.Scan, (s: any) => s.status === 'completed' ? s.ServiceCatalog?.code : null),
+        serviceCodes: safeMap(att.ServiceRendered, (s: any) => s.ServiceCatalog?.code),
+        medicationCodes: safeMap(att.Medication, (m: any) => m.status === 'dispensed' ? (m.StockItem?.drugCode || m.ServiceCatalog?.code) : null),
+        notes: 'Private insurance claim - generated directly from attendance services; no bill created.',
+        items: { create: items },
+      }, include: { items: { orderBy: { itemNumber: 'asc' } } }});
+      return { claim, isExisting: false };
+    });
+  }
+
   async generateCorporateClaim(attendanceId: string, userId: string) {
     return this.prisma.$transaction(async (tx) => {
       if (!attendanceId) throw new ValidationError('attendanceId is required');
       const existing = await this.findExistingClaim(tx, attendanceId, 'corporate');
       if (existing) return { claim: existing, isExisting: true };
-
-      const att = await tx.attendance.findUnique({
-        where: { id: attendanceId },
-        include: { Patient: true, InsuranceProvider: true, CorporateAccount: true, Bill: { include: { BillLineItem: { include: { serviceCatalog: true } } } }, AttendanceDiagnosis: { include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true } }, Medication: { include: { ServiceCatalog: true, StockItem: true } }, Procedure: { include: { ServiceCatalog: true } }, Scan: { include: { ServiceCatalog: true } }, Admission: true }
-      });
-
+      const att = await tx.attendance.findUnique({ where: { id: attendanceId }, include: {
+        Patient: true, InsuranceProvider: true, CorporateAccount: true, AttendanceDiagnosis: { include: { Diagnosis: true } },
+        ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true } },
+        Medication: { include: { ServiceCatalog: true, StockItem: true } }, Procedure: { include: { ServiceCatalog: true } },
+        Scan: { include: { ServiceCatalog: true } }, Admission: true,
+      }});
       if (!att) throw new NotFoundError('Attendance', attendanceId);
       if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
-      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'corporate') {
-        throw new ValidationError(`Attendance ${att.attendanceNumber} is not a corporate visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a corporate provider on the attendance first.`);
-      }
+      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'corporate') throw new ValidationError(`Attendance ${att.attendanceNumber} is not a corporate visit. Select a corporate provider on the attendance first.`);
       if (!att.corporateAccountId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no corporate account linked.`);
-
       const corp = await tx.corporateAccount.findUnique({ where: { id: att.corporateAccountId } });
       if (!corp) throw new NotFoundError('Corporate account', att.corporateAccountId);
       if (!corp.isActive) throw new ValidationError(`Corporate account "${corp.companyName}" is inactive.`);
-
-      // ✅ FIXED: Decimal math for credit limit
-      const whereCond: any = { corporateAccountId: att.corporateAccountId, status: 'finalized' };
-      if (att.insuranceProviderId) whereCond.insuranceProviderId = att.insuranceProviderId;
-      const outstanding = await tx.insuranceClaim.aggregate({ where: whereCond, _sum: { totalClaimAmount: true } });
-      const currentBal = toNumber(outstanding._sum?.totalClaimAmount);
-      const claimAmt = toNumber(att.Bill?.totalAmount);
-      const projected = currentBal + claimAmt;
-      const limit = toNumber(corp.creditLimit);
-      // A zero/null credit limit means "no limit configured", not "zero credit".
-      if (limit > 0 && projected > limit) {
-        throw new ValidationError(
-          `Exceeds credit limit. Current: GHS ${currentBal.toFixed(2)}, Limit: GHS ${limit.toFixed(2)}`
-        );
-      }
-      const providerId = att.insuranceProviderId || corp.insuranceProviderId;
-      if (!corp.insuranceProviderId) {
-        throw new ValidationError(`Configure an insurance provider on corporate account "${corp.companyName}" before generating claims.`);
-      }
-      if (!providerId) throw new ValidationError(`No insurance provider is set on attendance ${att.attendanceNumber} or on corporate account "${corp.companyName}".`);
-      if (providerId !== corp.insuranceProviderId) {
-        throw new ValidationError(`The insurance provider selected for attendance ${att.attendanceNumber} does not match corporate account "${corp.companyName}".`);
-      }
-
-      // Build claim items from the bill's active, auditable line items.
-      const billItems = (att.Bill?.BillLineItem ?? []).filter((item: any) => !item.isVoided);
-      if (!att.Bill?.id || billItems.length === 0) {
-        throw new ValidationError('A corporate claim requires a bill with at least one active bill line item.');
-      }
-
-      const claimNumber = getCounterService().nextCorporateClaimNumber();
-      const claim = await tx.insuranceClaim.create({
-        data: {
-          claimNumber, billId: att.Bill.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: providerId, corporateAccountId: att.corporateAccountId,
-          totalClaimAmount: claimAmt, status: 'draft', createdById: userId,
-          diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
-          procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
-          labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.code),
-          scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.code),
-          serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.code),
-          medicationCodes: safeMap(att.Medication, m => m.StockItem?.drugCode || m.ServiceCatalog?.code),
-          notes: `Corporate claim - Employee ID: ${att.corporateEmployeeId || 'N/A'}. Itemized billing.`,
-          items: {
-            create: billItems.map((item: any, index: number) => {
-              const serviceType = String(item.serviceType || 'miscellaneous').toLowerCase();
-              const itemCategory = serviceType === 'lab_test' || serviceType === 'scan'
-                ? 'investigation'
-                : serviceType === 'medication'
-                  ? 'medicine'
-                  : serviceType === 'procedure'
-                    ? 'procedure'
-                    : 'service';
-              return {
-                itemNumber: index + 1,
-                itemCategory,
-                itemType: serviceType,
-                code: item.serviceCatalog?.code || serviceType.toUpperCase(),
-                description: item.description,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                lineTotal: item.lineTotal,
-                serviceDate: att.dateTime,
-                billLineItemId: item.id,
-                serviceCatalogId: item.serviceCatalogId || null
-              };
-            })
-          }
-        },
-        include: { items: { orderBy: { itemNumber: 'asc' } } }
-      });
-
+      if (!corp.insuranceProviderId) throw new ValidationError(`Configure an insurance provider on corporate account "${corp.companyName}" before generating claims.`);
+      if (att.insuranceProviderId && att.insuranceProviderId !== corp.insuranceProviderId) throw new ValidationError(`The insurance provider selected for attendance ${att.attendanceNumber} does not match corporate account "${corp.companyName}".`);
+      const items = await this.buildDirectPayerClaimItems(tx, att, 'corporate', 100, Number(corp.discountPercentage) || 0);
+      const claimAmt = Math.round(items.reduce((sum: number, item: any) => sum + toNumber(item.lineTotal), 0) * 100) / 100;
+      const outstanding = await tx.insuranceClaim.aggregate({ where: { corporateAccountId: att.corporateAccountId, status: 'finalized' }, _sum: { totalClaimAmount: true } });
+      const currentBal = toNumber(outstanding._sum?.totalClaimAmount), projected = currentBal + claimAmt, limit = toNumber(corp.creditLimit);
+      if (limit > 0 && projected > limit) throw new ValidationError(`Exceeds credit limit. Current: GHS ${currentBal.toFixed(2)}, New claim: GHS ${claimAmt.toFixed(2)}, Limit: GHS ${limit.toFixed(2)}.`);
+      const claim = await tx.insuranceClaim.create({ data: {
+        claimNumber: getCounterService().nextCorporateClaimNumber(), billId: null, patientId: att.patientId, attendanceId: att.id,
+        insuranceProviderId: corp.insuranceProviderId, corporateAccountId: att.corporateAccountId, totalClaimAmount: claimAmt,
+        status: 'draft', createdById: userId, metadata: { source: 'attendance_direct', discountPercentage: Number(corp.discountPercentage) || 0 },
+        diagnosisCodes: safeMap(att.AttendanceDiagnosis, (d: any) => d.Diagnosis?.icdCode),
+        procedureCodes: safeMap(att.Procedure, (p: any) => p.ServiceCatalog?.code),
+        labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? l.ServiceCatalog?.code : null),
+        scanCodes: safeMap(att.Scan, (s: any) => s.status === 'completed' ? s.ServiceCatalog?.code : null),
+        serviceCodes: safeMap(att.ServiceRendered, (s: any) => s.ServiceCatalog?.code),
+        medicationCodes: safeMap(att.Medication, (m: any) => m.status === 'dispensed' ? (m.StockItem?.drugCode || m.ServiceCatalog?.code) : null),
+        notes: `Corporate claim - Employee ID: ${att.corporateEmployeeId || 'N/A'}. Generated directly from attendance services; no bill created.`,
+        items: { create: items },
+      }, include: { items: { orderBy: { itemNumber: 'asc' } } }});
       return { claim, isExisting: false, creditInfo: { currentBalance: currentBal, projectedBalance: projected, limit } };
     });
   }

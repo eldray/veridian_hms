@@ -262,6 +262,10 @@ export class BillingService extends BaseService {
   async createBill(data: CreateBillDTO, userId: string) {
     this.logInfo('Creating new bill', { patientId: data.patientId, paymentMode: data.paymentMode });
 
+    if (data.paymentMode === 'private_insurance' || data.paymentMode === 'corporate') {
+      throw new Error('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+    }
+
     const attendance = await this.prisma.attendance.findUnique({
       where: { id: data.attendanceId },
       select: { id: true, patientId: true, dateTime: true },
@@ -306,7 +310,7 @@ export class BillingService extends BaseService {
 
       // Only allocate insurer coverage when the service has an applicable payer tariff
       // and is configured as covered. A cash fallback must remain fully patient-payable.
-      if (data.paymentMode === 'nhis' || data.paymentMode === 'private_insurance') {
+      if (data.paymentMode === 'nhis' || String(data.paymentMode) === 'private_insurance') {
         const provider = data.insuranceProviderId
           ? await this.prisma.insuranceProvider.findUnique({ where: { id: data.insuranceProviderId }, select: { coveragePercentage: true } })
           : null;
