@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../../api/api';
 import { Syringe, Plus, RefreshCw, AlertCircle, CalendarClock } from 'lucide-react';
 
-type Vaccine = { id: string; code: string; name: string; description?: string | null; defaultDoseVolume?: string | null; defaultRoute?: string | null; diseaseTargets?: string[]; recommendedAge?: string | null };
+type Vaccine = { id: string; code: string; name: string; description?: string | null; defaultDoseVolume?: string | null; defaultRoute?: string | null; diseaseTargets?: string[]; recommendedAge?: string | null; StockItem?: { id: string; name: string; drugCode: string; currentStock: number } | null };
+type VaccineStockItem = { id: string; name: string; drugCode: string; currentStock: number; unitOfMeasure: string };
 type RecordRow = { id: string; doseNumber: string; administeredAt: string; doseVolume?: string | null; route?: string | null; administrationSite?: string | null; batchNumber?: string | null; expiryDate?: string | null; nextDoseDue?: string | null; adverseReaction?: string | null; notes?: string | null; Vaccine?: Vaccine; Attendance?: { attendanceNumber?: string; dateTime?: string }; AdministeredBy?: { fullName?: string } };
 type Visit = { id: string; attendanceType?: string; attendanceNumber?: string; dateTime?: string; createdAt?: string };
 const localToday = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -11,21 +12,25 @@ const dateLabel = (v?: string | null) => v ? new Date(v).toLocaleDateString() : 
 export default function ImmunizationPanel({ patientId, attendances, canRecord, canManageCatalogue, onCreateAttendance }: { patientId: string; attendances: Visit[]; canRecord: boolean; canManageCatalogue: boolean; onCreateAttendance: () => void }) {
   const [vaccines, setVaccines] = useState<Vaccine[]>([]);
   const [records, setRecords] = useState<RecordRow[]>([]);
+  const [vaccineStockItems, setVaccineStockItems] = useState<VaccineStockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showCatalogue, setShowCatalogue] = useState(false);
   const [form, setForm] = useState({ attendanceId: '', vaccineId: '', doseNumber: '1', administeredAt: localToday(), doseVolume: '', route: '', administrationSite: '', batchNumber: '', expiryDate: '', nextDoseDue: '', adverseReaction: '', notes: '' });
-  const [catalogue, setCatalogue] = useState({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '' });
+  const [catalogue, setCatalogue] = useState({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '', stockItemId: '' });
   const immunizationVisits = useMemo(() => attendances.filter(v => v.attendanceType === 'immunization'), [attendances]);
 
   const load = async () => {
     setLoading(true); setError('');
     try {
-      const [v, r] = await Promise.all([api.get('/immunization/vaccines'), api.get(`/immunization/patients/${patientId}/records`)]);
+      const requests: Promise<any>[] = [api.get('/immunization/vaccines'), api.get(`/immunization/patients/${patientId}/records`)];
+      if (canManageCatalogue) requests.push(api.get('/immunization/vaccine-stock-items'));
+      const [v, r, stock] = await Promise.all(requests);
       setVaccines(v.data?.data ?? []);
       setRecords(r.data?.data ?? []);
+      if (stock) setVaccineStockItems(stock.data?.data ?? []);
     } catch (e: any) { setError(e.response?.data?.message || e.message || 'Unable to load immunization records.'); }
     finally { setLoading(false); }
   };
@@ -50,7 +55,7 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
     e.preventDefault(); setError('');
     if (!catalogue.code.trim() || !catalogue.name.trim()) { setError('Vaccine code and name are required.'); return; }
     setSaving(true);
-    try { await api.post('/immunization/vaccines', catalogue); setCatalogue({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '' }); setShowCatalogue(false); await load(); }
+    try { await api.post('/immunization/vaccines', catalogue); setCatalogue({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '', stockItemId: '' }); setShowCatalogue(false); await load(); }
     catch (e: any) { setError(e.response?.data?.message || e.message || 'Could not save vaccine catalogue entry.'); }
     finally { setSaving(false); }
   };
@@ -70,12 +75,18 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
       <input placeholder="Description / target disease" value={catalogue.description} onChange={e => setCatalogue(s => ({ ...s, description: e.target.value }))} className="rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]" />
       <input placeholder="Default volume (e.g. 0.05 mL)" value={catalogue.defaultDoseVolume} onChange={e => setCatalogue(s => ({ ...s, defaultDoseVolume: e.target.value }))} className="rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]" />
       <input placeholder="Default route (e.g. intradermal)" value={catalogue.defaultRoute} onChange={e => setCatalogue(s => ({ ...s, defaultRoute: e.target.value }))} className="rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]" />
+      <label className="text-xs text-[var(--text-secondary)] md:col-span-2">Link to medicine / stock item (optional)
+        <select value={catalogue.stockItemId} onChange={e => setCatalogue(s => ({ ...s, stockItemId: e.target.value }))} className="mt-1 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]">
+          <option value="">No stock link yet</option>
+          {vaccineStockItems.map(item => <option key={item.id} value={item.id}>{item.name} ({item.drugCode}) · On hand: {item.currentStock}</option>)}
+        </select>
+      </label>
       <div className="flex gap-2"><button disabled={saving} className="rounded-md bg-[var(--icon-green-bg)] px-3 py-2 text-xs font-semibold text-[var(--icon-green-text)]">{saving ? 'Saving…' : 'Save vaccine'}</button><button type="button" onClick={() => setShowCatalogue(false)} className="rounded-md border border-[var(--border-color)] px-3 py-2 text-xs">Cancel</button></div>
     </form>}
     {showForm && canRecord && <form onSubmit={saveRecord} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 space-y-3">
       {immunizationVisits.length === 0 ? <div className="rounded-md bg-[var(--icon-yellow-bg)] p-3 text-xs text-[var(--text-primary)]">A vaccination visit is required first. <button type="button" onClick={onCreateAttendance} className="font-semibold underline">Create immunization visit</button> then return here.</div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
       <label className="text-xs text-[var(--text-secondary)]">Immunization attendance<select required value={form.attendanceId} onChange={e => update('attendanceId', e.target.value)} className="mt-1 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]"><option value="">Select visit</option>{immunizationVisits.map(v => <option key={v.id} value={v.id}>{v.attendanceNumber || v.id} — {dateLabel(v.dateTime || v.createdAt)}</option>)}</select></label>
-      <label className="text-xs text-[var(--text-secondary)]">Vaccine<select required value={form.vaccineId} onChange={e => { const v = vaccines.find(x => x.id === e.target.value); setForm(s => ({ ...s, vaccineId: e.target.value, doseVolume: v?.defaultDoseVolume || '', route: v?.defaultRoute || '' })); }} className="mt-1 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]"><option value="">Select vaccine</option>{vaccines.map(v => <option key={v.id} value={v.id}>{v.name} ({v.code})</option>)}</select></label>
+      <label className="text-xs text-[var(--text-secondary)]">Vaccine<select required value={form.vaccineId} onChange={e => { const v = vaccines.find(x => x.id === e.target.value); setForm(s => ({ ...s, vaccineId: e.target.value, doseVolume: v?.defaultDoseVolume || '', route: v?.defaultRoute || '' })); }} className="mt-1 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]"><option value="">Select vaccine</option>{vaccines.map(v => <option key={v.id} value={v.id}>{v.name} ({v.code}){v.StockItem ? ` · ${v.StockItem.drugCode}` : ' · no stock link'}</option>)}</select></label>
       <label className="text-xs text-[var(--text-secondary)]">Dose number / label<input required value={form.doseNumber} onChange={e => update('doseNumber', e.target.value)} placeholder="1, 2, Booster…" className="mt-1 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]" /></label>
       <label className="text-xs text-[var(--text-secondary)]">Date administered<input type="date" required value={form.administeredAt} onChange={e => update('administeredAt', e.target.value)} className="mt-1 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]" /></label>
       <label className="text-xs text-[var(--text-secondary)]">Dose / volume<input value={form.doseVolume} onChange={e => update('doseVolume', e.target.value)} placeholder="e.g. 0.5 mL" className="mt-1 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2 text-sm text-[var(--text-primary)]" /></label>
