@@ -1942,6 +1942,7 @@ model StockItem {
   stockBalances    StockItemDepartmentBalance[]
   transferItems    StockTransferItem[]
   payerRules       StockItemPayerRule[]
+  Vaccines          Vaccine[]
 }
 
 // Payer-specific medicine coverage, tariff and prescribing/authorization rules.
@@ -4265,6 +4266,8 @@ model Vaccine {
   doseSchedule          Json?
   defaultDoseVolume      String?
   defaultRoute           String?
+  stockItemId            String?
+  StockItem              StockItem? @relation(fields: [stockItemId], references: [id], onDelete: SetNull)
   isActive              Boolean  @default(true)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
