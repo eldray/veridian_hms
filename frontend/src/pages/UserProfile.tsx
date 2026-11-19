@@ -13,7 +13,7 @@ import {
   Check, Ban, Download, DollarSign, Info, Camera, Trash2, Grid3X3, List,
 } from 'lucide-react';
 
-const AVATAR_FIELD = 'avatarUrl';
+const AVATAR_FIELD = 'imageUrl';
 const SENIORITY_CONFIG: Record<string, { label: string; cls: string; icon: any; level: number }> = {
   TRAINEE:   { label: 'Trainee',      cls: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-bg)]', icon: GraduationCap, level: 0 },
   JUNIOR:    { label: 'Junior Staff', cls: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-bg)]',       icon: User,          level: 1 },
