@@ -319,35 +319,33 @@ export default function StockReports() {
 
     switch (selectedReport) {
       case 'stock-status':
+        return {
+          headers: ['Item Name', 'Category', 'Current Stock', 'Unit', 'Reorder Level', 'Status', 'Stock Value'],
+          rows: (reportData.items || []).map((item: any) => {
+            const quantity = Number(item.currentStock || 0);
+            const reorder = Number(item.reorderLevel || 0);
+            return [
+              item.name, item.category || 'Uncategorized', quantity, item.unitOfMeasure || '',
+              reorder, quantity <= 0 ? 'Out of stock' : quantity <= reorder ? 'Low stock' : 'In stock',
+              Number(item.totalValue || 0).toFixed(2),
+            ];
+          }),
+        };
       case 'financial': {
-        const discrepancies = (reportData.items || []).filter((i: any) => Number(i.stockDiscrepancy || 0) > 0);
-        const transferIssueItems = (reportData.items || []).filter((i: any) =>
-          Array.isArray(i.inTransitReconciliationIssues) && i.inTransitReconciliationIssues.length > 0
+        const issues = (reportData.items || []).filter((item: any) =>
+          Number(item.stockDiscrepancy || 0) > 0 ||
+          (Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0)
         );
-        if (selectedReport === 'financial' && (discrepancies.length || transferIssueItems.length)) {
-          const flaggedItems = [...new Map([...discrepancies, ...transferIssueItems].map((i: any) => [i.id, i])).values()];
-          return {
-            headers: ['Item Name', 'Category', 'Recorded Stock', 'Batch Quantity', 'Difference (Batch - Stock)', 'Batch Value', 'Total Item Value', 'Transfer Reconciliation Issues'],
-            rows: flaggedItems.map((i: any) => [
-              i.name, i.category || 'Uncategorized', Number(i.currentStock || 0), Number(i.batchQuantity || 0),
-              Number(i.batchQuantity || 0) - Number(i.currentStock || 0), Number(i.batchValue || 0).toFixed(2), Number(i.totalValue || 0).toFixed(2),
-              (i.inTransitReconciliationIssues || []).join('; '),
-            ]),
-          };
-        }
-        if (reportData.lowStockItems?.length) {
-          return {
-            headers: ['Item Name', 'Category', 'Current Stock', 'Reorder Level', 'Cost Price'],
-            rows: reportData.lowStockItems.map((i: any) => [i.name, i.category, i.currentStock, i.reorderLevel, i.costPrice ?? 0]),
-          };
-        }
-        if (reportData.byCategory) {
-          return {
-            headers: ['Category', 'Count', 'Value'],
-            rows: Object.entries(reportData.byCategory).map(([cat, d]: [string, any]) => [cat, d.count, (d.value || 0).toFixed(2)]),
-          };
-        }
-        return { headers: [], rows: [] };
+        return {
+          headers: ['Item Name', 'Category', 'Current Stock', 'Batch Quantity', 'Unbatched Quantity', 'Batch Value', 'In-transit Batch Value', 'Total Stock Value', 'Batch Difference', 'Transfer Issues'],
+          rows: (reportData.items || []).map((item: any) => [
+            item.name, item.category || 'Uncategorized', Number(item.currentStock || 0),
+            Number(item.batchQuantity || 0), Number(item.unbatchedQuantity || 0),
+            Number(item.batchValue || 0).toFixed(2), Number(item.inTransitBatchValue || 0).toFixed(2),
+            Number(item.totalValue || 0).toFixed(2), Number(item.stockDiscrepancy || 0),
+            (item.inTransitReconciliationIssues || []).join('; '),
+          ]),
+        };
       }
       case 'stock-movement':
         return {
@@ -357,11 +355,31 @@ export default function StockReports() {
             t.reference, t.document, t.supplier, t.department, t.performedBy, t.notes,
           ]),
         };
-      case 'expiry':
+      case 'expiry': {
+        const rows = [
+          ...(reportData.expiringBatches || []).map((batch: any) => [
+            batch.stockItem?.name || 'Unknown item', batch.stockItem?.category || 'Uncategorized',
+            batch.batchNumber || '', batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : '',
+            batch.quantity, 'Expiring soon',
+          ]),
+          ...(reportData.expired || []).flatMap((item: any) => {
+            const batches = (item.StockBatch || []).filter((batch: any) => Number(batch.quantity) > 0);
+            if (batches.length) return batches.map((batch: any) => [
+              item.name, item.category || 'Uncategorized', batch.batchNumber || '',
+              batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : '', batch.quantity, 'Expired',
+            ]);
+            return item.expiryDate ? [[item.name, item.category || 'Uncategorized', 'Legacy item expiry', new Date(item.expiryDate).toLocaleDateString(), item.currentStock, 'Expired']] : [];
+          }),
+          ...(reportData.expiringSoon || []).filter((item: any) => !(item.StockBatch || []).length && item.expiryDate).map((item: any) => [
+            item.name, item.category || 'Uncategorized', 'Legacy item expiry',
+            new Date(item.expiryDate).toLocaleDateString(), item.currentStock, 'Expiring soon',
+          ]),
+        ];
         return {
-          headers: ['Item Name', 'Category', 'Expiry Date', 'Current Stock'],
-          rows: (reportData.expiringSoon || []).map((i: any) => [i.name, i.category, new Date(i.expiryDate).toLocaleDateString(), i.currentStock]),
+          headers: ['Item Name', 'Category', 'Batch', 'Expiry Date', 'Quantity', 'Status'],
+          rows,
         };
+      }
       case 'supplier':
         return {
           headers: ['Supplier', 'Total Spent', 'Invoices', 'Last Order'],
