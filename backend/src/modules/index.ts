@@ -20,6 +20,7 @@ import { apiRateLimiter, reportRangeGuard } from '../middleware/apiLimits';
 import { createAppointmentRoutes } from './appointment/AppointmentRoutes';
 import { createAntenatalRoutes } from './antenatal/AntenatalRoutes';
 import { createFamilyPlanningRoutes } from './familyPlanning/FamilyPlanningRoutes';
+import { createImmunizationRoutes } from './immunization/ImmunizationRoutes';
 import { createReferralRoutes } from './referral/ReferralRoutes';
 
 // Counter (walk-in point of sale)
@@ -128,6 +129,9 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('✅ Antenatal routes mounted at /antenatal');
   
   app.use('/family-planning', createFamilyPlanningRoutes(prisma));
+
+  app.use('/immunization', createImmunizationRoutes(prisma));
+  console.log('✅ Immunization routes mounted at /immunization');
   console.log('✅ Family Planning routes mounted at /family-planning');
   
   app.use('/referrals', createReferralRoutes(prisma));
