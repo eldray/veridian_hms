@@ -31,6 +31,10 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
   };
   useEffect(() => { load(); }, [patientId]);
   const selectedVaccine = vaccines.find(v => v.id === form.vaccineId);
+  const dueRecords = useMemo(() => records.filter(r => r.nextDoseDue).sort((a, b) => new Date(a.nextDoseDue!).getTime() - new Date(b.nextDoseDue!).getTime()), [records]);
+  const todayKey = localToday();
+  const overdueRecords = dueRecords.filter(r => r.nextDoseDue!.slice(0, 10) < todayKey);
+  const upcomingRecords = dueRecords.filter(r => r.nextDoseDue!.slice(0, 10) >= todayKey);
   const update = (key: keyof typeof form, value: string) => setForm(prev => ({ ...prev, [key]: value }));
   const saveRecord = async (e: React.FormEvent) => {
     e.preventDefault(); setError('');
@@ -86,6 +90,20 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
       <div className="md:col-span-2 flex justify-end gap-2"><button type="button" onClick={() => setShowForm(false)} className="rounded-md border border-[var(--border-color)] px-3 py-2 text-xs">Cancel</button><button disabled={saving} className="rounded-md bg-[var(--icon-cyan-bg)] px-3 py-2 text-xs font-semibold text-[var(--icon-cyan-text)]">{saving ? 'Saving…' : 'Save vaccination record'}</button></div>
       </div>}
     </form>}
+    {records.length > 0 && <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">Vaccinations recorded</p><p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{records.length}</p></div>
+      <div className="rounded-lg border border-[var(--icon-yellow-text)]/30 bg-[var(--icon-yellow-bg)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-yellow-text)]">Upcoming doses</p><p className="mt-1 text-xl font-bold text-[var(--icon-yellow-text)]">{upcomingRecords.length}</p></div>
+      <div className="rounded-lg border border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-red-text)]">Overdue doses</p><p className="mt-1 text-xl font-bold text-[var(--icon-red-text)]">{overdueRecords.length}</p></div>
+    </div>}
+    {dueRecords.length > 0 && <div className="rounded-lg border border-[var(--border-color)] overflow-hidden">
+      <div className="bg-[var(--bg-main)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)]">Dose follow-up</div>
+      <div className="divide-y divide-[var(--border-color)]">
+        {dueRecords.map(row => { const overdue = row.nextDoseDue!.slice(0, 10) < todayKey; return <div key={row.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+          <div className="min-w-0"><p className="text-xs font-medium text-[var(--text-primary)]">{row.Vaccine?.name || 'Vaccine'} <span className="text-[var(--text-tertiary)]">· dose {row.doseNumber}</span></p><p className="text-[10px] text-[var(--text-tertiary)]">Next dose due: {dateLabel(row.nextDoseDue)}</p></div>
+          <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${overdue ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>{overdue ? 'Overdue' : 'Upcoming'}</span>
+        </div>; })}
+      </div>
+    </div>}
     {loading ? <div className="py-10 text-center text-xs text-[var(--text-tertiary)]">Loading immunization records…</div> : records.length === 0 ? <div className="rounded-lg border border-[var(--border-color)] p-8 text-center"><Syringe className="mx-auto mb-2 h-6 w-6 text-[var(--text-tertiary)]" /><p className="text-sm font-medium text-[var(--text-primary)]">No vaccinations recorded</p><p className="mt-1 text-xs text-[var(--text-tertiary)]">Vaccinations administered will appear here.</p></div> : <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]"><table className="w-full text-xs"><thead className="bg-[var(--bg-main)] text-[var(--text-tertiary)]"><tr>{['Vaccine','Dose','Date given','Route / site','Batch / expiry','Next due','Administered by'].map(h => <th key={h} className="px-3 py-2 text-left font-semibold">{h}</th>)}</tr></thead><tbody>{records.map(row => <tr key={row.id} className="border-t border-[var(--border-color)]"><td className="px-3 py-2 font-semibold text-[var(--text-primary)]">{row.Vaccine?.name || '—'}<div className="text-[10px] text-[var(--text-tertiary)]">{row.Vaccine?.code}</div></td><td className="px-3 py-2">{row.doseNumber}</td><td className="px-3 py-2">{dateLabel(row.administeredAt)}</td><td className="px-3 py-2">{[row.route,row.administrationSite].filter(Boolean).join(' / ') || '—'}</td><td className="px-3 py-2">{[row.batchNumber,row.expiryDate ? `Exp ${dateLabel(row.expiryDate)}` : null].filter(Boolean).join(' / ') || '—'}</td><td className="px-3 py-2">{row.nextDoseDue ? <span className="inline-flex items-center gap-1"><CalendarClock className="h-3 w-3 text-[var(--icon-yellow-text)]" />{dateLabel(row.nextDoseDue)}</span> : '—'}</td><td className="px-3 py-2">{row.AdministeredBy?.fullName || '—'}</td></tr>)}</tbody></table></div>}
   </section>;
 }
