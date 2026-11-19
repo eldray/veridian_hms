@@ -1156,3 +1156,61 @@ describe('dispatched transfer valuation reconciliation issues', () => {
     }
   });
 });
+
+
+describe('stock reports frontend data contracts', () => {
+  it('returns low-stock item details as well as the low-stock count', async () => {
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getItemsForValueReport: async () => [{
+        id: 'low-gloves', name: 'Gloves', category: 'consumable', currentStock: 2,
+        costPrice: '3.00', reorderLevel: 5, isMedication: false, unitOfMeasure: 'box',
+        stockBalances: [{ quantity: 2 }], StockBatch: [],
+      }],
+    };
+
+    const report = await service.getValueSummary(undefined, { departmentId: 'pharmacy' });
+
+    expect(report.lowStockItems).toBe(1);
+    expect(report.lowStockItemDetails).toEqual([expect.objectContaining({
+      id: 'low-gloves', name: 'Gloves', currentStock: 2, reorderLevel: 5,
+    })]);
+  });
+
+  it('groups requisition totals by requesting department and returns recent rows', async () => {
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getRequisitionsForSummaryReport: async () => [
+        { id: 'r1', requisitionNumber: 'REQ-001', status: 'fulfilled', urgency: 'routine', createdAt: new Date('2026-11-01'), departments: { id: 'pharmacy', name: 'Pharmacy' }, requestedBy: { fullName: 'User A' }, RequisitionItem: [{}, {}] },
+        { id: 'r2', requisitionNumber: 'REQ-002', status: 'submitted', urgency: 'urgent', createdAt: new Date('2026-11-02'), departments: { id: 'pharmacy', name: 'Pharmacy' }, requestedBy: { fullName: 'User B' }, RequisitionItem: [{}] },
+        { id: 'r3', requisitionNumber: 'REQ-003', status: 'fulfilled', urgency: 'routine', createdAt: new Date('2026-11-03'), departments: { id: 'lab', name: 'Laboratory' }, requestedBy: { fullName: 'User C' }, RequisitionItem: [{}] },
+      ],
+    };
+
+    const report = await service.getRequisitionSummary();
+
+    expect(report.byDepartment).toEqual([
+      { id: 'pharmacy', name: 'Pharmacy', total: 2, fulfilled: 1, items: 3 },
+      { id: 'lab', name: 'Laboratory', total: 1, fulfilled: 1, items: 1 },
+    ]);
+    expect(report.recentRequisitions).toHaveLength(3);
+    expect(report.summary).toMatchObject({ total: 3, byStatus: { fulfilled: 2, submitted: 1 } });
+  });
+});
+
+describe('partial requisition report date filters', () => {
+  it('applies a start-only or end-only date boundary', async () => {
+    const queries: any[] = [];
+    const repository = new StockItemRepository({
+      requisition: {
+        findMany: async (args: any) => { queries.push(args); return []; },
+      },
+    } as any);
+
+    await repository.getRequisitionsForSummaryReport(new Date('2026-11-01T00:00:00Z'));
+    await repository.getRequisitionsForSummaryReport(undefined, new Date('2026-11-30T23:59:59.999Z'));
+
+    expect(queries[0].where.createdAt).toEqual({ gte: new Date('2026-11-01T00:00:00Z') });
+    expect(queries[1].where.createdAt).toEqual({ lte: new Date('2026-11-30T23:59:59.999Z') });
+  });
+});
