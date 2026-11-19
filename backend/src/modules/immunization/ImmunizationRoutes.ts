@@ -175,8 +175,12 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
   // and export. This is not an EPI coverage calculation; denominators and reporting
   // definitions must be configured against the facility's approved reporting standard.
   router.get('/records/register', requireRole(readRoles), async (req: Request, res: Response) => {
-    const from = req.query.from ? new Date(String(req.query.from)) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const to = req.query.to ? new Date(String(req.query.to)) : new Date();
+    const fromValue = req.query.from ? String(req.query.from) : null;
+    const toValue = req.query.to ? String(req.query.to) : null;
+    const from = fromValue ? new Date(fromValue) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const to = toValue ? new Date(toValue) : new Date();
+    // Date-picker values are date-only strings; include the entire selected end date.
+    if (toValue && /^\\d{4}-\\d{2}-\\d{2}$/.test(toValue)) to.setHours(23, 59, 59, 999);
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) {
       return res.status(400).json({ success: false, message: 'Valid administration date range is required.' });
     }
