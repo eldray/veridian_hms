@@ -1,5 +1,5 @@
 import { ValidationError, NotFoundError } from '../../utils/errors';
-import { PrismaClient, BillStatus, PaymentMethod, PaymentMode, ServiceType } from '@prisma/client';
+import { Prisma, PrismaClient, BillStatus, PaymentMethod, PaymentMode, ServiceType } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
@@ -212,8 +212,11 @@ export class BillRepository extends BaseRepository<any, any, any> {
         if (pendingMomo) throw Object.assign(new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.'), { statusCode: 409 });
         const bill = await tx.bill.findUnique({ where: { id: billId } });
         if (!bill) throw new Error('Bill not found');
-        const amount = Math.round(Number(paymentData.amount) * 100) / 100;
-        if (!Number.isFinite(amount) || amount <= 0) throw new ValidationError('Payment amount must be greater than zero.');
+        const amountCents = Math.round(Number(paymentData.amount) * 100);
+        if (!Number.isFinite(amountCents) || amountCents <= 0) throw new ValidationError('Payment amount must be greater than zero.');
+        // Pass an exact Prisma Decimal to PostgreSQL. JavaScript numbers are binary
+        // floating-point values; money comparisons and increments must be decimal cents.
+        const amount = new Prisma.Decimal((amountCents / 100).toFixed(2));
 
         const balanceUpdate = await tx.bill.updateMany({
           where: { id: billId, balance: { gte: amount }, status: { not: 'cancelled' } },
