@@ -20,6 +20,7 @@
 //     overflows. Patient gets the wide slot, vitals get narrow numeric slots.
 //  9. FIX: waitTime guarded — undefined waitTime rendered "NaNh NaNm".
 import { useState, useEffect, useMemo } from 'react';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
