@@ -494,7 +494,7 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }:
   }, [isOpen, editing, type]);
 
   const items = kind === 'lab' ? labTestTemplates : scanTemplates;
-  const codeField = kind === 'lab' ? 'investigationCode' : 'scanCode';
+  const codeField = 'investigationCode';
 
   // Current selection: what the user picked, else the row being edited
   const selectedItem = pickedItem ?? (editing
@@ -1148,37 +1148,50 @@ export default function EditNHISClaim() {
       })));
     }
 
+    const attendanceLabs = (attendance?.labTest ?? attendance?.LabTest ?? []).map((l: any) => ({
+      id: l.id,
+      gdrgCode: l.labTestTemplate?.investigationCode || l.LabTestTemplate?.investigationCode
+        || l.serviceCatalog?.nhisServiceCode || l.ServiceCatalog?.nhisServiceCode || '',
+      description: l.labTestTemplate?.name || l.LabTestTemplate?.name
+        || l.serviceCatalog?.name || l.ServiceCatalog?.name || l.name || '',
+      date: (l.completedAt || l.requestedAt) ? new Date(l.completedAt || l.requestedAt).toISOString().split('T')[0] : '',
+      serviceCatalogId: l.serviceCatalogId,
+      type: 'lab' as const,
+    }));
+    const attendanceScans = (attendance?.scan ?? attendance?.Scan ?? []).map((s: any) => ({
+      id: s.id,
+      // NHIS accepts all facility imaging under the ultrasound investigation code.
+      gdrgCode: 'INVE30E',
+      description: s.scanTemplate?.name || s.ScanTemplate?.name
+        || s.serviceCatalog?.name || s.ServiceCatalog?.name || s.name || 'Ultrasound',
+      date: (s.completedAt || s.requestedAt) ? new Date(s.completedAt || s.requestedAt).toISOString().split('T')[0] : '',
+      serviceCatalogId: s.serviceCatalogId,
+      type: 'scan' as const,
+    }));
     if (invFromServer.length) {
-      setInvestigations(invFromServer.map((i: any) => ({
+      const saved = invFromServer.map((i: any) => ({
         id: i.id,
-        gdrgCode: i.code,
+        gdrgCode: i.scanId ? 'INVE30E' : i.code,
         description: i.description,
         date: i.serviceDate ? String(i.serviceDate).split('T')[0] : '',
         serviceCatalogId: i.serviceCatalogId,
-        type: 'lab' as const,
+        type: (i.scanId ? 'scan' : 'lab') as 'lab' | 'scan',
         unitPrice: i.unitPrice,
         lineTotal: i.lineTotal,
-      })));
+      }));
+      // Older claims can have incomplete itemization. Restore any encounter investigation
+      // that has no saved claim line, without duplicating lines already represented.
+      const savedSourceIds = new Set(invFromServer.flatMap((i: any) => [i.labTestId, i.scanId]).filter(Boolean));
+      const missingAttendanceItems = [...attendanceLabs, ...attendanceScans]
+        .filter((item: any) => !savedSourceIds.has(item.id));
+      setInvestigations([...saved, ...missingAttendanceItems]);
     } else if (meta.investigations?.length) {
-      setInvestigations(meta.investigations);
+      setInvestigations(meta.investigations.map((item: any) => ({
+        ...item,
+        gdrgCode: item.type === 'scan' ? 'INVE30E' : item.gdrgCode,
+      })));
     } else {
-      const labs = (attendance?.labTest ?? attendance?.LabTest ?? []).map((l: any) => ({
-        id: l.id,
-        gdrgCode: l.serviceCatalog?.investigationCode || l.ServiceCatalog?.investigationCode || '',
-        description: l.serviceCatalog?.name || l.ServiceCatalog?.name || l.name || '',
-        date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : '',
-        serviceCatalogId: l.serviceCatalogId,
-        type: 'lab' as const,
-      }));
-      const scans = (attendance?.scan ?? attendance?.Scan ?? []).map((s: any) => ({
-        id: s.id,
-        gdrgCode: s.serviceCatalog?.investigationCode || s.ServiceCatalog?.investigationCode || '',
-        description: s.serviceCatalog?.name || s.ServiceCatalog?.name || s.name || '',
-        date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : '',
-        serviceCatalogId: s.serviceCatalogId,
-        type: 'scan' as const,
-      }));
-      setInvestigations([...labs, ...scans]);
+      setInvestigations([...attendanceLabs, ...attendanceScans]);
     }
 
     if (medFromServer.length) {
