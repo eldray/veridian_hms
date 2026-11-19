@@ -13,6 +13,7 @@ import ComplaintInput from './ComplaintInput';
 
 interface NewAttendanceModalProps {
   patientId?: string;
+  initialAttendanceType?: AttendanceType;
   corporateAccountId?: string;
   paymentMode?: PaymentMode;
   onSuccess: (attendance: any) => void;
@@ -23,6 +24,7 @@ interface NewAttendanceModalProps {
 
 export default function NewAttendanceModal({
   patientId,
+  initialAttendanceType,
   corporateAccountId,
   paymentMode: initialPaymentMode,
   onSuccess,
@@ -36,7 +38,7 @@ export default function NewAttendanceModal({
   const { user } = useAuthStore();
   const { success, error } = useToast();
 
-  const [attendanceType, setAttendanceType] = useState<AttendanceType>('emergency_acute');
+  const [attendanceType, setAttendanceType] = useState<AttendanceType>(initialAttendanceType || 'emergency_acute');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(initialPaymentMode || 'cash');
   const [nhisCCC, setNhisCCC] = useState('');
   const [complaints, setComplaints] = useState('');
@@ -65,6 +67,8 @@ export default function NewAttendanceModal({
     if (!p) return 'Unknown Patient';
     return p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim();
   };
+
+  useEffect(() => { if (initialAttendanceType) setAttendanceType(initialAttendanceType); }, [initialAttendanceType]);
 
   // Load insurance providers
   useEffect(() => {
