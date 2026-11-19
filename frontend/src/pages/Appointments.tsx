@@ -8,6 +8,7 @@ import { useToast } from '../store/toastStore';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import NewAttendanceModal from '../components/NewAttendanceModal';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { describeApiError } from '../utils/apiError';
 import { Badge, Button, Card, cn, Field, FilterSelect, humanStatus, INPUT, PageHeader, Pagination, SearchInput, Segmented, SELECT, StatCard, TABLE_SHELL, TD, TH, TH_ROW, TR, type BadgeTone } from '../components/ui';
 import { Plus, Calendar, User, Edit, Trash2, RefreshCw, CheckCircle, XCircle, Grid, List, Filter } from 'lucide-react';
