@@ -1,9 +1,11 @@
 import { Request, Response, Router } from 'express';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { protect, requireRole, AuthRequest } from '../../middleware/authMiddleware';
+import { StockTransactionRepository } from '../stockTransaction/StockTransactionRepository';
 
 export function createImmunizationRoutes(prisma: PrismaClient): Router {
   const router = Router();
+  const stockTransactions = new StockTransactionRepository(prisma);
   router.use(protect);
 
   const readRoles: UserRole[] = ['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records'];
@@ -101,7 +103,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     const [patient, attendance, vaccine] = await Promise.all([
       prisma.patient.findUnique({ where: { id: patientId }, select: { id: true } }),
       prisma.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, patientId: true, attendanceType: true } }),
-      prisma.vaccine.findUnique({ where: { id: vaccineId }, select: { id: true, isActive: true } })
+      prisma.vaccine.findUnique({ where: { id: vaccineId }, select: { id: true, isActive: true, stockItemId: true, StockItem: { select: { id: true, name: true, category: true, isActive: true } } } })
     ]);
     if (!patient) return res.status(404).json({ success: false, message: 'Patient not found.' });
     if (!attendance || attendance.patientId !== patientId) return res.status(400).json({ success: false, message: 'Attendance must belong to the selected patient.' });
@@ -112,13 +114,51 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     if (expiryDate && Number.isNaN(expiryDate.getTime())) return res.status(400).json({ success: false, message: 'Invalid vaccine expiry date.' });
     if (nextDoseDue && Number.isNaN(nextDoseDue.getTime())) return res.status(400).json({ success: false, message: 'Invalid next-dose due date.' });
     if (expiryDate && expiryDate < date) return res.status(400).json({ success: false, message: 'Vaccine expiry must be on or after administration date.' });
-    const record = await prisma.immunizationRecord.create({ data: {
-      patientId, attendanceId, vaccineId, doseNumber: String(doseNumber).trim(), administeredAt: date,
-      doseVolume: req.body.doseVolume || null, route: req.body.route || null, administrationSite: req.body.administrationSite || null,
-      batchNumber: req.body.batchNumber || null, expiryDate,
-      nextDoseDue, adverseReaction: req.body.adverseReaction || null,
-      notes: req.body.notes || null, administeredById: req.body.administeredById || req.user?.id || null, recordedById: recordedBy
-    }, include: { Vaccine: true, AdministeredBy: { select: { id: true, fullName: true } } }});
+    const record = await prisma.$transaction(async (tx) => {
+      // Create the clinical record and consume the linked vaccine product in the
+      // same database transaction. A stock failure rolls the record back too.
+      const created = await tx.immunizationRecord.create({ data: {
+        patientId, attendanceId, vaccineId, doseNumber: String(doseNumber).trim(), administeredAt: date,
+        doseVolume: req.body.doseVolume || null, route: req.body.route || null, administrationSite: req.body.administrationSite || null,
+        batchNumber: req.body.batchNumber || null, expiryDate,
+        nextDoseDue, adverseReaction: req.body.adverseReaction || null,
+        notes: req.body.notes || null, administeredById: req.body.administeredById || req.user?.id || null, recordedById: recordedBy
+      }});
+
+      if (vaccine.stockItemId && vaccine.StockItem) {
+        if (!vaccine.StockItem.isActive || String(vaccine.StockItem.category).toLowerCase() !== 'vaccine') {
+          throw new Error('The linked vaccine medicine is inactive or is no longer in the Vaccine category. Ask an administrator to correct the catalogue link.');
+        }
+        const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+        const departmentId = isAdmin
+          ? ((req.body.departmentId || req.user?.departmentId) as string | undefined)
+          : (req.user?.departmentId as string | undefined);
+        const movement = await stockTransactions.createWithinTransaction(tx, {
+          stockItemId: vaccine.stockItemId,
+          transactionType: 'sale',
+          quantity: 1,
+          departmentId,
+          performedBy: req.user?.id,
+          reference: `Immunization record ${created.id}`,
+          notes: `Vaccine administered to patient ${patientId}; ${vaccine.code} dose ${String(doseNumber).trim()}`
+        });
+        const allocations = Array.isArray(movement.batchAllocations) ? movement.batchAllocations as Array<{ batchNumber: string; expiryDate: Date | string }> : [];
+        const actualBatch = allocations[0];
+        return tx.immunizationRecord.update({
+          where: { id: created.id },
+          data: {
+            stockTransactionId: movement.id,
+            ...(actualBatch ? { batchNumber: actualBatch.batchNumber, expiryDate: new Date(actualBatch.expiryDate) } : {})
+          },
+          include: { Vaccine: { include: { StockItem: true } }, AdministeredBy: { select: { id: true, fullName: true } } }
+        });
+      }
+
+      return tx.immunizationRecord.findUniqueOrThrow({
+        where: { id: created.id },
+        include: { Vaccine: { include: { StockItem: true } }, AdministeredBy: { select: { id: true, fullName: true } } }
+      });
+    });
     return res.status(201).json({ success: true, data: record });
   });
 
