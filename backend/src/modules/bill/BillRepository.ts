@@ -346,7 +346,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
   async getStatistics(dateFrom?: Date, dateTo?: Date) {
     const startDate = dateFrom || new Date(new Date().setMonth(new Date().getMonth() - 1));
     const endDate = dateTo || new Date();
-    const where = { billDate: { gte: startDate, lte: endDate }, paymentMode: { notIn: ['private_insurance', 'corporate'] } };
+    const where: any = { billDate: { gte: startDate, lte: endDate }, paymentMode: { notIn: ['private_insurance', 'corporate'] } };
 
     const [totalBills, totalAmount, totalPaid, totalPending, byPaymentMode, byStatus] = await Promise.all([
       this.count(where),
@@ -361,8 +361,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
       period: { start: startDate, end: endDate, type: 'custom' },
       summary: {
         totalBills,
-        totalAmount: toNumber(totalAmount._sum.totalAmount), // ✅ FIXED: Parse Decimal
-        totalPaid: toNumber(totalPaid._sum.paidAmount),       // ✅ FIXED: Parse Decimal
+        totalAmount: toNumber(totalAmount._sum?.totalAmount), // ✅ FIXED: Parse Decimal
+        totalPaid: toNumber(totalPaid._sum?.paidAmount),       // ✅ FIXED: Parse Decimal
         totalPending,
         collectionRate: totalAmount._sum.totalAmount ? (toNumber(totalPaid._sum.paidAmount) / toNumber(totalAmount._sum.totalAmount)) * 100 : 0
       },
