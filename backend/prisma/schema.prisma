@@ -601,7 +601,6 @@ model Attendance {
   immunizationRecords    ImmunizationRecord[]
 
   familyPlanningServices   FamilyPlanningService[]
-  immunizationRecords    ImmunizationRecord[]
   antenatalBookings        AntenatalBooking[]      @relation("FirstANCAttendance")
   currentAntenatalBookings AntenatalBooking[]      @relation("CurrentANCAttendance")
   antenatalVisits          ANCVisit[]
