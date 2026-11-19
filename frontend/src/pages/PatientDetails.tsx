@@ -13,7 +13,7 @@ import { CompactAdditionalInfo } from '../components/patients/CompactAdditionalI
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import {
-  ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors,
+  ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors, Syringe,
   DollarSign, RefreshCw, AlertCircle, Loader, Trash2, Eye, Clock,
   CheckCircle, Activity, File, Download, Printer, ChevronRight,
   Stethoscope, Microscope, Heart, AlertTriangle,
@@ -30,6 +30,7 @@ import type { Attendance, LabTest, Medication, Procedure, Scan, Vitals } from '.
 import { useDocumentStore } from '../store/documentStore';
 import type { GeneratedDocument } from '../types/documents';
 import { getScanDisplayName, humanScanModality } from '../utils/scan';
+import ImmunizationPanel from '../components/patients/ImmunizationPanel';
 
 // ============ HELPERS ============
 const formatCurrency = (amount: unknown): string => {
@@ -106,7 +107,7 @@ export default function PatientDetails() {
   const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
   const { getInsuranceProviders } = useInsuranceStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'attendances' | 'medical-records' | 'overview' | 'diagnoses' | 'medications' | 'lab-tests' | 'procedures' | 'vitals' | 'billing'>('overview');
+  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'attendances' | 'medical-records' | 'overview' | 'diagnoses' | 'medications' | 'lab-tests' | 'procedures' | 'vitals' | 'billing' | 'immunizations'>('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Attendance | null>(null);
@@ -290,6 +291,7 @@ export default function PatientDetails() {
     { id: 'vitals' as const, label: 'Vitals', icon: Heart, count: vitalsList.length },
     { id: 'billing' as const, label: 'Billing', icon: DollarSign, count: 0 },
     { id: 'documents' as const, label: 'Docs', icon: File, count: documents.length },
+    { id: 'immunizations' as const, label: 'Vaccines', icon: Syringe, count: 0 },
   ];
   if (isLoading && !refreshing) {
     return (
@@ -608,6 +610,15 @@ export default function PatientDetails() {
                 </Table>
               </div>
             )
+          )}
+          {activeTab === 'immunizations' && patient?.id && (
+            <ImmunizationPanel
+              patientId={patient.id}
+              attendances={patientAttendances as any}
+              canRecord={hasRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife'])}
+              canManageCatalogue={hasRole(['admin', 'super_admin'])}
+              onCreateAttendance={handleNewAttendance}
+            />
           )}
           {activeTab === 'billing' && (
             <div className="max-w-md mx-auto space-y-3">
