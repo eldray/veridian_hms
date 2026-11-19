@@ -2097,6 +2097,7 @@ model StockTransaction {
   Department  Department?  @relation(fields: [departmentId], references: [id])
   Ward        Ward?        @relation(fields: [wardId], references: [id])
   User        User?        @relation("StockTransaction_performedBy", fields: [performedBy], references: [id])
+  ImmunizationRecord ImmunizationRecord?
 
   @@index([stockItemId, transactionDate])
   @@index([transactionType])
@@ -4298,6 +4299,8 @@ model ImmunizationRecord {
   notes                   String?  @db.Text
   administeredById        String?
   recordedById            String
+  stockTransactionId      String? @unique
+  StockTransaction        StockTransaction? @relation(fields: [stockTransactionId], references: [id], onDelete: SetNull)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
