@@ -1,5 +1,6 @@
 // src/components/attendance/OverviewTab.tsx
 import { User, Calendar, Stethoscope, CreditCard, Activity } from 'lucide-react';
+import { PatientAvatar } from '../patients/PatientAvatar';
 
 interface OverviewTabProps {
   attendance: any;
