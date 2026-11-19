@@ -469,7 +469,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       this.count({ ...where, status: { in: ['pending', 'partial'] } }),
       this.prisma.bill.groupBy({ by: ['paymentMode'], where, _count: { id: true }, _sum: { totalAmount: true, paidAmount: true } }),
       this.prisma.bill.groupBy({ by: ['status'], where, _count: { id: true }, _sum: { totalAmount: true, paidAmount: true } }),
-      this.prisma.bill.aggregate({ where: { ...where, paymentMode: 'corporate' }, _sum: { totalAmount: true, paidAmount: true } })
+      this.prisma.bill.aggregate({ where, _sum: { totalAmount: true, paidAmount: true } })
     ]);
 
     return {
