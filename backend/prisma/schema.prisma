@@ -253,6 +253,7 @@ model Patient {
   deliveryRecords        DeliveryRecord[]
   abortionRecords        AbortionRecord[]
   postnatalRecords       PostnatalRecord[]
+  immunizationRecords    ImmunizationRecord[]
   proformaInvoices       ProformaInvoice[]
   familyPlanningServices FamilyPlanningService[]
   nursingNotes           NursingNote[]
@@ -597,8 +598,10 @@ model Attendance {
   WardChargeRecord        WardChargeRecord[]
   nursingNotes            NursingNote[]
   nursingTasks            NursingTask[]
+  immunizationRecords    ImmunizationRecord[]
 
   familyPlanningServices   FamilyPlanningService[]
+  immunizationRecords    ImmunizationRecord[]
   antenatalBookings        AntenatalBooking[]      @relation("FirstANCAttendance")
   currentAntenatalBookings AntenatalBooking[]      @relation("CurrentANCAttendance")
   antenatalVisits          ANCVisit[]
@@ -2471,6 +2474,8 @@ model User {
 
   abortionRecords                AbortionRecord[]
   familyPlanningServicesProvided FamilyPlanningService[]
+  immunizationsAdministered ImmunizationRecord[] @relation("ImmunizationAdministeredBy")
+  immunizationsRecorded     ImmunizationRecord[] @relation("ImmunizationRecordedBy")
 
   finalizedClaims  InsuranceClaim[] @relation("Claim_finalizedBy")
   finalizedBatches ClaimBatch[]     @relation("Batch_finalizedBy")
@@ -4242,4 +4247,68 @@ model PasswordResetRequest {
   @@index([status, requestedAt])
   @@index([userId, status])
   @@map("password_reset_requests")
+}
+
+
+// ============================================================
+// IMMUNIZATION / VACCINATION
+// Vaccine catalogue and individual administration records. Future-due doses
+// should be tracked through appointments, not stored as administered records.
+// ============================================================
+
+model Vaccine {
+  id                    String   @id @default(cuid())
+  code                  String   @unique
+  name                  String
+  description            String?  @db.Text
+  diseaseTargets         String[]
+  recommendedAge         String?
+  doseSchedule          Json?
+  defaultDoseVolume      String?
+  defaultRoute           String?
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+
+  immunizationRecords ImmunizationRecord[]
+
+  @@index([name])
+  @@index([isActive])
+  @@map("vaccines")
+}
+
+
+model ImmunizationRecord {
+  id                    String   @id @default(cuid())
+  patientId              String
+  attendanceId            String
+  vaccineId              String
+  doseNumber              String
+  administeredAt          DateTime
+  doseVolume              String?
+  route                   String?
+  administrationSite      String?
+  batchNumber             String?
+  expiryDate              DateTime?
+  nextDoseDue             DateTime?
+  adverseReaction         String?  @db.Text
+  notes                   String?  @db.Text
+  administeredById        String?
+  recordedById            String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  Patient                 Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  Attendance              Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  Vaccine                 Vaccine @relation(fields: [vaccineId], references: [id], onDelete: Restrict)
+  AdministeredBy          User? @relation("ImmunizationAdministeredBy", fields: [administeredById], references: [id])
+  RecordedBy              User @relation("ImmunizationRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([patientId, administeredAt])
+  @@index([attendanceId])
+  @@index([vaccineId, administeredAt])
+  @@index([nextDoseDue])
+  @@index([batchNumber])
+  @@map("immunization_records")
 }
