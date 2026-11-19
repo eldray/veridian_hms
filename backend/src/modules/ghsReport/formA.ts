@@ -151,11 +151,11 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     return null; // no explicit record — fall through to period evidence below
   };
 
-  const conducts = facilityFlags?.conductsDelivery ?? (hospital.conductsDeliveries ?? hospital.conductsDelivery) ?? deliveries.length > 0;
+  const conducts = facilityFlags?.conductsDelivery ?? (hospital.conductsDeliveries ?? hospital.conductsDelivery) ?? (deliveries.length > 0 ? true : null);
 
-  // Blood transfusion: facility flag/record, or a transfusion actually given in period,
-  // or a blood / transfusion medication / lab record. This facility offers it, so the
-  // last fallback is Yes — never n/c.
+  // Period activity is evidence that a service was provided, not proof that the
+  // facility offers it year-round. When no facility setting or activity exists,
+  // leave availability uncaptured rather than defaulting to Yes or No.
   const bloodExplicit = fromFlagOrHospital(
     (facilityFlags as any)?.bloodTransfusionService,
     'bloodTransfusionService', 'hasBloodTransfusion', 'bloodBankAvailable', 'hasBloodBank', 'offersBloodTransfusion',
@@ -164,40 +164,35 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     deliveries.some((d: any) => d.bloodTransfusionGiven || d.transfusionGiven || d.bloodTransfused) ||
     postnatal.some((pp: any) => pp.bloodTransfusionGiven || pp.transfusionGiven) ||
     medications.some((m: any) => /blood|transfusion/i.test(String(m.StockItem?.name ?? m.name ?? '')));
-  const bloodTransfusion = bloodExplicit ?? (bloodEvidence ? true : true);
+  const bloodTransfusion = bloodExplicit ?? (bloodEvidence ? true : null);
 
-  // PMTCT: HIV testing was done at ANC in this period, or facility says so.
   const pmtctExplicit = fromFlagOrHospital((facilityFlags as any)?.pmtctServices, 'pmtctServices', 'hasPMTCT', 'offersPMTCT');
-  const pmtctAvailable = pmtctExplicit ?? bookings.some(b => hivTested(b.hivStatus));
+  const pmtctEvidence = bookings.some(b => hivTested(b.hivStatus));
+  const pmtctAvailable = pmtctExplicit ?? (pmtctEvidence ? true : null);
 
-  // EID (Early Infant Diagnosis): an EID / HIV DNA PCR test in this period's labs,
-  // or an HIV-positive mother / HIV-exposed infant in the period, or facility says so.
-  // A facility doing PMTCT also does EID follow-up for exposed infants.
   const eidExplicit = fromFlagOrHospital((facilityFlags as any)?.eidServices, 'eidServices', 'hasEID', 'offersEID', 'earlyInfantDiagnosis');
   const eidEvidence =
     labTests.some((l: any) => /eid|early infant|dna pcr|hiv dna|hiv.*pcr|db?s.*pcr/i.test(String(l.LabTestTemplate?.name ?? l.testName ?? l.name ?? ''))) ||
     bookings.some(b => hivPositive(b.hivStatus)) ||
-    pmtctAvailable;
-  const eid = eidExplicit ?? eidEvidence;
+    pmtctAvailable === true;
+  const eid = eidExplicit ?? (eidEvidence ? true : null);
 
-  // Baby Friendly Hospital: facility flag/record, or breastfeeding-within-30-min
-  // evidence in this period's newborns. This facility is Baby Friendly, so never n/c.
   const bfExplicit = fromFlagOrHospital(
     (facilityFlags as any)?.babyFriendlyHospital,
     'babyFriendlyHospital', 'isBabyFriendly', 'babyFriendly', 'isBabyFriendlyHospital',
   );
   const bfEvidence = deliveries.some((d: any) => (d.Newborn ?? []).some((n: any) => n.breastfeedingWithin30Min));
-  const babyFriendly = bfExplicit ?? (bfEvidence ? true : true);
+  const babyFriendly = bfExplicit ?? (bfEvidence ? true : null);
 
   const facility: FormATable = {
     title: 'EMONC / Services available',
     columns: ['Available'],
     rows: [
-      { label: 'Conducts deliveries', values: [conducts ? 'Yes' : 'No'] },
-      { label: 'Blood transfusion service', values: [bloodTransfusion ? 'Yes' : 'No'] },
-      { label: 'PMTCT services', values: [pmtctAvailable ? 'Yes' : 'No'] },
-      { label: 'EID services', values: [eid ? 'Yes' : 'No'] },
-      { label: 'Baby Friendly Hospital', values: [babyFriendly ? 'Yes' : 'No'] },
+      { label: 'Conducts deliveries', values: [conducts == null ? 'n/c' : conducts ? 'Yes' : 'No'], captured: conducts != null },
+      { label: 'Blood transfusion service', values: [bloodTransfusion == null ? 'n/c' : bloodTransfusion ? 'Yes' : 'No'], captured: bloodTransfusion != null },
+      { label: 'PMTCT services', values: [pmtctAvailable == null ? 'n/c' : pmtctAvailable ? 'Yes' : 'No'], captured: pmtctAvailable != null },
+      { label: 'EID services', values: [eid == null ? 'n/c' : eid ? 'Yes' : 'No'], captured: eid != null },
+      { label: 'Baby Friendly Hospital', values: [babyFriendly == null ? 'n/c' : babyFriendly ? 'Yes' : 'No'], captured: babyFriendly != null },
     ],
   };
 
