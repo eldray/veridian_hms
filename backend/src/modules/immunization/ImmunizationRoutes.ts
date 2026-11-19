@@ -49,6 +49,19 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     return res.json({ success: true, data: vaccine });
   });
 
+  router.get('/attendances', requireRole(readRoles), async (req: Request, res: Response) => {
+    const dateParam = req.query.date ? String(req.query.date) : new Date().toISOString().slice(0, 10);
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dateParam)) return res.status(400).json({ success: false, message: 'Date must use YYYY-MM-DD format.' });
+    const start = new Date(dateParam + 'T00:00:00.000Z');
+    const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);
+    const visits = await prisma.attendance.findMany({
+      where: { attendanceType: 'immunization', dateTime: { gte: start, lt: end } },
+      include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, phoneNumber: true } } },
+      orderBy: { dateTime: 'asc' }
+    });
+    return res.json({ success: true, data: visits });
+  });
+
   router.get('/patients/:patientId/records', requireRole(readRoles), async (req: Request, res: Response) => {
     const records = await prisma.immunizationRecord.findMany({
       where: { patientId: req.params.patientId },
