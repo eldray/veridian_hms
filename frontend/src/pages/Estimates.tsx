@@ -10,6 +10,8 @@ import { useNavigate } from 'react-router-dom';
 import { useEstimatesStore, type EstimateStatus } from '../store/estimatesStore';
 import { useToast } from '../store/toastStore';
 import { getPatientName } from '../utils/patient';
+import PatientAvatar from '../components/patients/PatientAvatar';
+import UserAvatar from '../components/users/UserAvatar';
 import {
   FileText, RefreshCw, Eye, Briefcase, DollarSign,
 } from 'lucide-react';
@@ -161,7 +163,7 @@ export default function Estimates() {
                 <tr key={e.id} className={cn(TR, 'cursor-pointer')} onClick={() => navigate(`/dashboard/estimates/${e.id}`)}>
                   <td className={cn(TD_MONO, 'text-xs')}>{e.referenceNumber}</td>
                   <td className={TD}>
-                    <div className="font-medium text-[var(--text-primary)]">{clientName(e.patient)}</div>
+                    <div className="flex items-center gap-2.5 min-w-0">{e.patient ? <PatientAvatar patient={e.patient} size="sm" /> : <span className="w-8 h-8 rounded-full bg-[var(--bg-main)]" />}<div className="font-medium text-[var(--text-primary)] truncate">{clientName(e.patient)}</div></div>
                   </td>
                   <td className={cn(TD_MONO, 'text-xs')}>{e.patient?.folderNumber || '—'}</td>
                   <td className={TD}>
@@ -177,7 +179,7 @@ export default function Estimates() {
                   <td className={TD}>
                     <Badge tone={estimateBadgeTone(e.status)} dot size="sm">{humanStatus(e.status)}</Badge>
                   </td>
-                  <td className={TD_MUTED}>{e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}</td>
+                  <td className={TD_MUTED}><div className="flex items-center gap-2"><UserAvatar imageUrl={e.createdBy?.imageUrl} name={e.createdBy?.fullName} size="xs" /><div><div>{e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}</div>{e.createdBy?.fullName && <div className="text-[10px] text-[var(--text-tertiary)]">{e.createdBy.fullName}</div>}</div></div></td>
                   <td className={cn(TD, 'text-right')}>
                     <Button
                       size="sm"
