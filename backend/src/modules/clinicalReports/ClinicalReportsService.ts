@@ -29,26 +29,34 @@ export class ClinicalReportsService extends BaseService {
 
     // Lab result payloads may be scalar, a {value} object, or the parameters
     // object saved by LabResultsEntry. Read only structured test fields for HIV.
-    const resultFields = (test: any): Record<string, any> => {
+    const resultValues = (test: any): any[] => {
       const result = test.result;
-      if (result == null) return {};
-      if (typeof result === 'string') return { result };
-      if (typeof result !== 'object') return { result };
-      return { ...(result.parameters && typeof result.parameters === 'object' ? result.parameters : {}), ...result };
+      if (result == null) return [];
+      if (typeof result !== 'object') return [result];
+      const values: any[] = [];
+      const collect = (source: any) => {
+        if (!source || typeof source !== 'object') return;
+        Object.entries(source).forEach(([key, value]) => {
+          if (['testName', 'parameters', 'metadata'].includes(key.toLowerCase())) return;
+          if (value && typeof value === 'object') collect(value);
+          else if (value != null && String(value).trim() !== '') values.push(value);
+        });
+      };
+      collect(result.parameters);
+      collect(result);
+      return values;
     };
-    const normalizeResult = (value: any): string => String(value ?? '').trim().toLowerCase().replace(/[()\[\]+]/g, '').replace(/[_-]/g, ' ');
-    const positive = (value: any) => /(^|\\b)positive(\\b|$)|reactive/.test(normalizeResult(value));
-    const negative = (value: any) => /(^|\\b)negative(\\b|$)|non reactive|nonreactive/.test(normalizeResult(value));
-    const indeterminate = (value: any) => /indeterminate|invalid|inconclusive/.test(normalizeResult(value));
-    const testCounts: Record<string, { count: number; completed: number; resulted: number; positive: number }> = {};
+    const normalizeResult = (value: any): string => String(value ?? '').trim().toLowerCase().replace(/[()\\[\\]+]/g, '').replace(/[_-]/g, ' ');
+    const positive = (value: any) => /positive|reactive/.test(normalizeResult(value));
+    const negative = (value: any) => /negative|non reactive|nonreactive/.test(normalizeResult(value));
+    const indeterminate = (value: any) => /indeterminate|invalid|inconclusive/.test(normalizeResult(value));    const testCounts: Record<string, { count: number; completed: number; resulted: number; positive: number }> = {};
     for (const test of labTests) {
       const testName = test.LabTestTemplate?.name || test.ServiceCatalog?.name || 'Unknown';
       if (!testCounts[testName]) testCounts[testName] = { count: 0, completed: 0, resulted: 0, positive: 0 };
       testCounts[testName].count++;
       if (test.status === 'completed') {
         testCounts[testName].completed++;
-        const fields = resultFields(test);
-        const vals = Object.values(fields).filter(v => v != null && String(v).trim() !== '');
+        const vals = resultValues(test);
         if (vals.length) testCounts[testName].resulted++;
         if (vals.some(positive)) testCounts[testName].positive++;
       }
