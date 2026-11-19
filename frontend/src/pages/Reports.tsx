@@ -122,22 +122,6 @@ const EmptyState = ({ message }: { message: string }) => (
 
 // FIX #9 — statutory returns must match a printed form, so we do not invent labels.
 // If the backend hands us a section we have no curated map for, say so explicitly.
-const NotYetCurated = ({ title, section }: { title: string; section: string }) => (
-  <Card title={title} className="mb-5">
-    <div className="flex items-start gap-3">
-      <AlertTriangle className="w-4 h-4 mt-0.5 text-[var(--icon-orange-text)]" />
-      <div>
-        <p className="text-xs font-semibold text-[var(--text-primary)]">{section} is not rendered on screen yet</p>
-        <p className="text-[11px] text-[var(--text-tertiary)] mt-1 leading-relaxed">
-          The DHIMS2 field names for this section have not been curated against the printed
-          Form A, so it is left blank rather than guessed. Enter these rows directly on the
-          paper return, or raise it with the records officer to add the label map.
-        </p>
-      </div>
-    </div>
-  </Card>
-);
-
 export default function Reports() {
   const goBack = useSmartBack('/dashboard');
   const navigate = useNavigate();
