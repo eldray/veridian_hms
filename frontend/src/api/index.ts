@@ -1350,6 +1350,10 @@ export const downloadBatchXml = (batchId: string): Promise<void> =>
   downloadAuthenticatedFile(`/insurance-claims/batches/${batchId}/xml`, `claim-batch-${batchId}.xml`);
 
 /** Batch summary print (any type) — open the authenticated print-ready HTML view. */
+/** Month-wide summary: one line per payer / company, figures only. */
+export const printClaimMonthlySummary = (params: { year: number; month: number; type?: string }): Promise<void> =>
+  openAuthenticatedPrintView(`/insurance-claims/batches/summary/print?year=${params.year}&month=${params.month}${params.type ? `&type=${params.type}` : ''}`);
+
 export const printClaimBatch = (batchId: string): Promise<void> =>
   openAuthenticatedPrintView(`/insurance-claims/batches/${batchId}/print`);
 
@@ -4509,7 +4513,7 @@ export default {
 
   // Claim Batches
   generateClaimBatch, getClaimBatches, getClaimBatch, finalizeClaimBatch, deleteClaimBatch,
-  downloadBatchXml, printClaimBatch,
+  downloadBatchXml, printClaimBatch, printClaimMonthlySummary,
   getClaimBatchEligibility, getClaimPeriodClaims,
   getClaimBatchTracking, recordClaimBatchTrackingEvent,
 

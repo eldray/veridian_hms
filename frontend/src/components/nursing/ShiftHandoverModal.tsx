@@ -5,6 +5,7 @@ import {
   Moon, Sun, Sunrise
 } from 'lucide-react';
 import { getPatientName } from '../../utils/patient';
+import { generatePDF, openPrintWindow } from '../../utils/pdfGenerator';
 import { describeApiError } from '../../utils/apiError';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -64,68 +65,30 @@ function printHandover(data: {
   checkedTasks: Record<string, boolean>;
   hospital: any;
 }) {
-  const hospitalName = data.hospital?.name || 'Fuo Community Hospital';
-  const now = new Date().toLocaleString();
-
-  const patientRows = data.patients.map(p => {
-    const name = p.patient ? getPatientName(p.patient) : (p.patientName || 'Unknown');
-    const pendingTasks = p.tasks.filter(t => t.status !== 'completed' && !data.checkedTasks[`${p.id}::${t.id}`]);
-    const doneTasks    = p.tasks.filter(t => data.checkedTasks[`${p.id}::${t.id}`]);
-
-    return `
-      <tr style="border-bottom:1px solid #e5e7eb">
-        <td style="padding:8px 12px;font-weight:600">${name}</td>
-        <td style="padding:8px 12px">${p.bedNumber || '—'}</td>
-        <td style="padding:8px 12px">${p.encounterCategory?.toUpperCase() || 'IPD'}</td>
-        <td style="padding:8px 12px">
-          ${pendingTasks.map(t => `<div style="margin-bottom:4px">⏳ ${t.title}${t.priority === 'high' ? ' <b style="color:#dc2626">[HIGH]</b>' : ''}</div>`).join('')}
-          ${pendingTasks.length === 0 ? '<span style="color:#6b7280;font-size:12px">No pending tasks</span>' : ''}
-        </td>
-        <td style="padding:8px 12px;color:#16a34a">
-          ${doneTasks.map(t => `<div>✓ ${t.title}</div>`).join('')}
-        </td>
-      </tr>`;
-  }).join('');
-
-  const html = `<!DOCTYPE html><html><head><title>Shift Handover — ${data.currentShift} to ${data.nextShift}</title>
-    <style>
-      body { font-family: Arial, sans-serif; font-size: 13px; color: #111; margin: 0; padding: 24px; }
-      h1 { font-size: 18px; margin: 0 0 4px; }
-      h2 { font-size: 14px; margin: 0; color: #374151; }
-      table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-      th { background: #f3f4f6; text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e5e7eb; }
-      .header-bar { background: #0f766e; color: white; padding: 16px 24px; margin: -24px -24px 24px; }
-      .meta { display: flex; gap: 32px; margin-bottom: 16px; font-size: 12px; color: #6b7280; }
-      .notes-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; margin-bottom: 16px; white-space: pre-wrap; }
-      @media print { body { padding: 16px; } }
-    </style></head><body>
-    <div class="header-bar">
-      <h1>${hospitalName} — Nursing Shift Handover</h1>
-      <h2>${data.currentShift} Shift → ${data.nextShift} Shift</h2>
-    </div>
-    <div class="meta">
-      <span>Handed over by: <b>${data.handedOverBy}</b></span>
-      <span>Date/Time: <b>${now}</b></span>
-      <span>Patients: <b>${data.patients.length}</b></span>
-    </div>
-    ${data.handoverNotes ? `<div class="notes-box">${data.handoverNotes}</div>` : ''}
-    <table>
-      <thead>
-        <tr>
-          <th>Patient</th><th>Bed</th><th>Type</th><th>Pending for Next Shift</th><th>Completed This Shift</th>
-        </tr>
-      </thead>
-      <tbody>${patientRows}</tbody>
-    </table>
-    <div style="margin-top:40px;border-top:1px solid #e5e7eb;padding-top:12px;font-size:11px;color:#9ca3af">
-      This handover report was generated electronically by the Nursing Station module. 
-      Handover by ${data.handedOverBy} at ${now}.
-    </div>
-    <script>window.onload = () => { window.print(); }</script>
-  </body></html>`;
-
-  const win = window.open('', '_blank', 'width=900,height=700');
-  if (win) { win.document.write(html); win.document.close(); }
+  const patients = data.patients.map((p) => {
+    const tasks = p.tasks || [];
+    const isDone = (t: any) => t.status === 'completed' || data.checkedTasks[`${p.id}::${t.id}`];
+    return {
+      name: p.patient ? getPatientName(p.patient) : (p.patientName || 'Unknown'),
+      bedNumber: p.bedNumber || undefined,
+      pendingTasks: tasks.filter((t: any) => !isDone(t)).map((t: any) => ({
+        title: t.title,
+        priority: t.priority || 'medium',
+        scheduledTime: t.scheduledTime || t.dueAt || undefined,
+      })),
+      completedTasks: tasks.filter(isDone),
+    };
+  });
+  const html = generatePDF('handover', {
+    shiftFrom: `${data.currentShift} shift`,
+    shiftTo: `${data.nextShift} shift`,
+    handoverNotes: data.handoverNotes,
+    completedTasksCount: patients.reduce((n, p) => n + p.completedTasks.length, 0),
+    patients,
+    handedOverBy: data.handedOverBy,
+    handedOverAt: new Date().toISOString(),
+  }, data.hospital);
+  openPrintWindow(html, `Shift-Handover-${data.currentShift}-to-${data.nextShift}`);
 }
 
 // ── Main component ────────────────────────────────────────────────────────────

@@ -31,6 +31,13 @@ export const createClaimBatchRoutes = () => {
     claimBatchController.periodClaims,
   );
 
+  // Month-wide print (one line per payer). Static, so it must sit above the dynamic :id route.
+  router.get(
+    '/summary/print',
+    requireRole(['admin', 'accounts', 'doctor', 'records']),
+    claimBatchController.printMonthlySummary,
+  );
+
   // The tracking screen's rows are batches, so it must sit above the dynamic :id route
   // or "tracking" is read as a batch id.
   router.get(

@@ -20,6 +20,9 @@ import { generateScanReportHTML } from './pdfTemplates/scanReportPDF';
 import { generateReferralLetterHTML } from './pdfTemplates/referralLetterPDF';
 import { generateReferralFormHTML } from './pdfTemplates/referralFormPDF';
 import { generateHandoverHTML } from './pdfTemplates/handoverPDF';
+import { generateProformaInvoiceHTML } from './pdfTemplates/proformaInvoicePDF';
+import { generateStockReportHTML } from './pdfTemplates/stockReportPDF';
+import { generateMedicalReportHTML } from './pdfTemplates/medicalReportPDF';
 
 export type PDFType =
   | 'receipt'
@@ -32,6 +35,9 @@ export type PDFType =
   | 'lab-results'
   | 'labResult'
   | 'dischargeSummary'
+  | 'medicalReport'
+  | 'stockReport'
+  | 'proformaInvoice'
   | 'prescription'
   | 'referral'
   | 'referralLetter'
@@ -76,6 +82,12 @@ export const generatePDF = (
     case 'lab-results':  // ✅ Handle both
     case 'labResult':    // ✅ Handle labResult too
       return generateLabResultsHTML(withPerformer(data.labTests, data.performedByName), data.patient, data.attendance, hospital);
+    case 'proformaInvoice':
+      return generateProformaInvoiceHTML(data.estimate, hospital);
+    case 'stockReport':
+      return generateStockReportHTML(data.report, hospital);
+    case 'medicalReport':
+      return generateMedicalReportHTML(data.report, data.patient, data.attendance, hospital);
     case 'dischargeSummary':
       return generateDischargeSummaryHTML(data.admission, data.attendance, data.patient, data.clinicalData, hospital);
     case 'prescription':

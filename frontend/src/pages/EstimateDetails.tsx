@@ -1,6 +1,6 @@
 import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/EstimateDetails.tsx - Proforma invoice (estimate) detail + actions
-// DESIGN: the screen IS the print template. One full A4-style page, not a
+// DESIGN: the screen mirrors the printed proforma (utils/pdfTemplates/proformaInvoicePDF.ts). One full A4-style page, not a
 // compact card: tall page, wide margins, large type, generous row height.
 // What you see on screen is exactly what prints — same letterhead, same
 // bill-to, same table, same totals, same footer. Actions stay in the toolbar
@@ -13,7 +13,7 @@ import { useEstimatesStore, type EstimateStatus } from '../store/estimatesStore'
 import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { getPatientName } from '../utils/patient';
-import { openPrintWindow } from '../utils/pdfGenerator';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import {
   Send, CheckCircle, XCircle, FileText, Printer, Receipt, Loader, Briefcase,
   Pencil, Trash2, MapPin, Phone, Mail, Building2, X,
@@ -26,63 +26,6 @@ const estimateBadgeTone = (status: EstimateStatus) =>
   status === 'SENT' ? 'cyan'
     : status === 'CONVERTED' ? 'purple'
       : statusTone(status);
-
-// ── THE PRINT TEMPLATE. Screen renders this same structure below, so the
-//    two can never drift apart again. Edit here and the screen follows. ──
-const printHtml = (est: any, hospital: any, fmt: (n: any) => string) => {
-  const rows = (est.items || []).map((it: any) => `
-    <tr>
-      <td style="padding:14px 12px;border-bottom:1px solid #e5e7eb">${it.serviceCatalog?.code || '—'}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #e5e7eb;font-weight:500">${it.description}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #e5e7eb;text-align:center">${it.quantity}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #e5e7eb;text-align:right">GHS ${fmt(it.unitPrice)}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #e5e7eb;text-align:right">GHS ${fmt(it.vatAmount)}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600">GHS ${fmt(it.totalPrice)}</td>
-    </tr>`).join('');
-  return `
-  <div style="font-family:Arial,sans-serif;max-width:820px;margin:0 auto;color:#111;background:#fff;padding:48px 56px;min-height:1050px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:3px solid #0e7490">
-      <div>
-        <h1 style="margin:0;font-size:26px">${hospital?.name || 'Hospital'}</h1>
-        <div style="font-size:14px;color:#555;margin-top:6px">${hospital?.address || ''}</div>
-        <div style="font-size:13px;color:#555;margin-top:2px">${(hospital as any)?.phone || ''} ${(hospital as any)?.email ? ` · ${(hospital as any).email}` : ''}</div>
-      </div>
-      <div style="text-align:right">
-        <div style="font-size:15px;font-weight:700;letter-spacing:3px;color:#0e7490">PROFORMA INVOICE</div>
-        <div style="font-size:16px;font-weight:600;margin-top:8px">${est.referenceNumber}</div>
-        <div style="font-size:13px;color:#555;margin-top:4px">Status: ${est.status}</div>
-      </div>
-    </div>
-    <table style="width:100%;font-size:14px;margin:28px 0">
-      <tr>
-        <td style="padding:6px 0"><span style="font-size:11px;letter-spacing:2px;color:#888">BILL TO</span><br/><b style="font-size:16px">${est.patient ? getPatientName(est.patient) : 'Walk-in client'}</b><br/><span style="color:#555">Folder: ${est.patient?.folderNumber || '—'}</span></td>
-        <td style="padding:6px 0;text-align:right;vertical-align:top"><span style="font-size:11px;letter-spacing:2px;color:#888">DATE ISSUED</span><br/>${new Date(est.createdAt).toLocaleDateString()}<br/><br/><span style="font-size:11px;letter-spacing:2px;color:#888">VALID UNTIL</span><br/>${est.expiresAt ? new Date(est.expiresAt).toLocaleDateString() : `${est.validityDays} days`}</td>
-      </tr>
-      ${est.corporateAccount ? `<tr><td style="padding:6px 0;color:#555"><b>Corporate:</b> ${est.corporateAccount.companyName}</td><td></td></tr>` : ''}
-    </table>
-    <table style="width:100%;border-collapse:collapse;font-size:14px">
-      <thead><tr style="background:#f3f4f6"><th style="text-align:left;padding:12px;border-bottom:2px solid #ddd">Code</th><th style="text-align:left;padding:12px;border-bottom:2px solid #ddd">Description</th><th style="padding:12px;border-bottom:2px solid #ddd">Qty</th><th style="padding:12px;border-bottom:2px solid #ddd;text-align:right">Unit (GHS)</th><th style="padding:12px;border-bottom:2px solid #ddd;text-align:right">VAT</th><th style="padding:12px;border-bottom:2px solid #ddd;text-align:right">Total (GHS)</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="6" style="padding:24px;text-align:center;color:#999">No line items</td></tr>'}</tbody>
-    </table>
-    <div style="display:flex;justify-content:space-between;margin-top:32px">
-      <div style="font-size:13px;max-width:380px">
-        ${est.notes ? `<p><b>Notes</b><br/>${est.notes}</p>` : ''}
-        ${est.termsAndConditions ? `<p style="color:#666"><b>Terms &amp; conditions</b><br/>${est.termsAndConditions}</p>` : ''}
-        <p style="color:#999;font-size:12px">This is an estimate only and not a demand for payment. Prices are subject to change.</p>
-      </div>
-      <table style="font-size:14px;width:300px">
-        <tr><td style="padding:6px 0;text-align:right;color:#555">Subtotal</td><td style="padding:6px 0;text-align:right">GHS ${fmt(est.subtotal)}</td></tr>
-        <tr><td style="padding:6px 0;text-align:right;color:#555">Discount</td><td style="padding:6px 0;text-align:right">- GHS ${fmt(est.discount)}</td></tr>
-        <tr><td style="padding:6px 0;text-align:right;color:#555">Tax (VAT)</td><td style="padding:6px 0;text-align:right">GHS ${fmt(est.taxAmount)}</td></tr>
-        <tr><td style="padding:10px 0;text-align:right;font-weight:700;font-size:17px;border-top:2px solid #111">Total (estimate)</td><td style="padding:10px 0;text-align:right;font-weight:700;font-size:17px;border-top:2px solid #111">GHS ${fmt(est.totalAmount)}</td></tr>
-      </table>
-    </div>
-    <div style="display:flex;gap:48px;margin-top:72px;font-size:14px">
-      <div style="flex:1;border-top:1px solid #ccc;padding-top:8px"><span style="font-size:11px;color:#888">PREPARED BY</span><br/>${hospital?.name || 'Hospital'}</div>
-      <div style="flex:1;border-top:1px solid #ccc;padding-top:8px"><span style="font-size:11px;color:#888">CLIENT SIGNATURE</span></div>
-    </div>
-  </div>`;
-};
 
 export default function EstimateDetails() {
   const goBack = useSmartBack('/dashboard/estimates');
@@ -116,7 +59,7 @@ export default function EstimateDetails() {
     if (reason === null) return;
     run(() => rejectEstimate(id!, reason || undefined), 'Estimate rejected');
   };
-  const handlePrint = () => { if (est) openPrintWindow(printHtml(est, hospital, fmt), `Estimate ${est.referenceNumber}`); };
+  const handlePrint = () => { if (est) openPrintWindow(generatePDF('proformaInvoice', { estimate: est }, hospital), `Proforma-${est.referenceNumber}`); };
 
   if (isLoading && !est) {
     return (
@@ -177,7 +120,7 @@ export default function EstimateDetails() {
         />
       </div>
 
-      {/* ── THE PAGE — full A4 sheet, same structure as printHtml() above ── */}
+      {/* ── THE PAGE — full A4 sheet, mirrors utils/pdfTemplates/proformaInvoicePDF.ts ── */}
       <div className="px-4 md:px-6 py-6 w-full">
         <div className="w-full bg-[var(--bg-card)] rounded-lg shadow-xl px-6 md:px-10 lg:px-14 py-12 min-h-[1050px] flex flex-col">
           {/* Letterhead */}

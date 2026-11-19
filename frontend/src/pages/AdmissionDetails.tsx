@@ -14,8 +14,10 @@ import {
   Eye, Hospital, Moon, Sun, Building2, LogOut, RefreshCw,
   Hash, ChevronRight, TrendingUp, Baby, Heart,
   ShieldCheck, BedDouble, CalendarClock, CircleDot, BarChart3,
-  AlertTriangle, FileSignature, Stethoscope as Steth,
+  AlertTriangle, FileSignature, Stethoscope as Steth, Printer,
 } from 'lucide-react';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+import { useHospitalStore } from '../store/hospitalStore';
 
 export default function AdmissionDetails() {
   const goBack = useSmartBack('/dashboard/admissions');
@@ -83,6 +85,22 @@ export default function AdmissionDetails() {
       || (currentPatient?.id === patientId ? currentPatient : undefined);
   };
   const patient = getPatient();
+  const { hospital: hospitalInfo } = useHospitalStore();
+
+  const printDischargeSummary = () => {
+    const att = attendance || {};
+    const html = generatePDF('dischargeSummary', {
+      admission: admission,
+      attendance: att,
+      patient,
+      clinicalData: {
+        diagnoses: att.AttendanceDiagnosis || att.diagnoses || att.attendanceDiagnoses || [],
+        medications: att.Medication || att.medications || [],
+        procedures: att.Procedure || att.procedures || [],
+      },
+    }, hospitalInfo);
+    openPrintWindow(html, `Discharge-Summary-${admission?.admissionNumber || ''}`);
+  };
 
   const linkedPatientId = String(
     foundAdmission?.patientId || foundAdmission?.attendance?.patientId || attendance?.patientId || ''
@@ -299,6 +317,13 @@ export default function AdmissionDetails() {
           Ward management
         </button>
         <div className="flex-1" />
+        <button
+          onClick={printDischargeSummary}
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3.5 py-2 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
+        >
+          <Printer className="w-3.5 h-3.5" />
+          {isActive ? 'Print summary (draft)' : 'Print discharge summary'}
+        </button>
         {isActive && (
           <button
             onClick={() => setShowDischargeModal(true)}

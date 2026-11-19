@@ -189,7 +189,16 @@ export class ClaimBatchController extends BaseController {
   // PRINT (any provider type — batch summary)
   // ==========================================
   printBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const html = await this.printService.renderBatchHtml(req.params.id);
+    const html = await this.printService.renderBatchHtml(req.params.id, { detail: req.query.detail === '1' });
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  });
+
+  printMonthlySummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const year = parseInt(String(req.query.year ?? ''), 10);
+    const month = parseInt(String(req.query.month ?? ''), 10);
+    const type = ['nhis', 'private', 'corporate'].includes(String(req.query.type)) ? String(req.query.type) : undefined;
+    const html = await this.printService.renderMonthlyHtml(year, month, type);
     res.set('Content-Type', 'text/html; charset=utf-8');
     return res.send(html);
   });

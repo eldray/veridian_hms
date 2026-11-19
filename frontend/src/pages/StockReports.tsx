@@ -1,8 +1,10 @@
 import { useSmartBack } from '../utils/useSmartBack';
-// src/pages/StockReports.tsx — Clean flow, no step numbers
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+// src/pages/StockReports.tsx — Tabbed report viewer, no long scroll
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useStockStore } from '../store/stockStore';
+import { useHospitalStore } from '../store/hospitalStore';
+import { useAuthStore } from '../store/authStore';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { useToast } from '../store/toastStore';
 import {
   Package, TrendingUp, AlertTriangle, Calendar,
@@ -53,7 +55,7 @@ interface ReportConfig {
 const REPORT_CONFIGS: ReportConfig[] = [
   { id: 'stock-status',   name: 'Stock Status',   description: 'Current levels & low stock alerts',   icon: Package,     accent: 'cyan',   supportsDateRange: false, supportsPeriod: false, popular: true },
   { id: 'stock-movement', name: 'Stock Movement', description: 'In & out transactions over time',     icon: TrendingUp,  accent: 'green',  supportsDateRange: true,  supportsPeriod: false, popular: true },
-  { id: 'expiry',         name: 'Expiry',         description: 'Expiring & expired products',         icon: Calendar,    accent: 'yellow', supportsDateRange: false, supportsPeriod: false, supportsExpiryDays: true }, 
+  { id: 'expiry',         name: 'Expiry',         description: 'Expiring & expired products',         icon: Calendar,    accent: 'yellow', supportsDateRange: false, supportsPeriod: false, supportsExpiryDays: true },
   { id: 'financial',      name: 'Financial',      description: 'Inventory value & purchase summary',  icon: DollarSign,  accent: 'purple', supportsDateRange: false, supportsPeriod: false },
   { id: 'usage',          name: 'Usage',          description: 'Most dispensed & consumption trends', icon: BarChart3,   accent: 'cyan',   supportsDateRange: false, supportsPeriod: true, popular: true },
   { id: 'supplier',       name: 'Supplier',       description: 'Purchase history by supplier',        icon: Building,    accent: 'orange', supportsDateRange: false, supportsPeriod: false },
@@ -69,34 +71,59 @@ const ACCENT: Record<AccentKey, { bg: string; text: string; border: string }> = 
   red:    { bg: 'var(--icon-red-bg)',    text: 'var(--icon-red-text)',    border: 'var(--icon-red-text)' },
 };
 
-/** Column alignment as classes, so tables share one idiom instead of inline styles. */
 const ALIGN: Record<'left' | 'center' | 'right', string> = {
   left: 'text-left',
   center: 'text-center',
   right: 'text-right',
 };
 
+/** Default page size for every table, so pagination behaves the same everywhere. */
+const PAGE_SIZE = 25;
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Reusable pieces (compact)
+// Safe-render helpers — no object may ever reach a React child
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** Coerce anything into a React-safe primitive. */
+function safeNode(v: any): React.ReactNode {
+  if (v === null || v === undefined || typeof v === 'boolean') return '';
+  
+  // FIXED: Allow valid React elements (like your <span> tags) to pass through safely.
+  if (React.isValidElement(v)) return v;
+  
+  if (typeof v === 'string' || typeof v === 'number') return v;
+  if (Array.isArray(v)) return v.map(safeNode).join(', ');
+  
+  if (typeof v === 'object') {
+    // If a raw stock item or supplier object leaks through, show a readable fallback.
+    if (typeof v.name === 'string') return v.name;
+    if (typeof v.label === 'string') return v.label;
+    return '';
+  }
+  return '';
+}
 
 function searchableText(value: any): string {
   if (value === null || value === undefined || typeof value === 'boolean') return '';
   if (typeof value === 'string' || typeof value === 'number') return String(value);
   if (Array.isArray(value)) return value.map(searchableText).join(' ');
-  if (typeof value === 'object' && value.props) return searchableText(value.props.children);
+  if (typeof value === 'object' && (value as any).props) return searchableText((value as any).props.children);
   return '';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Reusable pieces
+// ─────────────────────────────────────────────────────────────────────────────
+
 function ReportTable({
-  caption, columns, rows, empty, searchable = false, pageSize = 0,
+  caption, columns, rows, empty, searchable = false, pageSize = PAGE_SIZE,
 }: {
   caption: string;
   columns: { key: string; label: string; align?: 'left' | 'center' | 'right'; sortable?: boolean }[];
   rows: Record<string, React.ReactNode>[];
   empty?: string;
   searchable?: boolean;
-  pageSize?: number; // 0 = show every row
+  pageSize?: number;
 }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -164,11 +191,7 @@ function ReportTable({
                 <th
                   key={c.key}
                   scope="col"
-                  className={cn(
-                    TH,
-                    ALIGN[c.align ?? 'left'],
-                    c.sortable && 'cursor-pointer select-none hover:opacity-80',
-                  )}
+                  className={cn(TH, ALIGN[c.align ?? 'left'], c.sortable && 'cursor-pointer select-none hover:opacity-80')}
                   onClick={() => c.sortable && handleSort(c.key)}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -184,17 +207,21 @@ function ReportTable({
           <tbody>
             {shownRows.map((row, idx) => (
               <tr key={idx} className={TR}>
-                {columns.map((c) => (
-                  <td key={c.key} className={cn(TD, 'whitespace-normal', ALIGN[c.align ?? 'left'])}>
-                    {row[c.key]}
-                  </td>
-                ))}
+                {columns.map((c) => {
+                  const cellValue = row[c.key];
+                  return (
+                    <td key={c.key} className={cn(TD, 'whitespace-normal', ALIGN[c.align ?? 'left'])}>
+                      {/* Use safeNode to prevent crashes, and fallback to em-dash if empty */}
+                      {safeNode(cellValue) || <span className="text-[var(--text-tertiary)]">—</span>}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      {pageSize > 0 && (
+      {pageSize > 0 && sortedRows.length > pageSize && (
         <Pagination
           page={curPage}
           totalPages={pages}
@@ -240,13 +267,75 @@ function SectionHeader({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tab strip
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TabDef {
+  id: string;
+  label: string;
+  count?: number;
+  accent?: AccentKey;
+}
+
+function Tabs({
+  tabs, active, onChange,
+}: {
+  tabs: TabDef[];
+  active: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5 border-b border-[var(--border-color)] pb-2 mb-4">
+      {tabs.map((t) => {
+        const isActive = active === t.id;
+        const a = ACCENT[t.accent ?? 'cyan'];
+        return (
+          <button
+            key={t.id}
+            onClick={() => onChange(t.id)}
+            aria-pressed={isActive}
+            // INCREASED SIZE: px-4 py-2, text-sm (was text-[11px]), gap-2
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-semibold transition-all border-b-2 -mb-[10px]"
+            style={
+              isActive
+                ? { color: a.text, borderBottomColor: a.text, background: a.bg }
+                : { color: 'var(--text-secondary)', borderBottomColor: 'transparent' }
+            }
+          >
+            {t.label}
+            {t.count !== undefined && (
+              // INCREASED SIZE: text-xs (was text-[9px]), px-2 py-0.5
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ background: isActive ? a.text : a.bg, color: isActive ? '#fff' : a.text }}
+              >
+                {t.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────────────────────
 
+const unwrapReport = (raw: any): any =>
+  raw && typeof raw === 'object' && !Array.isArray(raw) && 'success' in raw && raw.data && typeof raw.data === 'object' ? raw.data : raw;
+
+const batchesOf = (item: any): any[] => {
+  const b = item?.stockBatch ?? item?.StockBatch;
+  return Array.isArray(b) ? b : [];
+};
+
 export default function StockReports() {
   const goBack = useSmartBack('/dashboard/stock');
-  const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { hospital } = useHospitalStore();
+  const { user } = useAuthStore();
   const {
     getStockValueSummary, getExpiryReport, getMovementSummary,
     getUsageReport, getSupplierReport, getRequisitionSummary, isLoading,
@@ -260,6 +349,7 @@ export default function StockReports() {
   const [reportData, setReportData] = useState<any>(null);
   const [reportError, setReportError] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('overview');
 
   const configRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -279,6 +369,7 @@ export default function StockReports() {
     setReportData(null);
     setReportError(null);
     setGeneratedAt(null);
+    setActiveTab('overview');
   }, [selectedReport]);
 
   const generateReport = useCallback(async () => {
@@ -308,8 +399,9 @@ export default function StockReports() {
           data = await getRequisitionSummary(dateRange.startDate || undefined, dateRange.endDate || undefined);
           break;
       }
-      setReportData(data);
+      setReportData(unwrapReport(data));
       setGeneratedAt(new Date());
+      setActiveTab('overview');
       success('Report ready', `${activeConfig.name} generated successfully`);
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -326,7 +418,6 @@ export default function StockReports() {
   // ── CSV export ─────────────────────────────────────────────────────────
   const buildExportRows = (): { headers: string[]; rows: (string | number)[][] } => {
     if (!reportData || !selectedReport) return { headers: [], rows: [] };
-
     switch (selectedReport) {
       case 'stock-status':
         return {
@@ -341,7 +432,7 @@ export default function StockReports() {
             ];
           }),
         };
-      case 'financial': {
+      case 'financial':
         return {
           headers: ['Item Name', 'Category', 'Current Stock', 'Batch Quantity', 'Unbatched Quantity', 'Batch Value', 'In-transit Batch Value', 'Total Stock Value', 'Batch Difference', 'Transfer Issues'],
           rows: (reportData.items || []).map((item: any) => [
@@ -352,7 +443,6 @@ export default function StockReports() {
             (item.inTransitReconciliationIssues || []).join('; '),
           ]),
         };
-      }
       case 'stock-movement':
         return {
           headers: ['Date', 'Item', 'Category', 'Type', 'In', 'Out', 'Balance After', 'Reference', 'Document', 'Supplier', 'Department', 'Done By', 'Notes'],
@@ -369,22 +459,19 @@ export default function StockReports() {
             batch.quantity, 'Expiring soon',
           ]),
           ...(reportData.expired || []).flatMap((item: any) => {
-            const batches = (item.StockBatch || []).filter((batch: any) => Number(batch.quantity) > 0);
+            const batches = batchesOf(item).filter((batch: any) => Number(batch.quantity) > 0);
             if (batches.length) return batches.map((batch: any) => [
               item.name, item.category || 'Uncategorized', batch.batchNumber || '',
               batch.expiryDate ? new Date(batch.expiryDate).toLocaleDateString() : '', batch.quantity, 'Expired',
             ]);
             return item.expiryDate ? [[item.name, item.category || 'Uncategorized', 'Legacy item expiry', new Date(item.expiryDate).toLocaleDateString(), item.currentStock, 'Expired']] : [];
           }),
-          ...(reportData.expiringSoon || []).filter((item: any) => !(item.StockBatch || []).length && item.expiryDate).map((item: any) => [
+          ...(reportData.expiringSoon || []).filter((item: any) => !batchesOf(item).length && item.expiryDate).map((item: any) => [
             item.name, item.category || 'Uncategorized', 'Legacy item expiry',
             new Date(item.expiryDate).toLocaleDateString(), item.currentStock, 'Expiring soon',
           ]),
         ];
-        return {
-          headers: ['Item Name', 'Category', 'Batch', 'Expiry Date', 'Quantity', 'Status'],
-          rows,
-        };
+        return { headers: ['Item Name', 'Category', 'Batch', 'Expiry Date', 'Quantity', 'Status'], rows };
       }
       case 'supplier':
         return {
@@ -426,46 +513,24 @@ export default function StockReports() {
     success('Exported', 'Report downloaded as CSV');
   };
 
-  // ── Print ──────────────────────────────────────────────────────────────
   const printReport = () => {
     if (!reportData || !activeConfig) return;
-    const win = window.open('', '_blank', 'noopener,noreferrer');
-    if (!win) { toastError('Print blocked', 'Allow pop-ups for this site to print'); return; }
-
     const { headers, rows } = buildExportRows();
-    const summaryHtml = buildPrintSummary();
-    const tableHtml = rows.length
-      ? `<table><thead><tr>${headers.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${String(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
-      : '<p class="empty">No tabular data for this report.</p>';
-
-    win.document.write(`
-      <!DOCTYPE html><html><head><meta charset="utf-8" />
-        <title>${activeConfig.name} — ${new Date().toLocaleDateString()}</title>
-        <style>
-          * { box-sizing: border-box; }
-          body { font-family: -apple-system, Segoe UI, Arial, sans-serif; margin: 40px; color: #111; }
-          h1 { font-size: 20px; margin: 0; }
-          .meta { color: #666; font-size: 12px; margin-top: 4px; }
-          .header { border-bottom: 2px solid #111; padding-bottom: 12px; margin-bottom: 20px; }
-          .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-          .summary .item { border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; }
-          .summary .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
-          .summary .value { font-size: 18px; font-weight: 700; margin-top: 2px; }
-          table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
-          th { background: #f3f4f6; text-align: left; padding: 8px 10px; border-bottom: 1px solid #ddd; font-weight: 600; }
-          td { padding: 8px 10px; border-bottom: 1px solid #eee; }
-          .empty { color: #888; font-style: italic; }
-          .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #ddd; text-align: center; font-size: 11px; color: #666; }
-          @media print { body { margin: 20px; } }
-        </style></head><body>
-        <div class="header"><h1>${activeConfig.name} Report</h1><p class="meta">Generated ${new Date().toLocaleString()}</p></div>
-        ${summaryHtml}${tableHtml}
-        <div class="footer">Confidential — Internal Use Only</div>
-      </body></html>
-    `);
-    win.document.close();
-    win.focus();
-    win.print();
+    try {
+      const html = generatePDF('stockReport', {
+        report: {
+          name: activeConfig.name,
+          filters: appliedFilters,
+          tiles: summaryTiles.map((t) => ({ label: t.label, value: typeof t.value === 'object' ? '' : String(t.value ?? '') })),
+          headers, rows,
+          generatedAt: generatedAt ?? new Date(),
+          preparedBy: user?.fullName,
+        },
+      }, hospital);
+      openPrintWindow(html, `${activeConfig.name}-${new Date().toISOString().slice(0, 10)}`, true);
+    } catch (err: any) {
+      toastError('Print failed', err?.message || 'Could not open the print view');
+    }
   };
 
   // ── Summary tiles ─────────────────────────────────────────────────────
@@ -474,6 +539,7 @@ export default function StockReports() {
     const tiles: { label: string; value: React.ReactNode; accent: AccentKey; icon?: any }[] = [];
     const add = (label: string, value: any, accent: AccentKey, format?: (v: any) => React.ReactNode, icon?: any) => {
       if (value === undefined || value === null) return;
+      if (typeof value === 'object' && !React.isValidElement(value)) return;
       tiles.push({ label, value: format ? format(value) : value, accent, icon });
     };
 
@@ -530,13 +596,6 @@ export default function StockReports() {
     return tiles;
   }, [reportData, selectedReport]);
 
-  const buildPrintSummary = () => {
-    if (summaryTiles.length === 0) return '';
-    const items = summaryTiles.map((t) => `<div class="item"><div class="label">${t.label}</div><div class="value">${String(t.value)}</div></div>`).join('');
-    return `<div class="summary">${items}</div>`;
-  };
-
-  // ── Applied filter chips ──────────────────────────────────────────────
   const appliedFilters = useMemo(() => {
     if (!activeConfig) return [] as string[];
     const chips: string[] = [];
@@ -550,243 +609,148 @@ export default function StockReports() {
     return chips;
   }, [activeConfig, dateRange, period]);
 
-  // ── Render report body ────────────────────────────────────────────────
-  const renderReportBody = () => {
-    if (!reportData || !selectedReport) return null;
-
+  // ── Build tab defs + per-tab content ─────────────────────────────────
+  const tabs = useMemo<TabDef[]>(() => {
+    if (!reportData || !selectedReport) return [];
     switch (selectedReport) {
       case 'stock-status': {
         const low = Array.isArray(reportData.lowStockItemDetails) ? reportData.lowStockItemDetails : (reportData.items || []).filter((item: any) => Number(item.currentStock || 0) <= Number(item.reorderLevel || 0));
-        const byCat = reportData.byCategory || {};
-        const transferIssueItems = (reportData.items || []).filter((item: any) =>
-          Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0
-        );
-        return (
-          <>
-            {transferIssueItems.length > 0 && (
-              <section>
-                <SectionHeader icon={AlertTriangle} title="Transfer reconciliation required" accent="orange" count={transferIssueItems.length} />
-                <ReportTable
-                  caption="Dispatched transfers that need investigation before their in-transit stock can be valued reliably"
-                  empty="No transfer reconciliation issues found"
-                  searchable
-                  columns={[
-                    { key: 'name', label: 'Item', sortable: true },
-                    { key: 'category', label: 'Category', sortable: true },
-                    { key: 'issues', label: 'Issue', sortable: true },
-                  ]}
-                  rows={transferIssueItems.map((item: any) => ({
-                    name: <span className="font-medium">{item.name}</span>,
-                    category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
-                    issues: <ul className="list-disc pl-4 space-y-1">{item.inTransitReconciliationIssues.map((issue: string, index: number) => <li key={index}>{issue}</li>)}</ul>,
-                  }))}
-                />
-              </section>
-            )}
-            <section className="mb-4">
-              <SectionHeader icon={AlertTriangle} title="Low Stock Items" accent="red" count={low.length} />
-              <ReportTable
-                caption="Low stock inventory items"
-                empty="All inventory levels are healthy"
-                searchable
-                columns={[
-                  { key: 'name', label: 'Item', sortable: true },
-                  { key: 'category', label: 'Category', sortable: true },
-                  { key: 'currentStock', label: 'Stock', align: 'center', sortable: true },
-                  { key: 'reorderLevel', label: 'Reorder', align: 'center', sortable: true },
-                  { key: 'cost', label: 'Cost', align: 'right', sortable: true },
-                ]}
-                rows={low.map((i: any) => ({
-                  name: <span className="font-medium">{i.name}</span>,
-                  category: <span className="capitalize">{i.category}</span>,
-                  currentStock: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{i.currentStock}</span>,
-                  reorderLevel: i.reorderLevel,
-                  cost: `₵${Number(i.costPrice || 0).toFixed(2)}`,
-                }))}
-              />
-            </section>
-            <section className="mb-4">
-              <SectionHeader icon={Boxes} title="All Stock Items" count={(reportData.items || []).length} />
-              <ReportTable
-                caption="Current stock position for all active inventory items"
-                empty="No active stock items found"
-                searchable
-                pageSize={25}
-                columns={[
-                  { key: 'name', label: 'Item', sortable: true },
-                  { key: 'category', label: 'Category', sortable: true },
-                  { key: 'stock', label: 'Current Stock', align: 'center', sortable: true },
-                  { key: 'reorder', label: 'Reorder Level', align: 'center', sortable: true },
-                  { key: 'status', label: 'Status', sortable: true },
-                  { key: 'value', label: 'Stock Value', align: 'right', sortable: true },
-                ]}
-                rows={(reportData.items || []).map((item: any) => {
-                  const quantity = Number(item.currentStock || 0);
-                  const reorder = Number(item.reorderLevel || 0);
-                  const status = quantity <= 0 ? 'Out of stock' : quantity <= reorder ? 'Low stock' : 'In stock';
-                  return {
-                    name: <span className="font-medium">{item.name}</span>,
-                    category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
-                    stock: quantity,
-                    reorder,
-                    status: <span className="font-semibold" style={{ color: quantity <= 0 ? 'var(--icon-red-text)' : quantity <= reorder ? 'var(--icon-yellow-text)' : 'var(--icon-green-text)' }}>{status}</span>,
-                    value: `₵${Number(item.totalValue || 0).toFixed(2)}`,
-                  };
-                })}
-              />
-            </section>
-            {Object.keys(byCat).length > 0 && (
-              <section>
-                <SectionHeader icon={Boxes} title="Category Summary" count={Object.keys(byCat).length} />
-                <ReportTable
-                  caption="Stock value by category"
-                  columns={[
-                    { key: 'cat', label: 'Category', sortable: true },
-                    { key: 'count', label: 'Count', align: 'center', sortable: true },
-                    { key: 'value', label: 'Value', align: 'right', sortable: true },
-                  ]}
-                  rows={Object.entries(byCat).map(([cat, d]: [string, any]) => ({
-                    cat: <span className="font-medium">{cat}</span>,
-                    count: d.count,
-                    value: `₵${Number(d.value || 0).toFixed(2)}`,
-                  }))}
-                />
-              </section>
-            )}
-          </>
-        );
-      }
-
-      case 'stock-movement': {
-        const typeStyle = (t: string): React.CSSProperties => {
-          const inn = t === 'purchase' || t === 'transfer_in';
-          const out = t === 'sale' || t === 'requisition' || t === 'transfer_out' || t === 'write_off';
-          return { background: inn ? 'var(--icon-green-bg)' : out ? 'var(--icon-red-bg)' : 'var(--icon-yellow-bg)', color: inn ? 'var(--icon-green-text)' : out ? 'var(--icon-red-text)' : 'var(--icon-yellow-text)' };
-        };
-        return (
-          <>
-            <section>
-              <SectionHeader icon={Package} title="Stock Movement by Item" accent="green" count={(reportData.items || []).length} />
-              <ReportTable
-                caption="Opening, stock in, stock out and closing balance per item"
-                empty="No movement recorded in this period"
-                searchable
-                pageSize={25}
-                columns={[
-                  { key: 'name', label: 'Item', sortable: true },
-                  { key: 'category', label: 'Category', sortable: true },
-                  { key: 'opening', label: 'Opening', align: 'center' },
-                  { key: 'in', label: 'In', align: 'center' },
-                  { key: 'out', label: 'Out', align: 'center' },
-                  { key: 'closing', label: 'Closing', align: 'center' },
-                  { key: 'txs', label: 'Transactions', align: 'center' },
-                ]}
-                rows={(reportData.items || []).map((i: any) => ({
-                  name: <span className="font-medium">{i.itemName}</span>,
-                  category: <span className="capitalize">{String(i.category || '').replace(/_/g, ' ')}</span>,
-                  opening: i.openingStock,
-                  in: <span style={{ color: 'var(--icon-green-text)', fontWeight: 600 }}>{i.quantityIn ? `+${i.quantityIn}` : '—'}</span>,
-                  out: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{i.quantityOut ? `-${i.quantityOut}` : '—'}</span>,
-                  closing: <span style={{ fontWeight: 700 }}>{i.closingStock}</span>,
-                  txs: i.transactions,
-                }))}
-              />
-            </section>
-            <section>
-              <SectionHeader icon={TrendingUp} title="Transaction History" accent="cyan" count={(reportData.transactions || []).length} />
-              {reportData.truncated && (
-                <p className="text-[11px] mb-2" style={{ color: 'var(--icon-yellow-text)' }}>
-                  Showing the latest {reportData.shown?.toLocaleString()} of {reportData.totalTransactions?.toLocaleString()} transactions. Narrow the date range to see the rest.
-                </p>
-              )}
-              <ReportTable
-                caption="Every stock transaction, newest first"
-                empty="No transactions in this period"
-                searchable
-                pageSize={50}
-                columns={[
-                  { key: 'date', label: 'Date' },
-                  { key: 'item', label: 'Item', sortable: true },
-                  { key: 'type', label: 'Type', sortable: true },
-                  { key: 'in', label: 'In', align: 'center' },
-                  { key: 'out', label: 'Out', align: 'center' },
-                  { key: 'balance', label: 'Balance', align: 'center' },
-                  { key: 'ref', label: 'Reference / Document' },
-                  { key: 'dept', label: 'Department' },
-                  { key: 'by', label: 'Done by' },
-                  { key: 'notes', label: 'Notes' },
-                ]}
-                rows={(reportData.transactions || []).map((t: any) => ({
-                  date: <span className="whitespace-nowrap">{new Date(t.date).toLocaleString()}</span>,
-                  item: <span className="font-medium">{t.itemName}</span>,
-                  type: <span className="capitalize px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={typeStyle(t.type)}>{String(t.type).replace(/_/g, ' ')}</span>,
-                  in: <span style={{ color: 'var(--icon-green-text)', fontWeight: 600 }}>{t.quantityIn ? `+${t.quantityIn}` : ''}</span>,
-                  out: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{t.quantityOut ? `-${t.quantityOut}` : ''}</span>,
-                  balance: <span style={{ fontWeight: 700 }}>{t.balanceAfter}</span>,
-                  ref: [t.document, t.reference, t.supplier].filter(Boolean).join(' · ') || '—',
-                  dept: t.department || '—',
-                  by: t.performedBy,
-                  notes: <span className="max-w-[220px] inline-block truncate align-bottom" title={t.notes}>{t.notes || '—'}</span>,
-                }))}
-              />
-            </section>
-          </>
-        );
-      }
-
-      case 'expiry': {
-        const batchRows = (items: any[], status: string) => items.flatMap((item: any) => {
-          const batches = (item.StockBatch || []).filter((batch: any) => Number(batch.quantity) > 0);
-          if (batches.length) return batches.map((batch: any) => ({
-            key: `${item.id}-${batch.batchNumber}-${batch.expiryDate}`,
-            name: item.name, category: item.category, batch: batch.batchNumber || '—',
-            expiryDate: batch.expiryDate, quantity: batch.quantity, status,
-          }));
-          return item.expiryDate ? [{
-            key: item.id, name: item.name, category: item.category, batch: 'Legacy item expiry',
-            expiryDate: item.expiryDate, quantity: item.currentStock, status,
-          }] : [];
-        });
-        const expiringRows = [
-          ...(reportData.expiringBatches || []).map((batch: any) => ({
-            key: batch.id, name: batch.stockItem?.name || 'Unknown item', category: batch.stockItem?.category || '',
-            batch: batch.batchNumber || '—', expiryDate: batch.expiryDate, quantity: batch.quantity, status: 'Expiring soon',
-          })),
-          ...batchRows((reportData.expiringSoon || []).filter((item: any) => !(item.StockBatch || []).length), 'Expiring soon'),
+        const transferIssues = (reportData.items || []).filter((item: any) => Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0);
+        return [
+          { id: 'overview', label: 'Overview', count: (reportData.items || []).length, accent: 'cyan' },
+          { id: 'low', label: 'Low Stock', count: low.length, accent: 'red' },
+          { id: 'transfer', label: 'Transfer Issues', count: transferIssues.length, accent: 'orange' },
+          { id: 'categories', label: 'Categories', count: Object.keys(reportData.byCategory || {}).length, accent: 'purple' },
         ];
-        const expiredRows = batchRows(reportData.expired || [], 'Expired');
-        const expiryColumns = [
-          { key: 'name', label: 'Item', sortable: true },
-          { key: 'category', label: 'Category', sortable: true },
-          { key: 'batch', label: 'Batch', sortable: true },
-          { key: 'expiry', label: 'Expiry Date', sortable: true },
-          { key: 'quantity', label: 'Quantity', align: 'center' as const, sortable: true },
-        ];
-        const toRows = (rows: any[]) => rows.map((item: any) => ({
-          name: <span className="font-medium">{item.name}</span>,
-          category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
-          batch: item.batch,
-          expiry: <span className="whitespace-nowrap">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}</span>,
-          quantity: item.quantity,
-        }));
-        return (
-          <>
-            <section className="mb-4">
-              <SectionHeader icon={Calendar} title={`Expiring within ${reportData.reportPeriod || 30} days`} accent="yellow" count={expiringRows.length} />
-              <ReportTable caption="Expiring stock by batch" empty="No stock batches are expiring in this window" searchable pageSize={25} columns={expiryColumns} rows={toRows(expiringRows)} />
-            </section>
-            <section>
-              <SectionHeader icon={AlertTriangle} title="Already Expired Stock" accent="red" count={expiredRows.length} />
-              <ReportTable caption="Expired stock by batch" empty="No expired stock with a remaining quantity was found" searchable pageSize={25} columns={expiryColumns} rows={toRows(expiredRows)} />
-            </section>
-          </>
-        );
       }
-
+      case 'stock-movement':
+        return [
+          { id: 'overview', label: 'By Item', count: (reportData.items || []).length, accent: 'green' },
+          { id: 'transactions', label: 'Transactions', count: (reportData.transactions || []).length, accent: 'cyan' },
+        ];
+      case 'expiry':
+        return [
+          { id: 'overview', label: 'Expiring Soon', accent: 'yellow' },
+          { id: 'expired', label: 'Expired', accent: 'red' },
+        ];
+      case 'financial': {
+        const discrepancies = (reportData.items || []).filter((item: any) => Number(item.stockDiscrepancy || 0) > 0);
+        const transferIssues = (reportData.items || []).filter((item: any) => Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0);
+        return [
+          { id: 'overview', label: 'Valuation', count: (reportData.items || []).length, accent: 'purple' },
+          { id: 'discrepancies', label: 'Discrepancies', count: discrepancies.length, accent: 'orange' },
+          { id: 'transfer', label: 'Transfer Issues', count: transferIssues.length, accent: 'orange' },
+        ];
+      }
       case 'supplier':
-        return (
-          <section>
-            <SectionHeader icon={Building} title="Supplier Summary" accent="orange" count={(reportData.suppliers || []).length} />
+        return [{ id: 'overview', label: 'Suppliers', count: (reportData.suppliers || []).length, accent: 'orange' }];
+      case 'usage':
+        return [{ id: 'overview', label: 'Top Items', count: (reportData.topItems || []).length, accent: 'cyan' }];
+      case 'requisition':
+        return [
+          { id: 'overview', label: 'By Department', count: (reportData.byDepartment || []).length, accent: 'purple' },
+          { id: 'recent', label: 'Recent', count: (reportData.recentRequisitions || []).length, accent: 'cyan' },
+        ];
+      default:
+        return [{ id: 'overview', label: 'Overview' }];
+    }
+  }, [reportData, selectedReport]);
+
+  useEffect(() => {
+    if (tabs.length && !tabs.some((t) => t.id === activeTab)) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [tabs, activeTab]);
+
+  // ── Render the active tab's body ─────────────────────────────────────
+  const renderTabBody = () => {
+    if (!reportData || !selectedReport) return null;
+
+    const renderOverview = () => {
+      switch (selectedReport) {
+        case 'stock-status':
+          return (
+            <ReportTable
+              caption="Current stock position for all active inventory items"
+              empty="No active stock items found"
+              searchable
+              columns={[
+                { key: 'name', label: 'Item', sortable: true },
+                { key: 'category', label: 'Category', sortable: true },
+                { key: 'stock', label: 'Current Stock', align: 'center', sortable: true },
+                { key: 'reorder', label: 'Reorder Level', align: 'center', sortable: true },
+                { key: 'status', label: 'Status', sortable: true },
+                { key: 'value', label: 'Stock Value', align: 'right', sortable: true },
+              ]}
+              rows={(reportData.items || []).map((item: any) => {
+                const quantity = Number(item.currentStock || 0);
+                const reorder = Number(item.reorderLevel || 0);
+                const status = quantity <= 0 ? 'Out of stock' : quantity <= reorder ? 'Low stock' : 'In stock';
+                return {
+                  name: <span className="font-medium">{item.name}</span>,
+                  category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                  stock: quantity,
+                  reorder,
+                  status: <span className="font-semibold" style={{ color: quantity <= 0 ? 'var(--icon-red-text)' : quantity <= reorder ? 'var(--icon-yellow-text)' : 'var(--icon-green-text)' }}>{status}</span>,
+                  value: `₵${Number(item.totalValue || 0).toFixed(2)}`,
+                };
+              })}
+            />
+          );
+        case 'stock-movement':
+          return (
+            <ReportTable
+              caption="Opening, stock in, stock out and closing balance per item"
+              empty="No movement recorded in this period"
+              searchable
+              columns={[
+                { key: 'name', label: 'Item', sortable: true },
+                { key: 'category', label: 'Category', sortable: true },
+                { key: 'opening', label: 'Opening', align: 'center' },
+                { key: 'in', label: 'In', align: 'center' },
+                { key: 'out', label: 'Out', align: 'center' },
+                { key: 'closing', label: 'Closing', align: 'center' },
+                { key: 'txs', label: 'Transactions', align: 'center' },
+              ]}
+              rows={(reportData.items || []).map((i: any) => ({
+                name: <span className="font-medium">{i.itemName}</span>,
+                category: <span className="capitalize">{String(i.category || '').replace(/_/g, ' ')}</span>,
+                opening: i.openingStock,
+                in: <span style={{ color: 'var(--icon-green-text)', fontWeight: 600 }}>{i.quantityIn ? `+${i.quantityIn}` : '—'}</span>,
+                out: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{i.quantityOut ? `-${i.quantityOut}` : '—'}</span>,
+                closing: <span style={{ fontWeight: 700 }}>{i.closingStock}</span>,
+                txs: i.transactions,
+              }))}
+            />
+          );
+        case 'expiry':
+          return <ExpiryTab reportData={reportData} variant="expiring" />;
+        case 'financial':
+          return (
+            <ReportTable
+              caption="Current quantity and acquisition-cost valuation by stock item"
+              empty="No stock items available for valuation"
+              searchable
+              columns={[
+                { key: 'name', label: 'Item', sortable: true },
+                { key: 'category', label: 'Category', sortable: true },
+                { key: 'stock', label: 'Quantity', align: 'center', sortable: true },
+                { key: 'batchValue', label: 'Batch Value', align: 'right', sortable: true },
+                { key: 'unbatchedValue', label: 'Unbatched Value', align: 'right', sortable: true },
+                { key: 'totalValue', label: 'Total Value', align: 'right', sortable: true },
+              ]}
+              rows={(reportData.items || []).map((item: any) => ({
+                name: <span className="font-medium">{item.name}</span>,
+                category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                stock: Number(item.currentStock || 0),
+                batchValue: `₵${Number(item.batchValue || 0).toFixed(2)}`,
+                unbatchedValue: `₵${Number(item.unbatchedValue || 0).toFixed(2)}`,
+                totalValue: <span className="font-semibold">₵{Number(item.totalValue || 0).toFixed(2)}</span>,
+              }))}
+            />
+          );
+        case 'supplier':
+          return (
             <ReportTable
               caption="Purchases by supplier"
               empty="No supplier activity recorded"
@@ -804,13 +768,9 @@ export default function StockReports() {
                 last: s.lastOrderDate ? new Date(s.lastOrderDate).toLocaleDateString() : 'N/A',
               }))}
             />
-          </section>
-        );
-
-      case 'usage':
-        return (
-          <section>
-            <SectionHeader icon={BarChart3} title={`Most dispensed items — ${period}`} count={(reportData.topItems || []).length} />
+          );
+        case 'usage':
+          return (
             <ReportTable
               caption="Top dispensed items"
               empty="No dispensing activity in this period"
@@ -828,195 +788,234 @@ export default function StockReports() {
                 tx: i.transactions || 0,
               }))}
             />
-          </section>
-        );
-
-      case 'requisition': {
-        const byDept = reportData.byDepartment || [];
-        const recent = reportData.recentRequisitions || [];
-        const byStatus = reportData.summary?.byStatus || {};
-        return (
-          <>
-            <section className="mb-4">
-              <SectionHeader icon={FileText} title="Requisitions by department" accent="purple" count={byDept.length} />
-              <ReportTable
-                caption="Requisition count and fulfillment by department"
-                empty="No requisitions in this period"
-                searchable
-                columns={[
-                  { key: 'name', label: 'Department', sortable: true },
-                  { key: 'total', label: 'Total', align: 'center', sortable: true },
-                  { key: 'fulfilled', label: 'Fulfilled', align: 'center', sortable: true },
-                  { key: 'items', label: 'Items', align: 'center', sortable: true },
-                  { key: 'rate', label: 'Rate', align: 'center', sortable: true },
-                ]}
-                rows={byDept.map((d: any) => ({
-                  name: <span className="font-medium">{d.name}</span>,
-                  total: d.total,
-                  fulfilled: <span style={{ color: 'var(--icon-green-text)' }}>{d.fulfilled}</span>,
-                  items: d.items,
-                  rate: (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
-                      style={{
-                        background: d.total > 0 && d.fulfilled / d.total > 0.7 ? 'var(--icon-green-bg)' : 'var(--icon-yellow-bg)',
-                        color: d.total > 0 && d.fulfilled / d.total > 0.7 ? 'var(--icon-green-text)' : 'var(--icon-yellow-text)',
-                      }}>
-                      {d.total > 0 ? `${Math.round((d.fulfilled / d.total) * 100)}%` : '0%'}
-                    </span>
-                  ),
-                }))}
-              />
-            </section>
-            <section className="mb-4">
-              <SectionHeader icon={FileText} title="Recent requisitions" accent="purple" count={recent.length} />
-              <ReportTable
-                caption="Most recent stock requisitions"
-                empty="No requisitions found for this period"
-                searchable
-                pageSize={20}
-                columns={[
-                  { key: 'number', label: 'Requisition', sortable: true },
-                  { key: 'department', label: 'Department', sortable: true },
-                  { key: 'date', label: 'Date', sortable: true },
-                  { key: 'status', label: 'Status', sortable: true },
-                  { key: 'urgency', label: 'Urgency', sortable: true },
-                  { key: 'items', label: 'Items', align: 'center', sortable: true },
-                  { key: 'requestedBy', label: 'Requested By', sortable: true },
-                ]}
-                rows={recent.map((item: any) => ({
-                  number: <span className="font-medium">{item.requisitionNumber}</span>,
-                  department: item.department || 'Unassigned',
-                  date: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—',
-                  status: <span className="capitalize">{item.status}</span>,
-                  urgency: <span className="capitalize">{item.urgency}</span>,
-                  items: item.itemCount || 0,
-                  requestedBy: item.requestedBy || '—',
-                }))}
-              />
-            </section>
-            {Object.keys(byStatus).length > 0 && (
-              <section>
-                <SectionHeader icon={Clock} title="Status summary" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                  {Object.entries(byStatus).map(([status, count]: [string, any]) => {
-                    const statusAccent: AccentKey =
-                      status === 'approved' ? 'green' : status === 'fulfilled' ? 'purple' :
-                      status === 'cancelled' ? 'red' : 'cyan';
-                    const a = ACCENT[statusAccent];
-                    return (
-                      <div key={status} className="rounded-lg p-2.5 text-center border transition-all hover:shadow-md"
-                        style={{ background: a.bg, borderColor: 'var(--border-color)' }}>
-                        <p className="text-lg font-bold" style={{ color: a.text }}>{String(count)}</p>
-                        <p className="text-[10px] capitalize font-medium" style={{ color: a.text }}>{status}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-          </>
-        );
+          );
+        case 'requisition':
+          return (
+            <ReportTable
+              caption="Requisition count and fulfillment by department"
+              empty="No requisitions in this period"
+              searchable
+              columns={[
+                { key: 'name', label: 'Department', sortable: true },
+                { key: 'total', label: 'Total', align: 'center', sortable: true },
+                { key: 'fulfilled', label: 'Fulfilled', align: 'center', sortable: true },
+                { key: 'items', label: 'Items', align: 'center', sortable: true },
+                { key: 'rate', label: 'Rate', align: 'center', sortable: true },
+              ]}
+              rows={(reportData.byDepartment || []).map((d: any) => ({
+                name: <span className="font-medium">{d.name}</span>,
+                total: d.total,
+                fulfilled: <span style={{ color: 'var(--icon-green-text)' }}>{d.fulfilled}</span>,
+                items: d.items,
+                rate: (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
+                    style={{
+                      background: d.total > 0 && d.fulfilled / d.total > 0.7 ? 'var(--icon-green-bg)' : 'var(--icon-yellow-bg)',
+                      color: d.total > 0 && d.fulfilled / d.total > 0.7 ? 'var(--icon-green-text)' : 'var(--icon-yellow-text)',
+                    }}>
+                    {d.total > 0 ? `${Math.round((d.fulfilled / d.total) * 100)}%` : '0%'}
+                  </span>
+                ),
+              }))}
+            />
+          );
+        default:
+          return null;
       }
+    };
+
+    switch (selectedReport) {
+      case 'stock-status':
+        if (activeTab === 'low') {
+          const low = Array.isArray(reportData.lowStockItemDetails) ? reportData.lowStockItemDetails : (reportData.items || []).filter((item: any) => Number(item.currentStock || 0) <= Number(item.reorderLevel || 0));
+          return (
+            <ReportTable
+              caption="Low stock inventory items"
+              empty="All inventory levels are healthy"
+              searchable
+              columns={[
+                { key: 'name', label: 'Item', sortable: true },
+                { key: 'category', label: 'Category', sortable: true },
+                { key: 'currentStock', label: 'Stock', align: 'center', sortable: true },
+                { key: 'reorderLevel', label: 'Reorder', align: 'center', sortable: true },
+                { key: 'cost', label: 'Cost', align: 'right', sortable: true },
+              ]}
+              rows={low.map((i: any) => ({
+                name: <span className="font-medium">{i.name}</span>,
+                category: <span className="capitalize">{i.category}</span>,
+                currentStock: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{i.currentStock}</span>,
+                reorderLevel: i.reorderLevel,
+                cost: `₵${Number(i.costPrice || 0).toFixed(2)}`,
+              }))}
+            />
+          );
+        }
+        if (activeTab === 'transfer') {
+          const transferIssueItems = (reportData.items || []).filter((item: any) => Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0);
+          return (
+            <ReportTable
+              caption="Dispatched transfers that need investigation"
+              empty="No transfer reconciliation issues found"
+              searchable
+              columns={[
+                { key: 'name', label: 'Item', sortable: true },
+                { key: 'category', label: 'Category', sortable: true },
+                { key: 'issues', label: 'Issue' },
+              ]}
+              rows={transferIssueItems.map((item: any) => ({
+                name: <span className="font-medium">{item.name}</span>,
+                category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                issues: <ul className="list-disc pl-4 space-y-1">{item.inTransitReconciliationIssues.map((issue: string, index: number) => <li key={index}>{issue}</li>)}</ul>,
+              }))}
+            />
+          );
+        }
+        if (activeTab === 'categories') {
+          const byCat = reportData.byCategory || {};
+          return (
+            <ReportTable
+              caption="Stock value by category"
+              columns={[
+                { key: 'cat', label: 'Category', sortable: true },
+                { key: 'count', label: 'Count', align: 'center', sortable: true },
+                { key: 'value', label: 'Value', align: 'right', sortable: true },
+              ]}
+              rows={Object.entries(byCat).map(([cat, d]: [string, any]) => ({
+                cat: <span className="font-medium">{cat}</span>,
+                count: d.count,
+                value: `₵${Number(d.value || 0).toFixed(2)}`,
+              }))}
+            />
+          );
+        }
+        return renderOverview();
+
+      case 'stock-movement':
+        if (activeTab === 'transactions') {
+          const typeStyle = (t: string): React.CSSProperties => {
+            const inn = t === 'purchase' || t === 'transfer_in';
+            const out = t === 'sale' || t === 'requisition' || t === 'transfer_out' || t === 'write_off';
+            return { background: inn ? 'var(--icon-green-bg)' : out ? 'var(--icon-red-bg)' : 'var(--icon-yellow-bg)', color: inn ? 'var(--icon-green-text)' : out ? 'var(--icon-red-text)' : 'var(--icon-yellow-text)' };
+          };
+          return (
+            <ReportTable
+              caption="Every stock transaction, newest first"
+              empty="No transactions in this period"
+              searchable
+              columns={[
+                { key: 'date', label: 'Date' },
+                { key: 'item', label: 'Item', sortable: true },
+                { key: 'type', label: 'Type', sortable: true },
+                { key: 'in', label: 'In', align: 'center' },
+                { key: 'out', label: 'Out', align: 'center' },
+                { key: 'balance', label: 'Balance', align: 'center' },
+                { key: 'ref', label: 'Reference / Document' },
+                { key: 'dept', label: 'Department' },
+                { key: 'by', label: 'Done by' },
+                { key: 'notes', label: 'Notes' },
+              ]}
+              rows={(reportData.transactions || []).map((t: any) => ({
+                date: <span className="whitespace-nowrap">{new Date(t.date).toLocaleString()}</span>,
+                item: <span className="font-medium">{t.itemName}</span>,
+                type: <span className="capitalize px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={typeStyle(t.type)}>{String(t.type).replace(/_/g, ' ')}</span>,
+                in: <span style={{ color: 'var(--icon-green-text)', fontWeight: 600 }}>{t.quantityIn ? `+${t.quantityIn}` : ''}</span>,
+                out: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{t.quantityOut ? `-${t.quantityOut}` : ''}</span>,
+                balance: <span style={{ fontWeight: 700 }}>{t.balanceAfter}</span>,
+                ref: [t.document, t.reference, t.supplier].filter(Boolean).join(' · ') || '—',
+                dept: t.department || '—',
+                by: t.performedBy,
+                notes: <span className="max-w-[220px] inline-block truncate align-bottom" title={t.notes}>{t.notes || '—'}</span>,
+              }))}
+            />
+          );
+        }
+        return renderOverview();
+
+      case 'expiry':
+        return <ExpiryTab reportData={reportData} variant={activeTab === 'expired' ? 'expired' : 'expiring'} />;
 
       case 'financial':
-      default: {
-        const discrepancies = (reportData.items || []).filter((item: any) => Number(item.stockDiscrepancy || 0) > 0);
-        const transferIssueItems = (reportData.items || []).filter((item: any) =>
-          Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0
-        );
-        return (
-          <>
-            <section className="mb-4">
-              <SectionHeader icon={Boxes} title="Inventory valuation by item" accent="purple" count={(reportData.items || []).length} />
-              <ReportTable
-                caption="Current quantity and acquisition-cost valuation by stock item"
-                empty="No stock items available for valuation"
-                searchable
-                pageSize={25}
-                columns={[
-                  { key: 'name', label: 'Item', sortable: true },
-                  { key: 'category', label: 'Category', sortable: true },
-                  { key: 'stock', label: 'Quantity', align: 'center', sortable: true },
-                  { key: 'batchValue', label: 'Batch Value', align: 'right', sortable: true },
-                  { key: 'unbatchedValue', label: 'Unbatched Value', align: 'right', sortable: true },
-                  { key: 'totalValue', label: 'Total Value', align: 'right', sortable: true },
-                ]}
-                rows={(reportData.items || []).map((item: any) => ({
-                  name: <span className="font-medium">{item.name}</span>,
-                  category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
-                  stock: Number(item.currentStock || 0),
-                  batchValue: `₵${Number(item.batchValue || 0).toFixed(2)}`,
-                  unbatchedValue: `₵${Number(item.unbatchedValue || 0).toFixed(2)}`,
-                  totalValue: <span className="font-semibold">₵{Number(item.totalValue || 0).toFixed(2)}</span>,
-                }))}
-              />
-            </section>
-            {reportData.byCategory && (
-              <section>
-                <SectionHeader icon={DollarSign} title="Inventory value by category" accent="purple" count={Object.keys(reportData.byCategory).length} />
-                <ReportTable
-                  caption="Inventory value by category"
-                  searchable
-                  columns={[
-                    { key: 'cat', label: 'Category', sortable: true },
-                    { key: 'count', label: 'Count', align: 'center', sortable: true },
-                    { key: 'value', label: 'Value', align: 'right', sortable: true },
-                  ]}
-                  rows={Object.entries(reportData.byCategory).map(([cat, d]: [string, any]) => ({
-                    cat: <span className="font-medium">{cat}</span>,
-                    count: d.count,
-                    value: `₵${Number(d.value || 0).toFixed(2)}`,
-                  }))}
-                />
-              </section>
-            )}
-            {transferIssueItems.length > 0 && (
-              <section>
-                <SectionHeader icon={AlertTriangle} title="Transfer reconciliation required" accent="orange" count={transferIssueItems.length} />
-                <ReportTable
-                  caption="Dispatched transfers that need investigation before their in-transit stock can be valued reliably"
-                  empty="No transfer reconciliation issues found"
-                  searchable
-                  columns={[
-                    { key: 'name', label: 'Item', sortable: true },
-                    { key: 'category', label: 'Category', sortable: true },
-                    { key: 'issues', label: 'Issue', sortable: true },
-                  ]}
-                  rows={transferIssueItems.map((item: any) => ({
-                    name: <span className="font-medium">{item.name}</span>,
-                    category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
-                    issues: <ul className="list-disc pl-4 space-y-1">{item.inTransitReconciliationIssues.map((issue: string, index: number) => <li key={index}>{issue}</li>)}</ul>,
-                  }))}
-                />
-              </section>
-            )}
-            <section>
-              <SectionHeader icon={AlertTriangle} title="Batch stock discrepancies" accent="orange" count={discrepancies.length} />
-              <ReportTable
-                caption="Items whose batch quantities differ from the recorded stock balance"
-                empty="No batch quantity discrepancies found"
-                searchable
-                columns={[
-                  { key: 'name', label: 'Item', sortable: true },
-                  { key: 'category', label: 'Category', sortable: true },
-                  { key: 'stock', label: 'Recorded Stock', align: 'center', sortable: true },
-                  { key: 'batches', label: 'Batch Quantity', align: 'center', sortable: true },
-                  { key: 'difference', label: 'Difference (Batch − Stock)', align: 'center', sortable: true },
-                  { key: 'value', label: 'Batch Value', align: 'right', sortable: true },
-                ]}
-                rows={discrepancies.map((item: any) => ({
-                  name: <span className="font-medium">{item.name}</span>,
-                  category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
-                  stock: Number(item.currentStock || 0),
-                  batches: Number(item.batchQuantity || 0),
-                  difference: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{Number(item.batchQuantity || 0) - Number(item.currentStock || 0)}</span>,
-                  value: `₵${Number(item.batchValue || 0).toFixed(2)}`,
-                }))}
-              />
-            </section>
-          </>
-        );
-      }
+        if (activeTab === 'discrepancies') {
+          const discrepancies = (reportData.items || []).filter((item: any) => Number(item.stockDiscrepancy || 0) > 0);
+          return (
+            <ReportTable
+              caption="Items whose batch quantities differ from the recorded stock balance"
+              empty="No batch quantity discrepancies found"
+              searchable
+              columns={[
+                { key: 'name', label: 'Item', sortable: true },
+                { key: 'category', label: 'Category', sortable: true },
+                { key: 'stock', label: 'Recorded Stock', align: 'center', sortable: true },
+                { key: 'batches', label: 'Batch Quantity', align: 'center', sortable: true },
+                { key: 'difference', label: 'Difference (Batch − Stock)', align: 'center', sortable: true },
+                { key: 'value', label: 'Batch Value', align: 'right', sortable: true },
+              ]}
+              rows={discrepancies.map((item: any) => ({
+                name: <span className="font-medium">{item.name}</span>,
+                category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                stock: Number(item.currentStock || 0),
+                batches: Number(item.batchQuantity || 0),
+                difference: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{Number(item.batchQuantity || 0) - Number(item.currentStock || 0)}</span>,
+                value: `₵${Number(item.batchValue || 0).toFixed(2)}`,
+              }))}
+            />
+          );
+        }
+        if (activeTab === 'transfer') {
+          const transferIssueItems = (reportData.items || []).filter((item: any) => Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0);
+          return (
+            <ReportTable
+              caption="Dispatched transfers that need investigation"
+              empty="No transfer reconciliation issues found"
+              searchable
+              columns={[
+                { key: 'name', label: 'Item', sortable: true },
+                { key: 'category', label: 'Category', sortable: true },
+                { key: 'issues', label: 'Issue' },
+              ]}
+              rows={transferIssueItems.map((item: any) => ({
+                name: <span className="font-medium">{item.name}</span>,
+                category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                issues: <ul className="list-disc pl-4 space-y-1">{item.inTransitReconciliationIssues.map((issue: string, index: number) => <li key={index}>{issue}</li>)}</ul>,
+              }))}
+            />
+          );
+        }
+        return renderOverview();
+
+      case 'requisition':
+        if (activeTab === 'recent') {
+          const recent = reportData.recentRequisitions || [];
+          return (
+            <ReportTable
+              caption="Most recent stock requisitions"
+              empty="No requisitions found for this period"
+              searchable
+              columns={[
+                { key: 'number', label: 'Requisition', sortable: true },
+                { key: 'department', label: 'Department', sortable: true },
+                { key: 'date', label: 'Date', sortable: true },
+                { key: 'status', label: 'Status', sortable: true },
+                { key: 'urgency', label: 'Urgency', sortable: true },
+                { key: 'items', label: 'Items', align: 'center', sortable: true },
+                { key: 'requestedBy', label: 'Requested By', sortable: true },
+              ]}
+              rows={recent.map((item: any) => ({
+                number: <span className="font-medium">{item.requisitionNumber}</span>,
+                department: item.department || 'Unassigned',
+                date: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—',
+                status: <span className="capitalize">{item.status}</span>,
+                urgency: <span className="capitalize">{item.urgency}</span>,
+                items: item.itemCount || 0,
+                requestedBy: item.requestedBy || '—',
+              }))}
+            />
+          );
+        }
+        return renderOverview();
+
+      default:
+        return renderOverview();
     }
   };
 
@@ -1024,7 +1023,6 @@ export default function StockReports() {
 
   return (
     <div className="space-y-3 p-3 sm:p-4 bg-[var(--bg-main)] min-h-screen">
-
       <PageHeader
         title="Stock Reports"
         subtitle="Pick a report, configure filters, then generate"
@@ -1060,17 +1058,11 @@ export default function StockReports() {
                 }}
               >
                 {isActive && (
-                  <div
-                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-sm"
-                    style={{ background: a.text }}
-                  >
+                  <div className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-sm" style={{ background: a.text }}>
                     <CheckCircle className="w-3 h-3 text-white" />
                   </div>
                 )}
-                <div
-                  className="w-7 h-7 rounded-md flex items-center justify-center mb-1.5"
-                  style={{ background: isActive ? a.text : a.bg }}
-                >
+                <div className="w-7 h-7 rounded-md flex items-center justify-center mb-1.5" style={{ background: isActive ? a.text : a.bg }}>
                   <Icon className={cn('w-3.5 h-3.5', isActive && 'text-white')} style={{ color: isActive ? undefined : a.text }} />
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -1078,8 +1070,7 @@ export default function StockReports() {
                     {report.name}
                   </h3>
                   {report.popular && !isActive && (
-                    <span className="text-[8px] font-bold px-1 py-0.5 rounded uppercase tracking-wide"
-                      style={{ background: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' }}>
+                    <span className="text-[8px] font-bold px-1 py-0.5 rounded uppercase tracking-wide" style={{ background: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' }}>
                       Hot
                     </span>
                   )}
@@ -1096,120 +1087,68 @@ export default function StockReports() {
       {/* ═══════════ Configure & Generate ═══════════ */}
       {activeConfig && (
         <div ref={configRef}>
-        <Card title={`${activeConfig.name} Report`} icon={activeConfig.icon} accent={activeConfig.accent}>
-
-          {/* Filters */}
-          {(activeConfig.supportsDateRange || activeConfig.supportsPeriod || activeConfig.supportsExpiryDays) && (
-            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 mb-2.5">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {activeConfig.supportsDateRange && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
-                      Date
-                    </span>
+          <Card title={`${activeConfig.name} Report`} icon={activeConfig.icon} accent={activeConfig.accent}>
+            {(activeConfig.supportsDateRange || activeConfig.supportsPeriod || activeConfig.supportsExpiryDays) && (
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 mb-2.5">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  {activeConfig.supportsDateRange && (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <input
-                        type="date"
-                        value={dateRange.startDate}
-                        onChange={(e) => setDateRange((p) => ({ ...p, startDate: e.target.value }))}
-                        aria-label="Start date"
-                        className={cn(INPUT, 'py-1 text-xs w-[140px]')}
-                      />
-                      <span className="text-[10px] text-[var(--text-tertiary)]">→</span>
-                      <input
-                        type="date"
-                        value={dateRange.endDate}
-                        onChange={(e) => setDateRange((p) => ({ ...p, endDate: e.target.value }))}
-                        aria-label="End date"
-                        className={cn(INPUT, 'py-1 text-xs w-[140px]')}
-                      />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Date</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <input type="date" value={dateRange.startDate} onChange={(e) => setDateRange((p) => ({ ...p, startDate: e.target.value }))} aria-label="Start date" className={cn(INPUT, 'py-1 text-xs w-[140px]')} />
+                        <span className="text-[10px] text-[var(--text-tertiary)]">→</span>
+                        <input type="date" value={dateRange.endDate} onChange={(e) => setDateRange((p) => ({ ...p, endDate: e.target.value }))} aria-label="End date" className={cn(INPUT, 'py-1 text-xs w-[140px]')} />
+                      </div>
+                      {(dateRange.startDate || dateRange.endDate) && (
+                        <Button variant="ghost" size="xs" icon={X} onClick={() => setDateRange({ startDate: '', endDate: '' })}>Clear</Button>
+                      )}
                     </div>
-                    {(dateRange.startDate || dateRange.endDate) && (
-                      <Button variant="ghost" size="xs" icon={X} onClick={() => setDateRange({ startDate: '', endDate: '' })}>
-                        Clear
-                      </Button>
-                    )}
-                  </div>
-                )}
+                  )}
 
-                {activeConfig.supportsExpiryDays && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <label htmlFor="stock-expiry-days" className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
-                      Expiry window
-                    </label>
-                    <select
-                      id="stock-expiry-days"
-                      value={expiryDays}
-                      onChange={(e) => setExpiryDays(Number(e.target.value))}
-                      className={cn(INPUT, 'py-1 text-xs w-[150px]')}
-                    >
-                      <option value={30}>Next 30 days</option>
-                      <option value={60}>Next 60 days</option>
-                      <option value={90}>Next 90 days</option>
-                      <option value={180}>Next 180 days</option>
-                      <option value={365}>Next 365 days</option>
-                    </select>
-                  </div>
-                )}
-
-                {activeConfig.supportsPeriod && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
-                      Period
-                    </span>
-                    <div className="flex items-center gap-0.5 rounded-md p-0.5 border border-[var(--border-color)] bg-[var(--bg-card)]">
-                      {[
-                        { value: 'week', label: '7d' },
-                        { value: 'month', label: '30d' },
-                        { value: 'quarter', label: '3m' },
-                        { value: 'year', label: '1y' },
-                      ].map((p) => (
-                        <button
-                          key={p.value}
-                          onClick={() => setPeriod(p.value)}
-                          aria-pressed={period === p.value}
-                          className="px-2 py-0.5 rounded text-[11px] font-medium transition-all"
-                          style={
-                            period === p.value
-                              ? { background: 'var(--bg-main)', color: 'var(--icon-cyan-text)' }
-                              : { color: 'var(--text-secondary)' }
-                          }
-                        >
-                          {p.label}
-                        </button>
-                      ))}
+                  {activeConfig.supportsExpiryDays && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <label htmlFor="stock-expiry-days" className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Expiry window</label>
+                      <select id="stock-expiry-days" value={expiryDays} onChange={(e) => setExpiryDays(Number(e.target.value))} className={cn(INPUT, 'py-1 text-xs w-[150px]')}>
+                        <option value={30}>Next 30 days</option>
+                        <option value={60}>Next 60 days</option>
+                        <option value={90}>Next 90 days</option>
+                        <option value={180}>Next 180 days</option>
+                        <option value={365}>Next 365 days</option>
+                      </select>
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {activeConfig.supportsPeriod && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Period</span>
+                      <div className="flex items-center gap-0.5 rounded-md p-0.5 border border-[var(--border-color)] bg-[var(--bg-card)]">
+                        {[{ value: 'week', label: '7d' }, { value: 'month', label: '30d' }, { value: 'quarter', label: '3m' }, { value: 'year', label: '1y' }].map((p) => (
+                          <button key={p.value} onClick={() => setPeriod(p.value)} aria-pressed={period === p.value} className="px-2 py-0.5 rounded text-[11px] font-medium transition-all" style={period === p.value ? { background: 'var(--bg-main)', color: 'var(--icon-cyan-text)' } : { color: 'var(--text-secondary)' }}>
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Generate CTA */}
-          <Button
-            variant="primary"
-            fullWidth
-            loading={busy}
-            icon={Play}
-            iconRight={busy ? undefined : ArrowRight}
-            onClick={generateReport}
-          >
-            {busy
-              ? `Generating ${activeConfig.name.toLowerCase()}…`
-              : reportData ? `Regenerate ${activeConfig.name}` : `Generate ${activeConfig.name}`}
-          </Button>
+            <Button variant="primary" fullWidth loading={busy} icon={Play} iconRight={busy ? undefined : ArrowRight} onClick={generateReport}>
+              {busy ? `Generating ${activeConfig.name.toLowerCase()}…` : reportData ? `Regenerate ${activeConfig.name}` : `Generate ${activeConfig.name}`}
+            </Button>
 
-          {reportError && (
-            <div className="mt-2.5 rounded-lg p-2.5 border border-[var(--border-color)] bg-[var(--icon-red-bg)] flex items-start gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-[var(--icon-red-text)]" />
-              <p className="text-[11px] text-[var(--icon-red-text)]">{reportError}</p>
-            </div>
-          )}
-        </Card>
+            {reportError && (
+              <div className="mt-2.5 rounded-lg p-2.5 border border-[var(--border-color)] bg-[var(--icon-red-bg)] flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-[var(--icon-red-text)]" />
+                <p className="text-[11px] text-[var(--icon-red-text)]">{reportError}</p>
+              </div>
+            )}
+          </Card>
         </div>
       )}
 
-      {/* ═══════════ Results ═══════════ */}
+      {/* ═══════════ Results (tabbed) ═══════════ */}
       <div ref={resultsRef}>
         {reportData && activeConfig && (
           <Card
@@ -1227,10 +1166,7 @@ export default function StockReports() {
               <div className="flex items-center gap-1 flex-wrap mb-3">
                 <Filter className="w-2.5 h-2.5 text-[var(--text-tertiary)]" />
                 {appliedFilters.map((chip, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]"
-                  >
+                  <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]">
                     {chip}
                   </span>
                 ))}
@@ -1240,18 +1176,13 @@ export default function StockReports() {
             {summaryTiles.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
                 {summaryTiles.map((tile, i) => (
-                  <StatCard
-                    key={i}
-                    label={tile.label}
-                    value={tile.value}
-                    icon={tile.icon}
-                    accent={tile.accent}
-                    size={String(tile.value).startsWith('₵') ? 'money' : 'count'}
-                  />
+                  <StatCard key={i} label={tile.label} value={tile.value} icon={tile.icon} accent={tile.accent} size={String(tile.value).startsWith('₵') ? 'money' : 'count'} />
                 ))}
               </div>
             )}
-            {renderReportBody()}
+
+            <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
+            {renderTabBody()}
           </Card>
         )}
 
@@ -1260,15 +1191,69 @@ export default function StockReports() {
             <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 bg-[var(--icon-cyan-bg)]">
               <Sparkles className="w-6 h-6 text-[var(--icon-cyan-text)]" />
             </div>
-            <h3 className="text-sm font-semibold mb-1 text-[var(--text-primary)]">
-              Start by picking a report above
-            </h3>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Click any card to begin.
-            </p>
+            <h3 className="text-sm font-semibold mb-1 text-[var(--text-primary)]">Start by picking a report above</h3>
+            <p className="text-xs text-[var(--text-secondary)]">Click any card to begin.</p>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Expiry tab component (shared by both variants, avoids duplication)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ExpiryTab({ reportData, variant }: { reportData: any; variant: 'expiring' | 'expired' }) {
+  const batchRows = (items: any[], status: string) => items.flatMap((item: any) => {
+    const batches = batchesOf(item).filter((batch: any) => Number(batch.quantity) > 0);
+    if (batches.length) return batches.map((batch: any) => ({
+      key: `${item.id}-${batch.batchNumber}-${batch.expiryDate}`,
+      name: item.name, category: item.category, batch: batch.batchNumber || '—',
+      expiryDate: batch.expiryDate, quantity: batch.quantity, status,
+    }));
+    return item.expiryDate ? [{
+      key: item.id, name: item.name, category: item.category, batch: 'Legacy item expiry',
+      expiryDate: item.expiryDate, quantity: item.currentStock, status,
+    }] : [];
+  });
+
+  const expiringRows = variant === 'expiring'
+    ? [
+        ...(reportData.expiringBatches || []).map((batch: any) => ({
+          key: batch.id,
+          name: batch.stockItem?.name || 'Unknown item',
+          category: batch.stockItem?.category || '',
+          batch: batch.batchNumber || '—',
+          expiryDate: batch.expiryDate,
+          quantity: batch.quantity,
+          status: 'Expiring soon',
+        })),
+        ...batchRows((reportData.expiringSoon || []).filter((item: any) => !batchesOf(item).length), 'Expiring soon'),
+      ]
+    : batchRows(reportData.expired || [], 'Expired');
+
+  const expiryColumns = [
+    { key: 'name', label: 'Item', sortable: true },
+    { key: 'category', label: 'Category', sortable: true },
+    { key: 'batch', label: 'Batch', sortable: true },
+    { key: 'expiry', label: 'Expiry Date', sortable: true },
+    { key: 'quantity', label: 'Quantity', align: 'center' as const, sortable: true },
+  ];
+
+  return (
+    <ReportTable
+      caption={variant === 'expiring' ? 'Expiring stock by batch' : 'Expired stock by batch'}
+      empty={variant === 'expiring' ? 'No stock batches are expiring in this window' : 'No expired stock with a remaining quantity was found'}
+      searchable
+      columns={expiryColumns}
+      rows={expiringRows.map((item: any) => ({
+        name: <span className="font-medium">{item.name}</span>,
+        category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+        batch: item.batch,
+        expiry: <span className="whitespace-nowrap">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}</span>,
+        quantity: item.quantity,
+      }))}
+    />
   );
 }

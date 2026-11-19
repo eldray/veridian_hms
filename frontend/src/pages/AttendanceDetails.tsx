@@ -8,6 +8,7 @@ import { useToast } from '../store/toastStore';
 import { useBillingStore } from '../store/billingStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import SendDocumentModal from '../components/SendDocumentModal';
+import MedicalReportModal from '../components/MedicalReportModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { getPatientName } from '../utils/patient';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
@@ -651,6 +652,25 @@ export default function AttendanceDetails() {
     );
   };
 
+  const printVisitSummary = () => {
+    printDocument(
+      () => generatePDF('visitSummary', { attendance: currentAttendance, patient }, hospital),
+      `Visit-Summary-${(currentAttendance as any)?.attendanceNumber || ''}`
+    );
+  };
+
+  const printReceiptA4 = (bill: any) => {
+    const payment = latestRecordedPayment(bill);
+    if (!payment) {
+      toastError('No payment recorded', 'A receipt can only be issued for a recorded, non-voided payment.');
+      return;
+    }
+    printDocument(
+      () => generatePDF('receipt', { bill, patient: (bill as any).Patient || patient, payment, receivedBy: user?.fullName }, hospital),
+      `Receipt-${bill.billNumber}`
+    );
+  };
+
   const printBillStatement = (bill: any) => {
     printDocument(
       () => generatePDF('billStatement', { bill, patient: (bill as any).Patient || patient }, hospital),
@@ -786,6 +806,8 @@ export default function AttendanceDetails() {
 
   // Mirrors PUT /api/encounters/:id, which allows midwife as well as doctor and nurse.
   const canEdit = hasRole(['admin', 'doctor', 'nurse', 'midwife']);
+  const canWriteReport = hasRole(['admin', 'doctor']);
+  const [showMedicalReport, setShowMedicalReport] = useState(false);
   const canDelete = hasRole(['admin']);
   // Mirrors POST /api/bills/generate/:encounterId. Lab techs and sonographers may
   // open the visit but must not raise charges.
@@ -1155,6 +1177,24 @@ export default function AttendanceDetails() {
           >
             <DollarSign className="w-4 h-4 text-[var(--icon-green-text)]" />
             Billing
+          </button>
+        )}
+        {patient && (
+          <button
+            onClick={printVisitSummary}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+          >
+            <Printer className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+            Visit summary
+          </button>
+        )}
+        {canWriteReport && patient && (
+          <button
+            onClick={() => setShowMedicalReport(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+          >
+            <FileText className="w-4 h-4 text-[var(--icon-purple-text)]" />
+            Medical report
           </button>
         )}
         {canQuote && (
@@ -1939,6 +1979,14 @@ export default function AttendanceDetails() {
                               <Receipt className="h-3.5 w-3.5" />
                               Print receipt
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => printReceiptA4(bill)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--border-color)]"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                              A4 receipt
+                            </button>
                             {canIssueReceiptDocument && (
                               <button
                                 type="button"
@@ -2245,6 +2293,13 @@ export default function AttendanceDetails() {
       )}
 
       {/* Send the recorded receipt to the patient by SMS / WhatsApp */}
+      {showMedicalReport && (
+        <MedicalReportModal
+          patient={patient}
+          attendance={currentAttendance}
+          onClose={() => setShowMedicalReport(false)}
+        />
+      )}
       {receiptToSend && (
         <SendDocumentModal
           open

@@ -1,6 +1,6 @@
 import { useSmartBack } from '../utils/useSmartBack';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
-// src/pages/PatientBillingItems.tsx — Redesigned
+// src/pages/PatientBillingItems.tsx — Redesigned (Auto-Expanded)
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
@@ -99,7 +99,6 @@ export default function PatientBillingItems() {
   // ===== Local UI state =====
   const [selectedBill, setSelectedBill] = useState<ProcessedBill | null>(null);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
-  const [expandedBillId, setExpandedBillId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
@@ -338,12 +337,31 @@ export default function PatientBillingItems() {
     [getBill, toastError]
   );
 
+  // AUTO-EXPAND LOGIC: Fetch all bills in the current paginated view
+  useEffect(() => {
+    if (!dataLoaded || paginatedBills.length === 0) return;
+    
+    // Find bills that haven't been fully loaded yet
+    const unloadedBills = paginatedBills.filter((b: any) => !b.BillLineItem || b.BillLineItem.length === 0);
+    if (unloadedBills.length === 0) return;
+
+    // Sequentially load each bill's line items to avoid spamming the API
+    const loadAll = async () => {
+      for (const bill of unloadedBills) {
+        await handleViewBillDetails(bill.id);
+      }
+    };
+    void loadAll();
+    
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoaded, paginatedBills.map(b => b.id).join(',')]);
+
   useEffect(() => {
     const requestedBillId = new URLSearchParams(window.location.search).get('billId');
     if (!dataLoaded || !requestedBillId || autoOpenedBillRef.current === requestedBillId) return;
     if (!patientBills.some((bill) => bill.id === requestedBillId)) return;
     autoOpenedBillRef.current = requestedBillId;
-    setExpandedBillId(requestedBillId);
+    // If a specific bill was requested via URL, we ensure its details are fetched
     void handleViewBillDetails(requestedBillId);
   }, [dataLoaded, patientBills, handleViewBillDetails]);
 
@@ -360,26 +378,12 @@ export default function PatientBillingItems() {
           serviceCategory: item.serviceCategory || item.serviceType || 'miscellaneous',
         })) || [],
     }));
-    setExpandedBillId(currentBill.id);
     setSelectedItems(new Set());
   }, [currentBill]);
 
   useEffect(() => {
     return () => { clearCurrentBill(); };
   }, [clearCurrentBill]);
-
-  const toggleBillExpand = useCallback(
-    (billId: string) => {
-      if (expandedBillId === billId) {
-        setExpandedBillId(null);
-        setSelectedBill(null);
-        setSelectedItems(new Set());
-      } else {
-        handleViewBillDetails(billId);
-      }
-    },
-    [expandedBillId, handleViewBillDetails]
-  );
 
   const goToPage = useCallback(
     (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages))),
@@ -698,10 +702,7 @@ export default function PatientBillingItems() {
     <div className={cn('space-y-5 p-4 sm:p-6', canMakePayment && selectedItems.size > 0 && 'pb-28')}>
       {pageHeader}
 
-      {/* ── Patient / attendance band ─────────────────────────────────
-          z-30 so the selector dropdown paints above the summary strip
-          (z-10) and the bills list. No overflow-hidden anywhere that
-          wraps the selector. */}
+      {/* ── Patient / attendance band ───────────────────────────────── */}
       <div className="relative z-30 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
         {patient && (
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] rounded-t-xl">
@@ -745,7 +746,6 @@ export default function PatientBillingItems() {
             }}
             onAttendanceSelect={(attendanceId) => {
               setSelectedAttendanceId(attendanceId);
-              setExpandedBillId(null);
               setSelectedBill(null);
               setSelectedItems(new Set());
               clearCurrentBill();
@@ -753,7 +753,6 @@ export default function PatientBillingItems() {
             onClearSelection={() => {
               setSelectedPatientId('');
               setSelectedAttendanceId('');
-              setExpandedBillId(null);
               setSelectedBill(null);
               setSelectedItems(new Set());
             }}
@@ -906,16 +905,14 @@ export default function PatientBillingItems() {
         <>
           <div className="space-y-3">
             {paginatedBills.map((bill) => {
-              const isExpanded = expandedBillId === bill.id;
-              const isLoadingThis = isLoadingItems && expandedBillId === bill.id;
+              // Determine if this specific bill is the one currently loaded in the store
+              const isThisBillLoaded = selectedBill?.id === bill.id;
+              const isLoadingThis = isLoadingItems && !isThisBillLoaded;
 
               return (
                 <div key={bill.id} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-sm overflow-hidden">
-                  {/* Collapsed bill header row */}
-                  <div
-                    className="p-4 cursor-pointer hover:bg-[var(--bg-main)] transition-colors"
-                    onClick={() => toggleBillExpand(bill.id)}
-                  >
+                  {/* Bill header row — now static, no toggle */}
+                  <div className="p-4 bg-[var(--bg-main)]">
                     <div className="flex items-center justify-between flex-wrap gap-4">
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
@@ -975,241 +972,237 @@ export default function PatientBillingItems() {
                             {formatCurrency(bill.balance)}
                           </p>
                         </div>
-                        <div className={cn(
-                          'w-8 h-8 rounded-full border border-[var(--border-color)] flex items-center justify-center transition-transform',
-                          isExpanded ? 'rotate-180 bg-[var(--bg-main)]' : 'bg-transparent hover:bg-[var(--bg-main)]'
-                        )}>
-                          <ChevronDown className="w-4 h-4 text-[var(--text-secondary)]" />
-                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Expanded body */}
-                  {isExpanded && (
-                    <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)]">
-                      {isLoadingThis ? (
-                        <div className="flex justify-center py-12">
-                          <div className="w-8 h-8 border-2 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin" />
+                  {/* Expanded body — always open */}
+                  <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)]">
+                    {isLoadingThis ? (
+                      <div className="flex justify-center py-12">
+                        <div className="w-8 h-8 border-2 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    ) : isThisBillLoaded ? (
+                      <div className="p-4 sm:p-5">
+                        {/* Toolbar */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)]">
+                              Line Items
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-tertiary)] tabular-nums">
+                              {selectedBill.BillLineItem?.filter((i) => !i.isVoided).length || 0}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {canMakePayment && selectedBill.status !== 'paid' && selectedBill.Attendance?.id && (
+                              <Button variant="soft" accent="green" size="sm" icon={PlusCircle} onClick={() => setShowAddServiceModal(true)}>
+                                Add charge
+                              </Button>
+                            )}
+                            {(selectedBill.status === 'paid' || selectedBill.status === 'partial') && (
+                              <Button variant="secondary" size="sm" icon={Printer} onClick={() => handleViewReceipt(selectedBill.id)}>
+                                Print Receipt
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      ) : selectedBill?.id === bill.id ? (
-                        <div className="p-4 sm:p-5">
-                          {/* Toolbar */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold uppercase tracking-wide text-[var(--text-secondary)]">
-                                Line Items
-                              </span>
-                              <span className="px-2 py-0.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-tertiary)] tabular-nums">
-                                {selectedBill.BillLineItem?.filter((i) => !i.isVoided).length || 0}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {canMakePayment && selectedBill.status !== 'paid' && selectedBill.Attendance?.id && (
-                                <Button variant="soft" accent="green" size="sm" icon={PlusCircle} onClick={() => setShowAddServiceModal(true)}>
-                                  Add charge
-                                </Button>
-                              )}
-                              {(selectedBill.status === 'paid' || selectedBill.status === 'partial') && (
-                                <Button variant="secondary" size="sm" icon={Printer} onClick={() => handleViewReceipt(selectedBill.id)}>
-                                  Print Receipt
-                                </Button>
-                              )}
-                            </div>
+
+                        {/* Zero-value warning */}
+                        {Object.entries(groupedItems).length === 0 && Number(selectedBill.totalAmount || 0) === 0 && (
+                          <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--icon-yellow-bg)] p-4 text-sm text-[var(--icon-yellow-text)]">
+                            <p className="font-semibold">No itemised charges recorded</p>
+                            <p className="mt-1">This zero-value bill has no active line items. Review the attendance and clinical records before taking any billing action.</p>
                           </div>
+                        )}
 
-                          {/* Zero-value warning */}
-                          {Object.entries(groupedItems).length === 0 && Number(selectedBill.totalAmount || 0) === 0 && (
-                            <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--icon-yellow-bg)] p-4 text-sm text-[var(--icon-yellow-text)]">
-                              <p className="font-semibold">No itemised charges recorded</p>
-                              <p className="mt-1">This zero-value bill has no active line items. Review the attendance and clinical records before taking any billing action.</p>
-                            </div>
-                          )}
+                        {/* Category tables */}
+                        <div className="space-y-4">
+                          {Object.entries(groupedItems).map(([category, items]) => {
+                            const unpaidItems = items.filter((i) => !i.isFullyPaid && i.patientPayableAmount > 0);
+                            const allSelected = unpaidItems.length > 0 && unpaidItems.every((i) => selectedItems.has(i.id));
 
-                          {/* Category tables */}
-                          <div className="space-y-4">
-                            {Object.entries(groupedItems).map(([category, items]) => {
-                              const unpaidItems = items.filter((i) => !i.isFullyPaid && i.patientPayableAmount > 0);
-                              const allSelected = unpaidItems.length > 0 && unpaidItems.every((i) => selectedItems.has(i.id));
-
-                              return (
-                                <div key={category} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
-                                  {/* Category header */}
-                                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                                    {getCategoryIcon(category)}
-                                    <h3 className="font-semibold text-sm text-[var(--text-primary)]">{category}</h3>
-                                    <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-secondary)] tabular-nums">
-                                      {items.length}
-                                    </span>
-                                  </div>
-
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                      <thead>
-                                        <tr className="bg-[var(--bg-card)] border-b border-[var(--border-color)]">
-                                          <th className="w-10 px-3 py-2 text-center">
-                                            {unpaidItems.length > 0 && (
-                                              <button
-                                                onClick={(e) => { e.stopPropagation(); toggleCategorySelection(items); }}
-                                                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                                                aria-label={allSelected ? 'Deselect all unpaid' : 'Select all unpaid'}
-                                              >
-                                                {allSelected
-                                                  ? <CheckSquare className="w-4 h-4 text-[var(--icon-green-text)]" />
-                                                  : <Square className="w-4 h-4" />}
-                                              </button>
-                                            )}
-                                          </th>
-                                          <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Service</th>
-                                          <th className="w-16 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Qty</th>
-                                          <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Unit Price</th>
-                                          <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Total</th>
-                                          {!isCashPayment && (
-                                            <>
-                                              <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Insurance</th>
-                                              <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Patient Pays</th>
-                                            </>
-                                          )}
-                                          <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Paid</th>
-                                          <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Balance</th>
-                                          <th className="w-24 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Status</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-[var(--border-color)]">
-                                        {items.map((item) => {
-                                          const isFullyPaid = item.isFullyPaid || item.balance === 0;
-                                          const displayBalance = Number(item.balance || 0);
-                                          return (
-                                            <tr key={item.id} className="hover:bg-[var(--bg-main)]/50 transition-colors">
-                                              <td className="px-3 py-3 text-center">
-                                                {isFullyPaid ? (
-                                                  <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)] mx-auto" />
-                                                ) : item.patientPayableAmount > 0 && canMakePayment ? (
-                                                  <button
-                                                    onClick={(e) => { e.stopPropagation(); toggleItemSelection(item.id); }}
-                                                    className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] mx-auto block transition-colors"
-                                                    aria-label={selectedItems.has(item.id) ? 'Deselect item' : 'Select item'}
-                                                  >
-                                                    {selectedItems.has(item.id)
-                                                      ? <CheckSquare className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                                                      : <Square className="w-4 h-4" />}
-                                                  </button>
-                                                ) : null}
-                                              </td>
-                                              <td className="px-3 py-3">
-                                                <p className="text-sm font-medium text-[var(--text-primary)]">
-                                                  {item.description}
-                                                </p>
-                                              </td>
-                                              <td className="px-3 py-3 text-center text-sm text-[var(--text-secondary)] tabular-nums">{item.quantity}</td>
-                                              <td className="px-3 py-3 text-right text-sm text-[var(--text-secondary)] tabular-nums">{formatCurrency(item.unitPrice)}</td>
-                                              <td className="px-3 py-3 text-right text-sm font-medium text-[var(--text-primary)] tabular-nums">{formatCurrency(item.lineTotal)}</td>
-                                              {!isCashPayment && (
-                                                <>
-                                                  <td className="px-3 py-3 text-right text-sm text-[var(--icon-green-text)] tabular-nums">{formatCurrency(item.insuranceCoveredAmount)}</td>
-                                                  <td className="px-3 py-3 text-right text-sm font-medium text-[var(--text-primary)] tabular-nums">{formatCurrency(item.patientPayableAmount)}</td>
-                                                </>
-                                              )}
-                                              <td className="px-3 py-3 text-right text-sm text-[var(--icon-green-text)] tabular-nums">{formatCurrency(item.paidAmount || 0)}</td>
-                                              <td className={cn(
-                                                'px-3 py-3 text-right text-sm font-bold tabular-nums',
-                                                displayBalance > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'
-                                              )}>
-                                                {formatCurrency(displayBalance)}
-                                              </td>
-                                              <td className="px-3 py-3 text-center">
-                                                <Badge tone={isFullyPaid ? 'green' : 'red'} dot size="sm">
-                                                  {isFullyPaid ? 'Paid' : 'Pending'}
-                                                </Badge>
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                      <tfoot>
-                                        <tr className="bg-[var(--bg-main)] border-t-2 border-[var(--border-color)]">
-                                          <td />
-                                          <td colSpan={!isCashPayment ? 5 : 3} className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
-                                            Category Total
-                                          </td>
-                                          {!isCashPayment && (
-                                            <>
-                                              <td className="px-3 py-2.5 text-right text-sm font-bold text-[var(--icon-green-text)] tabular-nums">
-                                                {formatCurrency(items.reduce((s, i) => s + i.insuranceCoveredAmount, 0))}
-                                              </td>
-                                              <td className="px-3 py-2.5 text-right text-sm font-bold text-[var(--text-primary)] tabular-nums">
-                                                {formatCurrency(items.reduce((s, i) => s + i.patientPayableAmount, 0))}
-                                              </td>
-                                            </>
-                                          )}
-                                          <td className="px-3 py-2.5 text-right text-sm font-bold text-[var(--icon-green-text)] tabular-nums">
-                                            {formatCurrency(items.reduce((s, i) => s + (i.paidAmount || 0), 0))}
-                                          </td>
-                                          <td className={cn(
-                                            'px-3 py-2.5 text-right text-sm font-bold tabular-nums',
-                                            items.reduce((s, i) => s + Number(i.balance || 0), 0) > 0
-                                              ? 'text-[var(--icon-red-text)]'
-                                              : 'text-[var(--icon-green-text)]'
-                                          )}>
-                                            {formatCurrency(items.reduce((s, i) => s + Number(i.balance || 0), 0))}
-                                          </td>
-                                          <td />
-                                        </tr>
-                                      </tfoot>
-                                    </table>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* 4-up summary bar */}
-                          {totals && (
-                            <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
-                              <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[var(--border-color)] text-sm">
-                                <div className="p-3">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Subtotal</p>
-                                  <p className="mt-0.5 font-semibold text-[var(--text-primary)] tabular-nums">{formatCurrency(totals.subtotal)}</p>
-                                </div>
-                                {!isCashPayment && (
-                                  <div className="p-3">
-                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Insurance covered</p>
-                                    <p className="mt-0.5 font-semibold text-[var(--icon-green-text)] tabular-nums">– {formatCurrency(totals.insuranceCovered)}</p>
-                                  </div>
-                                )}
-                                <div className="p-3">
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Patient payable</p>
-                                  <p className="mt-0.5 font-semibold text-[var(--text-primary)] tabular-nums">{formatCurrency(totals.patientPayable)}</p>
-                                </div>
-                                <div className={cn(
-                                  'p-3',
-                                  totals.balance > 0 ? 'bg-[var(--icon-red-bg)]/30' : 'bg-[var(--icon-green-bg)]/30'
-                                )}>
-                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Balance due</p>
-                                  <p className={cn(
-                                    'mt-0.5 font-bold tabular-nums',
-                                    totals.balance > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'
-                                  )}>
-                                    {formatCurrency(totals.balance)}
-                                  </p>
-                                </div>
-                              </div>
-                              {!isCashPayment && selectedBill.InsuranceProvider && (
-                                <div className="flex items-center gap-2 px-3 py-2 border-t border-[var(--border-color)] text-[11px] text-[var(--text-secondary)]">
-                                  <Shield className="w-3 h-3 text-[var(--icon-cyan-text)] flex-shrink-0" />
-                                  <span>
-                                    <span className="font-medium text-[var(--text-primary)]">{selectedBill.InsuranceProvider.name}</span>
-                                    {' · '}
-                                    {selectedBill.InsuranceProvider.coveragePercentage}% coverage
+                            return (
+                              <div key={category} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
+                                {/* Category header */}
+                                <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                                  {getCategoryIcon(category)}
+                                  <h3 className="font-semibold text-sm text-[var(--text-primary)]">{category}</h3>
+                                  <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-secondary)] tabular-nums">
+                                    {items.length}
                                   </span>
                                 </div>
-                              )}
-                            </div>
-                          )}
+
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="bg-[var(--bg-card)] border-b border-[var(--border-color)]">
+                                        <th className="w-10 px-3 py-2 text-center">
+                                          {unpaidItems.length > 0 && (
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); toggleCategorySelection(items); }}
+                                              className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                                              aria-label={allSelected ? 'Deselect all unpaid' : 'Select all unpaid'}
+                                            >
+                                              {allSelected
+                                                ? <CheckSquare className="w-4 h-4 text-[var(--icon-green-text)]" />
+                                                : <Square className="w-4 h-4" />}
+                                            </button>
+                                          )}
+                                        </th>
+                                        <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Service</th>
+                                        <th className="w-16 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Qty</th>
+                                        <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Unit Price</th>
+                                        <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Total</th>
+                                        {!isCashPayment && (
+                                          <>
+                                            <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Insurance</th>
+                                            <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Patient Pays</th>
+                                          </>
+                                        )}
+                                        <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Paid</th>
+                                        <th className="w-28 px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Balance</th>
+                                        <th className="w-24 px-3 py-2 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[var(--border-color)]">
+                                      {items.map((item) => {
+                                        const isFullyPaid = item.isFullyPaid || item.balance === 0;
+                                        const displayBalance = Number(item.balance || 0);
+                                        return (
+                                          <tr key={item.id} className="hover:bg-[var(--bg-main)]/50 transition-colors">
+                                            <td className="px-3 py-3 text-center">
+                                              {isFullyPaid ? (
+                                                <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)] mx-auto" />
+                                              ) : item.patientPayableAmount > 0 && canMakePayment ? (
+                                                <button
+                                                  onClick={(e) => { e.stopPropagation(); toggleItemSelection(item.id); }}
+                                                  className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] mx-auto block transition-colors"
+                                                  aria-label={selectedItems.has(item.id) ? 'Deselect item' : 'Select item'}
+                                                >
+                                                  {selectedItems.has(item.id)
+                                                    ? <CheckSquare className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                                                    : <Square className="w-4 h-4" />}
+                                                </button>
+                                              ) : null}
+                                            </td>
+                                            <td className="px-3 py-3">
+                                              <p className="text-sm font-medium text-[var(--text-primary)]">
+                                                {item.description}
+                                              </p>
+                                            </td>
+                                            <td className="px-3 py-3 text-center text-sm text-[var(--text-secondary)] tabular-nums">{item.quantity}</td>
+                                            <td className="px-3 py-3 text-right text-sm text-[var(--text-secondary)] tabular-nums">{formatCurrency(item.unitPrice)}</td>
+                                            <td className="px-3 py-3 text-right text-sm font-medium text-[var(--text-primary)] tabular-nums">{formatCurrency(item.lineTotal)}</td>
+                                            {!isCashPayment && (
+                                              <>
+                                                <td className="px-3 py-3 text-right text-sm text-[var(--icon-green-text)] tabular-nums">{formatCurrency(item.insuranceCoveredAmount)}</td>
+                                                <td className="px-3 py-3 text-right text-sm font-medium text-[var(--text-primary)] tabular-nums">{formatCurrency(item.patientPayableAmount)}</td>
+                                              </>
+                                            )}
+                                            <td className="px-3 py-3 text-right text-sm text-[var(--icon-green-text)] tabular-nums">{formatCurrency(item.paidAmount || 0)}</td>
+                                            <td className={cn(
+                                              'px-3 py-3 text-right text-sm font-bold tabular-nums',
+                                              displayBalance > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'
+                                            )}>
+                                              {formatCurrency(displayBalance)}
+                                            </td>
+                                            <td className="px-3 py-3 text-center">
+                                              <Badge tone={isFullyPaid ? 'green' : 'red'} dot size="sm">
+                                                {isFullyPaid ? 'Paid' : 'Pending'}
+                                              </Badge>
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                    <tfoot>
+                                      <tr className="bg-[var(--bg-main)] border-t-2 border-[var(--border-color)]">
+                                        <td />
+                                        <td colSpan={!isCashPayment ? 5 : 3} className="px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                                          Category Total
+                                        </td>
+                                        {!isCashPayment && (
+                                          <>
+                                            <td className="px-3 py-2.5 text-right text-sm font-bold text-[var(--icon-green-text)] tabular-nums">
+                                              {formatCurrency(items.reduce((s, i) => s + i.insuranceCoveredAmount, 0))}
+                                            </td>
+                                            <td className="px-3 py-2.5 text-right text-sm font-bold text-[var(--text-primary)] tabular-nums">
+                                              {formatCurrency(items.reduce((s, i) => s + i.patientPayableAmount, 0))}
+                                            </td>
+                                          </>
+                                        )}
+                                        <td className="px-3 py-2.5 text-right text-sm font-bold text-[var(--icon-green-text)] tabular-nums">
+                                          {formatCurrency(items.reduce((s, i) => s + (i.paidAmount || 0), 0))}
+                                        </td>
+                                        <td className={cn(
+                                          'px-3 py-2.5 text-right text-sm font-bold tabular-nums',
+                                          items.reduce((s, i) => s + Number(i.balance || 0), 0) > 0
+                                            ? 'text-[var(--icon-red-text)]'
+                                            : 'text-[var(--icon-green-text)]'
+                                        )}>
+                                          {formatCurrency(items.reduce((s, i) => s + Number(i.balance || 0), 0))}
+                                        </td>
+                                        <td />
+                                      </tr>
+                                    </tfoot>
+                                  </table>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ) : null}
-                    </div>
-                  )}
+
+                        {/* 4-up summary bar */}
+                        {totals && (
+                          <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
+                            <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-[var(--border-color)] text-sm">
+                              <div className="p-3">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Subtotal</p>
+                                <p className="mt-0.5 font-semibold text-[var(--text-primary)] tabular-nums">{formatCurrency(totals.subtotal)}</p>
+                              </div>
+                              {!isCashPayment && (
+                                <div className="p-3">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Insurance covered</p>
+                                  <p className="mt-0.5 font-semibold text-[var(--icon-green-text)] tabular-nums">– {formatCurrency(totals.insuranceCovered)}</p>
+                                </div>
+                              )}
+                              <div className="p-3">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Patient payable</p>
+                                <p className="mt-0.5 font-semibold text-[var(--text-primary)] tabular-nums">{formatCurrency(totals.patientPayable)}</p>
+                              </div>
+                              <div className={cn(
+                                'p-3',
+                                totals.balance > 0 ? 'bg-[var(--icon-red-bg)]/30' : 'bg-[var(--icon-green-bg)]/30'
+                              )}>
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Balance due</p>
+                                <p className={cn(
+                                  'mt-0.5 font-bold tabular-nums',
+                                  totals.balance > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'
+                                )}>
+                                  {formatCurrency(totals.balance)}
+                                </p>
+                              </div>
+                            </div>
+                            {!isCashPayment && selectedBill.InsuranceProvider && (
+                              <div className="flex items-center gap-2 px-3 py-2 border-t border-[var(--border-color)] text-[11px] text-[var(--text-secondary)]">
+                                <Shield className="w-3 h-3 text-[var(--icon-cyan-text)] flex-shrink-0" />
+                                <span>
+                                  <span className="font-medium text-[var(--text-primary)]">{selectedBill.InsuranceProvider.name}</span>
+                                  {' · '}
+                                  {selectedBill.InsuranceProvider.coveragePercentage}% coverage
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center text-sm text-[var(--text-tertiary)]">
+                        Preparing items...
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -1225,6 +1218,7 @@ export default function PatientBillingItems() {
           />
         </>
       )}
+
       {/* ── Fixed bottom pay dock ───────────────────────────────────── */}
       {canMakePayment && selectedItems.size > 0 && (
         <div
