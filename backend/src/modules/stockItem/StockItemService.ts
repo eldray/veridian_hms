@@ -488,7 +488,7 @@ export class StockItemService extends BaseService {
 
     return {
       summary: { totalWithExpiry: stockItems.length, expiringSoon: expiringSoon.length, expired: expired.length, healthy: healthy.length, expiringValue, expiringBatches: expiringBatches.length },
-      expiringSoon: expiringSoon.slice(0, 50), expired: expired.slice(0, 50), expiringBatches: expiringBatches.slice(0, 50), reportPeriod: safeDays
+      expiringSoon, expired, expiringBatches, reportPeriod: safeDays
     };
   }
 
