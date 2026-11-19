@@ -103,7 +103,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     const [patient, attendance, vaccine] = await Promise.all([
       prisma.patient.findUnique({ where: { id: patientId }, select: { id: true } }),
       prisma.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, patientId: true, attendanceType: true } }),
-      prisma.vaccine.findUnique({ where: { id: vaccineId }, select: { id: true, isActive: true, stockItemId: true, StockItem: { select: { id: true, name: true, category: true, isActive: true } } } })
+      prisma.vaccine.findUnique({ where: { id: vaccineId }, select: { id: true, code: true, isActive: true, stockItemId: true, StockItem: { select: { id: true, name: true, category: true, isActive: true } } } })
     ]);
     if (!patient) return res.status(404).json({ success: false, message: 'Patient not found.' });
     if (!attendance || attendance.patientId !== patientId) return res.status(400).json({ success: false, message: 'Attendance must belong to the selected patient.' });
