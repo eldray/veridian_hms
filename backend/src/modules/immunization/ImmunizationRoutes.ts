@@ -171,6 +171,30 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     return res.status(201).json({ success: true, data: record });
   });
 
+  // Clinical immunization register: a date-filtered line list for facility review
+  // and export. This is not an EPI coverage calculation; denominators and reporting
+  // definitions must be configured against the facility's approved reporting standard.
+  router.get('/records/register', requireRole(readRoles), async (req: Request, res: Response) => {
+    const from = req.query.from ? new Date(String(req.query.from)) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const to = req.query.to ? new Date(String(req.query.to)) : new Date();
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) {
+      return res.status(400).json({ success: false, message: 'Valid administration date range is required.' });
+    }
+    const records = await prisma.immunizationRecord.findMany({
+      where: { administeredAt: { gte: from, lte: to } },
+      include: {
+        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, sex: true } },
+        Vaccine: { select: { id: true, code: true, name: true } },
+        Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
+        AdministeredBy: { select: { id: true, fullName: true } },
+        RecordedBy: { select: { id: true, fullName: true } },
+        StockTransaction: { select: { id: true, transactionType: true, quantity: true, batchAllocations: true } }
+      },
+      orderBy: [{ administeredAt: 'asc' }, { createdAt: 'asc' }]
+    });
+    return res.json({ success: true, data: records, meta: { count: records.length, from: from.toISOString(), to: to.toISOString() } });
+  });
+
   router.get('/records/due', requireRole(readRoles), async (req: Request, res: Response) => {
     const from = req.query.from ? new Date(String(req.query.from)) : new Date();
     const to = req.query.to ? new Date(String(req.query.to)) : new Date(Date.now() + 30 * 86400000);
