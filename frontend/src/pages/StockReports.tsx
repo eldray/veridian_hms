@@ -532,7 +532,7 @@ export default function StockReports() {
 
     switch (selectedReport) {
       case 'stock-status': {
-        const low = reportData.lowStockItems || [];
+        const low = Array.isArray(reportData.lowStockItemDetails) ? reportData.lowStockItemDetails : (reportData.items || []).filter((item: any) => Number(item.currentStock || 0) <= Number(item.reorderLevel || 0));
         const byCat = reportData.byCategory || {};
         const transferIssueItems = (reportData.items || []).filter((item: any) =>
           Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0
@@ -579,6 +579,36 @@ export default function StockReports() {
                   reorderLevel: i.reorderLevel,
                   cost: `₵${Number(i.costPrice || 0).toFixed(2)}`,
                 }))}
+              />
+            </section>
+            <section className="mb-4">
+              <SectionHeader icon={Boxes} title="All Stock Items" count={(reportData.items || []).length} />
+              <ReportTable
+                caption="Current stock position for all active inventory items"
+                empty="No active stock items found"
+                searchable
+                pageSize={25}
+                columns={[
+                  { key: 'name', label: 'Item', sortable: true },
+                  { key: 'category', label: 'Category', sortable: true },
+                  { key: 'stock', label: 'Current Stock', align: 'center', sortable: true },
+                  { key: 'reorder', label: 'Reorder Level', align: 'center', sortable: true },
+                  { key: 'status', label: 'Status', sortable: true },
+                  { key: 'value', label: 'Stock Value', align: 'right', sortable: true },
+                ]}
+                rows={(reportData.items || []).map((item: any) => {
+                  const quantity = Number(item.currentStock || 0);
+                  const reorder = Number(item.reorderLevel || 0);
+                  const status = quantity <= 0 ? 'Out of stock' : quantity <= reorder ? 'Low stock' : 'In stock';
+                  return {
+                    name: <span className="font-medium">{item.name}</span>,
+                    category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                    stock: quantity,
+                    reorder,
+                    status: <span className="font-semibold" style={{ color: quantity <= 0 ? 'var(--icon-red-text)' : quantity <= reorder ? 'var(--icon-yellow-text)' : 'var(--icon-green-text)' }}>{status}</span>,
+                    value: `₵${Number(item.totalValue || 0).toFixed(2)}`,
+                  };
+                })}
               />
             </section>
             {Object.keys(byCat).length > 0 && (
@@ -680,35 +710,54 @@ export default function StockReports() {
         );
       }
 
-      case 'expiry':
+      case 'expiry': {
+        const batchRows = (items: any[], status: string) => items.flatMap((item: any) => {
+          const batches = (item.StockBatch || []).filter((batch: any) => Number(batch.quantity) > 0);
+          if (batches.length) return batches.map((batch: any) => ({
+            key: `${item.id}-${batch.batchNumber}-${batch.expiryDate}`,
+            name: item.name, category: item.category, batch: batch.batchNumber || '—',
+            expiryDate: batch.expiryDate, quantity: batch.quantity, status,
+          }));
+          return item.expiryDate ? [{
+            key: item.id, name: item.name, category: item.category, batch: 'Legacy item expiry',
+            expiryDate: item.expiryDate, quantity: item.currentStock, status,
+          }] : [];
+        });
+        const expiringRows = [
+          ...(reportData.expiringBatches || []).map((batch: any) => ({
+            key: batch.id, name: batch.stockItem?.name || 'Unknown item', category: batch.stockItem?.category || '',
+            batch: batch.batchNumber || '—', expiryDate: batch.expiryDate, quantity: batch.quantity, status: 'Expiring soon',
+          })),
+          ...batchRows((reportData.expiringSoon || []).filter((item: any) => !(item.StockBatch || []).length), 'Expiring soon'),
+        ];
+        const expiredRows = batchRows(reportData.expired || [], 'Expired');
+        const expiryColumns = [
+          { key: 'name', label: 'Item', sortable: true },
+          { key: 'category', label: 'Category', sortable: true },
+          { key: 'batch', label: 'Batch', sortable: true },
+          { key: 'expiry', label: 'Expiry Date', sortable: true },
+          { key: 'quantity', label: 'Quantity', align: 'center' as const, sortable: true },
+        ];
+        const toRows = (rows: any[]) => rows.map((item: any) => ({
+          name: <span className="font-medium">{item.name}</span>,
+          category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+          batch: item.batch,
+          expiry: <span className="whitespace-nowrap">{item.expiryDate ? new Date(item.expiryDate).toLocaleDateString() : '—'}</span>,
+          quantity: item.quantity,
+        }));
         return (
-          <section>
-            <SectionHeader icon={Calendar} title={`Expiring within ${reportData.reportPeriod || 30} days`} accent="yellow" count={(reportData.expiringSoon || []).length} />
-            <ReportTable
-              caption="Items expiring soon"
-              empty="No items expiring in this window"
-              searchable
-              columns={[
-                { key: 'name', label: 'Item', sortable: true },
-                { key: 'category', label: 'Category', sortable: true },
-                { key: 'expiry', label: 'Expiry Date', sortable: true },
-                { key: 'stock', label: 'Stock', align: 'center', sortable: true },
-              ]}
-              rows={(reportData.expiringSoon || []).map((i: any) => ({
-                name: <span className="font-medium">{i.name}</span>,
-                category: <span className="capitalize">{i.category}</span>,
-                expiry: (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                    style={{ background: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' }}>
-                    <Clock className="w-2.5 h-2.5" />
-                    {new Date(i.expiryDate).toLocaleDateString()}
-                  </span>
-                ),
-                stock: i.currentStock,
-              }))}
-            />
-          </section>
+          <>
+            <section className="mb-4">
+              <SectionHeader icon={Calendar} title={`Expiring within ${reportData.reportPeriod || 30} days`} accent="yellow" count={expiringRows.length} />
+              <ReportTable caption="Expiring stock by batch" empty="No stock batches are expiring in this window" searchable pageSize={25} columns={expiryColumns} rows={toRows(expiringRows)} />
+            </section>
+            <section>
+              <SectionHeader icon={AlertTriangle} title="Already Expired Stock" accent="red" count={expiredRows.length} />
+              <ReportTable caption="Expired stock by batch" empty="No expired stock with a remaining quantity was found" searchable pageSize={25} columns={expiryColumns} rows={toRows(expiredRows)} />
+            </section>
+          </>
         );
+      }
 
       case 'supplier':
         return (
@@ -760,6 +809,7 @@ export default function StockReports() {
 
       case 'requisition': {
         const byDept = reportData.byDepartment || [];
+        const recent = reportData.recentRequisitions || [];
         const byStatus = reportData.summary?.byStatus || {};
         return (
           <>
@@ -790,6 +840,33 @@ export default function StockReports() {
                       {d.total > 0 ? `${Math.round((d.fulfilled / d.total) * 100)}%` : '0%'}
                     </span>
                   ),
+                }))}
+              />
+            </section>
+            <section className="mb-4">
+              <SectionHeader icon={FileText} title="Recent requisitions" accent="purple" count={recent.length} />
+              <ReportTable
+                caption="Most recent stock requisitions"
+                empty="No requisitions found for this period"
+                searchable
+                pageSize={20}
+                columns={[
+                  { key: 'number', label: 'Requisition', sortable: true },
+                  { key: 'department', label: 'Department', sortable: true },
+                  { key: 'date', label: 'Date', sortable: true },
+                  { key: 'status', label: 'Status', sortable: true },
+                  { key: 'urgency', label: 'Urgency', sortable: true },
+                  { key: 'items', label: 'Items', align: 'center', sortable: true },
+                  { key: 'requestedBy', label: 'Requested By', sortable: true },
+                ]}
+                rows={recent.map((item: any) => ({
+                  number: <span className="font-medium">{item.requisitionNumber}</span>,
+                  department: item.department || 'Unassigned',
+                  date: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—',
+                  status: <span className="capitalize">{item.status}</span>,
+                  urgency: <span className="capitalize">{item.urgency}</span>,
+                  items: item.itemCount || 0,
+                  requestedBy: item.requestedBy || '—',
                 }))}
               />
             </section>
