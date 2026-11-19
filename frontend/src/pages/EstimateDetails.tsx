@@ -13,6 +13,8 @@ import { useEstimatesStore, type EstimateStatus } from '../store/estimatesStore'
 import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { getPatientName } from '../utils/patient';
+import PatientAvatar from '../components/patients/PatientAvatar';
+import UserAvatar from '../components/users/UserAvatar';
 import { openPrintWindow } from '../utils/pdfGenerator';
 import {
   Send, CheckCircle, XCircle, FileText, Printer, Receipt, Loader, Briefcase,
@@ -199,6 +201,7 @@ export default function EstimateDetails() {
               <p className="text-[15px] font-bold tracking-[3px] uppercase" style={{ color: 'var(--icon-cyan-text)' }}>Proforma Invoice</p>
               <p className="text-base font-semibold mt-2">{est.referenceNumber}</p>
               <p className="mt-1.5"><Badge tone={estimateBadgeTone(est.status)} dot size="sm">{humanStatus(est.status)}</Badge></p>
+              {est.createdBy?.fullName && <div className="mt-3 flex items-center justify-end gap-2 text-xs text-[var(--text-secondary)]"><UserAvatar imageUrl={est.createdBy.imageUrl} name={est.createdBy.fullName} size="xs" />Prepared by {est.createdBy.fullName}</div>}
             </div>
           </div>
 
@@ -206,8 +209,7 @@ export default function EstimateDetails() {
           <div className="flex justify-between gap-6 my-7 text-sm">
             <div>
               <p className="text-[11px] tracking-[2px] text-[var(--text-tertiary)]">BILL TO</p>
-              <p className="text-base font-semibold mt-1.5">{est.patient ? getPatientName(est.patient) : 'Walk-in client'}</p>
-              <p className="text-[var(--text-secondary)] mt-0.5">Folder: {est.patient?.folderNumber || '—'}</p>
+              <div className="flex items-center gap-3 mt-1.5">{est.patient && <PatientAvatar patient={est.patient} size="lg" className="rounded-xl" />}<div><p className="text-base font-semibold">{est.patient ? getPatientName(est.patient) : 'Walk-in client'}</p><p className="text-[var(--text-secondary)] text-xs mt-0.5">Folder: {est.patient?.folderNumber || '—'}</p></div></div>
               {est.corporateAccount && <p className="text-[var(--text-secondary)] mt-1.5"><span className="font-medium text-[var(--text-primary)]">Corporate:</span> {est.corporateAccount.companyName}</p>}
             </div>
             <div className="text-right shrink-0">
