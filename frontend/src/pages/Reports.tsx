@@ -688,7 +688,7 @@ export default function Reports() {
       <div className="space-y-4">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard label="Doses administered" value={count(summary.totalDoses)} icon={Baby} accent="purple" />
-          <StatCard label="Children vaccinated" value={count(summary.uniqueChildren)} icon={Users} accent="cyan" />
+          <StatCard label="Patients vaccinated" value={count(summary.uniquePatients)} icon={Users} accent="cyan" />
           <StatCard label="Overdue follow-ups" value={count(summary.overdueFollowUps)} icon={Calendar} accent="orange" />
           <StatCard label="Adverse reactions recorded" value={count(summary.adverseReactions)} icon={AlertTriangle} accent="red" />
         </div>
@@ -702,7 +702,7 @@ export default function Reports() {
               <tbody className="divide-y divide-[var(--border-color)]">
                 {vaccines.map((v: any) => <tr key={v.vaccineId}>
                   <td className={TEXT_TD}><div className="font-semibold">{v.vaccine}</div><div className="text-[10px] text-[var(--text-tertiary)]">{v.code}</div></td>
-                  <td className={NUM_TD_BOLD}>{count(v.doses)}</td><td className={NUM_TD}>{count(v.uniqueChildren)}</td>
+                  <td className={NUM_TD_BOLD}>{count(v.doses)}</td><td className={NUM_TD}>{count(v.uniquePatients)}</td>
                   <td className={NUM_TD}>{count(v.ageGroups?.['<1 year'])}</td><td className={NUM_TD}>{count(v.ageGroups?.['1–4 years'])}</td>
                   <td className={NUM_TD}>{count(v.ageGroups?.['5–14 years'])}</td><td className={NUM_TD}>{count(v.ageGroups?.['15+ years'])}</td>
                 </tr>)}
@@ -710,7 +710,7 @@ export default function Reports() {
               </tbody>
               <tfoot className="border-t-2 border-[var(--border-color)] bg-[var(--bg-main)]"><tr>
                 <td className={TEXT_TD}>TOTAL</td><td className={NUM_TD_BOLD}>{count(summary.totalDoses)}</td>
-                <td className={NUM_TD_BOLD}>{count(summary.uniqueChildren)}</td>
+                <td className={NUM_TD_BOLD}>{count(summary.uniquePatients)}</td>
                 {['<1 year','1–4 years','5–14 years','15+ years'].map(age => <td key={age} className={NUM_TD_BOLD}>{count(report.byAgeGroup?.[age])}</td>)}
               </tr></tfoot>
             </table>
@@ -955,7 +955,7 @@ export default function Reports() {
       { title: 'Medication activity', data: monthlyOverview.medications, rows: [['Items dispensed', ['summary.totalDispensed','totalDispensed','summary.totalItems','totalItems']]] },
       { title: 'Insurance claims', data: monthlyOverview.claims, rows: [['Claims', ['summary.totalClaims','totalClaims']], ['Claimed amount', ['summary.totalClaimAmount','totalClaimAmount'], true], ['Outstanding', ['summary.outstandingAmount','outstandingAmount'], true]] },
       { title: 'Stock movement', data: monthlyOverview.stock, rows: [['Transactions', ['summary.totalTransactions','totalTransactions']], ['Units in', ['summary.totalIn','totalIn']], ['Units out', ['summary.totalOut','totalOut']]] },
-      { title: 'EPI / Immunization', data: monthlyOverview.epi, rows: [['Vaccine doses administered', ['summary.totalDoses']], ['Children vaccinated', ['summary.uniqueChildren']], ['Overdue follow-ups', ['summary.overdueFollowUps']], ['Adverse reactions recorded', ['summary.adverseReactions']]] },
+      { title: 'EPI / Immunization', data: monthlyOverview.epi, rows: [['Vaccine doses administered', ['summary.totalDoses']], ['Patients vaccinated', ['summary.uniqueChildren']], ['Overdue follow-ups', ['summary.overdueFollowUps']], ['Adverse reactions recorded', ['summary.adverseReactions']]] },
       { title: 'Maternal health / ANC', data: monthlyOverview.maternalFormA, rows: [
         ['New ANC registrants', [], false, 'New ANC registrants'],
         ['ANC attendances', [], false, 'Total ANC attendances (all visits)'],
