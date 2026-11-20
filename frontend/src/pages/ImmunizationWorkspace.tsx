@@ -45,13 +45,16 @@ const isCompleted = (status?: string) =>
   ['completed', 'complete', 'closed', 'discharged'].includes(normalizedStatus(status));
 const isInProgress = (status?: string) =>
   ['in_progress', 'attending', 'processing'].includes(normalizedStatus(status));
+type QueueTab = 'pending' | 'completed';
 
 export default function ImmunizationWorkspace() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState<QueueTab>('pending');
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [completingId, setCompletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -72,24 +75,45 @@ export default function ImmunizationWorkspace() {
 
   useEffect(() => { void loadWaitingList(); }, []);
 
-  const queue = useMemo(() => {
+  const filteredVisits = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return visits;
-    return visits.filter(visit => [
+    return visits.filter(visit => !term || [
       visit.Patient?.otherNames, visit.Patient?.surname, patientName(visit.Patient),
       visit.Patient?.folderNumber, visit.Patient?.phoneNumber, visit.attendanceNumber,
     ].some(value => String(value ?? '').toLowerCase().includes(term)));
   }, [visits, search]);
 
+  const pendingVisits = useMemo(() => filteredVisits
+    .filter(visit => !isCompleted(visit.status))
+    .sort((a, b) => new Date(a.dateTime || 0).getTime() - new Date(b.dateTime || 0).getTime()), [filteredVisits]);
+  const completedVisits = useMemo(() => filteredVisits
+    .filter(visit => isCompleted(visit.status))
+    .sort((a, b) => new Date(b.dateTime || 0).getTime() - new Date(a.dateTime || 0).getTime()), [filteredVisits]);
+  const queue = activeTab === 'pending' ? pendingVisits : completedVisits;
+
   useEffect(() => { setCurrentPage(1); }, [search]);
   const totalPages = Math.ceil(queue.length / itemsPerPage);
   const paginatedVisits = queue.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const completedCount = queue.filter(visit => isCompleted(visit.status)).length;
-  const inProgressCount = queue.filter(visit => isInProgress(visit.status)).length;
-  const waitingCount = queue.length - completedCount - inProgressCount;
+  const completedCount = filteredVisits.filter(visit => isCompleted(visit.status)).length;
+  const inProgressCount = filteredVisits.filter(visit => isInProgress(visit.status)).length;
+  const waitingCount = filteredVisits.filter(visit => !isCompleted(visit.status) && !isInProgress(visit.status)).length;
 
   const openEntries = (visit: Visit) => {
     if (visit.Patient?.id) navigate('/dashboard/immunization/entries/' + visit.Patient.id);
+  };
+
+  const markCompleted = async (visit: Visit) => {
+    setCompletingId(visit.id);
+    setError('');
+    try {
+      await api.patch(`/immunization/attendances/${visit.id}/complete`);
+      await loadWaitingList();
+      setActiveTab('pending');
+    } catch (e: any) {
+      setError(e.response?.data?.message || e.message || 'Could not complete this immunization visit.');
+    } finally {
+      setCompletingId(null);
+    }
   };
 
   const pageHeader = (
@@ -127,7 +151,7 @@ export default function ImmunizationWorkspace() {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Patients" value={queue.length} icon={Users} accent="cyan" />
+        <StatCard label="Total Visits" value={filteredVisits.length} icon={Users} accent="cyan" />
         <StatCard label="Waiting" value={waitingCount} icon={Clock} accent="orange" />
         <StatCard label="In Progress" value={inProgressCount} icon={UserCheck} accent="purple" />
         <StatCard label="Completed" value={completedCount} icon={CheckCircle} accent="green" />
@@ -141,8 +165,19 @@ export default function ImmunizationWorkspace() {
         />
       </Card>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant={activeTab === 'pending' ? 'primary' : 'outline'} accent="orange"
+          onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}>
+          Pending ({pendingVisits.length})
+        </Button>
+        <Button size="sm" variant={activeTab === 'completed' ? 'primary' : 'outline'} accent="green"
+          onClick={() => { setActiveTab('completed'); setCurrentPage(1); }}>
+          Completed ({completedVisits.length})
+        </Button>
+      </div>
+
       <Card
-        title={`Immunization Waiting List (${queue.length} patients)`}
+        title={`${activeTab === 'pending' ? 'Pending' : 'Completed'} Immunization Visits (${queue.length})`}
         description="Select a patient to record vaccines and review their immunization history"
         icon={Syringe}
         accent="cyan"
@@ -159,8 +194,8 @@ export default function ImmunizationWorkspace() {
             ) : (
               <>
                 <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
-                <p className="text-[var(--text-secondary)]">{search ? 'No patients match your search' : 'No patients on the immunization waiting list'}</p>
-                <p className="text-sm text-[var(--text-tertiary)] mt-1">New immunization attendances will appear here</p>
+                <p className="text-[var(--text-secondary)]">{search ? 'No patients match your search' : activeTab === 'pending' ? 'No pending immunization visits' : 'No completed immunization visits'}</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">New immunization attendances will appear in Pending</p>
               </>
             )}
           </div>
@@ -206,11 +241,21 @@ export default function ImmunizationWorkspace() {
                         </Badge>
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <Button size="sm" variant="soft" accent="cyan" icon={ArrowRight} className="mx-auto"
-                          disabled={!patient?.id}
-                          onClick={(event) => { event.stopPropagation(); openEntries(visit); }}>
-                          Open Entries
-                        </Button>
+                        <div className="flex flex-wrap justify-center gap-1.5">
+                          <Button size="sm" variant="soft" accent="cyan" icon={ArrowRight}
+                            disabled={!patient?.id}
+                            onClick={(event) => { event.stopPropagation(); openEntries(visit); }}>
+                            {activeTab === 'completed' ? 'View Entries' : 'Open Entries'}
+                          </Button>
+                          {activeTab === 'pending' && (
+                            <Button size="sm" variant="outline" icon={CheckCircle}
+                              loading={completingId === visit.id}
+                              disabled={!!completingId}
+                              onClick={(event) => { event.stopPropagation(); void markCompleted(visit); }}>
+                              Mark Completed
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -222,7 +267,7 @@ export default function ImmunizationWorkspace() {
       </Card>
 
       <Pagination page={currentPage} totalPages={totalPages} itemsPerPage={itemsPerPage}
-        totalItems={queue.length} noun="patients" onChange={setCurrentPage} />
+        totalItems={queue.length} noun="visits" onChange={setCurrentPage} />
     </div>
   );
 }
