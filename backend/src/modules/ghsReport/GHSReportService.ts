@@ -683,7 +683,7 @@ export class GHSReportService extends BaseService {
       const gender = String(record.Patient.gender || '').toLowerCase();
       const bucket = byVaccine[key] ||= {
         vaccineId: key, code: vaccine.code, vaccine: vaccine.name, diseaseTargets: vaccine.diseaseTargets,
-        doses: 0, uniqueChildren: 0, ageGroups: { '<1 year': 0, '1–4 years': 0, '5–14 years': 0, '15+ years': 0 },
+        doses: 0, uniquePatients: 0, ageGroups: { '<1 year': 0, '1–4 years': 0, '5–14 years': 0, '15+ years': 0 },
         doseNumbers: {}, scheduleConfigured: vaccine.doseSchedule != null,
       };
       bucket.doses++;
@@ -702,13 +702,13 @@ export class GHSReportService extends BaseService {
       }
     }
     for (const bucket of Object.values(byVaccine) as any[]) {
-      bucket.uniqueChildren = records.filter(r => r.vaccineId === bucket.vaccineId).reduce((set: Set<string>, r) => set.add(r.patientId), new Set<string>()).size;
+      bucket.uniquePatients = records.filter(r => r.vaccineId === bucket.vaccineId).reduce((set: Set<string>, r) => set.add(r.patientId), new Set<string>()).size;
     }
     return {
       available: true,
       period: { startDate, endDate: end },
       summary: {
-        totalDoses: records.length, uniqueChildren: children.size, vaccinesUsed: Object.keys(byVaccine).length,
+        totalDoses: records.length, uniquePatients: children.size, vaccinesUsed: Object.keys(byVaccine).length,
         overdueFollowUps, upcomingFollowUps, adverseReactions, batchesUsed: batchNumbers.size,
       },
       byVaccine: Object.values(byVaccine).sort((a: any, b: any) => b.doses - a.doses),
