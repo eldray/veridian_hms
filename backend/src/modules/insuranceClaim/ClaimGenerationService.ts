@@ -345,7 +345,7 @@ export async function buildBillClaimItems(
       serviceCatalog: line.serviceCatalogId ? { connect: { id: line.serviceCatalogId } } : undefined,
       itemCategory: mapBillServiceType(line.serviceType),
       itemType: null,
-      code: line.serviceCatalog?.code ?? '',
+      code: line.serviceCatalog?.nhisServiceCode ?? line.serviceCatalog?.code ?? '',
       description: line.description,
       quantity: line.quantity,
       unitPrice: line.unitPrice,
