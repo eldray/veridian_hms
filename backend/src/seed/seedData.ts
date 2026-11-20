@@ -169,7 +169,11 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('   - Stock Items');
     console.log('   - Wards & Beds');
 
-    const coreResult = await safeSeed('Core Data', () => seedCoreData(force), force, 'coreData', status);
+    const productionProfile = process.env.NODE_ENV === 'production' || process.env.ELECTRON === 'true';
+    const coreSeedOptions = productionProfile
+      ? { profile: 'production' as const, adminPassword: process.env.SEED_ADMIN_PASSWORD }
+      : {};
+    const coreResult = await safeSeed('Core Data', () => seedCoreData(force, coreSeedOptions), force, 'coreData', status);
     results.coreData = coreResult;
 
     // Force mode may continue to later seed stages, but it must never hide a
@@ -212,9 +216,15 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('   - Notifications');
     if (force) console.log('   - Force mode: the demo dataset from the previous run is deleted and written again');
 
-    const testResult = await safeSeed('Test Data', () => seedTestData(force), force, 'testData', status);
-    results.testData = testResult;
-    if (!testResult.success) results.errors.push(`Test data: ${testResult.error || 'failed'}`);
+    if (productionProfile) {
+      console.log('🛡️ Production profile: demo/test patients and encounters are intentionally excluded.');
+      results.testData = { success: true, data: { skipped: true, reason: 'production profile' } };
+      status.testData = false;
+    } else {
+      const testResult = await safeSeed('Test Data', () => seedTestData(force), force, 'testData', status);
+      results.testData = testResult;
+      if (!testResult.success) results.errors.push(`Test data: ${testResult.error || 'failed'}`);
+    }
 
     // ========== SUMMARY ==========
     console.log('\n==================================================');
@@ -232,12 +242,16 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('\nSummary:');
     // A step that skipped is not a step that wrote, so report the skip before the success.
     const describe = (result: any, verb: string) =>
-      result?.data?.skipped ? '⏭️ already existed, nothing written' : result?.success ? `✅ ${verb}` : '❌ failed';
+      result?.data?.skipped
+        ? (result.data.reason === 'production profile' ? '⏭️ excluded by production safety' : '⏭️ already existed, nothing written')
+        : result?.success ? `✅ ${verb}` : '❌ failed';
     console.log(`   Core Data         : ${describe(results.coreData, 'seeded')}`);
     console.log(`   Diagnosis Links   : ${describe(results.diagnosisLinks, 'created')}`);
     console.log(`   Procedure Links   : ${describe(results.procedureLinks, 'created')}`);
     console.log(`   Test Data         : ${describe(results.testData, 'seeded')}`);
-    if (results.testData?.data?.skipped) {
+    if (results.testData?.data?.reason === 'production profile') {
+      console.log('   ℹ️ Demo/test records are intentionally not written to production databases.');
+    } else if (results.testData?.data?.skipped) {
       console.log('   ℹ️ The demo dataset is already in this database. To write it again: npm run seed -- --force');
     }
 
