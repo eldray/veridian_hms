@@ -1018,29 +1018,26 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     // names and strengths (e.g. "500mg" vs "500 mg") so an NHIS reference row can
     // re-key the existing local stock row instead of creating a second medicine.
     const normalizeIdentityPart = (value: unknown) => String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const stockIdentityKey = (item: any) => [
+    const stockIdentityKey = (item: any, isMedication = item.isMedication !== false) => [
       normalizeIdentityPart(item.name),
       normalizeIdentityPart(item.strength || 'N/A'),
       normalizeIdentityPart(item.unitOfMeasure || 'units'),
+      isMedication ? 'medication' : 'consumable',
     ].join('|');
-    // Resolve local catalogue rows to the official NHIS code before processing
-    // either file. This makes the seed stable on the first run and every rerun.
-    const nhisCodeByIdentity = new Map<string, string>();
+    // NHIS may contain separately priced entries with the same generic identity.
+    // Only map a local row automatically when there is exactly one official code.
+    const nhisCodesByIdentity = new Map<string, Set<string>>();
     const nhisSourceItems = readJSON('nhismedicines.json');
     if (Array.isArray(nhisSourceItems)) {
       for (const reference of nhisSourceItems) {
         if (!reference?.name || !reference?.drugCode) continue;
-        const identity = stockIdentityKey(reference);
-        const code = String(reference.drugCode).trim().toUpperCase();
-        const existingCode = nhisCodeByIdentity.get(identity);
-        if (existingCode && existingCode !== code) {
-          seedFailures.push(`NHIS source assigns conflicting codes ${existingCode} and ${code} to the same medicine identity (${reference.name}).`);
-        } else {
-          nhisCodeByIdentity.set(identity, code);
-        }
+        const identity = stockIdentityKey(reference, true);
+        const codes = nhisCodesByIdentity.get(identity) ?? new Set<string>();
+        codes.add(String(reference.drugCode).trim().toUpperCase());
+        nhisCodesByIdentity.set(identity, codes);
       }
     }
-    const stockIdentityMap = new Map<string, any>();
+    const stockIdentityMap = new Map<string, any[]>();
     // Patient prices per drugCode, taken from each item's own selling/insurance prices in the JSON files
     const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number; corporatePrice: number }>();
     // Keep NHIS reference rows separate from inventory pricing so payer rules can be reviewed independently.
@@ -1051,12 +1048,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     });
     for (const existing of existingStockItems) {
       if (existing.drugCode) usedDrugCodes.add(String(existing.drugCode).trim().toUpperCase());
-      const identity = stockIdentityKey(existing);
-      if (stockIdentityMap.has(identity) && stockIdentityMap.get(identity).id !== existing.id) {
-        seedFailures.push(`Multiple existing stock rows share the same medicine identity: ${existing.name} (${existing.strength}, ${existing.unitOfMeasure})`);
-      } else {
-        stockIdentityMap.set(identity, existing);
-      }
+      const identity = stockIdentityKey(existing, existing.isMedication);
+      stockIdentityMap.set(identity, [...(stockIdentityMap.get(identity) ?? []), existing]);
     }
     for (const sourceFile of stockFiles) {
       const sourceItems = readJSON(sourceFile);
@@ -1072,19 +1065,35 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         console.error(`❌ ${file} is missing, invalid, or empty`);
         continue;
       }
-      const isMedication = !file.includes('consumables');
-      console.log(`📦 Processing ${file} (${isMedication ? 'Medication' : 'Consumable'}) with ${items.length} items`);
+      console.log(`📦 Processing ${file} with ${items.length} source rows`);
 
       for (const item of items) {
         try {
+          const isMedication = item.isMedication ?? !file.includes('consumables');
           if (!item.name || (file === 'nhismedicines.json' && !item.drugCode)) throw new Error(file === 'nhismedicines.json' ? 'NHIS reference medicine is missing its official source drugCode; refusing to invent an NHIS code.' : 'Medicine/consumable is missing its name.');
-          const identity = stockIdentityKey(item);
-          const existingByIdentity = stockIdentityMap.get(identity) ?? null;
-          const nhisCanonicalCode = nhisCodeByIdentity.get(identity);
-          const existingGeneratedItem = !item.drugCode ? existingByIdentity : null;
-          const canonicalDrugCode = String(
-            nhisCanonicalCode || existingByIdentity?.drugCode || item.drugCode || existingGeneratedItem?.drugCode || generateFacilityDrugCode(item, usedDrugCodes)
-          ).trim().toUpperCase();
+          const identity = stockIdentityKey(item, isMedication);
+          const candidates = stockIdentityMap.get(identity) ?? [];
+          const nhisCodes = isMedication ? (nhisCodesByIdentity.get(identity) ?? new Set<string>()) : new Set<string>();
+          const uniqueNhisCode = nhisCodes.size === 1 ? [...nhisCodes][0] : null;
+          const isNhisSourceRow = file === 'nhismedicines.json';
+          let existingByIdentity = isNhisSourceRow
+            ? candidates.find((candidate) => candidate.drugCode === String(item.drugCode).trim().toUpperCase()) ?? null
+            : candidates.find((candidate) => candidate.drugCode === String(item.drugCode || '').trim().toUpperCase()) ?? null;
+
+          let canonicalDrugCode: string;
+          if (isNhisSourceRow) {
+            canonicalDrugCode = String(item.drugCode).trim().toUpperCase();
+          } else if (uniqueNhisCode) {
+            canonicalDrugCode = uniqueNhisCode;
+            if (!existingByIdentity) {
+              if (candidates.length === 1) existingByIdentity = candidates[0];
+              else if (candidates.length > 1) throw new Error(`Multiple existing stock rows match this NHIS medicine identity; refusing an unsafe merge to ${canonicalDrugCode}.`);
+            }
+          } else {
+            if (!existingByIdentity && candidates.length === 1) existingByIdentity = candidates[0];
+            if (!existingByIdentity && candidates.length > 1) throw new Error('Multiple existing stock rows share this local medicine/consumable identity; refusing an unsafe merge.');
+            canonicalDrugCode = String(existingByIdentity?.drugCode || item.drugCode || generateFacilityDrugCode(item, usedDrugCodes)).trim().toUpperCase();
+          }
           usedDrugCodes.add(canonicalDrugCode);
           const canonicalItem = { ...item, drugCode: canonicalDrugCode };
           if (!item.drugCode) {
@@ -1122,13 +1131,15 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             });
           }
           stockItemMap.set(canonicalDrugCode, stockItem);
-          stockIdentityMap.set(identity, {
+          const remainingCandidates = (stockIdentityMap.get(identity) ?? []).filter((candidate) => candidate.id !== stockItem.id);
+          stockIdentityMap.set(identity, [...remainingCandidates, {
             id: stockItem.id,
             drugCode: stockItem.drugCode,
             name: stockItem.name,
             strength: stockItem.strength,
             unitOfMeasure: stockItem.unitOfMeasure,
-          });
+            isMedication: stockItem.isMedication,
+          }]);
           if (file === 'nhismedicines.json') {
             nhisReferenceByDrugCode.set(canonicalDrugCode, canonicalItem);
           }
