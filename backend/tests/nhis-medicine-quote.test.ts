@@ -138,7 +138,7 @@ describe('the NHIS claim medicine quote', () => {
     expect(result.unclaimable[0].reason).toBe('has no NHIS tariff configured');
   });
 
-  it('quotes the NHIS share after the configured co-payment, not the full tariff', async () => {
+  it('marks a covered medicine unclaimable when a legacy positive co-payment rule remains configured', async () => {
     const { run } = quote(
       [dispensed('s1', 'Paracetamol Tablet 500mg', 4)],
       [rule('s1', { tariffPrice: 8, copaymentMode: 'percentage', copaymentPercentage: 25 })],
@@ -147,7 +147,8 @@ describe('the NHIS claim medicine quote', () => {
 
     const result = await run();
 
-    expect(result.medicines[0]).toMatchObject({ unitPrice: 6, lineTotal: 24 });
+    expect(result.medicines).toEqual([]);
+    expect(result.unclaimable[0].reason).toMatch(/NHIA does not permit a co-payment/i);
   });
 
   it('falls back to the active NHIS price when the payer rule carries no tariff', async () => {
