@@ -257,7 +257,7 @@ export default function RequisitionsPage() {
         stockItemId: item.stockItemId,
         quantityRequested: item.quantityRequested,
         purpose: item.purpose || '',
-        picked: null,
+        picked: item.StockItem ? { id: item.stockItemId, name: item.StockItem.name, drugCode: item.StockItem.drugCode || '', strength: '', category: '', unitOfMeasure: item.StockItem.unitOfMeasure || '', supplierQty: 0, requesterQty: 0, reorderLevel: item.StockItem.reorderLevel || 0 } : null,
       })),
     }));
     setShowForm(true);
@@ -1037,10 +1037,10 @@ export default function RequisitionsPage() {
                                 key={`${formData.supplyingDepartmentId}-${index}`}
                                 cacheOptions={false}
                                 defaultOptions
-                                isDisabled={!formData.supplyingDepartmentId}
+                                isDisabled={!!editingRequisition || !formData.supplyingDepartmentId}
                                 loadOptions={loadItemOptions}
                                 value={picked || null}
-                                isDisabled={!!editingRequisition}\n                                onChange={(sel) => updateRequisitionItem(index, {
+                                onChange={(sel) => updateRequisitionItem(index, {
                                   stockItemId: sel?.id || '',
                                   picked: sel || null,
                                 })}
