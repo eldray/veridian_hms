@@ -102,7 +102,7 @@ interface ProcessedBill {
     attendanceType: string;
     dateTime: string;
   };
-  InsuranceProvider?: { id: string; name: string; coveragePercentage: number };
+  InsuranceProvider?: { id: string; name: string; type?: string; coveragePercentage: number };
   /** Prisma relation names as the API returns them. */
   Payment?: BillPayment[];
   Refund?: BillRefund[];
@@ -1271,8 +1271,12 @@ export default function PatientBillingItems() {
                                 <Shield className="w-3 h-3 text-[var(--icon-cyan-text)] flex-shrink-0" />
                                 <span>
                                   <span className="font-medium text-[var(--text-primary)]">{selectedBill.InsuranceProvider.name}</span>
-                                  {' · '}
-                                  {selectedBill.InsuranceProvider.coveragePercentage}% coverage
+                                  {selectedBill.InsuranceProvider.type !== 'nhis' && (
+                                    <>
+                                      {' · '}
+                                      {selectedBill.InsuranceProvider.coveragePercentage}% coverage
+                                    </>
+                                  )}
                                 </span>
                               </div>
                             )}
