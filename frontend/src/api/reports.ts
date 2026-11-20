@@ -33,6 +33,11 @@ export const getGHSIDSRReport = async (params: ReportFilter) => {
   return response.data;
 };
 
+export const getGHSEPIReport = async (params: ReportFilter) => {
+  const response = await api.get('/ghs-reports/epi/stats', { params });
+  return response.data;
+};
+
 export const getGHSMalariaReport = async (params: ReportFilter) => {
   const response = await api.get('/ghs-reports/malaria', { params });
   return response.data;
@@ -148,6 +153,7 @@ export default {
   getGHSOPDReport,
   getGHSIPDReport,
   getGHSIDSRReport,
+  getGHSEPIReport,
   getGHSMalariaReport,
   getGHSFormAReport,
   getMorbidityMortalityReport,
