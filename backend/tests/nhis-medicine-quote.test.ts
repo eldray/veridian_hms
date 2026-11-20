@@ -188,7 +188,7 @@ describe('the NHIS claim medicine quote', () => {
         Medication: medicines.map((m) => ({
           ...m, dosage: null, frequency: null, duration: null,
           dispensedAt: serviceDate, serviceCatalogId: 'cat-s1',
-          StockItem: { id: 's1', drugCode: 'CODE-s1', name: m.name, unitOfMeasure: 'tablet' },
+          StockItem: { id: 's1', drugCode: 'CODE-s1', isNHISCovered: true, name: m.name, unitOfMeasure: 'tablet' },
         })),
       },
     };
