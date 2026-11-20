@@ -2,7 +2,7 @@
   {
     "name": "National Health Insurance Scheme (NHIS)",
     "type": "nhis",
-    "coveragePercentage": 50,
+    "coveragePercentage": 100,
     "phone": "+233302011122",
     "email": "claims@nhis.gov.gh",
     "address": "NHIS Headquarters, Accra",
