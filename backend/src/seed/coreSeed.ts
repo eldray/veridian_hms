@@ -1012,6 +1012,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     // Keep NHIS reference rows separate from inventory pricing so payer rules can be reviewed independently.
     const nhisReferenceByDrugCode = new Map<string, any>();
     const usedDrugCodes = new Set<string>();
+    const existingStockCodes = await prisma.stockItem.findMany({ select: { drugCode: true } });
+    for (const existing of existingStockCodes) if (existing.drugCode) usedDrugCodes.add(String(existing.drugCode).trim().toUpperCase());
     for (const sourceFile of stockFiles) {
       const sourceItems = readJSON(sourceFile);
       if (Array.isArray(sourceItems)) for (const sourceItem of sourceItems) {
@@ -1030,7 +1032,15 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
 
       for (const item of items) {
         try {
-          const canonicalDrugCode = String(item.drugCode || generateFacilityDrugCode(item, usedDrugCodes)).trim().toUpperCase();
+          const existingGeneratedItem = !item.drugCode ? await prisma.stockItem.findFirst({
+            where: {
+              name: String(item.name || '').trim(),
+              strength: String(item.strength || 'N/A').trim(),
+              unitOfMeasure: String(item.unitOfMeasure || 'units').trim(),
+            },
+            select: { drugCode: true },
+          }) : null;
+          const canonicalDrugCode = String(item.drugCode || existingGeneratedItem?.drugCode || generateFacilityDrugCode(item, usedDrugCodes)).trim().toUpperCase();
           usedDrugCodes.add(canonicalDrugCode);
           const canonicalItem = { ...item, drugCode: canonicalDrugCode };
           if (!item.drugCode) {
