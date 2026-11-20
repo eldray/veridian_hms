@@ -17,6 +17,7 @@ type Patient = {
   folderNumber?: string;
   phoneNumber?: string;
   age?: number;
+  dateOfBirth?: string;
   gender?: string;
   imageUrl?: string | null;
 };
@@ -31,6 +32,14 @@ type Visit = {
 
 const patientName = (patient?: Patient) =>
   [patient?.otherNames, patient?.surname].filter(Boolean).join(' ') || 'Patient';
+const patientAge = (patient?: Patient) => {
+  if (patient?.age != null) return patient.age;
+  if (!patient?.dateOfBirth) return undefined;
+  const dob = new Date(patient.dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return undefined;
+  const now = new Date();
+  return now.getFullYear() - dob.getFullYear() - (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate()) ? 1 : 0);
+};
 const normalizedStatus = (status?: string) => (status || 'pending').toLowerCase();
 const isCompleted = (status?: string) =>
   ['completed', 'complete', 'closed', 'discharged'].includes(normalizedStatus(status));
@@ -180,7 +189,7 @@ export default function ImmunizationWorkspace() {
                           <div>
                             <p className="font-medium text-[var(--text-primary)] text-sm">{patientName(patient)}</p>
                             <p className="text-xs text-[var(--text-secondary)]">
-                              {[patient?.age != null ? patient.age + ' years' : null, patient?.gender].filter(Boolean).join(' • ') || 'Patient'}
+                              {[patientAge(patient) != null ? patientAge(patient) + ' years' : null, patient?.gender].filter(Boolean).join(' • ') || 'Patient'}
                             </p>
                           </div>
                         </div>
