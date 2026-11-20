@@ -211,7 +211,6 @@ const addSchemaDefaults = (data: any, type: string) => {
         ...baseDefaults,
         name: data.name?.trim() || 'Unknown Item',
         drugCode: data.drugCode,
-        nhisServiceCode: data.nhisServiceCode || null,
         category: data.category || 'medication',
         description: data.description || '',
         strength: data.strength || 'N/A',
