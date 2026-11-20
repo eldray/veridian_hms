@@ -221,7 +221,7 @@ export async function fetchDoctorExtras() {
 
 export async function fetchRecordsExtras() {
   const [patsRes, apptsRes, refsRes] = await Promise.all([
-    safe(() => getPatients({ createdFrom: today(), limit: 100 }), [] as any),
+    safe(() => getPatients({ dateFrom: today(), dateTo: today(), limit: 1000 }), [] as any),
     safe(() => getAppointments({ date: today(), limit: 100 }), [] as any),
     safe(() => getReferrals({ status: 'pending', limit: 100 }), null as any),
   ]);
@@ -232,7 +232,7 @@ export async function fetchRecordsExtras() {
 
   const appointmentNoShows = appts.filter((a: any) => a.status === 'no_show').length;
   const pendingIncomingReferrals = refs.filter(
-    (r: any) => r.direction === 'incoming' && r.status === 'pending'
+    (r: any) => r.referralType === 'incoming' && r.status === 'pending'
   ).length;
 
   return {
