@@ -26,8 +26,9 @@ export const generateClaimBatchHTML = (batch: any, hospital: any): string => {
         { label: 'NHIS medications', categories: ['medicine'] },
       ]
     : [
+        { label: 'Consultations & services', categories: ['service'] },
+        { label: 'Procedures', categories: ['procedure'] },
         { label: 'Labs & imaging', categories: ['investigation'] },
-        { label: 'Services & procedures', categories: ['service', 'procedure'] },
         { label: 'Medications', categories: ['medicine'] },
       ];
 
