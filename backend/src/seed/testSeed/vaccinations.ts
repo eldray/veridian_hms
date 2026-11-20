@@ -51,7 +51,7 @@ export const seedVaccinationRecords = async (
   // make a partially completed seed safe to rerun without duplicating encounters.
   const attendanceNumbers = new Map<string, string>();
   const attendanceRows = eligible.map((patient, index) => {
-    const number = String(900000 + hashOf(`vaccination-visit-${patient.folderNumber}`) % 90000);
+    const number = String(900000 + index);
     attendanceNumbers.set(patient.id, number);
     const visitDate = new Date(Math.min(now.getTime(), Math.max(
       patient.dateOfBirth.getTime(),
