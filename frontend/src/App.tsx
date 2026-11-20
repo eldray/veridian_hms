@@ -31,6 +31,7 @@ const Billing = lazy(() => import('./pages/Billing'));
 const ScansEntry = lazy(() => import('./pages/ScansEntry'));
 const FamilyPlanning = lazy(() => import('./pages/FamilyPlanning'));
 const ImmunizationWorkspace = lazy(() => import('./pages/ImmunizationWorkspace'));
+const ImmunizationEntries = lazy(() => import('./pages/ImmunizationEntries'));
 const Inventory = lazy(() => import('./pages/Inventory'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Laboratory = lazy(() => import('./pages/Laboratory'));
@@ -217,6 +218,7 @@ function App() {
           <Route path="vitals/:id"      element={<ProtectedRoute><VitalsEntry /></ProtectedRoute>} />
           <Route path="family-planning" element={<ProtectedRoute><FamilyPlanning /></ProtectedRoute>} />
           <Route path="immunization" element={<ProtectedRoute><ImmunizationWorkspace /></ProtectedRoute>} />
+          <Route path="immunization/entries/:patientId" element={<ProtectedRoute><ImmunizationEntries /></ProtectedRoute>} />
 
           {/* Waiting List Pages */}
           <Route path="medical-waiting-list"  element={<ProtectedRoute><MedicalWaitingList /></ProtectedRoute>} />
