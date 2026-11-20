@@ -1698,13 +1698,13 @@ export default function MedicalEntries() {
             }
           />
 
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4"
+          <div className="flex flex-wrap items-stretch gap-2 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4"
             style={{ boxShadow: 'var(--shadow-sm)' }}>
             <AllergyBanner
               patientId={selectedPatientId}
               allergies={selectedPatient?.allergies}
               allergyReviewStatus={allergyReviewStatus}
-              className="mt-3"
+              className="min-w-0 flex-1 basis-[320px]"
             />
             {(
               (selectedPatient?.allergies?.length || 0) > 0 ||
@@ -1713,7 +1713,7 @@ export default function MedicalEntries() {
               (selectedPatient?.familyHistories?.length || 0) > 0 ||
               selectedPatient?.additionalInfo?.bloodType
             ) && (
-              <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
+              <div className="min-w-0 flex-1 basis-[320px] rounded-lg border px-4 py-3" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
                 <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
                   <AlertTriangle className="h-3.5 w-3.5 text-[var(--icon-yellow-text)]" />
                   Medical history
