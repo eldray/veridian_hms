@@ -97,7 +97,8 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
     typeof scan?.findings === 'string' ? scan.findings : ''
   );
   const [images, setImages] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>(scan?.imageUrls || []);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(scan?.imageUrls || []);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
   const [customFields, setCustomFields] = useState<CustomField[]>(() => {
@@ -138,17 +139,30 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
   // ── Image upload ────────────────────────────────────────────────────────
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length + images.length > 10) {
-      toastError('Too many images', 'Maximum 10 images allowed');
+    if (files.length + images.length + existingImageUrls.length > 10) {
+      toastError('Too many images', 'Maximum 10 images per scan result, including existing images');
+      e.target.value = '';
+      return;
+    }
+    const oversized = files.find((file) => file.size > 20 * 1024 * 1024);
+    if (oversized) {
+      toastError('Image too large', `${oversized.name} exceeds the 20 MB limit`);
+      e.target.value = '';
       return;
     }
     const newPreviews = files.map((f) => URL.createObjectURL(f));
     setImagePreviews((p) => [...p, ...newPreviews]);
     setImages((p) => [...p, ...files]);
+    e.target.value = '';
   };
 
-  const removeImage = (index: number) => {
-    URL.revokeObjectURL(imagePreviews[index]);
+  const removeExistingImage = (index: number) => {
+    setExistingImageUrls((p) => p.filter((_, i) => i !== index));
+  };
+
+  const removeNewImage = (index: number) => {
+    const preview = imagePreviews[index];
+    if (preview) URL.revokeObjectURL(preview);
     setImagePreviews((p) => p.filter((_, i) => i !== index));
     setImages((p) => p.filter((_, i) => i !== index));
   };
@@ -180,7 +194,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
     setUploading(true);
     try {
       const uploaded = await uploadImages();
-      const allImages = [...(scan?.imageUrls || []), ...uploaded];
+      const allImages = [...existingImageUrls, ...uploaded];
 
       const mergedValues: Record<string, any> = { ...values };
       customFields.forEach((f) => {
@@ -371,21 +385,20 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
                 <p className="text-xs text-[var(--text-secondary)]">Click to upload (max 10)</p>
               </div>
 
-              {imagePreviews.length > 0 && (
-                <div className="mt-2 grid grid-cols-4 sm:grid-cols-6 gap-2">
+              {(existingImageUrls.length + imagePreviews.length) > 0 && (
+                <div className="mt-2 grid grid-cols-3 sm:grid-cols-5 gap-2">
+                  {existingImageUrls.map((url, idx) => (
+                    <div key={`existing-${idx}-${url}`} className="relative group">
+                      <img src={url} alt={`Existing scan image ${idx + 1}`} className="w-full h-20 object-cover rounded-lg border border-[var(--border-color)]" />
+                      <span className="absolute left-1 bottom-1 text-[9px] bg-black/60 text-white rounded px-1">Saved</span>
+                      <button type="button" onClick={() => removeExistingImage(idx)} aria-label={`Remove saved image ${idx + 1}`} title="Remove image" className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
+                    </div>
+                  ))}
                   {imagePreviews.map((preview, idx) => (
-                    <div key={idx} className="relative group">
-                      <img
-                        src={preview}
-                        alt={`Scan ${idx + 1}`}
-                        className="w-full h-16 object-cover rounded-lg border border-[var(--border-color)]"
-                      />
-                      <button
-                        onClick={() => removeImage(idx)}
-                        className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                    <div key={`new-${idx}`} className="relative group">
+                      <img src={preview} alt={`New scan image ${idx + 1}`} className="w-full h-20 object-cover rounded-lg border border-[var(--border-color)]" />
+                      <span className="absolute left-1 bottom-1 text-[9px] bg-indigo-600/80 text-white rounded px-1">New</span>
+                      <button type="button" onClick={() => removeNewImage(idx)} aria-label={`Remove new image ${idx + 1}`} title="Remove image" className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
                     </div>
                   ))}
                 </div>
