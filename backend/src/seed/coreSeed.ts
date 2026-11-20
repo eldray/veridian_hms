@@ -241,7 +241,6 @@ const addSchemaDefaults = (data: any, type: string) => {
         serviceType: data.serviceType,
         serviceCategory: data.serviceCategory || ServiceCategory.opd,
         subType: data.subType || null,
-        nhisServiceCode: data.nhisServiceCode || null,
         isNHISCovered: data.isNHISCovered ?? true,
         nhisCoverageType: data.nhisCoverageType || NHISCoverageType.full,
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
