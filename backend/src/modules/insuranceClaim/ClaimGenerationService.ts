@@ -229,10 +229,10 @@ export async function buildNHISClaimItems(
       && payerRule.isCovered === true
       && (!payerRule.effectiveFrom || payerRule.effectiveFrom <= medicineServiceDate)
       && (!payerRule.effectiveTo || payerRule.effectiveTo >= medicineServiceDate);
-    if (!med.StockItem || med.StockItem.isNHISCovered === false || !ruleEffective) {
+    if (!med.StockItem || med.StockItem.isNHISCovered === false || !med.StockItem.nhisServiceCode || !ruleEffective) {
       continue;
     }
-    const code = med.StockItem.drugCode;
+    const code = med.StockItem.nhisServiceCode;
     push(
       {
         medication: { connect: { id: med.id } },
