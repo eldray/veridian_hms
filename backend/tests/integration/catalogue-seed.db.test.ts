@@ -90,12 +90,21 @@ describeDb('clinical and NHIS catalogue seeding against PostgreSQL', () => {
     expect(await prisma.stockItemPayerRule.count()).toBe(nhisMedicines.length);
     expect(await prisma.gDRGTariffProcedure.count()).toBe(expectedProcedureLinks);
 
-    const scanCodes = await prisma.serviceCatalog.findMany({
-      where: { scanTemplateId: { not: null } },
-      select: { nhisServiceCode: true },
-    });
+    const [labCodes, scanCodes, procedureCodes] = await Promise.all([
+      prisma.serviceCatalog.findMany({ where: { labTestTemplateId: { not: null } }, select: { nhisServiceCode: true } }),
+      prisma.serviceCatalog.findMany({ where: { scanTemplateId: { not: null } }, select: { nhisServiceCode: true } }),
+      prisma.serviceCatalog.findMany({ where: { procedureTemplateId: { not: null } }, select: { nhisServiceCode: true } }),
+    ]);
+    const validInvestigationCode = (value: unknown) => /^INVE[0-9]/i.test(String(value || ''));
+    const expectedLabCodes = new Set(labTests.map((item) => item.investigationCode));
+    const expectedScanCodes = new Set(scans.map((item) => item.investigationCode));
+    const expectedProcedureCodes = new Set(procedures.map((item) => item.procedureCode));
+    expect(labCodes).toHaveLength(labTests.length);
     expect(scanCodes).toHaveLength(scans.length);
-    expect(scanCodes.every((row) => /^INVE[0-9]/i.test(String(row.nhisServiceCode || '')))).toBe(true);
+    expect(procedureCodes).toHaveLength(procedures.length);
+    expect(labCodes.every((row) => expectedLabCodes.has(String(row.nhisServiceCode)))).toBe(true);
+    expect(scanCodes.every((row) => validInvestigationCode(row.nhisServiceCode) && expectedScanCodes.has(String(row.nhisServiceCode)))).toBe(true);
+    expect(procedureCodes.every((row) => expectedProcedureCodes.has(String(row.nhisServiceCode)))).toBe(true);
   });
 
   it('uses one NHIS code for a matching local medicine and NHIS medicine identity', async () => {
