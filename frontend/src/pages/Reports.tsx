@@ -67,6 +67,15 @@ import GenericReportPage from '../components/reports/GenericReportPage';
 import { SHELL_REPORT_BY_KEY, shellReportsForGroup } from '../config/reportRegistry';
 import { REPORT_EXPORT_ROLES, type ReportShape } from '../components/reports/reportShell';
 import { Card, PageHeader, Pagination, StatCard, TD, TD_MONO, TH, TH_ROW, TR, cn } from '../components/ui';
+import {
+  getGHSOPDReport as apiGetOPD, getGHSIPDReport as apiGetIPD,
+  getGHSDeliveryReport as apiGetDelivery, getFamilyPlanningReport as apiGetFP,
+  getFinancialReport as apiGetFinancial, getLabReport as apiGetLab,
+  getScanReport as apiGetScans, getProcedureReport as apiGetProcedures,
+  getMedicationReport as apiGetMedications, getInsuranceClaimsReport as apiGetClaims,
+  getStockMovementReport as apiGetStockMovement,
+  getIDSRAlerts, createIDSRAlert, acknowledgeIDSRAlert,
+} from '../api';
 
 const AGE_GROUPS = ['<28d', '1-11m', '1-4', '5-9', '10-14', '15-17', '18-19', '20-34', '35-49', '50-59', '60-69', '70+'];
 const humanize = (s: any) => String(s ?? '').replace(/_/g, ' ').replace(/-/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).trim();
@@ -91,6 +100,7 @@ const NUM_TD = 'px-3 py-2 text-right text-xs tabular-nums text-[var(--text-prima
 const NUM_TD_BOLD = `${NUM_TD} font-bold`;
 
 const GHS_REPORTS = [
+  { key: 'monthly-overview', label: 'Monthly Facility Overview', icon: BarChart3, color: 'cyan', roles: ['admin', 'accounts'] },
   { key: 'opd-attendance', label: 'OPD Attendance', icon: Users, color: 'cyan' },
   { key: 'consulting-room-register', label: 'Consulting Register', icon: ClipboardList, color: 'cyan' },
   { key: 'opd-morbidity', label: 'OPD Morbidity (Form A)', icon: FileSpreadsheet, color: 'red' },
@@ -123,6 +133,64 @@ const EmptyState = ({ message }: { message: string }) => (
 
 // FIX #9 — statutory returns must match a printed form, so we do not invent labels.
 // If the backend hands us a section we have no curated map for, say so explicitly.
+
+function IDSRSurveillanceRegister({ startDate, endDate, diseases }: { startDate: string; endDate: string; diseases: any[] }) {
+  const [records, setRecords] = useState<any[]>([]);
+  const [diseaseCode, setDiseaseCode] = useState(diseases[0]?.code || '');
+  const [alertDate, setAlertDate] = useState(startDate);
+  const [suspectedCases, setSuspectedCases] = useState('0');
+  const [confirmedCases, setConfirmedCases] = useState('0');
+  const [deaths, setDeaths] = useState('0');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const selectedDisease = diseases.find(d => d.code === diseaseCode) || diseases[0];
+  const load = useCallback(async () => {
+    try {
+      const response: any = await getIDSRAlerts({ startDate, endDate });
+      const rows = response?.data?.data ?? response?.data ?? response;
+      setRecords(Array.isArray(rows) ? rows : []);
+    } catch (error: any) { setMessage(error?.response?.data?.message || error?.message || 'Could not load surveillance entries.'); }
+  }, [startDate, endDate]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setAlertDate(startDate); }, [startDate]);
+  useEffect(() => { if (!diseases.some(d => d.code === diseaseCode)) setDiseaseCode(diseases[0]?.code || ''); }, [diseases, diseaseCode]);
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedDisease) return;
+    setSaving(true); setMessage('');
+    try {
+      await createIDSRAlert({ diseaseCode: selectedDisease.code, diseaseName: selectedDisease.disease, alertDate,
+        suspectedCases: Number(suspectedCases), confirmedCases: Number(confirmedCases), deaths: Number(deaths) });
+      setSuspectedCases('0'); setConfirmedCases('0'); setDeaths('0');
+      setMessage('Surveillance tally recorded.'); await load();
+    } catch (error: any) { setMessage(error?.response?.data?.message || error?.message || 'Could not record tally.'); }
+    finally { setSaving(false); }
+  };
+  const acknowledge = async (id: string) => {
+    try { await acknowledgeIDSRAlert(id); await load(); }
+    catch (error: any) { setMessage(error?.response?.data?.message || error?.message || 'Could not acknowledge record.'); }
+  };
+  return <Card title="IDSR surveillance register" description="Record verified daily disease tallies separately from attendance-based suspected signals." icon={ClipboardList} padded={false}>
+    <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-6 gap-2 p-4 border-b border-[var(--border-color)]">
+      <select value={diseaseCode} onChange={e => setDiseaseCode(e.target.value)} className="md:col-span-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required>
+        {diseases.map(d => <option key={d.code} value={d.code}>{d.disease}</option>)}
+      </select>
+      <input type="date" value={alertDate} min={startDate} max={endDate} onChange={e => setAlertDate(e.target.value)} className="px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required />
+      <input type="number" min="0" step="1" value={suspectedCases} onChange={e => setSuspectedCases(e.target.value)} aria-label="Suspected cases" placeholder="Suspected" className="px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required />
+      <input type="number" min="0" step="1" value={confirmedCases} onChange={e => setConfirmedCases(e.target.value)} aria-label="Confirmed cases" placeholder="Confirmed" className="px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required />
+      <div className="flex gap-2"><input type="number" min="0" step="1" value={deaths} onChange={e => setDeaths(e.target.value)} aria-label="Deaths" placeholder="Deaths" className="min-w-0 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required /><button disabled={saving || !selectedDisease} className="px-3 py-2 rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] text-xs font-bold disabled:opacity-50">{saving ? 'Saving…' : 'Record'}</button></div>
+    </form>
+    {message && <p className="px-4 py-2 text-xs text-[var(--text-secondary)]">{message}</p>}
+    <div className="overflow-x-auto"><table className="w-full text-xs">
+      <thead className="bg-[var(--bg-main)]"><tr>{['Date','Disease','Suspected','Confirmed','Deaths','Acknowledgement','Action'].map(label => <th key={label} className="px-3 py-2 text-left text-[10px] font-bold uppercase text-[var(--text-tertiary)]">{label}</th>)}</tr></thead>
+      <tbody className="divide-y divide-[var(--border-color)]">
+        {records.map(record => <tr key={record.id}><td className="px-3 py-2">{record.alertDate ? new Date(record.alertDate).toLocaleDateString() : '—'}</td><td className="px-3 py-2">{record.diseaseName} ({record.diseaseCode})</td><td className="px-3 py-2">{record.suspectedCases}</td><td className="px-3 py-2">{record.confirmedCases}</td><td className="px-3 py-2">{record.deaths}</td><td className="px-3 py-2">{record.alertAcknowledged ? 'Acknowledged' : 'Awaiting acknowledgement'}</td><td className="px-3 py-2">{!record.alertAcknowledged && <button type="button" onClick={() => acknowledge(record.id)} className="text-[var(--icon-cyan-text)] font-semibold">Acknowledge</button>}</td></tr>)}
+        {records.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-[var(--text-tertiary)]">No manual surveillance tallies recorded for this period.</td></tr>}
+      </tbody>
+    </table></div>
+  </Card>;
+}
+
 export default function Reports() {
   const goBack = useSmartBack('/dashboard');
   const navigate = useNavigate();
@@ -139,6 +207,7 @@ export default function Reports() {
   const [isLoading, setIsLoading] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
+  const [monthlyOverview, setMonthlyOverview] = useState<Record<string, any> | null>(null);
   const [registerPage, setRegisterPage] = useState(1);
   const [registerPageSize] = useState(50);
   // FIX #50 — remember whether the user has deliberately picked a category, so the
@@ -170,6 +239,23 @@ export default function Reports() {
     try {
       const f = { startDate: dateRange.start, endDate: dateRange.end };
       switch (reportType) {
+        case 'monthly-overview': {
+          const requests = await Promise.allSettled([
+            apiGetOPD(f), apiGetIPD(f), apiGetDelivery(f), apiGetFP(f),
+            apiGetFinancial(f), apiGetLab(f), apiGetScans(f), apiGetProcedures(f),
+            apiGetMedications(f), apiGetClaims(f), apiGetStockMovement(f),
+          ]);
+          const unwrapMonthly = (value: any) => value?.success && value?.data
+            ? (value.data.data ?? value.data)
+            : (value?.data ?? value);
+          const keys = ['opd', 'ipd', 'delivery', 'familyPlanning', 'financial', 'lab', 'scans', 'procedures', 'medications', 'claims', 'stock'];
+          const values = requests.map(result => result.status === 'fulfilled' ? unwrapMonthly(result.value) : null);
+          setMonthlyOverview({
+            ...Object.fromEntries(keys.map((key, index) => [key, values[index]])),
+            unavailableSources: keys.filter((key, index) => requests[index].status === 'rejected'),
+          });
+          break;
+        }
         case 'opd-attendance': await getGHSOPDReport(f); break;
         case 'opd-morbidity': await getMorbidityMortalityReport(f); break;
         case 'top-diagnoses': await getTopDiagnoses(f, 10); break;
@@ -212,6 +298,7 @@ export default function Reports() {
 
   const getActiveReport = () => {
     const map: Record<string, any> = {
+      'monthly-overview': monthlyOverview,
       'opd-attendance': opdReport, 'consulting-room-register': consultingRoomRegister,
       'opd-morbidity': morbidityMortalityReport, 'top-diagnoses': topDiagnoses, 'form-a': formAReport,
       'ipd': ipdReport, 'malaria': malariaReport, 'idsr': idsrReport, 'delivery-report': deliveryReport, 'family-planning': familyPlanningReport,
@@ -221,7 +308,7 @@ export default function Reports() {
   const handleExport = async () => {
     const activeReport = getActiveReport();
     if (!activeReport) { toastError('Export Failed', 'No report data available'); return; }
-    try { await exportReport({ reportType, format: exportFormat, filters: { startDate: dateRange.start, endDate: dateRange.end }, data: activeReport }); success('Export Started', `Generating as ${exportFormat.toUpperCase()}`); }
+    try { await exportReport({ reportType, format: exportFormat, filters: { startDate: dateRange.start, endDate: dateRange.end }, data: activeReport }); success('Export complete', 'Your report file has been downloaded.'); }
     catch (err: any) { toastError('Export Failed', err.message); }
   };
   const isLoading_ = isLoading || storeLoading;
@@ -231,7 +318,7 @@ export default function Reports() {
   // FIX #32 — dedupe by key so a registry/GHS collision cannot create duplicate React keys.
   const reportsForCategory = useCallback((groupId: ReportsTab) => {
     const list = [
-      ...(groupId === 'ghs' ? GHS_REPORTS.map(item => ({ ...item, roles: GHS_REPORT_ROLES })) : []),
+      ...(groupId === 'ghs' ? GHS_REPORTS.map(item => ({ ...item, roles: item.roles || GHS_REPORT_ROLES })) : []),
       // FIX #8 — ReportShape carries no icon/color, so shell pills share ListOrdered/green by design.
       ...shellReportsForGroup(groupId).map(shape => ({ key: shape.key, label: shape.label, icon: ListOrdered, color: 'green', roles: shape.roles })),
     ].filter(item => allowedForRole(item.roles));
@@ -257,6 +344,7 @@ export default function Reports() {
   const getReportTitle = () => {
     if (shellReport) return shellReport.label;
     const m: Record<string, string> = {
+      'monthly-overview': 'Monthly Facility Overview',
       'opd-attendance': 'OPD Attendance', 'consulting-room-register': 'Consulting Room Register',
       'opd-morbidity': 'OPD Morbidity (Form A)', 'top-diagnoses': 'Top 10 Diagnoses',
       'form-a': 'Form A — Maternal Health', 'ipd': 'IPD & Mortality', 'malaria': 'Malaria Data',
@@ -644,6 +732,7 @@ export default function Reports() {
             </p>
           )}
         </Card>
+        <IDSRSurveillanceRegister startDate={dateRange.start} endDate={dateRange.end} diseases={diseases} />
       </div>
     );
   };
@@ -767,10 +856,103 @@ export default function Reports() {
     );
   };
 
+  const renderMonthlyOverview = () => {
+    if (!monthlyOverview) return <EmptyState message="No monthly overview data available" />;
+    const read = (obj: any, paths: string[]) => {
+      for (const path of paths) {
+        const value = path.split('.').reduce((v: any, key: string) => v == null ? undefined : v[key], obj);
+        if (value !== undefined && value !== null && Number.isFinite(Number(value))) return Number(value);
+      }
+      return null;
+    };
+    const fmt = (value: number | null, money = false) => value == null ? '—' : money
+      ? `₵${value.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : value.toLocaleString('en-GH');
+    const sections = [
+      { title: 'OPD attendance', data: monthlyOverview.opd, rows: [['Attendances', ['totals.totalAttendances','summary.totalAttendances','totalAttendances','summary.totalPatients']], ['New cases', ['totals.totalNewCases','summary.newPatients','totalNewCases']], ['Re-attendances', ['totals.totalReAttendances','summary.oldPatients','totalReAttendances']]] },
+      { title: 'Inpatient & mortality', data: monthlyOverview.ipd, rows: [['Admissions', ['totals.totalAdmissions','summary.totalAdmissions','totalAdmissions']], ['Deaths', ['totals.totalDeaths','summary.totalDeaths','totalDeaths']]] },
+      { title: 'Maternal & family planning', data: monthlyOverview.delivery, rows: [['Deliveries', ['summary.totalDeliveries','totalDeliveries','deliveries.length']], ['Live births', ['summary.liveBirths','totals.liveBirths','liveBirths']]] },
+      { title: 'Family planning', data: monthlyOverview.familyPlanning, rows: [['Clients', ['summary.totalFPClients','summary.totalClients','totalFPClients']], ['Visits', ['summary.totalFPVisits','summary.totalVisits','totalFPVisits']], ['New acceptors', ['summary.newAcceptors','newAcceptors']]] },
+      { title: 'Financial performance', data: monthlyOverview.financial, rows: [['Billed', ['summary.totalRevenue','summary.totalBilled','totalRevenue'], true], ['Collected', ['summary.totalPaid','summary.totalCollected','totalPaid'], true], ['Outstanding', ['summary.outstandingBalance','summary.outstanding','outstandingBalance'], true]] },
+      { title: 'Laboratory', data: monthlyOverview.lab, rows: [['Tests', ['summary.totalTests','totalTests','total']], ['Completed', ['summary.completedTests','completedTests']], ['Pending', ['summary.pendingTests','pendingTests']]] },
+      { title: 'Scans', data: monthlyOverview.scans, rows: [['Scans', ['summary.totalScans','totalScans','total']]] },
+      { title: 'Procedures', data: monthlyOverview.procedures, rows: [['Procedures', ['summary.totalProcedures','totalProcedures','total']]] },
+      { title: 'Medication activity', data: monthlyOverview.medications, rows: [['Items dispensed', ['summary.totalDispensed','totalDispensed','summary.totalItems','totalItems']]] },
+      { title: 'Insurance claims', data: monthlyOverview.claims, rows: [['Claims', ['summary.totalClaims','totalClaims']], ['Claimed amount', ['summary.totalClaimAmount','totalClaimAmount'], true], ['Outstanding', ['summary.outstandingAmount','outstandingAmount'], true]] },
+      { title: 'Stock movement', data: monthlyOverview.stock, rows: [['Transactions', ['summary.totalTransactions','totalTransactions']], ['Units in', ['summary.totalIn','totalIn']], ['Units out', ['summary.totalOut','totalOut']]] },
+    ];
+    const billed = read(monthlyOverview.financial, ['summary.totalRevenue','summary.totalBilled','totalRevenue']);
+    const collected = read(monthlyOverview.financial, ['summary.totalPaid','summary.totalCollected','totalPaid']);
+    const outstanding = read(monthlyOverview.financial, ['summary.outstandingBalance','summary.outstanding','outstandingBalance']);
+    const reconciliationChecks = billed != null && collected != null && outstanding != null
+      ? [{ label: 'Billed = collected + outstanding', detail: 'Difference: ' + fmt(billed - collected - outstanding, true), ok: Math.abs(billed - collected - outstanding) < 0.01 }]
+      : [{ label: 'Financial reconciliation', detail: 'Not assessed — one or more source totals were not returned.', ok: null as boolean | null }];
+    const exportRows: any[] = sections.flatMap(section => section.rows.map(([label, paths, money]: any) => ({
+      Section: section.title,
+      Indicator: label,
+      // Preserve numeric cells for Excel; unavailable source values remain blank, not zero.
+      Value: read(section.data, paths),
+      Unit: money ? 'GHS' : '',
+    })));
+    exportRows.push({
+      Section: 'Data reconciliation',
+      Indicator: 'Billed = collected + outstanding',
+      Value: billed != null && collected != null && outstanding != null ? Number((billed - collected - outstanding).toFixed(2)) : null,
+      Unit: 'GHS difference',
+    });
+    const downloadMonthlyOverview = async () => {
+      try {
+        const result = await exportReport({
+          reportType: 'monthly-overview',
+          format: exportFormat,
+          filters: { startDate: dateRange.start, endDate: dateRange.end },
+          data: exportRows,
+        });
+        success('Export complete', result?.filename || `Monthly overview exported as ${exportFormat.toUpperCase()}.`);
+      } catch (error: any) {
+        toastError('Export failed', error?.message || 'The monthly overview could not be exported.');
+      }
+    };
+    return <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><p className="text-sm font-bold text-[var(--text-primary)]">Facility performance overview</p><p className="text-xs text-[var(--text-tertiary)]">{dateRange.start} to {dateRange.end} · Existing report endpoints</p></div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs">
+            <span className="text-[var(--text-tertiary)]">Export as</span>
+            <select value={exportFormat} onChange={event => setExportFormat(event.target.value as 'csv' | 'excel' | 'pdf')} className="bg-transparent font-semibold text-[var(--text-primary)]">
+              <option value="csv">CSV</option><option value="excel">Excel</option><option value="pdf">PDF</option>
+            </select>
+          </label>
+          <button type="button" onClick={downloadMonthlyOverview} disabled={isLoading_} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold disabled:opacity-50"><Download className="inline w-3.5 h-3.5 mr-1"/>Export</button>
+          <button type="button" onClick={() => window.print()} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold">Print</button>
+        </div>
+      </div>
+      <Card title="Data reconciliation" padded={false}>
+        <div className="divide-y divide-[var(--border-color)]">
+          {reconciliationChecks.map(check => <div key={check.label} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+            <span className="text-xs text-[var(--text-secondary)]">{check.label}</span>
+            <span className={"text-xs font-semibold " + (check.ok === false ? "text-[var(--icon-red-text)]" : check.ok === true ? "text-[var(--icon-green-text)]" : "text-[var(--text-tertiary)]")}>{check.ok === false ? "Check required · " : check.ok === true ? "Balanced · " : ""}{check.detail}</span>
+          </div>)}
+        </div>
+      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {sections.map(section => <Card key={section.title} title={section.title} padded={false}>
+          <div className="divide-y divide-[var(--border-color)]">
+            {section.rows.map(([label, paths, money]: any) => {
+              const value = read(section.data, paths);
+              return <div key={label} className="flex items-center justify-between gap-3 px-4 py-3"><span className="text-xs text-[var(--text-secondary)]">{label}</span><strong className="text-sm tabular-nums text-[var(--text-primary)]">{fmt(value, Boolean(money))}</strong></div>;
+            })}
+          </div>
+        </Card>)}
+      </div>
+      <p className="text-[11px] text-[var(--text-tertiary)]">Figures are read from the corresponding existing reports for the selected period. A dash means that the source endpoint did not provide that indicator; it is not treated as zero. {monthlyOverview.unavailableSources?.length ? "Some source reports could not be loaded: " + monthlyOverview.unavailableSources.join(", ") + ". " : ""}Insurance claims are shown separately from patient billing. This management overview does not replace statutory GHS returns.</p>
+    </div>;
+  };
+
   const renderReportContent = () => {
     if (shellReport) return <GenericReportPage shape={shellReport} dateFrom={dateRange.start} dateTo={dateRange.end} />;
     const map: Record<string, () => React.ReactNode> = {
-      'consulting-room-register': renderConsultingRoomRegister, 'opd-attendance': renderOPDAttendanceReport,
+      'monthly-overview': renderMonthlyOverview, 'consulting-room-register': renderConsultingRoomRegister, 'opd-attendance': renderOPDAttendanceReport,
       'opd-morbidity': renderFullMorbidityReport, 'top-diagnoses': renderTopDiagnoses, 'form-a': renderFormAReport,
       'ipd': renderIPDReport, 'malaria': renderMalariaReport, 'idsr': renderIDSRReport, 'delivery-report': renderDeliveryReport, 'family-planning': renderFamilyPlanningReport,
     };
@@ -782,7 +964,7 @@ export default function Reports() {
       <PageHeader title="Reports & Analytics" subtitle="GHS-compliant reporting" icon={BarChart3} accent="cyan" onBack={goBack}
         // FIX #58 — Refresh is hidden for shell reports on purpose: GenericReportPage owns its own Reload.
         actions={!shellReport ? (<>
-          {canExport ? (<>
+          {canExport && reportType !== 'monthly-overview' ? (<>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg">
               <span className="text-[11px] text-[var(--text-tertiary)]">Export as</span>
               {/* FIX #23 — narrowed cast, and only for the three legal values. */}
@@ -798,7 +980,7 @@ export default function Reports() {
               </select>
             </div>
             <button onClick={handleExport} disabled={isLoading_ || !getActiveReport()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50"><Download className="w-3.5 h-3.5" /> Export</button>
-          </>) : (<span className="text-[11px] text-[var(--text-tertiary)]">Reading only — exporting a report is limited to admin, accounts and records.</span>)}
+          </>) : (!canExport ? <span className="text-[11px] text-[var(--text-tertiary)]">Reading only — exporting a report is limited to admin, accounts and records.</span> : null)}
           <button onClick={loadReportNow} disabled={isLoading_} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${isLoading_ ? 'animate-spin' : ''}`} /> Refresh</button>
         </>) : undefined} />
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1">

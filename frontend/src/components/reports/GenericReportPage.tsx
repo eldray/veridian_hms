@@ -310,7 +310,7 @@
       if (!data) { toastError('Export Failed', 'There is nothing to export yet.'); return; }
       try {
         await exportReport({ reportType: shape.key, format, filters: { startDate: dateFrom, endDate: dateTo }, data });
-        success('Export Started', `Generating as ${format.toUpperCase()}`);
+        success('Export complete', 'Your report file has been downloaded.');
       } catch (err: any) {
         toastError('Export Failed', err?.message || 'The report could not be exported.');
       }
