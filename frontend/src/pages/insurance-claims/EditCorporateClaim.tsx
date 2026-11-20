@@ -571,8 +571,8 @@ export default function EditCorporateClaim() {
     return out;
   };
 
-  const handleSave = async () => {
-    if (!isDraft) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!isDraft) return false;
     if (creditWarning && !(await confirmDialog({
       title: 'Credit limit exceeded',
       message: `This claim (GHS ${finalAmount.toFixed(2)}) exceeds the available credit of GHS ${availableCredit.toFixed(2)}. Continue anyway?`,
@@ -588,11 +588,13 @@ export default function EditCorporateClaim() {
         metadata: { discountPercentage, visitDate },
       });
       const items = buildItemsPayload();
-      if (items.length > 0) await replaceClaimItems(id!, items);
+      await replaceClaimItems(id!, items);
       success('Saved', 'Corporate claim updated successfully');
       await getInsuranceClaim(id!);
+      return true;
     } catch (err: any) {
       toastError('Save Failed', err.message);
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -603,7 +605,8 @@ export default function EditCorporateClaim() {
     if (creditWarning && !(await confirmDialog({ title: 'Credit limit exceeded', message: 'This claim exceeds the available credit limit. Finalize anyway?', confirmText: 'Finalize', type: 'warning' }))) return;
     try {
       setIsSubmitting(true);
-      await handleSave();
+      const saved = await handleSave();
+      if (!saved) return;
       await finalizeClaim(id!);
       success('Finalized', 'Claim is ready for submission');
       navigate('/dashboard/insurance/corporate/claims');
@@ -616,6 +619,10 @@ export default function EditCorporateClaim() {
 
   const handlePrintClaim = async () => {
     try {
+      if (isDraft) {
+        const saved = await handleSave();
+        if (!saved) return;
+      }
       await printClaim(id!);
       success('Print ready', 'Claim data ready for printing');
     } catch (err: any) {
