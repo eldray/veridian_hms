@@ -100,7 +100,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     // The waiting list is a patient worklist, not a "today only" report. Seeded
     // and previously booked immunization attendances may have historical dates.
     const dateParam = req.query.date ? String(req.query.date) : null;
-    if (dateParam && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dateParam)) {
+    if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return res.status(400).json({ success: false, message: 'Date must use YYYY-MM-DD format.' });
     }
     const dateStart = dateParam ? new Date(dateParam + 'T00:00:00.000Z') : null;
