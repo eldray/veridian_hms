@@ -1724,7 +1724,7 @@ async addScan(encounterId: string, data: any, userId: string) {
           where: { scanCode: catalogEntry.code },
           create: {
             name: catalogEntry.name,
-            investigationCode: catalogEntry.code,
+            investigationCode: catalogEntry.nhisServiceCode || catalogEntry.code,
             scanCode: catalogEntry.code,
             description: catalogEntry.description || catalogEntry.name,
             category: scanCategory,
