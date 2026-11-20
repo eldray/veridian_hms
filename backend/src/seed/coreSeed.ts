@@ -224,13 +224,13 @@ const addSchemaDefaults = (data: any, type: string) => {
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         batchNumber: data.batchNumber || null,
         isMedication: data.isMedication ?? true,
-        isNHISCovered: data.isNHISCovered ?? true,
+        isNHISCovered: data.isNHISCovered === true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false,
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
         privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? true,
-        tariffCode: data.tariffCode || `MED-${data.drugCode}`,
+        tariffCode: data.tariffCode || data.drugCode,
         isActive: true,
       };
 
@@ -1034,6 +1034,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           const stockData = addSchemaDefaults({
             ...canonicalItem,
             isMedication,
+            isNHISCovered: file === 'nhismedicines.json' && item.isNHISCovered !== false,
             // Production profile: the catalogue is loaded but nothing is in stock until real stock is received.
             currentStock: isProdProfile ? 0 : (item.currentStock ?? 100),
             reorderLevel: item.reorderLevel ?? 50,
