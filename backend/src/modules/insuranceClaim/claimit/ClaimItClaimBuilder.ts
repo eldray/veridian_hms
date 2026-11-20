@@ -263,6 +263,9 @@ export function findClaimItBlockers(claim: ClaimItClaim, bundledGdrgCodes: strin
   const add = (field: string, message: string, code = 'REQUIRED') => blockers.push({ field, message, code });
 
   if (!claim.claimID) add('claimID', 'The claim has no claim number to reference it by.');
+  if (!claim.physicianID.trim()) {
+    add('physicianID', 'No clinician or prescriber number is recorded on the claim. Add the responsible clinician identifier before submission.');
+  }
 
   if (!claim.memberNo) add('memberNo', `Claim ${claim.claimID || '(unnumbered)'} has no NHIS number for the patient.`);
   else if (!MEMBER_NUMBER.test(claim.memberNo)) {
