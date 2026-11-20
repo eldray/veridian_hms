@@ -58,6 +58,7 @@ interface BillRefund {
   reason: string;
   refundedAt: string;
   paymentId?: string | null;
+  processedBy?: { id?: string; fullName?: string; username?: string } | null;
 }
 
 interface BillPayment {
@@ -1349,6 +1350,7 @@ export default function PatientBillingItems() {
                                         <p className="text-[var(--text-secondary)]">
                                           {formatDate(refund.refundedAt)} · {refund.refundMethod.replace(/_/g, ' ')}
                                           {refund.reference ? ` · ${refund.reference}` : ''}
+                                          {(refund.processedBy?.fullName || refund.processedBy?.username) ? ` · By ${refund.processedBy.fullName || refund.processedBy.username}` : ''}
                                         </p>
                                       </div>
                                       <span className="font-bold text-[var(--icon-red-text)] tabular-nums flex-shrink-0">
