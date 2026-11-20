@@ -48,11 +48,21 @@ const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
 
 const arrayOf = (v: any): any[] => {
   if (Array.isArray(v)) return v;
-  if (Array.isArray(v?.data)) return v.data;
-  if (Array.isArray(v?.doses)) return v.doses;
-  if (Array.isArray(v?.tasks)) return v.tasks;
-  if (Array.isArray(v?.notes)) return v.notes;
-  return [];
+  // BaseController responses can be either { data: [...] } or
+  // { success, data: { data: [...], meta } }. Keep both contracts readable.
+  const candidates = [
+    v?.data?.data,
+    v?.data,
+    v?.doses,
+    v?.tasks,
+    v?.notes,
+    v?.items,
+    v?.results,
+    v?.referrals,
+    v?.bills,
+    v?.claims,
+  ];
+  return candidates.find(Array.isArray) ?? [];
 };
 
 // ── NURSE ───────────────────────────────────────
@@ -104,7 +114,7 @@ export async function fetchLabExtras() {
 
   return {
     criticalLabs,
-    pendingLabTests: pendingLabTests || worklistLen,
+    pendingLabTests: pendingLabTests ?? worklistLen,
     labSlaBreaches,
   };
 }
@@ -155,9 +165,9 @@ export async function fetchMaternalExtras() {
   const eddThisWeek = anc?.eddThisWeek ?? anc?.upcomingDeliveries ?? 0;
 
   return {
-    highRiskANC: anc?.byRiskLevel?.high ?? anc?.highRisk ?? 0,
+    highRiskANC: anc?.byRiskLevel?.high ?? anc?.highRiskBookings ?? anc?.highRisk ?? 0,
     overdueANC: anc?.overdueANC ?? anc?.missed ?? 0,
-    pncDueToday: pnc?.dueToday ?? pnc?.todayVisits ?? 0,
+    pncDueToday: anc?.pncDueToday ?? pnc?.dueToday ?? pnc?.todayVisits ?? 0,
     deliveriesThisWeek: eddThisWeek,
   };
 }
@@ -166,7 +176,7 @@ export async function fetchMaternalExtras() {
 
 export async function fetchAccountsExtras() {
   const [billsRes, claimsRes, waiversRes, estimatesRes, corporateRes] = await Promise.all([
-    safe(() => getBills({ startDate: today(), endDate: today() }), [] as any),
+    safe(() => getBills({ dateFrom: today(), dateTo: today(), limit: 1000 }), [] as any),
     safe(() => getInsuranceClaims({ status: 'finalized' }), [] as any),
     safe(() => getWaivers({ status: 'pending' }), [] as any),
     safe(() => getExpiringEstimates(7), [] as any),
@@ -211,19 +221,18 @@ export async function fetchDoctorExtras() {
 
 export async function fetchRecordsExtras() {
   const [patsRes, apptsRes, refsRes] = await Promise.all([
-    safe(() => getPatients({ createdFrom: today(), limit: 100 }), [] as any),
+    safe(() => getPatients({ dateFrom: today(), dateTo: today(), limit: 1000 }), [] as any),
     safe(() => getAppointments({ date: today(), limit: 100 }), [] as any),
     safe(() => getReferrals({ status: 'pending', limit: 100 }), null as any),
   ]);
 
   const pats = arrayOf(patsRes);
   const appts = arrayOf(apptsRes);
-  const refsRaw = refsRes?.data ?? refsRes ?? [];
-  const refs = Array.isArray(refsRaw) ? refsRaw : refsRaw?.referrals || [];
+  const refs = arrayOf(refsRes);
 
   const appointmentNoShows = appts.filter((a: any) => a.status === 'no_show').length;
   const pendingIncomingReferrals = refs.filter(
-    (r: any) => r.direction === 'incoming' && r.status === 'pending'
+    (r: any) => r.referralType === 'incoming' && r.status === 'pending'
   ).length;
 
   return {

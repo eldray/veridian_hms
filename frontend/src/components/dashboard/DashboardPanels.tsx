@@ -830,7 +830,7 @@ export function RecordsSummary() {
     const today = new Date().toISOString().split('T')[0];
 
     Promise.allSettled([
-      getPatients({ createdFrom: today, limit: 10 }),
+      getPatients({ dateFrom: today, dateTo: today, limit: 100 }),
       getAppointments({ date: today, limit: 5 }),
       getReferrals({ limit: 5 }),
       getEncounters({ date: today, limit: 1 }),

@@ -51,8 +51,10 @@ export class DashboardRepository extends BaseRepository<any, any, any> {
   }
 
   async getRevenue(start: Date, end: Date) {
+    // Revenue is money collected, not only bills that have reached a fully-paid
+    // status. Partial bills already contain valid receipts in paidAmount.
     const result = await this.prisma.bill.aggregate({
-      where: { billDate: { gte: start, lte: end }, status: 'paid' },
+      where: { billDate: { gte: start, lte: end }, status: { in: ['paid', 'partial'] } },
       _sum: { paidAmount: true }
     }).catch(() => ({ _sum: { paidAmount: null } }));
     return result._sum.paidAmount

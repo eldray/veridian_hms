@@ -1214,13 +1214,40 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     const visitWhere: any = {};
     if (startDate || endDate) { visitWhere.visitDate = {}; if (startDate) visitWhere.visitDate.gte = startDate; if (endDate) visitWhere.visitDate.lte = endDate; }
 
-    const [totalBookings, activeBookings, highRiskBookings, totalVisits, iptpDosesGiven, ttDosesGiven] = await Promise.all([
-      this.getModel().count({ where }), this.getModel().count({ where: { ...where, isActive: true } }),
-      this.getModel().count({ where: { ...where, riskLevel: 'high' } }), this.prisma.aNCVisit.count({ where: visitWhere }),
-      this.prisma.aNCVisit.count({ where: { ...visitWhere, iptpGiven: true } }), this.prisma.aNCVisit.count({ where: { ...visitWhere, ttGiven: true } })
+    const now = new Date();
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+
+    const [totalBookings, activeBookings, highRiskBookings, totalVisits, iptpDosesGiven, ttDosesGiven, eddThisWeek, overdueRows, pncDueToday] = await Promise.all([
+      this.getModel().count({ where }),
+      this.getModel().count({ where: { isActive: true, isCompleted: false } }),
+      this.getModel().count({ where: { isActive: true, isCompleted: false, riskLevel: 'high' } }),
+      this.prisma.aNCVisit.count({ where: visitWhere }),
+      this.prisma.aNCVisit.count({ where: { ...visitWhere, iptpGiven: true } }),
+      this.prisma.aNCVisit.count({ where: { ...visitWhere, ttGiven: true } }),
+      this.getModel().count({ where: { isActive: true, isCompleted: false, edd: { gte: weekStart, lt: weekEnd } } }),
+      this.getModel().findMany({
+        where: { isActive: true, isCompleted: false },
+        select: { id: true, visits: { orderBy: { visitNumber: 'desc' }, take: 1, select: { nextVisitDate: true } } },
+      }),
+      this.prisma.postnatalRecord.count({ where: { nextVisitDate: { gte: dayStart, lt: dayEnd } } }),
     ]);
 
-    return { totalBookings, activeBookings, highRiskBookings, totalVisits, iptpDosesGiven, ttDosesGiven, averageVisitsPerBooking: totalBookings > 0 ? totalVisits / totalBookings : 0 };
+    const overdueANC = (overdueRows as any[]).filter((booking) => {
+      const nextVisit = booking.visits?.[0]?.nextVisitDate;
+      return nextVisit && new Date(nextVisit).getTime() < dayStart.getTime();
+    }).length;
+
+    return {
+      totalBookings, activeBookings, highRiskBookings, totalVisits, iptpDosesGiven, ttDosesGiven,
+      eddThisWeek, overdueANC, pncDueToday,
+      averageVisitsPerBooking: totalBookings > 0 ? totalVisits / totalBookings : 0,
+    };
   }
 
   async getDeliveryStatistics(startDate?: Date, endDate?: Date): Promise<any> {
