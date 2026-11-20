@@ -1279,18 +1279,28 @@ ${claimsXml}
       if (covered <= 0) return;
       const type = String(catalog.serviceType || '').toLowerCase();
       const itemCategory = category || (type === 'lab_test' || type === 'scan' ? 'investigation' : type === 'medication' ? 'medicine' : type === 'procedure' ? 'procedure' : 'service');
+      const code = source === 'lab'
+        ? String(record.LabTestTemplate?.investigationCode ?? catalog.nhisServiceCode ?? '').trim().toUpperCase()
+        : source === 'scan'
+          ? String(record.ScanTemplate?.investigationCode ?? catalog.nhisServiceCode ?? '').trim().toUpperCase()
+          : source === 'procedure'
+            ? String(record.ProcedureTemplate?.procedureCode ?? catalog.nhisServiceCode ?? '').trim().toUpperCase()
+            : source === 'medication'
+              ? String(record.StockItem?.drugCode ?? catalog.code ?? '').trim().toUpperCase()
+              : String(catalog.nhisServiceCode ?? catalog.code ?? type.toUpperCase()).trim().toUpperCase();
+      if ((source === 'lab' || source === 'scan') && !/^INVE[0-9]/.test(code)) {
+        throw new ValidationError(`Cannot generate this claim: ${source} "${catalog.name}" has no valid NHIS INVE investigation code.`);
+      }
+      if (source === 'procedure' && (!code || /^PROC-/i.test(code))) {
+        throw new ValidationError(`Cannot generate this claim: procedure "${catalog.name}" has no valid NHIS procedure tariff code.`);
+      }
+      if (source === 'medication' && !code) {
+        throw new ValidationError(`Cannot generate this claim: medicine "${catalog.name}" has no canonical drug code.`);
+      }
       lines.push({
         itemCategory: itemCategory as any,
         itemType: type || source,
-        code: source === 'lab'
-          ? (record.LabTestTemplate?.investigationCode ?? catalog.nhisServiceCode ?? '')
-          : source === 'scan'
-            ? (record.ScanTemplate?.investigationCode ?? catalog.nhisServiceCode ?? '')
-            : source === 'procedure'
-              ? (record.ProcedureTemplate?.procedureCode ?? catalog.nhisServiceCode ?? '')
-              : source === 'medication'
-                ? (record.StockItem?.drugCode ?? catalog.code ?? '')
-                : (catalog.nhisServiceCode ?? catalog.code ?? type.toUpperCase()),
+        code,
         description: catalog.name || record.name || record.description || source,
         quantity: qty,
         unitPrice: money(covered / qty),
