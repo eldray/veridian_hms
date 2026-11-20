@@ -578,7 +578,7 @@ export interface SeedCoreOptions {
 
 export const seedCoreData = async (force: boolean = false, options: SeedCoreOptions = {}) => {
   // The packaged desktop app (ELECTRON=true) can only ever run the production profile, whatever a caller asks for.
-  const profile: SeedProfile = process.env.ELECTRON === 'true' ? 'production' : (options.profile ?? 'development');
+  const profile: SeedProfile = process.env.ELECTRON === 'true' || process.env.NODE_ENV === 'production' ? 'production' : (options.profile ?? 'development');
   const isProdProfile = profile === 'production';
   console.log(`🏥 Starting core data seeding (profile: ${profile})...`);
 
