@@ -75,7 +75,7 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
     total: n(i.unitPrice),
   }));
   const procItems = procedures.map((p) => ({ code: p.ProcedureTemplate?.procedureCode || p.ServiceCatalog?.nhisServiceCode || '', name: p.ProcedureTemplate?.name || p.ServiceCatalog?.name || p.name || 'Procedure', total: n(p.unitPrice) }));
-  const svcItems = services.map((s) => ({ code: s.ServiceCatalog?.code || '', name: s.ServiceCatalog?.name || s.name || 'Service', total: n(s.unitPrice) }));
+  const svcItems = services.map((s) => ({ code: s.ServiceCatalog?.nhisServiceCode || s.ServiceCatalog?.code || '', name: s.ServiceCatalog?.name || s.name || 'Service', total: n(s.unitPrice) }));
 
   const totalClaim = n(claim?.totalClaimAmount) || n(claim?.Bill?.totalAmount);
   const medTotal = medItems.reduce((s, m) => s + m.total, 0);
