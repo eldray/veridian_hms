@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import {
-  AlertCircle, ArrowRight, CheckCircle, Clock, RefreshCw, Syringe, Users,
+  AlertCircle, ArrowRight, CheckCircle, Clock, RefreshCw, Syringe, Users, UserCheck,
 } from 'lucide-react';
 import {
   Badge, Button, Card, humanStatus, PageHeader, Pagination, SearchInput,
@@ -18,7 +18,7 @@ type Patient = {
   phoneNumber?: string;
   age?: number;
   gender?: string;
-  photoUrl?: string;
+  imageUrl?: string | null;
 };
 type Visit = {
   id: string;
@@ -31,12 +31,11 @@ type Visit = {
 
 const patientName = (patient?: Patient) =>
   [patient?.otherNames, patient?.surname].filter(Boolean).join(' ') || 'Patient';
-
+const normalizedStatus = (status?: string) => (status || 'pending').toLowerCase();
 const isCompleted = (status?: string) =>
-  ['completed', 'complete', 'closed', 'discharged'].includes((status || '').toLowerCase());
-
+  ['completed', 'complete', 'closed', 'discharged'].includes(normalizedStatus(status));
 const isInProgress = (status?: string) =>
-  ['in_progress', 'attending', 'processing'].includes((status || '').toLowerCase());
+  ['in_progress', 'attending', 'processing'].includes(normalizedStatus(status));
 
 export default function ImmunizationWorkspace() {
   const navigate = useNavigate();
@@ -66,19 +65,14 @@ export default function ImmunizationWorkspace() {
 
   const queue = useMemo(() => {
     const term = search.trim().toLowerCase();
-    const filtered = !term ? visits : visits.filter(visit => [
-      visit.Patient?.otherNames,
-      visit.Patient?.surname,
-      patientName(visit.Patient),
-      visit.Patient?.folderNumber,
-      visit.Patient?.phoneNumber,
-      visit.attendanceNumber,
+    if (!term) return visits;
+    return visits.filter(visit => [
+      visit.Patient?.otherNames, visit.Patient?.surname, patientName(visit.Patient),
+      visit.Patient?.folderNumber, visit.Patient?.phoneNumber, visit.attendanceNumber,
     ].some(value => String(value ?? '').toLowerCase().includes(term)));
-    return filtered;
   }, [visits, search]);
 
   useEffect(() => { setCurrentPage(1); }, [search]);
-
   const totalPages = Math.ceil(queue.length / itemsPerPage);
   const paginatedVisits = queue.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const completedCount = queue.filter(visit => isCompleted(visit.status)).length;
@@ -86,23 +80,17 @@ export default function ImmunizationWorkspace() {
   const waitingCount = queue.length - completedCount - inProgressCount;
 
   const openEntries = (visit: Visit) => {
-    if (visit.Patient?.id) {
-      navigate('/dashboard/immunization/entries/' + visit.Patient.id);
-    }
+    if (visit.Patient?.id) navigate('/dashboard/immunization/entries/' + visit.Patient.id);
   };
 
   const pageHeader = (
     <PageHeader
-      title="Immunization Waiting List"
-      subtitle="Select a patient to open their vaccination entries and history"
+      title="Immunization Management"
+      subtitle="Immunization waiting list and patient vaccination entries"
       icon={Syringe}
       accent="cyan"
       backTo="/dashboard"
-      actions={(
-        <Button icon={RefreshCw} variant="secondary" loading={refreshing} onClick={() => void loadWaitingList()}>
-          Refresh
-        </Button>
-      )}
+      actions={<Button icon={RefreshCw} loading={refreshing} onClick={() => void loadWaitingList()}>Refresh</Button>}
     />
   );
 
@@ -122,18 +110,19 @@ export default function ImmunizationWorkspace() {
     <div className="space-y-6 p-6">
       {pageHeader}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Registered Today" value={queue.length} icon={Users} accent="cyan" />
-        <StatCard label="Waiting" value={waitingCount} icon={Clock} accent="orange" />
-        <StatCard label="Completed" value={completedCount} icon={CheckCircle} accent="green" />
-      </div>
-
       {error && (
         <div role="alert" className="flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-4 py-3 text-sm text-[var(--icon-red-text)]">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>Could not load the immunization waiting list: {error}</span>
         </div>
       )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Patients" value={queue.length} icon={Users} accent="cyan" />
+        <StatCard label="Waiting" value={waitingCount} icon={Clock} accent="orange" />
+        <StatCard label="In Progress" value={inProgressCount} icon={UserCheck} accent="purple" />
+        <StatCard label="Completed" value={completedCount} icon={CheckCircle} accent="green" />
+      </div>
 
       <Card>
         <SearchInput
@@ -144,8 +133,8 @@ export default function ImmunizationWorkspace() {
       </Card>
 
       <Card
-        title={`Patients on Immunization Queue (${queue.length})`}
-        description="Immunization attendances registered today"
+        title={`Immunization Waiting List (${queue.length} patients)`}
+        description="Select a patient to record vaccines and review their immunization history"
         icon={Syringe}
         accent="cyan"
         padded={false}
@@ -175,6 +164,7 @@ export default function ImmunizationWorkspace() {
                   <th className={TH}>Folder #</th>
                   <th className={TH}>Attendance #</th>
                   <th className={TH}>Visit date</th>
+                  <th className={TH}>Contact</th>
                   <th className={cn(TH, 'text-center')}>Status</th>
                   <th className={cn(TH, 'text-center')}>Actions</th>
                 </tr>
@@ -200,21 +190,16 @@ export default function ImmunizationWorkspace() {
                       <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
                         {visit.dateTime ? new Date(visit.dateTime).toLocaleString() : '—'}
                       </td>
+                      <td className={TD}>{patient?.phoneNumber || '—'}</td>
                       <td className={cn(TD, 'text-center')}>
                         <Badge tone={statusTone(visit.status || 'pending')} dot size="sm">
                           {humanStatus(visit.status || 'waiting')}
                         </Badge>
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          accent="cyan"
-                          icon={ArrowRight}
-                          className="mx-auto"
+                        <Button size="sm" variant="soft" accent="cyan" icon={ArrowRight} className="mx-auto"
                           disabled={!patient?.id}
-                          onClick={(event) => { event.stopPropagation(); openEntries(visit); }}
-                        >
+                          onClick={(event) => { event.stopPropagation(); openEntries(visit); }}>
                           Open Entries
                         </Button>
                       </td>
@@ -227,14 +212,8 @@ export default function ImmunizationWorkspace() {
         )}
       </Card>
 
-      <Pagination
-        page={currentPage}
-        totalPages={totalPages}
-        itemsPerPage={itemsPerPage}
-        totalItems={queue.length}
-        noun="patients"
-        onChange={setCurrentPage}
-      />
+      <Pagination page={currentPage} totalPages={totalPages} itemsPerPage={itemsPerPage}
+        totalItems={queue.length} noun="patients" onChange={setCurrentPage} />
     </div>
   );
 }
