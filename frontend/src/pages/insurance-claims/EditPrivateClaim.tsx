@@ -54,13 +54,14 @@ const toNum = (v: any): number => (v === null || v === undefined ? 0 : parseFloa
 function buildServicesFromBill(bill: any): ServiceItem[] {
   const lineItems = bill?.billLineItem ?? bill?.BillLineItem ?? [];
   return lineItems
-    .filter((li: any) => !li.isVoided && li.serviceType !== 'medication')
+    .filter((li: any) => !li.isVoided && li.serviceType !== 'medication' && li.serviceType !== 'diagnosis')
     .map((li: any) => {
       const quantity = li.quantity || 1;
       const unitPrice = toNum(li.unitPrice);
       return {
         id: li.id,
         billLineItemId: li.id,
+        itemCategory: li.serviceType === 'procedure' ? 'procedure' : ['lab_test', 'scan', 'investigation'].includes(String(li.serviceType || li.serviceCatalog?.serviceType || '')) ? 'investigation' : 'service',
         description: li.description || li.serviceCatalog?.name || 'Service',
         date: li.createdAt ? new Date(li.createdAt).toISOString().split('T')[0] : '',
         serviceCatalogId: li.serviceCatalogId || undefined,
@@ -191,7 +192,7 @@ function AddDiagnosisModalPrivate({ isOpen, onClose, onAdd }: any) {
   );
 }
 
-function AddServiceModal({ isOpen, onClose, onAdd }: any) {
+function AddServiceModal({ isOpen, onClose, onAdd, itemCategory = 'service' }: any) {
   const { serviceCatalog, getServiceCatalog } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedService, setSelectedService] = useState<any>(null);
@@ -200,15 +201,18 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
 
   useEffect(() => { if (isOpen) getServiceCatalog({ isActive: true }); }, [isOpen, getServiceCatalog]);
 
+  const allowedTypes = itemCategory === 'procedure' ? ['procedure'] : itemCategory === 'investigation' ? ['lab_test', 'scan'] : ['consultation'];
   const filtered = (serviceCatalog || []).filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(s.nhisServiceCode || s.code || '').toLowerCase().includes(searchTerm.toLowerCase())
+    allowedTypes.includes(String(s.serviceType || '').toLowerCase()) &&
+    (s.name.toLowerCase().includes(searchTerm.toLowerCase()) || String(s.nhisServiceCode || s.code || '').toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleAdd = () => {
     if (!selectedService) return;
     const unitPrice = payerUnitPrice(selectedService, 'private_insurance');
     onAdd({
+      id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      itemCategory,
       description: selectedService.name,
       date: serviceDate,
       serviceCatalogId: selectedService.id,
@@ -580,7 +584,7 @@ export default function EditPrivateClaim() {
 
     const serverItems: any[] = (currentClaim as any).items ?? [];
     const diagServer = serverItems.filter((i: any) => i.itemCategory === 'diagnosis');
-    const serviceServer = serverItems.filter((i: any) => i.itemCategory === 'service');
+    const serviceServer = serverItems.filter((i: any) => ['service', 'procedure', 'investigation'].includes(i.itemCategory));
     const medServer = serverItems.filter((i: any) => i.itemCategory === 'medicine');
 
     if (diagServer.length) {
@@ -605,6 +609,7 @@ export default function EditPrivateClaim() {
     if (serviceServer.length) {
       setServices(serviceServer.map((s: any) => ({
         id: s.id,
+        itemCategory: s.itemCategory || 'service',
         billLineItemId: s.billLineItemId ?? null,
         description: s.description,
         date: s.serviceDate ? String(s.serviceDate).split('T')[0] : '',
@@ -614,7 +619,7 @@ export default function EditPrivateClaim() {
         total: toNum(s.lineTotal),
       })));
     } else if (meta.services?.length) {
-      setServices(meta.services);
+      setServices(meta.services.map((item: any) => ({ ...item, itemCategory: item.itemCategory || 'service' })));
     } else {
       setServices(buildServicesFromBill(billOf(currentClaim)));
     }
@@ -665,7 +670,7 @@ export default function EditPrivateClaim() {
     }
     for (const s of services) {
       out.push({
-        itemCategory: 'service',
+        itemCategory: s.itemCategory || 'service',
         code: s.serviceCatalogId || s.description,
         description: s.description,
         quantity: s.quantity,
@@ -767,6 +772,24 @@ export default function EditPrivateClaim() {
   const money = (n: number) => `GHS ${n.toFixed(2)}`;
   const unpricedLines = services.filter(s => !s.unitPrice).length + medicines.filter(m => !m.unitPrice).length;
 
+  const renderServiceSection = (category: string, title: string) => {
+    const rows = services.filter(item => (item.itemCategory || 'service') === category);
+    const addLabel = category === 'service' ? 'Add consultation' : category === 'procedure' ? 'Add procedure' : 'Add lab / scan';
+    return (
+      <ListSection title={title} count={rows.length} open={tablesOpen} emptyText={category === 'service' ? 'No consultations or services added...' : category === 'procedure' ? 'No procedures added...' : 'No laboratory or imaging entries added...'} action={addBtn(addLabel, category)}>
+        <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-sm">
+          <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">Actions</TH>}</tr></thead>
+          <tbody>{rows.map((item, idx) => (
+            <tr key={item.id || item.billLineItemId || idx} className="border-t border-gray-100">
+              <td className="px-3 py-3 text-gray-500">{idx + 1}.</td><td className="px-3 py-3 text-gray-700">{item.description}</td><td className="px-3 py-3 text-gray-700">{fmtDate(item.date)}</td><td className="px-3 py-3 text-center text-gray-700">{item.quantity}</td><td className="px-3 py-3 text-right text-gray-700">{money(item.unitPrice)}</td><td className="px-3 py-3 text-right text-gray-800 font-medium">{money(item.quantity * item.unitPrice)}</td>
+              {isDraft && <td className="px-3 py-3 text-center whitespace-nowrap"><button type="button" onClick={() => setEditingService(item)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button><button type="button" onClick={() => removeService(services.indexOf(item))} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></td>}
+            </tr>
+          ))}</tbody>
+        </table></div>
+      </ListSection>
+    );
+  };
+
   return (
     <>
       <ClaimFrame
@@ -825,29 +848,9 @@ export default function EditPrivateClaim() {
           </table>
         </ListSection>
 
-        <ListSection title="SERVICES & PROCEDURES" count={services.length} open={tablesOpen} emptyText="No services added..." action={addBtn('Add', 'service')}>
-          <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
-            <tbody>
-              {services.map((srv, idx) => (
-                <tr key={idx} className="border-t border-gray-100">
-                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-gray-700">{srv.description}</td>
-                  <td className="px-3 py-3 text-gray-700">{fmtDate(srv.date)}</td>
-                  <td className="px-3 py-3 text-center text-gray-700">{srv.quantity}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{money(srv.unitPrice)}</td>
-                  <td className="px-3 py-3 text-right text-gray-800 font-medium">{money(srv.quantity * srv.unitPrice)}</td>
-                  {isDraft && (
-                    <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => setEditingService(srv)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
-                      <button type="button" onClick={() => removeService(idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </ListSection>
+        {renderServiceSection('service', 'CONSULTATION / SERVICES')}
+        {renderServiceSection('procedure', 'PROCEDURES')}
+        {renderServiceSection('investigation', 'LABORATORY & IMAGING')}
 
         <ListSection title="MEDICINES" count={medicines.length} open={tablesOpen} emptyText="No medicines added..." action={addBtn('Add', 'medicine')}>
           <table className="w-full text-sm">
@@ -895,7 +898,7 @@ export default function EditPrivateClaim() {
       </ClaimFrame>
 
       <AddDiagnosisModalPrivate isOpen={activeModal === 'diagnosis'} onClose={() => setActiveModal(null)} onAdd={addDiagnosis} />
-      <AddServiceModal isOpen={activeModal === 'service'} onClose={() => setActiveModal(null)} onAdd={addService} />
+      <AddServiceModal isOpen={['service', 'procedure', 'investigation'].includes(activeModal || '')} itemCategory={activeModal || 'service'} onClose={() => setActiveModal(null)} onAdd={addService} />
       <AddMedicineModal isOpen={activeModal === 'medicine'} onClose={() => setActiveModal(null)} onAdd={addMedicine} />
       <EditServiceModal isOpen={!!editingService} onClose={() => setEditingService(null)} onSave={updateService} service={editingService} />
       <EditMedicineModal isOpen={!!editingMedicine} onClose={() => setEditingMedicine(null)} onSave={updateMedicine} medicine={editingMedicine} />
