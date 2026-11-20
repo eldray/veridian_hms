@@ -263,7 +263,6 @@ export default function Reports() {
           const response: any = await getGHSEPIReport(f);
           setEpiReport(response?.data?.data ?? response?.data ?? response);
           break;
-          break;
         }
         case 'opd-attendance': await getGHSOPDReport(f); break;
         case 'opd-morbidity': await getMorbidityMortalityReport(f); break;
@@ -777,6 +776,8 @@ export default function Reports() {
                       <td className={NUM_TD}>{confirmed ?? '—'}</td>
                       <td className={cn(NUM_TD, deaths ? 'font-bold text-[var(--icon-red-text)]' : '')}>{deaths ?? '—'}</td>
                       <td className={NUM_TD}>{cfr}</td>
+                      <td className={NUM_TD}>{Number(d.diagnosisSignals || 0).toLocaleString()}</td>
+                      <td className={TEXT_TD}>{d.surveillanceEntries ? `${d.acknowledgedEntries || 0}/${d.surveillanceEntries} acknowledged` : 'No tally recorded'}</td>
                     </tr>
                   );
                 })}
@@ -788,13 +789,15 @@ export default function Reports() {
                   <td className={NUM_TD_BOLD}>{hasAnyConfirmed ? totalConfirmed.toLocaleString() : '—'}</td>
                   <td className={NUM_TD_BOLD}>{hasAnyDeaths ? totalDeaths.toLocaleString() : '—'}</td>
                   <td className={NUM_TD_BOLD}>{hasAnyConfirmed && totalConfirmed > 0 && hasAnyDeaths ? `${((totalDeaths / totalConfirmed) * 100).toFixed(1)}%` : '—'}</td>
+                  <td className={NUM_TD_BOLD}>{diseases.reduce((sum: number, d: any) => sum + Number(d.diagnosisSignals || 0), 0).toLocaleString()}</td>
+                  <td className={TEXT_TD}>—</td>
                 </tr>
               </tfoot>
             </table>
           </div>
           {(diseases.some((d: any) => d.confirmed == null || d.deaths == null)) && (
             <p className="px-4 py-3 text-[11px] text-[var(--text-tertiary)] border-t border-[var(--border-color)]">
-              Suspected counts are attendance-based diagnosis signals, not unique patients or validated surveillance cases. Laboratory-confirmed cases and deaths are not recorded per disease in this report, and notification status is not tracked here; these fields remain blank (—) instead of being estimated. Verify suspected cases, confirmation, deaths, and required notifications through the facility's surveillance process before submitting the IDSR return.
+              Where a surveillance tally has been entered, its suspected, confirmed and death counts are reported. Otherwise suspected figures are diagnosis-based signals only. Diagnosis signals are shown separately to support reconciliation; they are not unique patients or confirmed notifications. Acknowledgement tracks internal review, not submission to DHIMS2 or the district surveillance office.
             </p>
           )}
         </Card>
