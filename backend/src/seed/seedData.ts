@@ -1,5 +1,5 @@
 // src/seed/seedData.ts
-import { seedCoreData, seedDiagnosisReferenceData } from './coreSeed.js';
+import { seedCoreData, seedDiagnosisReferenceData, disconnectCoreSeedPrisma } from './coreSeed.js';
 import { seedDiagnosisGDRGLinks } from './diagnosisGdrgLink.js';
 import { seedProcedureGDRGLinks } from './procedureGdrgLink.js';
 import { seedTestData, hasNonDemoPatients } from './testSeed.js';
@@ -143,7 +143,7 @@ export const seedDatabase = async (force: boolean = false) => {
         diagnosisReferences,
       };
     } finally {
-      await prisma.$disconnect();
+      await Promise.all([prisma.$disconnect(), disconnectCoreSeedPrisma()]);
     }
   }
 
@@ -280,7 +280,7 @@ export const seedDatabase = async (force: boolean = false) => {
       results,
     };
   } finally {
-    await prisma.$disconnect();
+    await Promise.all([prisma.$disconnect(), disconnectCoreSeedPrisma()]);
   }
 };
 
