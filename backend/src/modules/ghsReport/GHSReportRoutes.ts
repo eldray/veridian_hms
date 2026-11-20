@@ -18,6 +18,9 @@ export const createGHSReportRoutes = (prisma: PrismaClient) => {
   router.get('/opd', controller.generateOPDReport);
   router.get('/ipd', controller.generateIPDReport);
   router.get('/idsr', controller.generateIDSRReport);
+  router.get('/idsr/alerts', controller.listIDSRAlerts);
+  router.post('/idsr/alerts', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.recordIDSRAlert);
+  router.patch('/idsr/alerts/:id/acknowledge', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.acknowledgeIDSRAlert);
   router.get('/malaria', controller.generateMalariaReport);
   router.get('/delivery', controller.generateDeliveryReport);
   router.get('/family-planning', controller.getFamilyPlanningReport);
