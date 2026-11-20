@@ -34,7 +34,7 @@ import {
   ClinicalAssessmentSummary,
   type ClinicalAssessmentValue,
 } from '../components/medical-entries/ClinicalAssessmentModal';
-import { ClinicalNotesModal, ClinicalNotesSummary } from '../components/medical-entries/ClinicalNotesModal';
+import { ClinicalNotesModal } from '../components/medical-entries/ClinicalNotesModal';
 import { useAdmissionStore } from '../store/admissionStore';
 
 import {
