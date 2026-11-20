@@ -583,6 +583,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
   console.log(`🏥 Starting core data seeding (profile: ${profile})...`);
 
   try {
+    const seedFailures: string[] = [];
     if (isProdProfile) {
       // Only needed while an administrator account still has to be created; a re-run that finds both
       // accounts never touches their passwords.
@@ -598,12 +599,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     }
 
     const coreDataExists = await hasCoreData();
-    if (coreDataExists && !force) {
-      console.log('✅ Core data already exists. Skipping.');
-      return { success: true, message: 'Core data exists', skipped: true };
-    }
-
-    console.log('🔧 Proceeding with core data seeding...');
+    console.log(coreDataExists ? '🔄 Existing core data detected; reconciling every reference catalogue idempotently.' : '🔧 Proceeding with initial core data seeding...');
 
     // ── STEP 1: Administrator accounts ────────────────────────
     // super_admin outranks admin: it is the only role holding `users.manage`, so it is the
@@ -828,7 +824,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     if (diagnosesData && Array.isArray(diagnosesData)) {
       let successful = 0;
       for (const d of diagnosesData) {
-        if (!d.icdCode || !d.name) continue;
+        if (!d.icdCode || !d.name) { seedFailures.push(`Diagnosis row missing icdCode/name: ${JSON.stringify(d)}`); continue; }
         try {
           const diagnosisData = addSchemaDefaults(d, 'diagnosis');
           await prisma.diagnosis.upsert({
@@ -838,6 +834,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           });
           successful++;
         } catch (error: any) {
+          seedFailures.push(`Diagnosis ${d.icdCode}: ${error.message}`);
           console.error(`❌ Diagnosis ${d.icdCode}:`, error.message);
         }
       }
@@ -849,7 +846,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     const labTemplateMap = new Map();
     if (labTestsData && Array.isArray(labTestsData)) {
       for (const test of labTestsData) {
-        if (!test.investigationCode) continue;
+        if (!test.investigationCode || !test.name) { seedFailures.push(`Lab template row missing investigationCode/name: ${JSON.stringify(test)}`); continue; }
         try {
           const labData = addSchemaDefaults(test, 'labTestTemplate');
           const template = await prisma.labTestTemplate.upsert({
@@ -859,18 +856,20 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           });
           labTemplateMap.set(test.investigationCode, template);
         } catch (error: any) {
+          seedFailures.push(`Lab template ${test.investigationCode || test.name}: ${error.message}`);
           console.error(`❌ Lab template ${test.investigationCode}:`, error.message);
         }
       }
-      console.log(`✅ ${labTemplateMap.size} lab test templates configured`);
-    }
+      if (labTemplateMap.size !== labTestsData.length) seedFailures.push(`Lab templates seeded ${labTemplateMap.size}/${labTestsData.length}`);
+      console.log(`✅ ${labTemplateMap.size}/${labTestsData.length} lab test templates configured`);
+    } else seedFailures.push('labTests.json is missing or is not an array');
 
     // ── STEP 7: Scan templates ────────────────────────────────
     const scansData = readJSON('scans.json');
     const scanTemplateMap = new Map();
     if (scansData && Array.isArray(scansData)) {
       for (const scan of scansData) {
-        if (!scan.scanCode) continue;
+        if (!scan.scanCode || !scan.name || !/^INVE[0-9]/i.test(String(scan.investigationCode || ''))) { seedFailures.push(`Scan template row missing scanCode/name/valid NHIS investigationCode: ${JSON.stringify({ name: scan.name, scanCode: scan.scanCode, investigationCode: scan.investigationCode })}`); continue; }
         try {
           const scanData = addSchemaDefaults(scan, 'scanTemplate');
           const template = await prisma.scanTemplate.upsert({
@@ -880,18 +879,20 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           });
           scanTemplateMap.set(scan.scanCode, template);
         } catch (error: any) {
+          seedFailures.push(`Scan template ${scan.scanCode || scan.name}: ${error.message}`);
           console.error(`❌ Scan template ${scan.scanCode}:`, error.message);
         }
       }
-      console.log(`✅ ${scanTemplateMap.size} scan templates configured`);
-    }
+      if (scanTemplateMap.size !== scansData.length) seedFailures.push(`Scan templates seeded ${scanTemplateMap.size}/${scansData.length}`);
+      console.log(`✅ ${scanTemplateMap.size}/${scansData.length} scan templates configured`);
+    } else seedFailures.push('scans.json is missing or is not an array');
 
     // ── STEP 8: Procedure templates ───────────────────────────
     const proceduresData = readJSON('procedures.json');
     const procedureTemplateMap = new Map();
     if (proceduresData && Array.isArray(proceduresData)) {
       for (const proc of proceduresData) {
-        if (!proc.procedureCode) continue;
+        if (!proc.procedureCode || !proc.name) { seedFailures.push(`Procedure template row missing procedureCode/name: ${JSON.stringify(proc)}`); continue; }
         try {
           const procData = addSchemaDefaults(proc, 'procedureTemplate');
           const template = await prisma.procedureTemplate.upsert({
@@ -901,11 +902,13 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           });
           procedureTemplateMap.set(proc.procedureCode, template);
         } catch (error: any) {
+          seedFailures.push(`Procedure template ${proc.procedureCode || proc.name}: ${error.message}`);
           console.error(`❌ Procedure template ${proc.procedureCode}:`, error.message);
         }
       }
-      console.log(`✅ ${procedureTemplateMap.size} procedure templates configured`);
-    }
+      if (procedureTemplateMap.size !== proceduresData.length) seedFailures.push(`Procedure templates seeded ${procedureTemplateMap.size}/${proceduresData.length}`);
+      console.log(`✅ ${procedureTemplateMap.size}/${proceduresData.length} procedure templates configured`);
+    } else seedFailures.push('procedures.json is missing or is not an array');
 
     // ── STEP 9: GDRG tariffs ──────────────────────────────────
     const gdrgData = readJSON('gdrgTariffs.json');
@@ -917,7 +920,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       for (const tariff of gdrgData.gdrgTariffs) {
         try {
           if (!tariff.gdrgCode) {
-            console.warn(`⚠️ Skipping GDRG tariff: missing gdrgCode`);
+            seedFailures.push(`GDRG tariff row missing gdrgCode: ${JSON.stringify(tariff)}`);
+            console.warn(`⚠️ Invalid GDRG tariff: missing gdrgCode`);
             failed++;
             continue;
           }
@@ -964,10 +968,12 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           }
         } catch (error: any) {
           failed++;
+          seedFailures.push(`GDRG tariff ${tariff.gdrgCode || '(missing code)'}: ${error.message}`);
           console.error(`❌ GDRG Tariff ${tariff.gdrgCode}:`, error.message);
         }
       }
-      console.log(`✅ GDRG Tariffs: ${successful} successful, ${failed} failed`);
+      if (failed || successful !== gdrgData.gdrgTariffs.length) seedFailures.push(`G-DRG tariffs seeded ${successful}/${gdrgData.gdrgTariffs.length}; ${failed} failed`);
+      console.log(`✅ GDRG Tariffs: ${successful}/${gdrgData.gdrgTariffs.length} successful, ${failed} failed`);
     } else {
       console.log(`⚠️ No GDRG tariffs found. File: gdrgTariffs.json`);
     }
@@ -1023,8 +1029,9 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
 
     for (const file of stockFiles) {
       const items = readJSON(file);
-      if (!items || !Array.isArray(items)) {
-        console.warn(`⚠️ No items found in ${file}, skipping...`);
+      if (!Array.isArray(items) || items.length === 0) {
+        seedFailures.push(`${file} is missing, invalid, or empty`);
+        console.error(`❌ ${file} is missing, invalid, or empty`);
         continue;
       }
       const isMedication = !file.includes('consumables');
@@ -1032,6 +1039,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
 
       for (const item of items) {
         try {
+          if (!item.name || (file === 'nhismedicines.json' && !item.drugCode)) throw new Error(file === 'nhismedicines.json' ? 'NHIS reference medicine is missing its official source drugCode; refusing to invent an NHIS code.' : 'Medicine/consumable is missing its name.');
           const existingGeneratedItem = !item.drugCode ? await prisma.stockItem.findFirst({
             where: {
               name: String(item.name || '').trim(),
@@ -1049,7 +1057,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           const stockData = addSchemaDefaults({
             ...canonicalItem,
             isMedication,
-            isNHISCovered: file === 'nhismedicines.json' && item.isNHISCovered !== false,
+            isNHISCovered: file === 'nhismedicines.json' && Boolean(item.drugCode) && item.isNHISCovered !== false,
             tariffCode: canonicalDrugCode,
             // Production profile: the catalogue is loaded but nothing is in stock until real stock is received.
             currentStock: isProdProfile ? 0 : (item.currentStock ?? 100),
@@ -1087,12 +1095,15 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             console.log(`📊 Processed ${totalStockProcessed} stock items so far...`);
           }
         } catch (error: any) {
+          seedFailures.push(`Stock item ${item.drugCode || item.name || '(unnamed)'} in ${file}: ${error.message}`);
           console.error(`❌ Stock item ${item.drugCode || item.name}:`, error.message);
         }
       }
-      console.log(`✅ Completed ${file} - ${items.length} items processed`);
+      console.log(`✅ Completed ${file} - ${items.length} source rows visited`);
     }
-    console.log(`✅ TOTAL: ${totalStockProcessed} stock items configured`);
+    const expectedStockRows = stockFiles.reduce((sum, file) => { const data = readJSON(file); return sum + (Array.isArray(data) ? data.length : 0); }, 0);
+    if (totalStockProcessed !== expectedStockRows) seedFailures.push(`Stock catalogue seeded ${totalStockProcessed}/${expectedStockRows} rows`);
+    console.log(`✅ TOTAL: ${totalStockProcessed}/${expectedStockRows} stock items configured`);
     // Seed the standard immunization catalogue and link each schedule vaccine to
     // the matching medicine/stock product. Dose timing is configured by the facility;
     // this seed deliberately does not invent clinical intervals.
@@ -1109,7 +1120,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     for (const item of standardVaccines) {
       const stockItem = stockItemMap.get(item.stockCode);
       if (!stockItem) {
-        console.warn(`⚠️ Vaccine ${item.code}: stock item ${item.stockCode} not found; schedule entry skipped`);
+        seedFailures.push(`Vaccine ${item.code}: required stock item ${item.stockCode} was not seeded`);
+        console.error(`❌ Vaccine ${item.code}: required stock item ${item.stockCode} was not seeded`);
         continue;
       }
       await prisma.vaccine.upsert({
@@ -1121,7 +1133,9 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         update: { stockItemId: stockItem.id },
       });
     }
-    console.log(`💉 ${standardVaccines.length} standard immunization catalogue entries linked to vaccine stock products`);
+    const vaccineCount = await prisma.vaccine.count({ where: { code: { in: standardVaccines.map(v => v.code) } } });
+    if (vaccineCount !== standardVaccines.length) seedFailures.push(`Vaccine catalogue linked ${vaccineCount}/${standardVaccines.length} entries`);
+    console.log(`💉 ${vaccineCount}/${standardVaccines.length} standard immunization catalogue entries linked to vaccine stock products`);
 
 
     // ── STEP 12a: Payer-specific NHIS medicine rules ──────────
@@ -1137,13 +1151,14 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     });
 
     if (!nhisProvider) {
-      console.warn('⚠️ No active NHIS insurance provider found; skipping NHIS medicine payer rules.');
+      seedFailures.push('No active NHIS insurance provider found; NHIS medicine payer rules could not be seeded.');
+      console.warn('⚠️ No active NHIS insurance provider found; NHIS medicine payer rules could not be seeded.');
     } else {
       let nhisRulesSeeded = 0;
       const allowedPrescribingLevels = new Set(['A', 'M', 'B1', 'B2', 'C', 'D', 'SM']);
       for (const [drugCode, reference] of nhisReferenceByDrugCode) {
         const stockItem = stockItemMap.get(drugCode);
-        if (!stockItem) continue;
+        if (!stockItem) { seedFailures.push(`NHIS medicine rule ${drugCode}: corresponding stock item was not seeded`); continue; }
 
         // A row can opt out with "isNHISCovered": false - used for formulations that are stocked here
         // but no longer appear on the current NHIS list, so they must bill as cash, never as a claim.
@@ -1304,6 +1319,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           perDepartment[dept.name] = (perDepartment[dept.name] || 0) + 1;
           placedCount++;
         } catch (error: any) {
+          seedFailures.push(`Stock placement for ${stockItem.drugCode} in ${dept.name}: ${error.message}`);
           console.error(`❌ Stock placement for ${stockItem.drugCode} in ${dept.name}:`, error.message);
         }
       }
@@ -1460,6 +1476,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         }
         serviceCatalogCreated++;
       } catch (error: any) {
+        seedFailures.push(`Service catalog ${service.code}: ${error.message}`);
         console.error(`❌ Service catalog ${service.code}:`, error.message);
       }
     }
@@ -1535,8 +1552,13 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     // ── STEP 15: Job grades + salary steps ────────────────────
     await seedJobGradesAndSteps();
 
-    console.log('🎉 Core data seeding completed successfully!');
-    return { success: true, message: 'Core data seeded successfully' };
+    if (seedFailures.length) {
+      const summary = `Core data seeding incomplete: ${seedFailures.length} item(s) failed or were invalid. First failures:\n- ${seedFailures.slice(0, 40).join('\n- ')}${seedFailures.length > 40 ? `\n- ...and ${seedFailures.length - 40} more` : ''}`;
+      console.error(`❌ ${summary}`);
+      throw new Error(summary);
+    }
+    console.log('🎉 Core data seeding completed successfully; all required catalogue rows were processed.');
+    return { success: true, message: 'Core data seeded successfully', counts: { stockItems: totalStockProcessed, labTemplates: labTemplateMap.size, scanTemplates: scanTemplateMap.size, procedureTemplates: procedureTemplateMap.size, serviceCatalog: serviceCatalogCreated } };
   } catch (error: any) {
     console.error('❌ Core data seeding failed:', error);
     throw error;
