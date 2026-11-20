@@ -172,9 +172,11 @@ export const seedDatabase = async (force: boolean = false) => {
     const coreResult = await safeSeed('Core Data', () => seedCoreData(force), force, 'coreData', status);
     results.coreData = coreResult;
 
-    // If core data failed and not in force mode, stop
-    if (!coreResult.success && !force) {
-      throw new Error('Core data seeding failed. Use --force to continue anyway.');
+    // Force mode may continue to later seed stages, but it must never hide a
+    // failed core catalogue from the final result.
+    if (!coreResult.success) {
+      results.errors.push(`Core data: ${coreResult.error || 'failed'}`);
+      if (!force) throw new Error('Core data seeding failed. Use --force to continue other stages.');
     }
 
     // ========== STEP 2: DIAGNOSIS ↔ GDRG LINKS ==========
