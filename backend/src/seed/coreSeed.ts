@@ -40,6 +40,23 @@ const readJSON = (fileName: string) => {
 
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
+// Deterministic fallback for facility-only medicines absent from the NHIS list.
+// The value uses an NHIS-like compact alphanumeric shape, but is never treated as
+// an official NHIS code unless the item exists in the NHIS reference catalogue.
+const generateFacilityDrugCode = (item: any): string => {
+  const identity = [item.name, item.strength, item.unitOfMeasure]
+    .map((value) => String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
+    .join('|');
+  let hash = 2166136261;
+  for (let index = 0; index < identity.length; index++) {
+    hash ^= identity.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  const namePart = String(item.name ?? 'MEDICINE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9) || 'MEDICINE';
+  return `FCH${namePart}${(hash >>> 0).toString(36).toUpperCase().padStart(7, '0')}`;
+};
+
+
 // ─────────────────────────────────────────────────────────────
 // Enum normalizers (protects against JSON casing drift)
 // ─────────────────────────────────────────────────────────────
@@ -1008,13 +1025,14 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       console.log(`📦 Processing ${file} (${isMedication ? 'Medication' : 'Consumable'}) with ${items.length} items`);
 
       for (const item of items) {
-        if (!item.drugCode) {
-          console.warn(`⚠️ Skipping item without drugCode in ${file}`);
-          continue;
-        }
         try {
+          const canonicalDrugCode = String(item.drugCode || generateFacilityDrugCode(item)).trim().toUpperCase();
+          const canonicalItem = { ...item, drugCode: canonicalDrugCode };
+          if (!item.drugCode) {
+            console.warn(`⚠️ Generated facility-only catalogue code ${canonicalDrugCode} for ${item.name}; it is not an official NHIS code.`);
+          }
           const stockData = addSchemaDefaults({
-            ...item,
+            ...canonicalItem,
             isMedication,
             // Production profile: the catalogue is loaded but nothing is in stock until real stock is received.
             currentStock: isProdProfile ? 0 : (item.currentStock ?? 100),
@@ -1025,13 +1043,13 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           // Re-running the seed must never zero (or reset) quantities the facility has since received.
           const { currentStock: _seedStock, ...stockUpdate } = stockData as any;
           const stockItem = await prisma.stockItem.upsert({
-            where: { drugCode: item.drugCode },
+            where: { drugCode: canonicalDrugCode },
             create: stockData,
             update: isProdProfile ? stockUpdate : stockData,
           });
-          stockItemMap.set(item.drugCode, stockItem);
+          stockItemMap.set(canonicalDrugCode, stockItem);
           if (file === 'nhismedicines.json') {
-            nhisReferenceByDrugCode.set(item.drugCode, item);
+            nhisReferenceByDrugCode.set(canonicalDrugCode, canonicalItem);
           }
 
           // Only the current NHIS Medicines List supplies NHIS medicine tariffs.
@@ -1040,7 +1058,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           const sell = Number(item.sellingPrice ?? 0);
           const isNhiaTariff = file === 'nhismedicines.json' && item.isNHISCovered !== false && unit > 0;
           const cashPrice = sell > 0 ? sell : Math.round(unit * 1.2 * 100) / 100;
-          stockPriceMap.set(item.drugCode, {
+          stockPriceMap.set(canonicalDrugCode, {
             cashPrice,
             insurancePrice: cashPrice,
             corporatePrice: cashPrice,
@@ -1052,7 +1070,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             console.log(`📊 Processed ${totalStockProcessed} stock items so far...`);
           }
         } catch (error: any) {
-          console.error(`❌ Stock item ${item.drugCode}:`, error.message);
+          console.error(`❌ Stock item ${item.drugCode || item.name}:`, error.message);
         }
       }
       console.log(`✅ Completed ${file} - ${items.length} items processed`);
@@ -1300,7 +1318,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       const pricing = pricingConfig.labTests?.[code] || { cashPrice: 80, nhisPrice: 60, insurancePrice: 75 };
       serviceCatalogEntries.push({
         name: template.name,
-        code: `LAB-${code}`,
+        code,
         serviceType: ServiceType.lab_test,
         serviceCategory: ServiceCategory.diagnostics,
         subType: template.category,
@@ -1315,7 +1333,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       const pricing = pricingConfig.scans?.[code] || { cashPrice: 200, nhisPrice: 150, insurancePrice: 180 };
       serviceCatalogEntries.push({
         name: template.name,
-        code: `SCAN-${code}`,
+        code: (template as any).investigationCode || code,
         serviceType: ServiceType.scan,
         serviceCategory: ServiceCategory.diagnostics,
         subType: template.category,
@@ -1369,11 +1387,11 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       };
       serviceCatalogEntries.push({
         name: stockItem.name,
-        code: `MED-${drugCode}`,
+        code: drugCode,
         serviceType: ServiceType.medication,
         serviceCategory: ServiceCategory.pharmacy,
         subType: stockItem.category || 'medication',
-        nhisServiceCode: drugCode,
+        nhisServiceCode: nhisReferenceByDrugCode.has(drugCode) && nhisReferenceByDrugCode.get(drugCode)?.isNHISCovered !== false ? drugCode : null,
         stockItemId: stockItem.id,
         isActive: true,
         pricing,
