@@ -1182,9 +1182,12 @@ export default function EditNHISClaim() {
     }
 
     if (medFromServer.length) {
+      const attendanceMedications: any[] = attendance?.Medication ?? attendance?.medication ?? [];
       setMedicines(medFromServer.map((m: any) => ({
         id: m.id,
-        code: m.code,
+        code: attendanceMedications.find((a: any) => a.id === m.medicationId)?.StockItem?.drugCode
+          || attendanceMedications.find((a: any) => a.id === m.medicationId)?.stockItem?.drugCode
+          || m.code,
         description: m.description,
         quantity: m.quantity,
         date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
