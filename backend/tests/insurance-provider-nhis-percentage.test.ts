@@ -26,6 +26,14 @@ describe('InsuranceProviderService NHIS percentage policy', () => {
     expect(result.coveragePercentage).toBe(100);
   });
 
+  it('creates NHIS providers when no percentage is supplied', async () => {
+    const result = await service.createProvider({
+      name: 'NHIS without percentage',
+      type: InsuranceType.nhis,
+    });
+    expect(result.coveragePercentage).toBe(100);
+  });
+
   it('preserves percentage settings for private insurers', async () => {
     const result = await service.createProvider({
       name: 'Private insurer',
