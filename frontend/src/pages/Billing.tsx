@@ -397,7 +397,20 @@ const handlePrintStatement = async (billId: string) => {
       bill: fullBill,
       patient,
       hospital: hospitalInfo,
-      payments: fullBill.Payment || [],   // ← capital P
+      // A statement must reconcile with paidAmount, so reversed rows are dropped and
+      // refunds are listed as negative entries instead of printing the original
+      // payment at full value as though the money were still in the till.
+      payments: [
+        ...(fullBill.Payment || []).filter((payment: any) => !payment.isVoided),
+        ...(fullBill.Refund || fullBill.refunds || []).map((refund: any) => ({
+          transactionDate: refund.refundedAt,
+          reference: refund.refundNumber,
+          paymentMethod: refund.refundMethod,
+          receivedBy: refund.processedBy,
+          amount: -Math.abs(Number(refund.amount) || 0),
+          notes: refund.reason,
+        })),
+      ],
     };
 
     const html = generatePDF('billStatement', billStatementData, hospitalInfo);

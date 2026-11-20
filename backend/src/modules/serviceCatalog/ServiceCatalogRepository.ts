@@ -60,7 +60,7 @@ export class ServiceCatalogRepository extends BaseRepository<ServiceCatalog, any
       Diagnosis: { select: { id: true, name: true, icdCode: true } },
       LabTestTemplate: { select: { id: true, name: true, investigationCode: true, category: true } },
       ProcedureTemplate: { select: { id: true, name: true, procedureCode: true, category: true } },
-      ScanTemplate: { select: { id: true, name: true, scanCode: true, category: true } },
+      ScanTemplate: { select: { id: true, name: true, scanCode: true, investigationCode: true, category: true } },
       StockItem: { select: { id: true, name: true, drugCode: true, strength: true, currentStock: true } },
       Ward: { select: { id: true, wardName: true, wardType: true } },
       ConsultationType: { select: { id: true, name: true, code: true } },
@@ -81,6 +81,10 @@ export class ServiceCatalogRepository extends BaseRepository<ServiceCatalog, any
         { code: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
         { nhisServiceCode: { contains: search, mode: 'insensitive' } },
+        { StockItem: { is: { drugCode: { contains: search, mode: 'insensitive' } } } },
+        { LabTestTemplate: { is: { investigationCode: { contains: search, mode: 'insensitive' } } } },
+        { ScanTemplate: { is: { investigationCode: { contains: search, mode: 'insensitive' } } } },
+        { ProcedureTemplate: { is: { procedureCode: { contains: search, mode: 'insensitive' } } } },
       ];
     }
 

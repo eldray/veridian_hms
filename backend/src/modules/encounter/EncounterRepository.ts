@@ -720,6 +720,29 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     }, { isolationLevel: 'Serializable' });
   }
 
+  async updateDiagnosis(encounterId: string, diagnosisRowId: string, data: any) {
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({ where: { id: encounterId }, select: { id: true, encounterCategory: true, status: true } });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(encounter.status))) {
+        throw new ConflictError('Diagnoses cannot be changed for a closed encounter');
+      }
+      const current = await tx.attendanceDiagnosis.findFirst({ where: { id: diagnosisRowId, attendanceId: encounterId } });
+      if (!current) throw new NotFoundError('Diagnosis in encounter', diagnosisRowId);
+      const diagnosisType = data.diagnosisType ?? current.diagnosisType;
+      const classification = data.classification ?? current.classification;
+      if (!['primary', 'additional', 'provisional'].includes(String(diagnosisType))) throw new ValidationError('Invalid diagnosis type');
+      if (classification != null && !['NEW_DIAGNOSIS', 'OLD_DIAGNOSIS'].includes(String(classification))) throw new ValidationError('Invalid HMIS diagnosis classification');
+      if (encounter.encounterCategory === 'opd' && !classification) throw new ValidationError('HMIS diagnosis classification is required for OPD diagnoses');
+      if (diagnosisType === 'primary') {
+        await tx.attendanceDiagnosis.updateMany({ where: { attendanceId: encounterId, diagnosisType: 'primary', id: { not: diagnosisRowId } }, data: { diagnosisType: 'additional' } });
+      }
+      return tx.attendanceDiagnosis.update({ where: { id: diagnosisRowId }, data: {
+        diagnosisType, classification, notes: data.notes !== undefined ? data.notes : current.notes,
+      }, include: { Diagnosis: true } });
+    });
+  }
+
   async removeDiagnosis(encounterId: string, diagnosisId: string) {
     return this.prisma.$transaction(async (tx) => {
       const encounter = await tx.attendance.findUnique({
@@ -731,22 +754,24 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         throw new ConflictError('Diagnoses cannot be changed for a closed encounter');
       }
 
+      // Accept either the encounter-diagnosis row ID (used by the UI) or the
+      // catalogue diagnosis ID (used by older callers).
       const existing = await tx.attendanceDiagnosis.findFirst({
-        where: { attendanceId: encounterId, diagnosisId },
-        select: { id: true, diagnosisType: true },
+        where: { attendanceId: encounterId, OR: [{ id: diagnosisId }, { diagnosisId }] },
+        select: { id: true, diagnosisId: true, diagnosisType: true },
       });
       if (!existing) throw new NotFoundError('Diagnosis in encounter', diagnosisId);
 
       if (existing.diagnosisType === 'primary') {
         const otherDiagnoses = await tx.attendanceDiagnosis.count({
-          where: { attendanceId: encounterId, diagnosisId: { not: diagnosisId } },
+          where: { attendanceId: encounterId, id: { not: existing.id } },
         });
         if (otherDiagnoses > 0) {
           throw new ConflictError('Assign another diagnosis as primary before removing the current primary diagnosis');
         }
       }
 
-      return tx.attendanceDiagnosis.deleteMany({ where: { attendanceId: encounterId, diagnosisId } });
+      return tx.attendanceDiagnosis.delete({ where: { id: existing.id } });
     });
   }
 
@@ -1337,6 +1362,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
+      const prescriptionFields = ['dosage', 'frequency', 'duration', 'route', 'instructions'];
+      if (med.status !== 'prescribed' && prescriptionFields.some((field) => data[field] !== undefined)) {
+        throw new ConflictError('Only an undispensed prescription can be edited; dispensed or administered medication requires a documented clinical correction workflow');
+      }
+      for (const field of prescriptionFields) if (data[field] !== undefined) updateData[field] = data[field];
 
       const isDispensing = data.status === 'dispensed' && med.status !== 'dispensed';
       if (med.status === 'dispensed' && data.quantity !== undefined && data.quantity !== med.quantity) {
@@ -1609,6 +1639,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported laboratory order status');
+    if (data.priority !== undefined && !['routine', 'urgent', 'stat'].includes(String(data.priority))) throw new ValidationError('Unsupported laboratory priority');
     const current = await this.prisma.labTest.findUnique({
       where: { id: labOrderId },
       select: { id: true, status: true, attendanceId: true, result: true },
@@ -1640,7 +1671,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     }
 
     const updateData: any = {}
-    for (const field of ['result', 'normalRange', 'units', 'notes']) if (data[field] !== undefined) updateData[field] = data[field];
+    for (const field of ['result', 'normalRange', 'units', 'notes', 'priority']) if (data[field] !== undefined) updateData[field] = data[field];
     if (status !== current.status) updateData.status = status;
     if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
     else if (status === 'in_progress') updateData.performedById = actorId;
@@ -1681,7 +1712,7 @@ async addScan(encounterId: string, data: any, userId: string) {
     const catalogEntry = await this.prisma.serviceCatalog.findUnique({
       where: { id: serviceCatalogId },
       select: {
-        id: true, name: true, code: true, description: true, serviceType: true,
+        id: true, name: true, code: true, nhisServiceCode: true, description: true, serviceType: true,
         scanTemplateId: true, subType: true, metadata: true, isNHISCovered: true,
         nhisRequiresAuth: true, isActive: true,
       },
@@ -1705,6 +1736,12 @@ async addScan(encounterId: string, data: any, userId: string) {
       const scanType = metadata.scanType;
       const bodyPart = normalizeBodyPart(metadata.bodyPart ?? catalogEntry.subType);
       const scanCategory = normalizeScanCategory(catalogEntry.name, scanType);
+      const investigationCode = String(catalogEntry.nhisServiceCode ?? '').trim().toUpperCase();
+      const scanCode = String(catalogEntry.code ?? '').replace(/^SCAN-/i, '').trim();
+      if (!/^INVE[0-9]/.test(investigationCode)) {
+        throw new ValidationError(`Scan service "${catalogEntry.name}" has no valid NHIS INVE investigation code.`);
+      }
+      if (!scanCode) throw new ValidationError(`Scan service "${catalogEntry.name}" has no catalogue scan code.`);
 
       templateId = await this.prisma.$transaction(async (tx) => {
         const currentCatalog = await tx.serviceCatalog.findUnique({
@@ -1721,11 +1758,11 @@ async addScan(encounterId: string, data: any, userId: string) {
         }
 
         const template = await tx.scanTemplate.upsert({
-          where: { scanCode: catalogEntry.code },
+          where: { scanCode },
           create: {
             name: catalogEntry.name,
-            investigationCode: catalogEntry.code,
-            scanCode: catalogEntry.code,
+            investigationCode,
+            scanCode,
             description: catalogEntry.description || catalogEntry.name,
             category: scanCategory,
             bodyPart,
@@ -1738,7 +1775,7 @@ async addScan(encounterId: string, data: any, userId: string) {
             scanType: typeof scanType === 'string' ? scanType : catalogEntry.name,
             resultTemplate: Array.isArray(metadata.resultTemplate) ? metadata.resultTemplate : undefined,
           },
-          update: {},
+          update: { investigationCode },
           select: { id: true },
         });
         await tx.serviceCatalog.update({
@@ -1777,6 +1814,7 @@ async addScan(encounterId: string, data: any, userId: string) {
   async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported scan order status');
+    if (data.priority !== undefined && !['routine', 'urgent', 'stat'].includes(String(data.priority))) throw new ValidationError('Unsupported scan priority');
     const current = await this.prisma.scan.findUnique({
       where: { id: scanId },
       select: { id: true, status: true, attendanceId: true, result: true, findings: true, impression: true },
@@ -1800,7 +1838,7 @@ async addScan(encounterId: string, data: any, userId: string) {
     }
 
     const updateData: any = {}
-    for (const field of ['result', 'findings', 'impression']) if (data[field] !== undefined) updateData[field] = data[field];
+    for (const field of ['result', 'findings', 'impression', 'notes', 'priority']) if (data[field] !== undefined) updateData[field] = data[field];
     if (data.imageUrls !== undefined) {
       if (!Array.isArray(data.imageUrls) || data.imageUrls.some((url: unknown) => typeof url !== 'string' || !url.trim())) throw new ValidationError('Scan image URLs must be a list of non-empty strings');
       updateData.imageUrls = data.imageUrls;

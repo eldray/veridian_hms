@@ -53,6 +53,7 @@ import {
   type GeneratedNewbornRecord, type GeneratedPostnatalRecord,
 } from './testSeed/maternity.js';
 import { seedMedications } from './testSeed/medications.js';
+import { seedVaccinationRecords } from './testSeed/vaccinations.js';
 import {
   auditEntityCounts, seedAppointments, seedAuditLogs, seedCommunications, seedFamilyPlanning,
   seedGhsSubmissions, seedMalariaStock, seedNotifications,
@@ -293,6 +294,11 @@ export const deleteTestData = async (force: boolean = false) => {
     const userIds = await seedUserIds();
     const staffIds = (await prisma.staffProfile.findMany({ where: { userId: { in: userIds } }, select: { id: true } })).map((s) => s.id);
 
+    // Vaccination rows belong to the demo patients and visits; remove them before either parent is deleted.
+    await prisma.immunizationRecord.deleteMany({
+      where: { OR: [{ patientId: { in: testPatientIds } }, { attendanceId: { in: testAttendanceIds } }] },
+    });
+
     // ── Maternity ─────────────────────────────────────────
     // An ANC review is an attendance of its own and a booking points at its latest one, so
     // the bookings and deliveries leave before the visits that reference them.
@@ -491,6 +497,7 @@ export const seedTestData = async (force: boolean = false) => {
     const bundle: GeneratedBundle = generateAttendances(patientPlans);
     const counterClientIds = await seedCounterClients(bundle.counterClients, stats, planned);
     const { byKey: encounters } = await seedEncounters(lookups, bundle, patients, counterClientIds, stats, planned);
+    await seedVaccinationRecords(patients, patientPlans, lookups.fallbackIds.nurse, stats, planned);
 
     await seedLabs(lookups, encounters, stats, planned);
     await seedScans(lookups, encounters, stats, planned);

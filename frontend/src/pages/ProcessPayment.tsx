@@ -22,13 +22,15 @@ import {
   Tag,
   CheckCircle,
   MessageSquare,
-  Printer
+  Printer,
+  Undo2,
 } from 'lucide-react';
 import {
   Button, Card, cn, Field, INPUT, LinkButton, PageHeader, StatCard,
 } from '../components/ui';
 import type { PaymentMethod } from '../types';
 import SendDocumentModal from '../components/SendDocumentModal';
+import RefundPaymentModal, { type RefundSubmission } from '../components/billing/RefundPaymentModal';
 import { useHospitalStore } from '../store/hospitalStore';
 import { latestRecordedPayment, printThermalReceipt } from '../utils/receiptPrinter';
 import { checkMomoPaymentStatus, initiateMomoPayment } from '../api/momo';
@@ -55,11 +57,13 @@ export default function ProcessPayment() {
   const navigate = useNavigate();
   const goBack = useSmartBack('/dashboard/billing');
   const { billId } = useParams<{ billId: string }>();
-  const { getBill, addPaymentToBill, currentBill, isLoading, getBillingBreakdown } = useBillingStore();
+  const { getBill, addPaymentToBill, refundBillPayment, currentBill, isLoading, getBillingBreakdown } = useBillingStore();
   const { patients, currentPatient, fetchPatient } = usePatientStore();
   const { user, hasRole } = useAuthStore();
   const { hospital } = useHospitalStore();
   const canProcessPayment = hasRole(['admin', 'accounts', 'records']);
+  // Handing money back is finance-only; records may take a payment but not reverse it.
+  const canRefund = hasRole(['admin', 'accounts']);
   const { success, error: toastError } = useToast();
 
   const [amount, setAmount] = useState(0);
@@ -70,6 +74,7 @@ export default function ProcessPayment() {
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [showSendReceipt, setShowSendReceipt] = useState(false);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [refundTarget, setRefundTarget] = useState<any | null>(null);
   const paymentAttemptKey = useRef(getOrCreatePaymentAttemptKey(billId || 'pending'));
   const mountedRef = useRef(true);
 
@@ -258,6 +263,25 @@ export default function ProcessPayment() {
   // Latest non-voided payment — drives both the "Print Receipt" button and the Send modal.
   const latestPayment = latestRecordedPayment(bill);
 
+  // The API returns the Prisma relation names (`Payment`, `Refund`); older callers
+  // and cached bills used the lowercase variants, so both are accepted here.
+  const billPayments: any[] = ((bill as any)?.Payment || bill?.payments || []).filter((payment: any) => !payment.isVoided);
+  const billRefunds: any[] = (bill as any)?.Refund || (bill as any)?.refunds || [];
+  const roundMoney = (value: number) => Math.round((Number(value) || 0) * 100) / 100;
+  const refundedOn = (payment: any) =>
+    roundMoney((payment?.refunds || []).reduce((sum: number, refund: any) => sum + Number(refund.amount || 0), 0));
+  const refundableOn = (payment: any) =>
+    Math.max(0, roundMoney(Number(payment?.amount || 0) - refundedOn(payment)));
+
+  const handleRefund = async (data: RefundSubmission) => {
+    if (!bill) return;
+    await refundBillPayment(bill.id, data);
+    await getBill(bill.id);
+    const breakdown = await getBillingBreakdown(bill.id);
+    setBillingBreakdown(breakdown);
+    success('Refund processed', `${formatCurrency(data.amount)} has been refunded against the recorded payment`);
+  };
+
   // Build and open the 80mm thermal receipt for a payment. `autoPrint` opens the print
   // dialog on load (used right after a payment is recorded); otherwise the operator clicks Print.
   const printReceipt = (payment: any, autoPrint = false) => {
@@ -405,22 +429,57 @@ export default function ProcessPayment() {
           </Card>
 
           {/* Previous Payments */}
-          {bill.payments && bill.payments.length > 0 && (
+          {(billPayments.length > 0 || billRefunds.length > 0) && (
             <Card title="Payment History" icon={Calendar}>
               <div className="space-y-2">
-                {bill.payments.map((payment) => (
-                  <div key={payment.id} className="flex justify-between items-center bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--text-primary)]">
-                        {new Date(payment.transactionDate).toLocaleDateString()} - {payment.paymentMethod}
-                      </p>
-                      {payment.reference && (
-                        <p className="text-xs text-[var(--text-secondary)] mt-1">Ref: {payment.reference}</p>
-                      )}
+                {billPayments.map((payment: any) => {
+                  const refundable = refundableOn(payment);
+                  return (
+                    <div key={payment.id} className="flex flex-wrap justify-between items-center gap-3 bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">
+                          {new Date(payment.transactionDate).toLocaleDateString()} - {payment.paymentMethod?.replace('_', ' ')}
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">
+                          {payment.reference ? `Ref: ${payment.reference}` : 'No reference'}
+                          {refundedOn(payment) > 0 ? ` · ${formatCurrency(refundedOn(payment))} refunded` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg font-bold text-[var(--icon-green-text)] tabular-nums">{formatCurrency(payment.amount)}</span>
+                        {canRefund && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={Undo2}
+                            disabled={refundable <= 0}
+                            onClick={() => setRefundTarget(payment)}
+                          >
+                            Refund
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-lg font-bold text-[var(--icon-green-text)]">{formatCurrency(payment.amount)}</span>
+                  );
+                })}
+                {billRefunds.length > 0 && (
+                  <div className="pt-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Refund history</p>
+                    <div className="space-y-2">
+                      {billRefunds.map((refund: any) => (
+                        <div key={refund.id} className="flex justify-between items-start gap-3 rounded-xl border border-[var(--border-color)] px-4 py-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[var(--text-primary)]">{refund.refundNumber} · {refund.reason}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {new Date(refund.refundedAt).toLocaleDateString()} · {String(refund.refundMethod || '').replace('_', ' ')}
+                            </p>
+                          </div>
+                          <span className="text-sm font-bold text-[var(--icon-red-text)] tabular-nums">-{formatCurrency(refund.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             </Card>
           )}
@@ -550,6 +609,13 @@ export default function ProcessPayment() {
           )}
         </div>
       </div>
+
+      <RefundPaymentModal
+        payment={refundTarget}
+        billNumber={bill.billNumber}
+        onClose={() => setRefundTarget(null)}
+        onSubmit={handleRefund}
+      />
     </div>
   );
 }

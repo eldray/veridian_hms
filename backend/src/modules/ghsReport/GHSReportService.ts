@@ -460,16 +460,39 @@ export class GHSReportService extends BaseService {
       TYPH: ['typhoid', 'paratyphoid'],
     };
     const normalizeDiseaseText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const surveillanceRecords = await this.listIDSRAlerts(startDate, end);
     const diseases = NOTIFIABLE_DISEASES.map(disease => {
       const terms = (idsrAliases[disease.code] || [disease.name]).map(normalizeDiseaseText).filter(Boolean);
-      const count = attendances.filter((a: any) => a.AttendanceDiagnosis?.some((dx: any) => {
+      const diagnosisSignals = attendances.filter((a: any) => a.AttendanceDiagnosis?.some((dx: any) => {
         const diagnosisName = normalizeDiseaseText(dx.Diagnosis?.name || '');
         return terms.some(term => diagnosisName === term || diagnosisName.includes(term));
       })).length;
-      // confirmed / deaths are not recorded per disease; null means "not captured", never an estimate
-      return { disease: disease.name, code: disease.code, suspected: count, confirmed: null, deaths: null };
+      const entries = surveillanceRecords.filter((record: any) => record.diseaseCode.toUpperCase() === disease.code);
+      const hasReportedTallies = entries.length > 0;
+      return {
+        disease: disease.name, code: disease.code,
+        // Recorded surveillance tallies take precedence; diagnosis signals remain visible
+        // separately so the two sources are not accidentally added together.
+        suspected: hasReportedTallies ? entries.reduce((sum: number, row: any) => sum + row.suspectedCases, 0) : diagnosisSignals,
+        diagnosisSignals,
+        confirmed: hasReportedTallies ? entries.reduce((sum: number, row: any) => sum + row.confirmedCases, 0) : null,
+        deaths: hasReportedTallies ? entries.reduce((sum: number, row: any) => sum + row.deaths, 0) : null,
+        surveillanceEntries: entries.length,
+        acknowledgedEntries: entries.filter((row: any) => row.alertAcknowledged).length,
+      };
     });
-    return { period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1 }, facility: { name: facility?.name ?? '', district: facility?.ghsDistrictCode ?? '', ghfCode: facility?.ghaHFCode ?? '' }, diseases };
+    const reported = diseases.filter(d => d.confirmed != null);
+    return {
+      period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1 },
+      facility: { name: facility?.name ?? '', district: facility?.ghsDistrictCode ?? '', ghfCode: facility?.ghaHFCode ?? '' },
+      summary: {
+        totalSuspected: diseases.reduce((sum, disease) => sum + disease.suspected, 0),
+        totalConfirmed: reported.length ? reported.reduce((sum, disease) => sum + (disease.confirmed || 0), 0) : null,
+        totalDeaths: diseases.some(disease => disease.deaths != null) ? diseases.reduce((sum, disease) => sum + (disease.deaths || 0), 0) : null,
+        diseasesWithSurveillanceEntries: diseases.filter(disease => disease.surveillanceEntries > 0).length,
+      },
+      diseases,
+    };
   }
 
   async generateConsultingRoomRegister(startDate: string | Date, endDate: string | Date, periodType: 'daily' | 'weekly' | 'monthly' = 'daily', createdById: string) {
@@ -623,16 +646,77 @@ export class GHSReportService extends BaseService {
     return stats;
   }
 
-  // ─── EPI Statistics ─────────────────────────────────────────────────────────
-  // This system does not (yet) have an immunization table, so there is nothing to count.
-  // Return an honest empty result instead of failing with a 500.
-  async getEPIStats(_startDate: Date, _endDate: Date) {
+  // ─── EPI / Immunization Statistics ─────────────────────────────────────────
+  // Counts actual administrations, not attendance rows. Age is calculated on the
+  // administration date. Coverage and fully-immunized rates are intentionally not
+  // inferred because the facility catchment-population denominator is not stored.
+  async getEPIStats(startDate: Date, endDate: Date) {
+    const end = this.eod(endDate);
+    const records = await this.prisma.immunizationRecord.findMany({
+      where: { administeredAt: { gte: startDate, lte: end } },
+      include: {
+        Vaccine: { select: { id: true, code: true, name: true, diseaseTargets: true, doseSchedule: true } },
+        Patient: { select: { id: true, dateOfBirth: true, gender: true } },
+      },
+      orderBy: { administeredAt: 'asc' },
+    });
+    const ageBand = (dob: Date, administeredAt: Date) => {
+      const months = Math.max(0, (administeredAt.getTime() - new Date(dob).getTime()) / (30.4375 * 86400000));
+      if (months < 12) return '<1 year';
+      const years = months / 12;
+      if (years < 5) return '1–4 years';
+      if (years < 15) return '5–14 years';
+      return '15+ years';
+    };
+    const byVaccine: Record<string, any> = {};
+    const byAgeGroup: Record<string, number> = { '<1 year': 0, '1–4 years': 0, '5–14 years': 0, '15+ years': 0 };
+    const byDoseNumber: Record<string, number> = {};
+    const byGender: Record<string, number> = { male: 0, female: 0, other: 0 };
+    const children = new Set<string>();
+    const batchNumbers = new Set<string>();
+    let overdueFollowUps = 0, upcomingFollowUps = 0, adverseReactions = 0;
+    const asOf = end.getTime();
+    for (const record of records) {
+      const vaccine = record.Vaccine;
+      const key = vaccine.id;
+      const age = ageBand(record.Patient.dateOfBirth, record.administeredAt);
+      const gender = String(record.Patient.gender || '').toLowerCase();
+      const bucket = byVaccine[key] ||= {
+        vaccineId: key, code: vaccine.code, vaccine: vaccine.name, diseaseTargets: vaccine.diseaseTargets,
+        doses: 0, uniquePatients: 0, ageGroups: { '<1 year': 0, '1–4 years': 0, '5–14 years': 0, '15+ years': 0 },
+        doseNumbers: {}, scheduleConfigured: vaccine.doseSchedule != null,
+      };
+      bucket.doses++;
+      bucket.ageGroups[age]++;
+      bucket.doseNumbers[record.doseNumber] = (bucket.doseNumbers[record.doseNumber] || 0) + 1;
+      byAgeGroup[age]++;
+      byDoseNumber[record.doseNumber] = (byDoseNumber[record.doseNumber] || 0) + 1;
+      byGender[gender in byGender ? gender : 'other']++;
+      children.add(record.patientId);
+      if (record.batchNumber) batchNumbers.add(record.batchNumber);
+      if (record.adverseReaction?.trim()) adverseReactions++;
+      if (record.nextDoseDue) {
+        const due = new Date(record.nextDoseDue).getTime();
+        if (due < asOf) overdueFollowUps++;
+        else upcomingFollowUps++;
+      }
+    }
+    for (const bucket of Object.values(byVaccine) as any[]) {
+      bucket.uniquePatients = records.filter(r => r.vaccineId === bucket.vaccineId).reduce((set: Set<string>, r) => set.add(r.patientId), new Set<string>()).size;
+    }
     return {
-      available: false,
-      message: 'Immunization records are not stored by this system yet, so EPI statistics are not available.',
-      byVaccine: {} as Record<string, { doses: number; ageGroups: Record<string, number> }>,
-      fullyImmunizedChildren: 0,
-      dropoutRates: {} as Record<string, number>,
+      available: true,
+      period: { startDate, endDate: end },
+      summary: {
+        totalDoses: records.length, uniquePatients: children.size, vaccinesUsed: Object.keys(byVaccine).length,
+        overdueFollowUps, upcomingFollowUps, adverseReactions, batchesUsed: batchNumbers.size,
+      },
+      byVaccine: Object.values(byVaccine).sort((a: any, b: any) => b.doses - a.doses),
+      byAgeGroup, byDoseNumber, byGender,
+      coverage: null,
+      fullyImmunizedChildren: null,
+      dropoutRates: null,
+      dataLimitations: ['Population-based coverage cannot be calculated without a catchment-population denominator.', 'Fully immunized and dropout indicators require validated dose schedules for each vaccine; these are not inferred from incomplete schedule metadata.'],
     };
   }
 }

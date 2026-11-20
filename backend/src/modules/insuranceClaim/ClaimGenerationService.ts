@@ -171,17 +171,22 @@ export async function buildNHISClaimItems(
       extractNHISPrice(lab.ServiceCatalog),
     );
   }
-  // NHIS treats all imaging performed by the facility under its ultrasound
-  // investigation code, regardless of the local modality or scan-template code.
-  const NHIS_ULTRASOUND_INVESTIGATION_CODE = 'INVE30E';
   for (const scan of att.Scan) {
+    const investigationCode = String(
+      scan.ScanTemplate?.investigationCode ?? scan.ServiceCatalog?.nhisServiceCode ?? '',
+    ).trim().toUpperCase();
+    if (!/^INVE[0-9]/.test(investigationCode)) {
+      throw new ValidationError(
+        `Completed scan "${scan.ScanTemplate?.name ?? scan.id}" has no valid NHIS INVE investigation code.`,
+      );
+    }
     push(
       {
         scan: { connect: { id: scan.id } },
         serviceCatalog: scan.serviceCatalogId ? { connect: { id: scan.serviceCatalogId } } : undefined,
         itemCategory: 'investigation',
         itemType: 'N',
-        code: NHIS_ULTRASOUND_INVESTIGATION_CODE,
+        code: investigationCode,
         description: scan.ScanTemplate?.name ?? scan.ServiceCatalog?.name ?? 'Ultrasound',
         quantity: 1,
         serviceDate: scan.completedAt ?? scan.requestedAt,
@@ -194,13 +199,21 @@ export async function buildNHISClaimItems(
 
   // 3. Procedures
   for (const proc of att.Procedure) {
+    const procedureCode = String(
+      proc.ProcedureTemplate?.procedureCode ?? proc.ServiceCatalog?.nhisServiceCode ?? '',
+    ).trim().toUpperCase();
+    if (!procedureCode || /^PROC-/i.test(procedureCode)) {
+      throw new ValidationError(
+        `Completed procedure "${proc.ProcedureTemplate?.name ?? proc.id}" has no valid NHIS procedure tariff code.`,
+      );
+    }
     push(
       {
         procedure: { connect: { id: proc.id } },
         serviceCatalog: proc.serviceCatalogId ? { connect: { id: proc.serviceCatalogId } } : undefined,
         itemCategory: 'procedure',
         itemType: 'N',
-        code: proc.ProcedureTemplate?.procedureCode ?? proc.ServiceCatalog?.code ?? '',
+        code: procedureCode,
         description: proc.ProcedureTemplate?.name ?? proc.ServiceCatalog?.name ?? '',
         quantity: 1,
         serviceDate: proc.performedAt ?? proc.scheduledDate ?? undefined,
@@ -224,7 +237,7 @@ export async function buildNHISClaimItems(
       && payerRule.isCovered === true
       && (!payerRule.effectiveFrom || payerRule.effectiveFrom <= medicineServiceDate)
       && (!payerRule.effectiveTo || payerRule.effectiveTo >= medicineServiceDate);
-    if (!med.StockItem || med.StockItem.isNHISCovered === false || !ruleEffective) {
+    if (!med.StockItem || med.StockItem.isNHISCovered !== true || !med.StockItem.drugCode || !ruleEffective) {
       continue;
     }
     const code = med.StockItem.drugCode;
@@ -332,7 +345,7 @@ export async function buildBillClaimItems(
       serviceCatalog: line.serviceCatalogId ? { connect: { id: line.serviceCatalogId } } : undefined,
       itemCategory: mapBillServiceType(line.serviceType),
       itemType: null,
-      code: line.serviceCatalog?.code ?? '',
+      code: line.serviceCatalog?.nhisServiceCode ?? line.serviceCatalog?.code ?? '',
       description: line.description,
       quantity: line.quantity,
       unitPrice: line.unitPrice,

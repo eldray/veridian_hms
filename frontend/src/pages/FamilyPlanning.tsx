@@ -7,6 +7,7 @@ import { useFamilyPlanningStore } from '../store/familyPlanningStore';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { usePatientStore } from '../store/patientStore';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useToast } from '../store/toastStore';
 import {
   RefreshCw, X, Plus, Edit, Trash2, Eye, Calendar,
@@ -925,15 +926,11 @@ export default function FamilyPlanning() {
                       >
                         <td className={TD}>
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--icon-purple-bg)]">
-                              {initials(item.patient?.name || '') ? (
-                                <span className="text-[11px] font-bold text-[var(--icon-purple-text)]">
-                                  {initials(item.patient?.name || '')}
-                                </span>
-                              ) : (
-                                <User className="w-4 h-4 text-[var(--icon-purple-text)]" />
-                              )}
-                            </div>
+                            <PatientAvatar
+                              patient={{ ...item.patient, id: item.patientId, name: item.patient?.name }}
+                              size="sm"
+                              className="rounded-full border border-[var(--border-color)]"
+                            />
                             <div className="min-w-0">
                               <p className="font-medium text-[var(--text-primary)] text-sm truncate">{item.patient?.name}</p>
                               <p className="text-xs text-[var(--text-secondary)]">
@@ -1000,15 +997,11 @@ export default function FamilyPlanning() {
                 >
                   {/* Header */}
                   <div className="flex items-start gap-3 p-4 pb-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-purple-50 border border-purple-200 flex items-center justify-center flex-shrink-0">
-                      {initials(item.patient?.name || '') ? (
-                        <span className="text-sm font-bold text-purple-700">
-                          {initials(item.patient?.name || '')}
-                        </span>
-                      ) : (
-                        <User className="w-5 h-5 text-purple-600" />
-                      )}
-                    </div>
+                    <PatientAvatar
+                      patient={{ ...item.patient, id: item.patientId, name: item.patient?.name }}
+                      size="lg"
+                      className="rounded-xl border border-[var(--border-color)]"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-[var(--text-primary)] truncate">
                         {item.patient?.name}
@@ -1112,9 +1105,12 @@ export default function FamilyPlanning() {
                         {new Date(service.serviceDate).toLocaleDateString()}
                       </td>
                       <td className={TD}>
-                        <p className="font-medium text-[var(--text-primary)]">
-                          {service.patient?.surname} {service.patient?.otherNames}
-                        </p>
+                        <div className="flex items-center gap-2.5">
+                          <PatientAvatar patient={service.patient} size="sm" className="rounded-full border border-[var(--border-color)]" />
+                          <p className="font-medium text-[var(--text-primary)]">
+                            {service.patient?.surname} {service.patient?.otherNames}
+                          </p>
+                        </div>
                       </td>
                       <td className={TD_MONO}>{service.patient?.folderNumber || '—'}</td>
                       <td className={TD_MONO}>{service.attendance?.attendanceNumber || '—'}</td>

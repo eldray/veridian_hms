@@ -111,17 +111,15 @@ export default function BackupRestoreTab() {
     const formData = new FormData();
     formData.append('backup', selectedFile);
     try {
-      const response = await api.post('/backup/restore', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      await api.post('/backup/restore', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        // Restore may take a while on a facility database. The server responds
+        // only after pg_restore/psql has finished successfully or failed.
+        timeout: 30 * 60 * 1000,
       });
-      success('Backup Restored', 'Database restored successfully');
+      success('Backup Restored', 'Database restore completed successfully. Refreshing the application…');
       setSelectedFile(null);
-      await loadBackups();
-      setTimeout(async () => {
-        if (await confirmDialog({ title: 'Restore completed', message: 'Restore completed. Would you like to refresh the page?', confirmText: 'Refresh', type: 'success' })) {
-          window.location.reload();
-        }
-      }, 1000);
+      window.setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       console.error('Restore failed:', err);
       toastError('Restore Failed', err.response?.data?.message || 'Failed to restore backup');

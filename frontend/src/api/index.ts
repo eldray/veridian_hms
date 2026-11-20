@@ -1719,6 +1719,9 @@ export const getWorklistSummary = () =>
 export const addDiagnosisToEncounter = (encounterId: string, data: any) =>
   api.post(`/encounters/${encounterId}/diagnosis`, data).then(r => r.data);
 
+export const updateDiagnosisInEncounter = (encounterId: string, diagnosisRowId: string, data: any) =>
+  api.put(`/encounters/${encounterId}/diagnosis/${diagnosisRowId}`, data).then(r => r.data);
+
 export const removeDiagnosisFromEncounter = (encounterId: string, diagnosisId: string) =>
   api.delete(`/encounters/${encounterId}/diagnosis/${diagnosisId}`).then(r => r.data);
 
@@ -2065,6 +2068,15 @@ export const deleteBill = (id: string) =>
 
 export const addPaymentToBill = (billId: string, data: any) =>
   api.post(`/bills/${billId}/payment`, data).then(r => r.data);
+
+/**
+ * Refund money against a payment recorded on this bill.
+ * Finance-only: the API rejects records and clinical roles.
+ */
+export const refundBillPayment = (
+  billId: string,
+  data: { paymentId: string; amount: number; refundMethod?: string; reference?: string; reason: string }
+) => api.post(`/bills/${billId}/refunds`, data).then(r => r.data?.data ?? r.data);
 
 export const generateBillFromEncounter = (encounterId: string) =>
   api.post(`/bills/generate/${encounterId}`).then(r => {
@@ -3686,6 +3698,11 @@ export const getGHSIDSRReport = async (params: ReportFilter) => {
   return response.data;
 };
 
+export const getGHSEPIReport = async (params: ReportFilter) => {
+  const response = await api.get('/ghs-reports/epi/stats', { params });
+  return response.data;
+};
+
 export const getIDSRAlerts = async (params: ReportFilter) => {
   const response = await api.get('/ghs-reports/idsr/alerts', { params });
   return response.data;
@@ -4741,7 +4758,7 @@ export default {
   getTemplates, createTemplate, updateTemplate, deleteTemplate,
 
   // Reports
-  getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport, getGHSDeliveryReport, getGHSFormAReport,
+  getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSEPIReport, getGHSMalariaReport, getGHSDeliveryReport, getGHSFormAReport,
   getMorbidityMortalityReport, getTopDiagnoses, getFamilyPlanningReport, getConsultingRoomRegister,
   getReportSubmissions, getReportSubmissionById, exportGHSReportToCSV,
   getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,

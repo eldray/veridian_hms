@@ -175,7 +175,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
 
   const filtered = (serviceCatalog || []).filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (s.code || '').toLowerCase().includes(searchTerm.toLowerCase())
+    String(s.nhisServiceCode || s.code || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
@@ -217,7 +217,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
             {capPickerRows(filtered).map((s) => (
               <button key={s.id} onClick={() => setSelected(s)} className={`w-full text-left p-2 rounded-lg transition-colors ${selected?.id === s.id ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'}`}>
                 <div className="font-medium text-sm">{s.name}</div>
-                <div className="text-xs text-[var(--text-secondary)]">Code: {s.code} | {priceLabel(payerUnitPrice(s, 'corporate'))}</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {s.nhisServiceCode || s.code} | {priceLabel(payerUnitPrice(s, 'corporate'))}</div>
               </button>
             ))}
           </div>

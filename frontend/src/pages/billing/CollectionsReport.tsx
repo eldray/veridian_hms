@@ -42,7 +42,7 @@ const narrationOf = (payment: BillingCollectionPayment) => {
 
 type DetailRow = {
   payment: BillingCollectionPayment;
-  kind: 'collection' | 'reversal';
+  kind: 'collection' | 'reversal' | 'refund';
   text: string;
 };
 
@@ -76,7 +76,11 @@ export default function CollectionsReport({
   const details = useMemo<DetailRow[]>(() => {
     const rows: DetailRow[] = [
       ...report.payments.map((payment) => ({ payment, kind: 'collection' as const, text: '' })),
-      ...report.reversals.map((payment) => ({ payment, kind: 'reversal' as const, text: '' })),
+      ...report.reversals.map((payment) => ({
+        payment,
+        kind: (payment.isRefund ? 'refund' : 'reversal') as DetailRow['kind'],
+        text: '',
+      })),
     ];
     for (const row of rows) {
       const { payment } = row;
@@ -102,7 +106,7 @@ export default function CollectionsReport({
     try {
       const header = ['Receipt #', 'Date', 'Time', 'Type', 'Folder #', 'Paid by', 'Bill #', 'Method', 'Collected by', 'Breakdown group', 'Breakdown line', 'Line', 'Qty', 'Amount'];
       const lines: string[][] = [];
-      for (const payment of [...report.payments.map((p) => ({ p, kind: 'Collection' })), ...report.reversals.map((p) => ({ p, kind: 'Reversal' }))]) {
+      for (const payment of [...report.payments.map((p) => ({ p, kind: 'Collection' })), ...report.reversals.map((p) => ({ p, kind: p.isRefund ? 'Refund' : 'Reversal' }))]) {
         for (const item of payment.p.items) {
           const group = report.groups.find((g) => g.lines.some((l) => l.key === item.breakdownRow));
           lines.push([
@@ -155,7 +159,7 @@ export default function CollectionsReport({
     <section className="space-y-4">
       <Card
         title="Collections report"
-        description={`Receipts, reversals and what the money bought · ${periodLabel}`}
+        description={`Receipts, reversals, refunds and what the money bought · ${periodLabel}`}
         icon={Banknote}
         accent="green"
         actions={(
@@ -198,7 +202,7 @@ export default function CollectionsReport({
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatCard label="Collections" size="money" value={money(report.totalAmount)} icon={ArrowDownToLine} accent="green" hint={`${report.paymentCount} receipt(s)`} />
-        <StatCard label="Reversals" size="money" value={money(report.totalReversals)} icon={Undo2} accent="red" hint={`${report.reversalCount} voided payment(s)`} />
+        <StatCard label="Reversals" size="money" value={money(report.totalReversals)} icon={Undo2} accent="red" hint={`${report.reversalCount} voided payment(s) or refund(s)`} />
         <StatCard label="Net taken" size="money" value={money(report.netCollected)} icon={Receipt} accent="cyan" hint="Collections less reversals" />
         <StatCard label="Cash at hand" size="money" value={money(report.cashAtHand)} icon={Banknote} accent="yellow" hint="Cash receipts only — not mobile money, card, transfer or cheque" />
         <StatCard label="Cashiers" value={report.cashiers.length} icon={Users} accent="purple" hint="Staff who received money in this period" />
@@ -274,7 +278,7 @@ export default function CollectionsReport({
           </p>
         </Card>
 
-        <Card title="Details" description={`${details.length} receipt(s) and reversal(s) behind the totals`} icon={Receipt} accent="green" padded={false} className="xl:col-span-3">
+        <Card title="Details" description={`${details.length} receipt(s), reversal(s) and refund(s) behind the totals`} icon={Receipt} accent="green" padded={false} className="xl:col-span-3">
           {loading ? (
             <div className="space-y-2 p-4">
               {[1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="h-10 bg-[var(--bg-main)] rounded-lg animate-pulse" />)}
@@ -316,7 +320,9 @@ export default function CollectionsReport({
                         </td>
                         <td className={cn(TD, 'whitespace-normal max-w-xs')}>
                           <div className="flex items-start gap-2">
-                            {row.kind === 'reversal' ? (
+                            {row.kind === 'refund' ? (
+                              <Badge tone="yellow" size="sm" dot>refunded</Badge>
+                            ) : row.kind === 'reversal' ? (
                               <Badge tone="red" size="sm" dot>reversed</Badge>
                             ) : (
                               <Badge tone="green" size="sm" dot>paid</Badge>
@@ -324,8 +330,8 @@ export default function CollectionsReport({
                             <span className="text-[var(--text-secondary)] truncate" title={narrationOf(row.payment)}>{narrationOf(row.payment)}</span>
                           </div>
                         </td>
-                        <td className={cn(TD, NUM, row.kind === 'reversal' ? 'text-[var(--icon-red-text)]' : 'font-semibold text-[var(--icon-green-text)]')}>
-                          {row.kind === 'reversal' ? `-${money(row.payment.amount)}` : money(row.payment.amount)}
+                        <td className={cn(TD, NUM, row.kind !== 'collection' ? 'text-[var(--icon-red-text)]' : 'font-semibold text-[var(--icon-green-text)]')}>
+                          {row.kind !== 'collection' ? `-${money(row.payment.amount)}` : money(row.payment.amount)}
                         </td>
                       </tr>
                     ))}

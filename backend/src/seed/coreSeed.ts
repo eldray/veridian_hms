@@ -40,6 +40,21 @@ const readJSON = (fileName: string) => {
 
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
+// Facility-only medicines use a readable NHIS-style code: eight name letters
+// followed by a two-digit sequence, e.g. PARACETA01.
+const generateFacilityDrugCode = (item: any, usedCodes: Set<string>): string => {
+  const base = String(item.name ?? 'MEDICINE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'MEDICINE';
+  for (let sequence = 1; sequence <= 99; sequence++) {
+    const code = `${base}${String(sequence).padStart(2, '0')}`;
+    if (!usedCodes.has(code)) {
+      usedCodes.add(code);
+      return code;
+    }
+  }
+  throw new Error(`Could not generate a unique medicine code for ${item.name}; enter a code manually.`);
+};
+
+
 // ─────────────────────────────────────────────────────────────
 // Enum normalizers (protects against JSON casing drift)
 // ─────────────────────────────────────────────────────────────
@@ -207,13 +222,13 @@ const addSchemaDefaults = (data: any, type: string) => {
         expiryDate: data.expiryDate ? new Date(data.expiryDate) : null,
         batchNumber: data.batchNumber || null,
         isMedication: data.isMedication ?? true,
-        isNHISCovered: data.isNHISCovered ?? true,
+        isNHISCovered: data.isNHISCovered === true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false,
         nhisRequiresAuth: data.nhisRequiresAuth ?? false,
         privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? true,
-        tariffCode: data.tariffCode || `MED-${data.drugCode}`,
+        tariffCode: data.tariffCode || data.drugCode,
         isActive: true,
       };
 
@@ -316,7 +331,7 @@ const createServicePricing = async (
       });
     }
   } catch (error: any) {
-    console.error(`❌ Error creating service pricing for ${serviceCatalogId}:`, error.message);
+    throw new Error(`Service pricing for catalogue ${serviceCatalogId} failed: ${error.message}`);
   }
 };
 
@@ -564,11 +579,12 @@ export interface SeedCoreOptions {
 
 export const seedCoreData = async (force: boolean = false, options: SeedCoreOptions = {}) => {
   // The packaged desktop app (ELECTRON=true) can only ever run the production profile, whatever a caller asks for.
-  const profile: SeedProfile = process.env.ELECTRON === 'true' ? 'production' : (options.profile ?? 'development');
+  const profile: SeedProfile = process.env.ELECTRON === 'true' || process.env.NODE_ENV === 'production' ? 'production' : (options.profile ?? 'development');
   const isProdProfile = profile === 'production';
   console.log(`🏥 Starting core data seeding (profile: ${profile})...`);
 
   try {
+    const seedFailures: string[] = [];
     if (isProdProfile) {
       // Only needed while an administrator account still has to be created; a re-run that finds both
       // accounts never touches their passwords.
@@ -584,12 +600,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     }
 
     const coreDataExists = await hasCoreData();
-    if (coreDataExists && !force) {
-      console.log('✅ Core data already exists. Skipping.');
-      return { success: true, message: 'Core data exists', skipped: true };
-    }
-
-    console.log('🔧 Proceeding with core data seeding...');
+    console.log(coreDataExists ? '🔄 Existing core data detected; reconciling every reference catalogue idempotently.' : '🔧 Proceeding with initial core data seeding...');
 
     // ── STEP 1: Administrator accounts ────────────────────────
     // super_admin outranks admin: it is the only role holding `users.manage`, so it is the
@@ -814,7 +825,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     if (diagnosesData && Array.isArray(diagnosesData)) {
       let successful = 0;
       for (const d of diagnosesData) {
-        if (!d.icdCode || !d.name) continue;
+        if (!d.icdCode || !d.name) { seedFailures.push(`Diagnosis row missing icdCode/name: ${JSON.stringify(d)}`); continue; }
         try {
           const diagnosisData = addSchemaDefaults(d, 'diagnosis');
           await prisma.diagnosis.upsert({
@@ -824,6 +835,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           });
           successful++;
         } catch (error: any) {
+          seedFailures.push(`Diagnosis ${d.icdCode}: ${error.message}`);
           console.error(`❌ Diagnosis ${d.icdCode}:`, error.message);
         }
       }
@@ -833,9 +845,9 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     // ── STEP 6: Lab test templates ────────────────────────────
     const labTestsData = readJSON('labTests.json');
     const labTemplateMap = new Map();
-    if (labTestsData && Array.isArray(labTestsData)) {
+    if (Array.isArray(labTestsData) && labTestsData.length > 0) {
       for (const test of labTestsData) {
-        if (!test.investigationCode) continue;
+        if (!test.investigationCode || !test.name) { seedFailures.push(`Lab template row missing investigationCode/name: ${JSON.stringify(test)}`); continue; }
         try {
           const labData = addSchemaDefaults(test, 'labTestTemplate');
           const template = await prisma.labTestTemplate.upsert({
@@ -845,18 +857,20 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           });
           labTemplateMap.set(test.investigationCode, template);
         } catch (error: any) {
+          seedFailures.push(`Lab template ${test.investigationCode || test.name}: ${error.message}`);
           console.error(`❌ Lab template ${test.investigationCode}:`, error.message);
         }
       }
-      console.log(`✅ ${labTemplateMap.size} lab test templates configured`);
-    }
+      if (labTemplateMap.size !== labTestsData.length) seedFailures.push(`Lab templates seeded ${labTemplateMap.size}/${labTestsData.length}`);
+      console.log(`✅ ${labTemplateMap.size}/${labTestsData.length} lab test templates configured`);
+    } else seedFailures.push('labTests.json is missing or is not an array');
 
     // ── STEP 7: Scan templates ────────────────────────────────
     const scansData = readJSON('scans.json');
     const scanTemplateMap = new Map();
-    if (scansData && Array.isArray(scansData)) {
+    if (Array.isArray(scansData) && scansData.length > 0) {
       for (const scan of scansData) {
-        if (!scan.scanCode) continue;
+        if (!scan.scanCode || !scan.name || !/^INVE[0-9]/i.test(String(scan.investigationCode || ''))) { seedFailures.push(`Scan template row missing scanCode/name/valid NHIS investigationCode: ${JSON.stringify({ name: scan.name, scanCode: scan.scanCode, investigationCode: scan.investigationCode })}`); continue; }
         try {
           const scanData = addSchemaDefaults(scan, 'scanTemplate');
           const template = await prisma.scanTemplate.upsert({
@@ -866,18 +880,20 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           });
           scanTemplateMap.set(scan.scanCode, template);
         } catch (error: any) {
+          seedFailures.push(`Scan template ${scan.scanCode || scan.name}: ${error.message}`);
           console.error(`❌ Scan template ${scan.scanCode}:`, error.message);
         }
       }
-      console.log(`✅ ${scanTemplateMap.size} scan templates configured`);
-    }
+      if (scanTemplateMap.size !== scansData.length) seedFailures.push(`Scan templates seeded ${scanTemplateMap.size}/${scansData.length}`);
+      console.log(`✅ ${scanTemplateMap.size}/${scansData.length} scan templates configured`);
+    } else seedFailures.push('scans.json is missing or is not an array');
 
     // ── STEP 8: Procedure templates ───────────────────────────
     const proceduresData = readJSON('procedures.json');
     const procedureTemplateMap = new Map();
-    if (proceduresData && Array.isArray(proceduresData)) {
+    if (Array.isArray(proceduresData) && proceduresData.length > 0) {
       for (const proc of proceduresData) {
-        if (!proc.procedureCode) continue;
+        if (!proc.procedureCode || !proc.name) { seedFailures.push(`Procedure template row missing procedureCode/name: ${JSON.stringify(proc)}`); continue; }
         try {
           const procData = addSchemaDefaults(proc, 'procedureTemplate');
           const template = await prisma.procedureTemplate.upsert({
@@ -887,15 +903,17 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           });
           procedureTemplateMap.set(proc.procedureCode, template);
         } catch (error: any) {
+          seedFailures.push(`Procedure template ${proc.procedureCode || proc.name}: ${error.message}`);
           console.error(`❌ Procedure template ${proc.procedureCode}:`, error.message);
         }
       }
-      console.log(`✅ ${procedureTemplateMap.size} procedure templates configured`);
-    }
+      if (procedureTemplateMap.size !== proceduresData.length) seedFailures.push(`Procedure templates seeded ${procedureTemplateMap.size}/${proceduresData.length}`);
+      console.log(`✅ ${procedureTemplateMap.size}/${proceduresData.length} procedure templates configured`);
+    } else seedFailures.push('procedures.json is missing or is not an array');
 
     // ── STEP 9: GDRG tariffs ──────────────────────────────────
     const gdrgData = readJSON('gdrgTariffs.json');
-    if (gdrgData?.gdrgTariffs && Array.isArray(gdrgData.gdrgTariffs)) {
+    if (Array.isArray(gdrgData?.gdrgTariffs) && gdrgData.gdrgTariffs.length > 0) {
       let successful = 0;
       let failed = 0;
       console.log(`📋 Found ${gdrgData.gdrgTariffs.length} GDRG tariffs to seed`);
@@ -903,7 +921,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       for (const tariff of gdrgData.gdrgTariffs) {
         try {
           if (!tariff.gdrgCode) {
-            console.warn(`⚠️ Skipping GDRG tariff: missing gdrgCode`);
+            seedFailures.push(`GDRG tariff row missing gdrgCode: ${JSON.stringify(tariff)}`);
+            console.warn(`⚠️ Invalid GDRG tariff: missing gdrgCode`);
             failed++;
             continue;
           }
@@ -950,11 +969,14 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           }
         } catch (error: any) {
           failed++;
+          seedFailures.push(`GDRG tariff ${tariff.gdrgCode || '(missing code)'}: ${error.message}`);
           console.error(`❌ GDRG Tariff ${tariff.gdrgCode}:`, error.message);
         }
       }
-      console.log(`✅ GDRG Tariffs: ${successful} successful, ${failed} failed`);
+      if (failed || successful !== gdrgData.gdrgTariffs.length) seedFailures.push(`G-DRG tariffs seeded ${successful}/${gdrgData.gdrgTariffs.length}; ${failed} failed`);
+      console.log(`✅ GDRG Tariffs: ${successful}/${gdrgData.gdrgTariffs.length} successful, ${failed} failed`);
     } else {
+      seedFailures.push('gdrgTariffs.json is missing, empty, or has no gdrgTariffs array');
       console.log(`⚠️ No GDRG tariffs found. File: gdrgTariffs.json`);
     }
 
@@ -993,29 +1015,96 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     const stockFiles = ['medications1.json', 'medications2.json', 'nhismedicines.json', 'consumables.json'];
     let totalStockProcessed = 0;
     const stockItemMap = new Map();
+    // Identity matching ignores harmless punctuation/spacing differences in imported
+    // names and strengths (e.g. "500mg" vs "500 mg") so an NHIS reference row can
+    // re-key the existing local stock row instead of creating a second medicine.
+    const normalizeIdentityPart = (value: unknown) => String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const stockIdentityKey = (item: any, isMedication = item.isMedication !== false) => [
+      normalizeIdentityPart(item.name),
+      normalizeIdentityPart(item.strength || 'N/A'),
+      normalizeIdentityPart(item.unitOfMeasure || 'units'),
+      isMedication ? 'medication' : 'consumable',
+    ].join('|');
+    // NHIS may contain separately priced entries with the same generic identity.
+    // Only map a local row automatically when there is exactly one official code.
+    const nhisCodesByIdentity = new Map<string, Set<string>>();
+    const nhisSourceItems = readJSON('nhismedicines.json');
+    if (Array.isArray(nhisSourceItems)) {
+      for (const reference of nhisSourceItems) {
+        if (!reference?.name || !reference?.drugCode) continue;
+        const identity = stockIdentityKey(reference, true);
+        const codes = nhisCodesByIdentity.get(identity) ?? new Set<string>();
+        codes.add(String(reference.drugCode).trim().toUpperCase());
+        nhisCodesByIdentity.set(identity, codes);
+      }
+    }
+    const stockIdentityMap = new Map<string, any[]>();
     // Patient prices per drugCode, taken from each item's own selling/insurance prices in the JSON files
     const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number; corporatePrice: number }>();
     // Keep NHIS reference rows separate from inventory pricing so payer rules can be reviewed independently.
     const nhisReferenceByDrugCode = new Map<string, any>();
+    const usedDrugCodes = new Set<string>();
+    const existingStockItems = await prisma.stockItem.findMany({
+      select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true, isMedication: true },
+    });
+    for (const existing of existingStockItems) {
+      if (existing.drugCode) usedDrugCodes.add(String(existing.drugCode).trim().toUpperCase());
+      const identity = stockIdentityKey(existing, existing.isMedication);
+      stockIdentityMap.set(identity, [...(stockIdentityMap.get(identity) ?? []), existing]);
+    }
+    for (const sourceFile of stockFiles) {
+      const sourceItems = readJSON(sourceFile);
+      if (Array.isArray(sourceItems)) for (const sourceItem of sourceItems) {
+        if (sourceItem?.drugCode) usedDrugCodes.add(String(sourceItem.drugCode).trim().toUpperCase());
+      }
+    }
 
     for (const file of stockFiles) {
       const items = readJSON(file);
-      if (!items || !Array.isArray(items)) {
-        console.warn(`⚠️ No items found in ${file}, skipping...`);
+      if (!Array.isArray(items) || items.length === 0) {
+        seedFailures.push(`${file} is missing, invalid, or empty`);
+        console.error(`❌ ${file} is missing, invalid, or empty`);
         continue;
       }
-      const isMedication = !file.includes('consumables');
-      console.log(`📦 Processing ${file} (${isMedication ? 'Medication' : 'Consumable'}) with ${items.length} items`);
+      console.log(`📦 Processing ${file} with ${items.length} source rows`);
 
       for (const item of items) {
-        if (!item.drugCode) {
-          console.warn(`⚠️ Skipping item without drugCode in ${file}`);
-          continue;
-        }
         try {
+          const isMedication = item.isMedication ?? !file.includes('consumables');
+          if (!item.name || (file === 'nhismedicines.json' && !item.drugCode)) throw new Error(file === 'nhismedicines.json' ? 'NHIS reference medicine is missing its official source drugCode; refusing to invent an NHIS code.' : 'Medicine/consumable is missing its name.');
+          const identity = stockIdentityKey(item, isMedication);
+          const candidates = stockIdentityMap.get(identity) ?? [];
+          const nhisCodes = isMedication ? (nhisCodesByIdentity.get(identity) ?? new Set<string>()) : new Set<string>();
+          const uniqueNhisCode = nhisCodes.size === 1 ? [...nhisCodes][0] : null;
+          const isNhisSourceRow = file === 'nhismedicines.json';
+          let existingByIdentity = isNhisSourceRow
+            ? candidates.find((candidate) => candidate.drugCode === String(item.drugCode).trim().toUpperCase()) ?? null
+            : candidates.find((candidate) => candidate.drugCode === String(item.drugCode || '').trim().toUpperCase()) ?? null;
+
+          let canonicalDrugCode: string;
+          if (isNhisSourceRow) {
+            canonicalDrugCode = String(item.drugCode).trim().toUpperCase();
+          } else if (uniqueNhisCode) {
+            canonicalDrugCode = uniqueNhisCode;
+            if (!existingByIdentity) {
+              if (candidates.length === 1) existingByIdentity = candidates[0];
+              else if (candidates.length > 1) throw new Error(`Multiple existing stock rows match this NHIS medicine identity; refusing an unsafe merge to ${canonicalDrugCode}.`);
+            }
+          } else {
+            if (!existingByIdentity && candidates.length === 1) existingByIdentity = candidates[0];
+            if (!existingByIdentity && candidates.length > 1) throw new Error('Multiple existing stock rows share this local medicine/consumable identity; refusing an unsafe merge.');
+            canonicalDrugCode = String(existingByIdentity?.drugCode || item.drugCode || generateFacilityDrugCode(item, usedDrugCodes)).trim().toUpperCase();
+          }
+          usedDrugCodes.add(canonicalDrugCode);
+          const canonicalItem = { ...item, drugCode: canonicalDrugCode };
+          if (!item.drugCode) {
+            console.warn(`⚠️ Generated facility-only catalogue code ${canonicalDrugCode} for ${item.name}; it is not an official NHIS code.`);
+          }
           const stockData = addSchemaDefaults({
-            ...item,
+            ...canonicalItem,
             isMedication,
+            isNHISCovered: file === 'nhismedicines.json' && Boolean(item.drugCode) && item.isNHISCovered !== false,
+            tariffCode: canonicalDrugCode,
             // Production profile: the catalogue is loaded but nothing is in stock until real stock is received.
             currentStock: isProdProfile ? 0 : (item.currentStock ?? 100),
             reorderLevel: item.reorderLevel ?? 50,
@@ -1024,14 +1113,49 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
 
           // Re-running the seed must never zero (or reset) quantities the facility has since received.
           const { currentStock: _seedStock, ...stockUpdate } = stockData as any;
-          const stockItem = await prisma.stockItem.upsert({
-            where: { drugCode: item.drugCode },
-            create: stockData,
-            update: isProdProfile ? stockUpdate : stockData,
-          });
-          stockItemMap.set(item.drugCode, stockItem);
+          // The NHIS reference row owns the canonical code. If the same medicine
+          // already exists in a local medication file, re-key that same stock row
+          // instead of creating a duplicate product with a second code.
+          if (!existingByIdentity) {
+            const codeOwner = await prisma.stockItem.findUnique({
+              where: { drugCode: canonicalDrugCode },
+              select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true, isMedication: true },
+            });
+            if (codeOwner) {
+              if (stockIdentityKey(codeOwner, codeOwner.isMedication) !== identity) {
+                throw new Error(`Catalogue code ${canonicalDrugCode} is already assigned to a different product (${codeOwner.name}).`);
+              }
+              existingByIdentity = codeOwner;
+            }
+          }
+
+          let stockItem: any;
+          if (existingByIdentity && existingByIdentity.drugCode !== canonicalDrugCode) {
+            const codeOwner = await prisma.stockItem.findUnique({ where: { drugCode: canonicalDrugCode }, select: { id: true } });
+            if (codeOwner && codeOwner.id !== existingByIdentity.id) {
+              throw new Error(`Canonical code ${canonicalDrugCode} is already assigned to a different stock item.`);
+            }
+            stockItemMap.delete(existingByIdentity.drugCode);
+            stockItem = await prisma.stockItem.update({ where: { id: existingByIdentity.id }, data: stockUpdate });
+          } else {
+            stockItem = await prisma.stockItem.upsert({
+              where: { drugCode: canonicalDrugCode },
+              create: stockData,
+              update: stockUpdate,
+            });
+          }
+          stockItemMap.set(canonicalDrugCode, stockItem);
+          const remainingCandidates = (stockIdentityMap.get(identity) ?? []).filter((candidate) => candidate.id !== stockItem.id);
+          stockIdentityMap.set(identity, [...remainingCandidates, {
+            id: stockItem.id,
+            drugCode: stockItem.drugCode,
+            name: stockItem.name,
+            strength: stockItem.strength,
+            unitOfMeasure: stockItem.unitOfMeasure,
+            isMedication: stockItem.isMedication,
+          }]);
           if (file === 'nhismedicines.json') {
-            nhisReferenceByDrugCode.set(item.drugCode, item);
+            nhisReferenceByDrugCode.set(canonicalDrugCode, canonicalItem);
           }
 
           // Only the current NHIS Medicines List supplies NHIS medicine tariffs.
@@ -1040,7 +1164,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           const sell = Number(item.sellingPrice ?? 0);
           const isNhiaTariff = file === 'nhismedicines.json' && item.isNHISCovered !== false && unit > 0;
           const cashPrice = sell > 0 ? sell : Math.round(unit * 1.2 * 100) / 100;
-          stockPriceMap.set(item.drugCode, {
+          stockPriceMap.set(canonicalDrugCode, {
             cashPrice,
             insurancePrice: cashPrice,
             corporatePrice: cashPrice,
@@ -1052,12 +1176,15 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             console.log(`📊 Processed ${totalStockProcessed} stock items so far...`);
           }
         } catch (error: any) {
-          console.error(`❌ Stock item ${item.drugCode}:`, error.message);
+          seedFailures.push(`Stock item ${item.drugCode || item.name || '(unnamed)'} in ${file}: ${error.message}`);
+          console.error(`❌ Stock item ${item.drugCode || item.name}:`, error.message);
         }
       }
-      console.log(`✅ Completed ${file} - ${items.length} items processed`);
+      console.log(`✅ Completed ${file} - ${items.length} source rows visited`);
     }
-    console.log(`✅ TOTAL: ${totalStockProcessed} stock items configured`);
+    const expectedStockRows = stockFiles.reduce((sum, file) => { const data = readJSON(file); return sum + (Array.isArray(data) ? data.length : 0); }, 0);
+    if (totalStockProcessed !== expectedStockRows) seedFailures.push(`Stock catalogue seeded ${totalStockProcessed}/${expectedStockRows} rows`);
+    console.log(`✅ TOTAL: ${totalStockProcessed}/${expectedStockRows} stock items configured`);
     // Seed the standard immunization catalogue and link each schedule vaccine to
     // the matching medicine/stock product. Dose timing is configured by the facility;
     // this seed deliberately does not invent clinical intervals.
@@ -1074,7 +1201,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     for (const item of standardVaccines) {
       const stockItem = stockItemMap.get(item.stockCode);
       if (!stockItem) {
-        console.warn(`⚠️ Vaccine ${item.code}: stock item ${item.stockCode} not found; schedule entry skipped`);
+        seedFailures.push(`Vaccine ${item.code}: required stock item ${item.stockCode} was not seeded`);
+        console.error(`❌ Vaccine ${item.code}: required stock item ${item.stockCode} was not seeded`);
         continue;
       }
       await prisma.vaccine.upsert({
@@ -1086,7 +1214,9 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         update: { stockItemId: stockItem.id },
       });
     }
-    console.log(`💉 ${standardVaccines.length} standard immunization catalogue entries linked to vaccine stock products`);
+    const vaccineCount = await prisma.vaccine.count({ where: { code: { in: standardVaccines.map(v => v.code) } } });
+    if (vaccineCount !== standardVaccines.length) seedFailures.push(`Vaccine catalogue linked ${vaccineCount}/${standardVaccines.length} entries`);
+    console.log(`💉 ${vaccineCount}/${standardVaccines.length} standard immunization catalogue entries linked to vaccine stock products`);
 
 
     // ── STEP 12a: Payer-specific NHIS medicine rules ──────────
@@ -1102,13 +1232,14 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     });
 
     if (!nhisProvider) {
-      console.warn('⚠️ No active NHIS insurance provider found; skipping NHIS medicine payer rules.');
+      seedFailures.push('No active NHIS insurance provider found; NHIS medicine payer rules could not be seeded.');
+      console.warn('⚠️ No active NHIS insurance provider found; NHIS medicine payer rules could not be seeded.');
     } else {
       let nhisRulesSeeded = 0;
       const allowedPrescribingLevels = new Set(['A', 'M', 'B1', 'B2', 'C', 'D', 'SM']);
       for (const [drugCode, reference] of nhisReferenceByDrugCode) {
         const stockItem = stockItemMap.get(drugCode);
-        if (!stockItem) continue;
+        if (!stockItem) { seedFailures.push(`NHIS medicine rule ${drugCode}: corresponding stock item was not seeded`); continue; }
 
         // A row can opt out with "isNHISCovered": false - used for formulations that are stocked here
         // but no longer appear on the current NHIS list, so they must bill as cash, never as a claim.
@@ -1162,7 +1293,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         });
         nhisRulesSeeded++;
       }
-      console.log(`✅ ${nhisRulesSeeded} NHIS medicine payer rules configured; unknown authorization/prescribing rules remain unset`);
+      if (nhisRulesSeeded !== nhisReferenceByDrugCode.size) seedFailures.push(`NHIS medicine payer rules seeded ${nhisRulesSeeded}/${nhisReferenceByDrugCode.size}`);
+      console.log(`✅ ${nhisRulesSeeded}/${nhisReferenceByDrugCode.size} NHIS medicine payer rules configured; unknown authorization/prescribing rules remain unset`);
     }
 
     // ── STEP 12b: Opening stock, placed by DEPARTMENT ─────────
@@ -1186,7 +1318,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     const missing = [];
     for (const d of DEFAULT_STOCK_SPLIT) if (!(await getDept(d.department))) missing.push(d.department);
     if (missing.length) {
-      console.warn(`⚠️ Departments not found for default stock placement: ${missing.join(', ')}. Items will only be placed in the departments that exist.`);
+      seedFailures.push(`Required stock-placement departments missing: ${missing.join(', ')}`);
+      console.warn(`⚠️ Departments not found for default stock placement: ${missing.join(', ')}`);
     }
 
     const sourceByDrugCode = new Map<string, any>();
@@ -1212,7 +1345,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       if (Array.isArray(source.stockLocations) && source.stockLocations.length > 0) {
         for (const loc of source.stockLocations) {
           const dept = await getDept(loc.department);
-          if (!dept) { console.warn(`⚠️ ${drugCode}: department "${loc.department}" not found, skipped`); continue; }
+          if (!dept) { seedFailures.push(`${drugCode}: stock location department "${loc.department}" does not exist`); continue; }
           plan.push({ dept, quantity: Math.max(0, Math.floor(loc.quantity ?? 0)) });
         }
       } else if (source.department) {
@@ -1233,6 +1366,9 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           return { dept: t.dept, quantity };
         });
       }
+      const plannedQuantity = plan.reduce((sum, row) => sum + row.quantity, 0);
+      if (total > 0 && plannedQuantity !== total) seedFailures.push(`${drugCode}: opening stock placement allocated ${plannedQuantity}/${total} units`);
+      if (total > 0 && plan.length === 0) seedFailures.push(`${drugCode}: no valid department available for opening stock`);
 
       for (const { dept, quantity } of plan) {
         if (quantity <= 0) continue;
@@ -1269,6 +1405,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           perDepartment[dept.name] = (perDepartment[dept.name] || 0) + 1;
           placedCount++;
         } catch (error: any) {
+          seedFailures.push(`Stock placement for ${stockItem.drugCode} in ${dept.name}: ${error.message}`);
           console.error(`❌ Stock placement for ${stockItem.drugCode} in ${dept.name}:`, error.message);
         }
       }
@@ -1319,7 +1456,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         serviceType: ServiceType.scan,
         serviceCategory: ServiceCategory.diagnostics,
         subType: template.category,
-        nhisServiceCode: code,
+        nhisServiceCode: (template as any).investigationCode || null,
         scanTemplateId: template.id,
         isActive: true,
         pricing,
@@ -1369,11 +1506,12 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       };
       serviceCatalogEntries.push({
         name: stockItem.name,
-        code: `MED-${drugCode}`,
+        code: drugCode,
         serviceType: ServiceType.medication,
         serviceCategory: ServiceCategory.pharmacy,
         subType: stockItem.category || 'medication',
-        nhisServiceCode: drugCode,
+        nhisServiceCode: null,
+        isNHISCovered: stockItem.isNHISCovered === true,
         stockItemId: stockItem.id,
         isActive: true,
         pricing,
@@ -1391,7 +1529,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           serviceCategory: service.serviceCategory,
           subType: service.subType,
           nhisServiceCode: service.nhisServiceCode,
-          isNHISCovered: (service.pricing?.nhisPrice ?? 0) > 0,
+          isNHISCovered: (service.serviceType === ServiceType.medication ? service.isNHISCovered === true : Boolean(service.nhisServiceCode)) && (service.pricing?.nhisPrice ?? 0) > 0,
           nhisCoverageType: NHISCoverageType.full,
           nhisRequiresAuth: service.serviceType === ServiceType.procedure,
           privateInsRequiresAuth: service.serviceType === ServiceType.procedure,
@@ -1407,20 +1545,29 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           isActive: service.isActive ?? true,
         }, 'serviceCatalog');
 
-        const catalog = await prisma.serviceCatalog.upsert({
-          where: { code: service.code },
-          create: catalogData,
-          update: catalogData,
-        });
+        // Reuse the existing medicine catalogue row by stockItemId when its
+        // canonical code changes; do not create a second service entry.
+        const existingCatalog = service.stockItemId
+          ? await prisma.serviceCatalog.findFirst({ where: { stockItemId: service.stockItemId }, orderBy: { createdAt: 'asc' } })
+          : null;
+        const catalog = existingCatalog
+          ? await prisma.serviceCatalog.update({ where: { id: existingCatalog.id }, data: catalogData })
+          : await prisma.serviceCatalog.upsert({
+              where: { code: service.code },
+              create: catalogData,
+              update: catalogData,
+            });
         if (service.pricing) {
           await createServicePricing(catalog.id, service.pricing);
         }
         serviceCatalogCreated++;
       } catch (error: any) {
+        seedFailures.push(`Service catalog ${service.code}: ${error.message}`);
         console.error(`❌ Service catalog ${service.code}:`, error.message);
       }
     }
-    console.log(`✅ ${serviceCatalogCreated} service catalog entries with pricing configured`);
+    if (serviceCatalogCreated !== serviceCatalogEntries.length) seedFailures.push(`Service catalogue seeded ${serviceCatalogCreated}/${serviceCatalogEntries.length} entries`);
+    console.log(`✅ ${serviceCatalogCreated}/${serviceCatalogEntries.length} service catalog entries with pricing configured`);
 
     // ── STEP 14: Wards & Beds ─────────────────────────────────
     const wardsData = readJSON('wards.json');
@@ -1492,10 +1639,18 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     // ── STEP 15: Job grades + salary steps ────────────────────
     await seedJobGradesAndSteps();
 
-    console.log('🎉 Core data seeding completed successfully!');
-    return { success: true, message: 'Core data seeded successfully' };
+    if (seedFailures.length) {
+      const summary = `Core data seeding incomplete: ${seedFailures.length} item(s) failed or were invalid. First failures:\n- ${seedFailures.slice(0, 40).join('\n- ')}${seedFailures.length > 40 ? `\n- ...and ${seedFailures.length - 40} more` : ''}`;
+      console.error(`❌ ${summary}`);
+      throw new Error(summary);
+    }
+    console.log('🎉 Core data seeding completed successfully; all required catalogue rows were processed.');
+    return { success: true, message: 'Core data seeded successfully', counts: { stockItems: totalStockProcessed, labTemplates: labTemplateMap.size, scanTemplates: scanTemplateMap.size, procedureTemplates: procedureTemplateMap.size, serviceCatalog: serviceCatalogCreated } };
   } catch (error: any) {
     console.error('❌ Core data seeding failed:', error);
     throw error;
   }
 };
+
+// Integration tests and the main seed runner can close this module's Prisma client cleanly.
+export const disconnectCoreSeedPrisma = () => prisma.$disconnect();

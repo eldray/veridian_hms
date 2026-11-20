@@ -129,9 +129,6 @@ const getTestName = (test: any): string =>
   test?.name || test?.LabTestTemplate?.name || test?.ServiceCatalog?.name || 'Unknown Test';
 
 // ── Status chips ─────────────────────────────────────────────────────────────
-// 'stat' / 'urgent' / 'routine' and the HIGH / LOW / NL flags are vocabulary of
-// this screen alone, so they keep a local tone map instead of being pushed into
-// the shared Badge (rule 10 — never edit the primitive).
 const PRIORITY_TONES: Record<string, BadgeTone> = {
   stat: 'red',
   urgent: 'orange',
@@ -162,6 +159,12 @@ const FlagPill: React.FC<{ flag: string }> = ({ flag }) => {
 };
 
 // ── Multi-param result modal ──────────────────────────────────────────────────
+// Layering contract (do not "simplify"):
+//   overlay  = fixed, z-0, backdrop-blur  → blurs ONLY the page behind
+//   content  = relative, z-10             → ALWAYS above the overlay
+//   panel    = opaque bg-[var(--bg-card)] → never glassy, never blurred
+// If the content wrapper loses `relative z-10`, the fixed overlay paints above
+// the panel and blurs/dims the modal itself (and swallows its clicks).
 const MultiParameterResultForm: React.FC<{
   test: any;
   onSave: (parameters: any[]) => Promise<void>;
@@ -217,9 +220,12 @@ const MultiParameterResultForm: React.FC<{
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
-      <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
-        <div className={cn(TABLE_SHELL, 'shadow-2xl max-w-4xl w-full max-h-[94vh] flex flex-col')}>
+      <div className="fixed inset-0 z-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
+      <div
+        className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-4"
+        onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+      >
+        <div role="dialog" aria-modal="true" className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-hidden shadow-2xl max-w-4xl w-full max-h-[94vh] flex flex-col">
 
           {/* Header */}
           <div className="flex-shrink-0 bg-[var(--bg-main)] border-b border-[var(--border-color)] px-6 py-5">
@@ -352,7 +358,7 @@ export default function LabResultEntry() {
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
 
-  // ── State ──
+  // ── State ─
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
@@ -382,8 +388,6 @@ export default function LabResultEntry() {
   const [queueRows, setQueueRows] = useState<QueuedVisit[]>([]);
   const [queueLoading, setQueueLoading] = useState(false);
 
-  // Direct entry has no patient yet, and laboratory staff cannot search the patient
-  // directory, so the screen offers the same queue the waiting list shows instead.
   const loadQueue = async () => {
     setQueueLoading(true);
     try {
@@ -434,8 +438,6 @@ export default function LabResultEntry() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      // A lab tech has no read access to the patient directory, and this page is
-      // reached from the laboratory worklist, so the register is optional here.
       await Promise.all([loadPatients().catch(() => undefined), getLabTestTemplates(false)]);
 
       const statePatient = location.state?.patient;
@@ -457,8 +459,6 @@ export default function LabResultEntry() {
           setSelectedPatientId(patientId);
         }
 
-        // A queued visit can be older than the patient's recent-visit window, so the
-        // attendance named by the queue row is fetched on its own if the list missed it.
         let target: any = initialAttendanceId
           ? patientAttendances.find(a => a.id === initialAttendanceId)
           : undefined;
@@ -473,8 +473,6 @@ export default function LabResultEntry() {
           setSelectedAttendanceId(target.id);
           setAttendance(target);
           setLabTests(target.LabTest || []);
-          // Without directory access the only patient record available is the one
-          // carried by the visit, and the screen still needs it to draw the header.
           if (!foundPatient) {
             const linked = target.Patient || target.patient || null;
             if (linked) setPatient(linked);
@@ -686,8 +684,6 @@ export default function LabResultEntry() {
     return age;
   };
 
-  // The laboratory worklist opens this screen for one patient; arriving there
-  // directly has no history to pop, so it falls back to the queue.
   const goBack = useSmartBack('/dashboard/laboratory');
   const patientFullName = patient ? getPatientName(patient) : '';
   const patientAge = patient ? (patient.age || calculateAge(patient.dateOfBirth)) : 0;
@@ -708,8 +704,6 @@ export default function LabResultEntry() {
     </div>
   );
 
-  // Direct entry starts without a patient until one is picked in the selector;
-  // only a patient named in the route that failed to load is an error.
   if (!patient && (id || (location.state as any)?.patient)) return (
     <div className="space-y-6 p-4 md:p-6">
       <PageHeader
@@ -808,8 +802,6 @@ export default function LabResultEntry() {
           setSelectedAttendanceId('');
           setAttendance(null);
           setLabTests([]);
-          // Resolve the patient before the visits: the picker auto-selects an open visit as
-          // soon as they arrive, and the screen renders that visit's patient details.
           let resolved: any = null;
           try { resolved = await fetchPatient(patientId); } catch { /* fall back to the visit's own patient */ }
           let visits: any[] = [];
@@ -825,7 +817,6 @@ export default function LabResultEntry() {
             setAllAttendances(visits);
           }
           if (resolved) setPatient(resolved);
-          // Open the visit that owes the lab a result, not merely the most recent one.
           const best = pickVisit(visits, hasOutstandingLabWork);
           if (best) {
             setSelectedAttendanceId(best.id);
@@ -1238,9 +1229,12 @@ export default function LabResultEntry() {
       {/* ── SINGLE RESULT ENTRY MODAL ── */}
       {resultEntryTest && !isMultiParamModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setResultEntryTest(null)} />
-          <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
-            <div className={cn(TABLE_SHELL, 'max-w-md w-full')}>
+          <div className="fixed inset-0 z-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
+          <div
+            className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-4"
+            onMouseDown={(e) => { if (e.target === e.currentTarget) setResultEntryTest(null); }}
+          >
+            <div role="dialog" aria-modal="true" className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-hidden shadow-2xl max-w-md w-full">
 
               <div className="bg-[var(--bg-main)] border-b border-[var(--border-color)] px-5 py-4">
                 <div className="flex items-center justify-between gap-3">

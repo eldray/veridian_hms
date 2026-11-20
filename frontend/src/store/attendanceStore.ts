@@ -15,6 +15,7 @@ import {
   deleteEncounter as apiDeleteAttendance,
   updateEncounterStatus as apiUpdateAttendanceStatus,
   addDiagnosisToEncounter as apiAddDiagnosis,
+  updateDiagnosisInEncounter as apiUpdateDiagnosis,
   removeDiagnosisFromEncounter as apiRemoveDiagnosis,
   addLabTestToEncounter as apiAddLabTest,
   updateLabTestInEncounter as apiUpdateLabTestStatus,
@@ -156,6 +157,7 @@ interface AttendanceState {
 
   // Diagnosis operations
   addDiagnosis: (attendanceId: string, data: any) => Promise<void>;
+  updateDiagnosis: (attendanceId: string, diagnosisRowId: string, data: any) => Promise<void>;
   removeDiagnosis: (attendanceId: string, diagnosisId: string) => Promise<void>;
   
   // Lab Test operations
@@ -536,6 +538,24 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     } catch (error: any) {
       console.error('Error adding diagnosis:', error);
       set({ error: error.message || 'Failed to add diagnosis', isLoading: false });
+      throw error;
+    }
+  },
+
+  updateDiagnosis: async (attendanceId, diagnosisRowId, data) => {
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
+    if (!att || !get().canAddActivities(att)) throw new Error('Cannot edit diagnosis on a non-pending attendance');
+    set({ isLoading: true, error: null });
+    try {
+      await apiUpdateDiagnosis(attendanceId, diagnosisRowId, data);
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Diagnosis was updated, but the visit could not be refreshed');
+      await get().calculateBill(attendanceId);
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to update diagnosis', isLoading: false });
       throw error;
     }
   },

@@ -8,6 +8,7 @@ import {
   updateBill as apiUpdateBill,
   deleteBill as apiDeleteBill,
   addPaymentToBill as apiAddPaymentToBill,
+  refundBillPayment as apiRefundBillPayment,
   generateBillFromEncounter as apiGenerateBillFromAttendance,
   generateBillReport as apiGenerateBillReport,
   getBillingBreakdownForBill as apiGetBillingBreakdown,
@@ -76,6 +77,7 @@ interface BillingState {
   
   // Payment functions
   addPaymentToBill: (billId: string, paymentData: Partial<Payment>) => Promise<any>;
+  refundBillPayment: (billId: string, data: { paymentId: string; amount: number; refundMethod?: string; reference?: string; reason: string }) => Promise<void>;
   generateBillFromAttendance: (attendanceId: string) => Promise<Bill>;
   generateBillReport: (billId: string) => Promise<BillingBreakdown>;
   getBillingBreakdown: (billId: string) => Promise<BillingBreakdown>;
@@ -344,6 +346,26 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       return payload;
     } catch (error: unknown) {
       console.error('❌ Failed to add payment:', error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  /**
+   * Refund money against a payment, then reload the bill so the refund row,
+   * paid amount, balance and status all come from the server.
+   */
+  refundBillPayment: async (billId, data) => {
+    set({ isLoading: true });
+    try {
+      await apiRefundBillPayment(billId, data);
+      await get().getBill(billId);
+      const refreshed = get().currentBill;
+      if (refreshed?.id === billId) {
+        set({ bills: get().bills.map(bill => bill.id === billId ? refreshed : bill) });
+      }
+    } catch (error: unknown) {
+      console.error('? Failed to refund bill payment:', error);
       set({ isLoading: false });
       throw error;
     }

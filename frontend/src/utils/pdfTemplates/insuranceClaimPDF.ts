@@ -62,20 +62,20 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
     const unit = n(m.unitPrice ?? m.dispensedUnitCost);
     const qty = n(m.quantity) || 1;
     return {
-      code: m.code || m.StockItem?.drugCode || '',
+      code: m.StockItem?.drugCode || m.code || '',
       name: m.name || m.ServiceCatalog?.name || 'Medicine',
       detail: [m.dosage, m.frequency, m.duration && `x ${m.duration}`].filter(Boolean).join(' '),
       qty, unit, total: qty * unit,
     };
   });
   const investigations = [...labTests, ...scans].map((i) => ({
-    code: i.ServiceCatalog?.investigationCode || i.ServiceCatalog?.nhisServiceCode || '',
+    code: i.LabTestTemplate?.investigationCode || i.ScanTemplate?.investigationCode || i.ServiceCatalog?.nhisServiceCode || '',
     name: i.ServiceCatalog?.name || i.name || 'Investigation',
     date: i.requestedAt || i.createdAt,
     total: n(i.unitPrice),
   }));
-  const procItems = procedures.map((p) => ({ code: p.ServiceCatalog?.code || '', name: p.ServiceCatalog?.name || p.name || 'Procedure', total: n(p.unitPrice) }));
-  const svcItems = services.map((s) => ({ code: s.ServiceCatalog?.code || '', name: s.ServiceCatalog?.name || s.name || 'Service', total: n(s.unitPrice) }));
+  const procItems = procedures.map((p) => ({ code: p.ProcedureTemplate?.procedureCode || p.ServiceCatalog?.nhisServiceCode || '', name: p.ProcedureTemplate?.name || p.ServiceCatalog?.name || p.name || 'Procedure', total: n(p.unitPrice) }));
+  const svcItems = services.map((s) => ({ code: s.ServiceCatalog?.nhisServiceCode || s.ServiceCatalog?.code || '', name: s.ServiceCatalog?.name || s.name || 'Service', total: n(s.unitPrice) }));
 
   const totalClaim = n(claim?.totalClaimAmount) || n(claim?.Bill?.totalAmount);
   const medTotal = medItems.reduce((s, m) => s + m.total, 0);

@@ -27,6 +27,7 @@ import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
 import { deleteEncounterConsumableUse, getEncounterConsumableUses, finalizeEncounterClinicalRecord, dischargeFromEncounter } from '../api';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
+import { MedicalEntryEditModal, type MedicalEntryEditType } from '../components/medical-entries/MedicalEntryEditModal';
 
 import {
   ClinicalAssessmentModal,
@@ -154,6 +155,13 @@ const AddBtn: React.FC<{ onClick: () => void; label: string }> = ({ onClick, lab
 );
 
 // ─── Inline delete button ─────────────────────────────────────────────────────
+const EditBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button type="button" onClick={onClick} title="Edit entry" aria-label="Edit entry"
+    className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
+    <Edit className="w-3.5 h-3.5" />
+  </button>
+);
+
 const DelBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   <button
     onClick={onClick}
@@ -657,7 +665,7 @@ export default function MedicalEntries() {
     attendances, currentAttendance, getAttendance, getAttendances, refreshAttendance,
     updateAttendance,
     removeDiagnosis, removeLabTest, removeProcedure, removeMedication, removeScan,
-    updateScanStatus, canAddMedicalEntries, getVitalsByAttendance, calculateBill,
+    updateScanStatus, updateLabTestStatus, updateProcedureStatus, updateMedicationStatus, updateDiagnosis, canAddMedicalEntries, getVitalsByAttendance, calculateBill,
   } = useAttendanceStore();
 
   const {
@@ -721,6 +729,11 @@ export default function MedicalEntries() {
   const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
   const [consumableUses, setConsumableUses] = useState<any[]>([]);
   const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
+  const [editingEntry, setEditingEntry] = useState<{ type: MedicalEntryEditType; entry: any } | null>(null);
+  const [savingEntry, setSavingEntry] = useState(false);
+  const [editingNote, setEditingNote] = useState<{ type: 'treatment' | 'physician'; index: number } | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
 
   const assessmentValue: ClinicalAssessmentValue = {
     complaints: presentedComplaints,
@@ -1246,6 +1259,79 @@ export default function MedicalEntries() {
       await getAttendance(selectedAttendanceId);
       await calculateBill(selectedAttendanceId);
     } catch (err: any) { toastError('Delete failed', err.message); }
+  };
+
+  const handleEditNote = (type: 'treatment' | 'physician', index: number) => {
+    const note = (type === 'treatment' ? treatmentNotes : physicianNotes)[index];
+    if (!note) return;
+    setEditingNote({ type, index });
+    setEditingNoteText(note.text || '');
+  };
+
+  const handleSaveNoteEdit = async () => {
+    if (!selectedAttendanceId || !editingNote || !editingNoteText.trim()) return;
+    setSavingNote(true);
+    try {
+      if (editingNote.type === 'treatment') {
+        const updatedNotes = treatmentNotes.map((note, i) => i === editingNote.index ? { ...note, text: editingNoteText.trim() } : note);
+        const clinicalNotes = {
+          ...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes) ? currentAttendance.clinicalNotes : {}),
+          treatmentNotes: updatedNotes,
+        };
+        await updateAttendance(selectedAttendanceId, { clinicalNotes, updatedById: user?.id });
+        setTreatmentNotes(updatedNotes);
+      } else {
+        const updatedNotes = physicianNotes.map((note, i) => i === editingNote.index ? { ...note, text: editingNoteText.trim() } : note);
+        await updateAttendance(selectedAttendanceId, { physicianNotes: updatedNotes, updatedById: user?.id });
+        setPhysicianNotes(updatedNotes);
+      }
+      success('Saved', 'Note updated');
+      setEditingNote(null);
+      setEditingNoteText('');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) { toastError('Note update failed', err.message || 'Could not update note'); }
+    finally { setSavingNote(false); }
+  };
+
+  const handleDeleteNote = async (type: 'treatment' | 'physician', index: number) => {
+    if (!selectedAttendanceId) return;
+    const confirmed = await confirmDialog({ title: 'Delete note?', message: 'This note will be removed from the visit record. Continue?', confirmText: 'Delete note', type: 'warning' });
+    if (!confirmed) return;
+    try {
+      if (type === 'treatment') {
+        const updatedNotes = treatmentNotes.filter((_, i) => i !== index);
+        const clinicalNotes = {
+          ...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes) ? currentAttendance.clinicalNotes : {}),
+          treatmentNotes: updatedNotes,
+        };
+        await updateAttendance(selectedAttendanceId, { clinicalNotes, updatedById: user?.id });
+        setTreatmentNotes(updatedNotes);
+      } else {
+        const updatedNotes = physicianNotes.filter((_, i) => i !== index);
+        await updateAttendance(selectedAttendanceId, { physicianNotes: updatedNotes, updatedById: user?.id });
+        setPhysicianNotes(updatedNotes);
+      }
+      success('Deleted', 'Note removed');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) { toastError('Note deletion failed', err.message || 'Could not delete note'); }
+  };
+
+  const handleSaveEntryEdit = async (values: any) => {
+    if (!selectedAttendanceId || !editingEntry) return;
+    const { type, entry } = editingEntry;
+    setSavingEntry(true);
+    try {
+      if (type === 'diagnosis') await updateDiagnosis(selectedAttendanceId, entry.id, { ...values, classification: values.classification || null });
+      else if (type === 'lab') await updateLabTestStatus(selectedAttendanceId, entry.id, { status: entry.status, priority: values.priority, notes: values.notes });
+      else if (type === 'scan') await updateScanStatus(selectedAttendanceId, entry.id, { status: entry.status === 'scheduled' ? 'requested' : entry.status, priority: values.priority, notes: values.notes });
+      else if (type === 'procedure') await updateProcedureStatus(selectedAttendanceId, entry.id, { status: entry.status, scheduledDate: values.scheduledDate || null, notes: values.notes });
+      else if (type === 'medication') await updateMedicationStatus(selectedAttendanceId, entry.id, { status: entry.status, dosage: values.dosage, frequency: values.frequency, duration: values.duration, route: values.route, instructions: values.instructions });
+      success('Saved', 'Medical entry updated');
+      await getAttendance(selectedAttendanceId);
+      await calculateBill(selectedAttendanceId);
+      setEditingEntry(null);
+    } catch (err: any) { toastError('Update failed', err?.response?.data?.message || err.message || 'Could not update medical entry'); }
+    finally { setSavingEntry(false); }
   };
 
   const handleSaveScanResult = async (scanId: string, resultData: any) => {
@@ -1912,7 +1998,7 @@ export default function MedicalEntries() {
                             <Td><StatusBadge status={med.status} /></Td>
                             <Td>
                               {canAddEntries && med.status === 'prescribed'
-                                ? <DelBtn onClick={() => handleDeleteItem('medication', med.id)} />
+                                ? <><EditBtn onClick={() => setEditingEntry({ type: 'medication', entry: med })} /><DelBtn onClick={() => handleDeleteItem('medication', med.id)} /></>
                                 : med.status === 'dispensed'
                                   ? <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
                                   : null}
@@ -2011,7 +2097,7 @@ export default function MedicalEntries() {
                             </Td>
                             <Td><StatusBadge status={t.status} /></Td>
                             <Td>{t.requestedAt ? new Date(t.requestedAt).toLocaleDateString() : t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}</Td>
-                            <Td>{canAddEntries && t.status === 'requested' && <DelBtn onClick={() => handleDeleteItem('lab', t.id)} />}</Td>
+                            <Td>{canAddEntries && (t.status === 'requested' || t.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'lab', entry: t })} /><DelBtn onClick={() => handleDeleteItem('lab', t.id)} /></>}</Td>
                           </tr>
                         ))}
                       </Table>
@@ -2114,7 +2200,7 @@ export default function MedicalEntries() {
                             </Td>
                             <Td><StatusBadge status={scan.status} /></Td>
                             <Td>{new Date(scan.requestedAt).toLocaleDateString()}</Td>
-                            <Td>{canAddEntries && (scan.status === 'requested' || scan.status === 'scheduled') && <DelBtn onClick={() => handleDeleteItem('scan', scan.id)} />}</Td>
+                            <Td>{canAddEntries && (scan.status === 'requested' || scan.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'scan', entry: scan })} /><DelBtn onClick={() => handleDeleteItem('scan', scan.id)} /></>}</Td>
                           </tr>
                         ))}
                       </Table>
@@ -2150,12 +2236,7 @@ export default function MedicalEntries() {
                             <Td className="whitespace-pre-wrap">{scan.findings || scan.result || '—'}</Td>
                             <Td className="whitespace-pre-wrap">{scan.impression || '—'}</Td>
                             <Td className="px-1">
-                              {canAddEntries && (
-                                <button onClick={() => setScanResultFor(scan)}
-                                  className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
-                                  <Edit className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                              {canAddEntries && <span className="text-[10px] text-[var(--text-tertiary)]" title="Completed reports are locked. Use the documented clinical correction workflow.">Locked</span>}
                             </Td>
                           </tr>
                         ))}
@@ -2198,7 +2279,7 @@ export default function MedicalEntries() {
                               <Td><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></Td>
                               <Td>{item.user?.fullName || item.createdBy?.fullName || '—'}</Td>
                               <Td>{new Date(item.createdAt).toLocaleDateString()}</Td>
-                              <Td>{canAddEntries && <DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} />}</Td>
+                              <Td>{canAddEntries && <><EditBtn onClick={() => setEditingEntry({ type: 'diagnosis', entry: item })} /><DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} /></>}</Td>
                             </tr>
                           );
                         })}
@@ -2234,7 +2315,7 @@ export default function MedicalEntries() {
                               <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
                               <Td><StatusBadge status={proc.status} /></Td>
                               <Td className="whitespace-pre-wrap">{proc.notes || '—'}</Td>
-                              <Td>{canAddEntries && proc.status === 'scheduled' && <DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} />}</Td>
+                              <Td>{canAddEntries && (proc.status === 'scheduled' || proc.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'procedure', entry: proc })} /><DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} /></>}</Td>
                             </tr>
                           ))}
                         </Table>
@@ -2367,7 +2448,9 @@ export default function MedicalEntries() {
                 >
                   {physicianNotes.length > 0 ? (
                     [...physicianNotes].reverse().map((note, i) => (
-                      <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                      <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
+                        onEdit={() => handleEditNote('physician', physicianNotes.length - 1 - i)}
+                        onDelete={() => handleDeleteNote('physician', physicianNotes.length - 1 - i)} />
                     ))
                   ) : (
                     <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No physician notes yet</p>
@@ -2413,7 +2496,9 @@ export default function MedicalEntries() {
                 >
                   {treatmentNotes.length > 0 ? (
                     [...treatmentNotes].reverse().map((note, i) => (
-                      <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                      <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
+                        onEdit={() => handleEditNote('treatment', treatmentNotes.length - 1 - i)}
+                        onDelete={() => handleDeleteNote('treatment', treatmentNotes.length - 1 - i)} />
                     ))
                   ) : (
                     <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No treatment notes yet</p>
@@ -2472,6 +2557,8 @@ export default function MedicalEntries() {
       />
 
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
+      {editingNote && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/50" onClick={() => !savingNote && setEditingNote(null)} /><div className="relative w-full max-w-lg rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl"><div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]"><h3 className="text-sm font-bold text-[var(--text-primary)]">Edit {editingNote.type === 'treatment' ? 'treatment' : 'physician'} note</h3><button disabled={savingNote} onClick={() => setEditingNote(null)} className="text-[var(--text-tertiary)]"><XCircle className="w-4 h-4" /></button></div><div className="p-4"><textarea value={editingNoteText} onChange={e => setEditingNoteText(e.target.value)} rows={6} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" /></div><div className="flex gap-2 p-4 border-t border-[var(--border-color)]"><button disabled={savingNote || !editingNoteText.trim()} onClick={handleSaveNoteEdit} className="flex-1 rounded-lg bg-[var(--icon-cyan-text)] text-white py-2 text-sm font-semibold disabled:opacity-50">{savingNote ? 'Saving…' : 'Save note'}</button><button disabled={savingNote} onClick={() => setEditingNote(null)} className="px-4 rounded-lg border border-[var(--border-color)] text-sm">Cancel</button></div></div></div>}
+      {editingEntry && <MedicalEntryEditModal type={editingEntry.type} entry={editingEntry.entry} saving={savingEntry} onClose={() => setEditingEntry(null)} onSave={handleSaveEntryEdit} />}
       <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} diagnoses={diagnoses} canAdd={canAddEntries}
         userId={user?.id} userName={user?.fullName} />
@@ -2515,11 +2602,12 @@ export default function MedicalEntries() {
 }
 
 // ─── Note display helpers ─────────────────────────────────────────────────────
-const NoteCard: React.FC<{ author: string; date?: string; text?: string; children?: React.ReactNode }> = ({ author, date, text, children }) => (
+const NoteCard: React.FC<{ author: string; date?: string; text?: string; children?: React.ReactNode; onEdit?: () => void; onDelete?: () => void }> = ({ author, date, text, children, onEdit, onDelete }) => (
   <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
     <div className="flex items-center justify-between mb-1.5">
       <span className="text-[10px] font-bold text-[var(--icon-cyan-text)]">{author}</span>
       {date && <span className="text-[9px] text-[var(--text-tertiary)]">{new Date(date).toLocaleString()}</span>}
+      {(onEdit || onDelete) && <span className="flex items-center gap-1">{onEdit && <button onClick={onEdit} title="Edit note" className="p-1 rounded hover:bg-[var(--icon-cyan-bg)] hover:text-[var(--icon-cyan-text)]"><Edit className="w-3 h-3" /></button>}{onDelete && <button onClick={onDelete} title="Delete note" className="p-1 rounded hover:bg-[var(--icon-red-bg)] hover:text-[var(--icon-red-text)]"><Trash2 className="w-3 h-3" /></button>}</span>}
     </div>
     {text && <p className="text-[11px] text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{text}</p>}
     {children}

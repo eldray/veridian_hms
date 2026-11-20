@@ -272,7 +272,6 @@ export interface GDRGTariff {
   minAgeYears?: number | null;
   maxAgeYears?: number | null;
   applicableLevels: number[];
-  nhisServiceCode?: string | null;
   isZoomCode: boolean;
   allowsAddOn: boolean;
   effectiveFrom: string;
@@ -669,6 +668,23 @@ export interface BillLineItem {
   voidedBy?: User;
 }
 
+export interface Refund {
+  id: string;
+  refundNumber: string;
+  billId: string;
+  paymentId?: string | null;
+  amount: number;
+  refundMethod: PaymentMethod;
+  reference?: string | null;
+  reason: string;
+  refundedAt: string;
+  processedById: string;
+  createdAt: string;
+
+  payment?: Payment;
+  processedBy?: User;
+}
+
 export interface Payment {
   id: string;
   billId: string;
@@ -688,6 +704,7 @@ export interface Payment {
   
   bill?: Bill;
   receivedBy?: User;
+  refunds?: Refund[];
 }
 
 export interface Bill {
@@ -726,6 +743,7 @@ export interface Bill {
   admission?: Admission;
   insuranceProvider?: InsuranceProvider;
   payments: Payment[];
+  refunds?: Refund[];
   insuranceClaims: InsuranceClaim[];
   lineItems: BillLineItem[];
 }
