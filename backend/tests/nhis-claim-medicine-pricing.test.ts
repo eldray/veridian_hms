@@ -113,7 +113,7 @@ describe('NHIS claim medicine pricing', () => {
     const { service, prisma, tx } = setupDraft();
     prisma.serviceCatalog.findFirst = vi.fn().mockResolvedValue({
       code: 'NHIS-MED-1',
-      StockItem: { id: 'stock-1', nhisServiceCode: 'NHIS-MED-1', payerRules: [{ isCovered: false, authorizationRequired: null, prescribingLevel: 'A', effectiveFrom: null, effectiveTo: null }] },
+      StockItem: { id: 'stock-1', drugCode: 'NHIS-MED-1', isNHISCovered: true, payerRules: [{ isCovered: false, authorizationRequired: null, prescribingLevel: 'A', effectiveFrom: null, effectiveTo: null }] },
       pricing: [{ cashPrice: 12.5, nhisPrice: 5 }],
     });
 
