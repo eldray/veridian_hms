@@ -115,7 +115,7 @@ export default function Billing() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [refreshing, setRefreshing] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilterType>('month');
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -231,34 +231,32 @@ export default function Billing() {
     try {
       setRefreshing(true);
       const dateRange = getDateRange();
-      setCollectionsLoading(activeTab === 'collections');
-      if (activeTab === 'collections' && !dateRange) {
-        setCollectionsReport(EMPTY_COLLECTIONS);
-      }
       const filters: any = {};
       if (dateRange) {
         filters.dateFrom = dateRange.startDate.toISOString();
         filters.dateTo = dateRange.endDate.toISOString();
       }
-      if (statusFilter !== 'all') {
-        filters.status = statusFilter;
+      if (statusFilter !== 'all') filters.status = statusFilter;
+
+      // Load only what the selected tab needs. The Bills tab is a daily register;
+      // fetching waivers, aggregate reports and a month of 5,000 bills on entry
+      // made the routine cashier workflow unnecessarily slow.
+      if (activeTab === 'bills') {
+        await getBills({ ...filters, limit: 5000 });
+      } else if (activeTab === 'waivers') {
+        await Promise.all([getWaivers(filters), getWaiverStats(filters)]);
+      } else if (activeTab === 'collections') {
+        setCollectionsLoading(true);
+        if (!dateRange) {
+          setCollectionsReport(EMPTY_COLLECTIONS);
+        } else {
+          const collections = await getBillingCollections({
+            dateFrom: dateRange.startDate.toISOString(),
+            dateTo: dateRange.endDate.toISOString()
+          });
+          setCollectionsReport(collections || EMPTY_COLLECTIONS);
+        }
       }
-      const [, , , , collections] = await Promise.all([
-        getBills({ ...filters, limit: 5000 }), // all pages of the selected window (100 per request)
-        getBillStatistics(filters),
-        getWaivers(filters),
-        getWaiverStats(filters),
-        activeTab === 'collections' && dateRange
-          ? getBillingCollections({
-              dateFrom: dateRange.startDate.toISOString(),
-              dateTo: dateRange.endDate.toISOString()
-            })
-          : Promise.resolve(null)
-      ]);
-      if (activeTab === 'collections') {
-        setCollectionsReport(collections || EMPTY_COLLECTIONS);
-      }
-      success('Data refreshed', 'Billing data is up-to-date.');
     } catch (err) {
       toastError('Refresh failed', 'Could not load billing data.');
     } finally {
