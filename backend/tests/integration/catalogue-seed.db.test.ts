@@ -108,6 +108,19 @@ describeDb('clinical and NHIS catalogue seeding against PostgreSQL', () => {
     expect(catalog?.nhisServiceCode).toBeNull();
   });
 
+  it('keeps separate NHIS tariff codes separate and deduplicates local supply aliases', async () => {
+    const benzylOne = await prisma.stockItem.findUnique({ where: { drugCode: 'BENBENLO1' } });
+    const benzylTwo = await prisma.stockItem.findUnique({ where: { drugCode: 'BENBENLO2' } });
+    expect(benzylOne).not.toBeNull();
+    expect(benzylTwo).not.toBeNull();
+    expect(benzylOne?.id).not.toBe(benzylTwo?.id);
+
+    expect(await prisma.stockItem.findUnique({ where: { drugCode: 'POVIDONE-SOL' } })).not.toBeNull();
+    expect(await prisma.stockItem.findUnique({ where: { drugCode: 'POVIDONE-IODINE' } })).toBeNull();
+    expect(await prisma.stockItem.findUnique({ where: { drugCode: 'H2O2-SOL-3' } })).not.toBeNull();
+    expect(await prisma.stockItem.findUnique({ where: { drugCode: 'HYDROGEN-PEROXIDE' } })).toBeNull();
+  });
+
   it('generates a name-based two-digit facility code and uses it as the only medicine code', async () => {
     const service = new StockItemService(prisma);
     const item = await service.create({
