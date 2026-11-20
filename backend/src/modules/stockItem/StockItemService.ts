@@ -79,7 +79,7 @@ export class StockItemService extends BaseService {
       name: item.name,
       isActive: item.isActive,
       tariffCode: item.tariffCode ?? null,
-      isNHISCovered: item.isNHISCovered !== false && nhis > 0,
+      isNHISCovered: item.isNHISCovered === true && nhis > 0,
       isPrivateInsuranceExempted: item.isPrivateInsExempted === true,
       nhisRequiresAuth: item.nhisRequiresAuth === true,
       privateInsRequiresAuth: item.privateInsRequiresAuth === true
@@ -89,11 +89,11 @@ export class StockItemService extends BaseService {
       catalog = await tx.serviceCatalog.create({
         data: {
           ...flags,
-          code: `MED-${item.drugCode}`,
+          code: item.drugCode,
           serviceType: ServiceType.medication,
           serviceCategory: ServiceCategory.pharmacy,
           subType: item.category || 'medication',
-          nhisServiceCode: item.drugCode,
+          nhisServiceCode: item.isNHISCovered === true ? item.drugCode : null,
           unit: item.unitOfMeasure || 'Each',
           isPending: false,
           stockItemId: item.id,
@@ -101,7 +101,7 @@ export class StockItemService extends BaseService {
         }
       });
     } else {
-      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: flags });
+      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: { ...flags, code: item.drugCode, nhisServiceCode: item.isNHISCovered === true ? item.drugCode : null } });
     }
 
     const changed = !current
@@ -182,7 +182,7 @@ export class StockItemService extends BaseService {
     const item = await this.prisma.$transaction(async (tx) => {
       const created = await this.repo.create({
         name, category, description: data.description, strength, unitOfMeasure, drugCode,
-        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, isNHISCovered: data.isNHISCovered ?? true,
+        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, isNHISCovered: data.isNHISCovered ?? false,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
         tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
