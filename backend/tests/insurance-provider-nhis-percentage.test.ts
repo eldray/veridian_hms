@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InsuranceType } from '@prisma/client';
 
-const repositoryMock = {
+const repositoryMock = vi.hoisted(() => ({
   create: vi.fn(),
   findById: vi.fn(),
   update: vi.fn(),
-};
+}));
 
 vi.mock('../src/modules/insuranceProvider/InsuranceProviderRepository', () => ({
   InsuranceProviderRepository: vi.fn().mockImplementation(() => repositoryMock),
