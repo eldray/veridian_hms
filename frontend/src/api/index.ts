@@ -2066,6 +2066,15 @@ export const deleteBill = (id: string) =>
 export const addPaymentToBill = (billId: string, data: any) =>
   api.post(`/bills/${billId}/payment`, data).then(r => r.data);
 
+/**
+ * Refund money against a payment recorded on this bill.
+ * Finance-only: the API rejects records and clinical roles.
+ */
+export const refundBillPayment = (
+  billId: string,
+  data: { paymentId: string; amount: number; refundMethod?: string; reference?: string; reason: string }
+) => api.post(`/bills/${billId}/refunds`, data).then(r => r.data?.data ?? r.data);
+
 export const generateBillFromEncounter = (encounterId: string) =>
   api.post(`/bills/generate/${encounterId}`).then(r => {
     const body = r.data;

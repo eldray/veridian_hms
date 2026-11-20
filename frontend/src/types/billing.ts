@@ -74,6 +74,8 @@ export interface BillingCollectionPayment {
   notes: string | null;
   /** A reversed payment is reported under `reversals`, never under `payments`. */
   isVoided: boolean;
+  /** True when the reversal row is a refund, which names the operator and refund number. */
+  isRefund?: boolean;
   voidedAt: string | null;
   voidReason: string | null;
   collector: { id: string; fullName: string; username: string } | null;

@@ -8,6 +8,7 @@ import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import RefundPaymentModal, { type RefundSubmission } from '../components/billing/RefundPaymentModal';
 import { useAuthStore } from '../store/authStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { canAccessPage } from '../config/access';
@@ -21,7 +22,7 @@ import {
   Shield, CheckCircle, AlertCircle, X,
   RefreshCw, TrendingUp, Wallet, Pill, Stethoscope,
   Microscope, Scan, Syringe, ClipboardList, Hospital,
-  CheckSquare, Square, PlusCircle, Loader2, ChevronDown,
+  CheckSquare, Square, PlusCircle, Loader2, ChevronDown, Undo2,
 } from 'lucide-react';
 import {
   Badge, Button, cn, Field, humanStatus, INPUT, LinkButton, PageHeader,
@@ -46,6 +47,28 @@ interface BillLineItem {
   isFullyPaid: boolean;
   voidReason?: string;
   serviceCatalog?: { name: string; code: string };
+}
+
+interface BillRefund {
+  id: string;
+  refundNumber: string;
+  amount: number;
+  refundMethod: string;
+  reference?: string | null;
+  reason: string;
+  refundedAt: string;
+  paymentId?: string | null;
+}
+
+interface BillPayment {
+  id: string;
+  amount: number;
+  paymentMethod: string;
+  transactionDate: string;
+  reference?: string | null;
+  notes?: string | null;
+  isVoided?: boolean;
+  refunds?: BillRefund[];
 }
 
 interface ProcessedBill {
@@ -79,14 +102,19 @@ interface ProcessedBill {
     dateTime: string;
   };
   InsuranceProvider?: { id: string; name: string; coveragePercentage: number };
-  payments?: Array<{
-    id: string;
-    amount: number;
-    paymentMethod: string;
-    transactionDate: string;
-    reference: string;
-  }>;
+  /** Prisma relation names as the API returns them. */
+  Payment?: BillPayment[];
+  Refund?: BillRefund[];
+  /** Kept for older serialized bills. */
+  payments?: BillPayment[];
+  refunds?: BillRefund[];
 }
+
+const roundMoney = (value: number) => Math.round((Number(value) || 0) * 100) / 100;
+const refundedOn = (payment: BillPayment) =>
+  roundMoney((payment.refunds || []).reduce((sum, refund) => sum + Number(refund.amount || 0), 0));
+/** Never negative: several partial refunds may exhaust a payment. */
+const refundableOn = (payment: BillPayment) => Math.max(0, roundMoney(Number(payment.amount) - refundedOn(payment)));
 
 export default function PatientBillingItems() {
   const { patientId } = useParams<{ patientId: string }>();
@@ -120,6 +148,9 @@ export default function PatientBillingItems() {
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
 
+  // Refund state: the payment being refunded, if the dialog is open.
+  const [refundTarget, setRefundTarget] = useState<BillPayment | null>(null);
+
   // Add-service state
   const [showAddServiceModal, setShowAddServiceModal] = useState(false);
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
@@ -134,6 +165,7 @@ export default function PatientBillingItems() {
   const getBill = useBillingStore((s) => s.getBill);
   const clearCurrentBill = useBillingStore((s) => s.clearCurrentBill);
   const addPaymentToBill = useBillingStore((s) => s.addPaymentToBill);
+  const refundBillPayment = useBillingStore((s) => s.refundBillPayment);
   const generateBillFromAttendance = useBillingStore((s) => s.generateBillFromAttendance);
 
   const serviceCatalog = useMedicalServicesStore((s) => s.serviceCatalog);
@@ -150,6 +182,8 @@ export default function PatientBillingItems() {
   const getAttendances = useAttendanceStore((s) => s.getAttendances);
 
   const canMakePayment = hasRole(['admin', 'accounts']);
+  // Money leaving the till is a finance action; records may take payments but not refund them.
+  const canRefund = hasRole(['admin', 'accounts']);
   const isCashPayment = selectedBill?.paymentMode === 'cash';
 
   const loadedForPatientRef = useRef<string | null>(null);
@@ -444,6 +478,16 @@ export default function PatientBillingItems() {
     };
   }, [selectedBill]);
 
+  // ===== Payments and refunds =====
+  const paymentsForBill = useMemo(
+    () => (selectedBill?.Payment ?? selectedBill?.payments ?? []).filter((payment) => !payment.isVoided),
+    [selectedBill]
+  );
+  const billRefunds = useMemo(
+    () => selectedBill?.Refund ?? selectedBill?.refunds ?? [],
+    [selectedBill]
+  );
+
   const selectedItemsTotal = useMemo(() => {
     if (!selectedBill || selectedItems.size === 0) return 0;
     let total = 0;
@@ -623,6 +667,25 @@ export default function PatientBillingItems() {
     paymentMethod, paymentReference, paymentNotes, formatCurrency,
     addPaymentToBill, getBills, actualPatientId, handleViewBillDetails,
     success, toastError, generateAndShowReceipt,
+  ]);
+
+  // ===== Refund =====
+  const handleOpenRefundModal = useCallback((payment: BillPayment) => {
+    if (refundableOn(payment) <= 0) {
+      toastError('Nothing to refund', 'This payment has already been fully refunded.');
+      return;
+    }
+    setRefundTarget(payment);
+  }, [toastError]);
+
+  const handleProcessRefund = useCallback(async (data: RefundSubmission) => {
+    if (!selectedBill) return;
+    await refundBillPayment(selectedBill.id, data);
+    await getBills({ patientId: actualPatientId } as any);
+    setRefundTarget(null);
+    success('Refund processed', `${formatCurrency(data.amount)} has been refunded`);
+  }, [
+    selectedBill, formatCurrency, refundBillPayment, getBills, actualPatientId, success,
   ]);
 
   // ===== Service search =====
@@ -1214,6 +1277,90 @@ export default function PatientBillingItems() {
                             )}
                           </div>
                         )}
+
+                        {/* Payments & refunds */}
+                        {(paymentsForBill.length > 0 || billRefunds.length > 0) && (
+                          <div className="mt-5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                              <Wallet className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                              <h3 className="font-semibold text-sm text-[var(--text-primary)]">Payments &amp; refunds</h3>
+                              <span className="px-1.5 py-0.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-secondary)] tabular-nums">
+                                {paymentsForBill.length}
+                              </span>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="bg-[var(--bg-card)] border-b border-[var(--border-color)]">
+                                    <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Date</th>
+                                    <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Method</th>
+                                    <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Reference</th>
+                                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Paid</th>
+                                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Refunded</th>
+                                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Refundable</th>
+                                    {canRefund && <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Action</th>}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {paymentsForBill.map((payment) => {
+                                    const refunded = refundedOn(payment);
+                                    const refundable = refundableOn(payment);
+                                    return (
+                                      <tr key={payment.id} className="border-b border-[var(--border-color)] last:border-b-0">
+                                        <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">{formatDate(payment.transactionDate)}</td>
+                                        <td className="px-3 py-2 capitalize text-[var(--text-primary)]">{payment.paymentMethod.replace(/_/g, ' ')}</td>
+                                        <td className="px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">{payment.reference || '—'}</td>
+                                        <td className="px-3 py-2 text-right tabular-nums font-semibold text-[var(--text-primary)]">{formatCurrency(Number(payment.amount))}</td>
+                                        <td className={cn('px-3 py-2 text-right tabular-nums', refunded > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-tertiary)]')}>
+                                          {refunded > 0 ? `-${formatCurrency(refunded)}` : '—'}
+                                        </td>
+                                        <td className={cn('px-3 py-2 text-right tabular-nums', refundable > 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]')}>
+                                          {formatCurrency(refundable)}
+                                        </td>
+                                        {canRefund && (
+                                          <td className="px-3 py-2 text-right">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              icon={Undo2}
+                                              disabled={refundable <= 0}
+                                              onClick={() => handleOpenRefundModal(payment)}
+                                            >
+                                              Refund
+                                            </Button>
+                                          </td>
+                                        )}
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                            {billRefunds.length > 0 && (
+                              <div className="border-t border-[var(--border-color)]">
+                                <p className="px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Refund history</p>
+                                <ul className="divide-y divide-[var(--border-color)]">
+                                  {billRefunds.map((refund) => (
+                                    <li key={refund.id} className="px-4 py-2 flex items-start justify-between gap-3 text-xs">
+                                      <div className="min-w-0">
+                                        <p className="font-medium text-[var(--text-primary)]">
+                                          {refund.refundNumber} · {refund.reason}
+                                        </p>
+                                        <p className="text-[var(--text-secondary)]">
+                                          {formatDate(refund.refundedAt)} · {refund.refundMethod.replace(/_/g, ' ')}
+                                          {refund.reference ? ` · ${refund.reference}` : ''}
+                                        </p>
+                                      </div>
+                                      <span className="font-bold text-[var(--icon-red-text)] tabular-nums flex-shrink-0">
+                                        -{formatCurrency(Number(refund.amount))}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="p-6 text-center text-sm text-[var(--text-tertiary)]">
@@ -1495,6 +1642,13 @@ export default function PatientBillingItems() {
           </div>
         </div>
       )}
+
+      <RefundPaymentModal
+        payment={refundTarget}
+        billNumber={selectedBill?.billNumber || ''}
+        onClose={() => setRefundTarget(null)}
+        onSubmit={handleProcessRefund}
+      />
     </div>
   );
 }
