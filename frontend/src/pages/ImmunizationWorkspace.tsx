@@ -99,7 +99,7 @@ export default function ImmunizationWorkspace() {
   const waitingCount = filteredVisits.filter(visit => !isCompleted(visit.status) && !isInProgress(visit.status)).length;
 
   const openEntries = (visit: Visit) => {
-    if (visit.Patient?.id) navigate('/dashboard/immunization/entries/' + visit.Patient.id);
+    if (visit.Patient?.id) navigate(`/dashboard/immunization/entries/${visit.Patient.id}?attendanceId=${encodeURIComponent(visit.id)}`);
   };
 
   const markCompleted = async (visit: Visit) => {
