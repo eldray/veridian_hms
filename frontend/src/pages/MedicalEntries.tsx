@@ -719,6 +719,7 @@ export default function MedicalEntries() {
   // The consultation is read in two panels — the note and the orders it produces, each order
   // showing its own request and results — the same shape as the antenatal workspace. The tab
   // survives a refresh through the URL hash so a handoff to pharmacy or the lab can point at it.
+  const [medicationSectionTab, setMedicationSectionTab] = useState<'medications' | 'consumables'>('medications');
   const [activeTab, setActiveTab] = useState<EntryTab>(() => {
     const hash = window.location.hash.replace('#', '');
     return hash === 'orders' ? 'orders' : 'clinical';
@@ -2004,8 +2005,21 @@ export default function MedicalEntries() {
               </div>
               )}
 
-              {/* ── MEDICATIONS: prescription beside the dispensed record ── */}
+              {/* Medication and consumable records share one compact switcher. */}
               {activeTab === 'orders' && (
+                <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-1 w-fit">
+                  <button type="button" onClick={() => setMedicationSectionTab('medications')}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'medications' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
+                    Prescribed Medications <span className="ml-1 opacity-75">({medicationsList.length})</span>
+                  </button>
+                  <button type="button" onClick={() => setMedicationSectionTab('consumables')}
+                    className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'consumables' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
+                    Consumables Issued <span className="ml-1 opacity-75">({consumableUses.length})</span>
+                  </button>
+                </div>
+              )}
+              {/* ── MEDICATIONS: prescription beside the dispensed record ── */}
+              {activeTab === 'orders' && medicationSectionTab === 'medications' && (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
                 <SectionCard
@@ -2093,7 +2107,7 @@ export default function MedicalEntries() {
 
               {/* Consumables are stock issued against the visit: recording one deducts stock
                   immediately, with no prescription/dispense step. */}
-              {activeTab === 'orders' && (
+              {activeTab === 'orders' && medicationSectionTab === 'consumables' && (
                 <SectionCard
                   icon={<Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
                   title="Consumables Issued"
