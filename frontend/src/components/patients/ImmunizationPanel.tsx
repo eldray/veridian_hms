@@ -9,7 +9,7 @@ type Visit = { id: string; attendanceType?: string; attendanceNumber?: string; d
 const localToday = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const dateLabel = (v?: string | null) => v ? new Date(v).toLocaleDateString() : '—';
 
-export default function ImmunizationPanel({ patientId, attendances, canRecord, canManageCatalogue, onCreateAttendance }: { patientId: string; attendances: Visit[]; canRecord: boolean; canManageCatalogue: boolean; onCreateAttendance: () => void }) {
+export default function ImmunizationPanel({ patientId, attendances, initialAttendanceId, canRecord, canManageCatalogue, onCreateAttendance }: { patientId: string; attendances: Visit[]; initialAttendanceId?: string; canRecord: boolean; canManageCatalogue: boolean; onCreateAttendance: () => void }) {
   const [vaccines, setVaccines] = useState<Vaccine[]>([]);
   const [catalogueVaccines, setCatalogueVaccines] = useState<Vaccine[]>([]);
   const [records, setRecords] = useState<RecordRow[]>([]);
@@ -23,18 +23,42 @@ export default function ImmunizationPanel({ patientId, attendances, canRecord, c
   const [form, setForm] = useState({ attendanceId: '', vaccineId: '', doseNumber: '1', administeredAt: localToday(), doseVolume: '', route: '', administrationSite: '', batchNumber: '', expiryDate: '', nextDoseDue: '', adverseReaction: '', notes: '' });
   const [catalogue, setCatalogue] = useState({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '', stockItemId: '' });
   const immunizationVisits = useMemo(() => attendances.filter(v => v.attendanceType === 'immunization'), [attendances]);
+  useEffect(() => {
+    if (!immunizationVisits.length) return;
+    setForm(current => {
+      if (current.attendanceId && immunizationVisits.some(v => v.id === current.attendanceId)) return current;
+      const requested = immunizationVisits.find(v => v.id === initialAttendanceId);
+      const preferred = requested || immunizationVisits.find(v => !['completed', 'complete', 'closed', 'discharged'].includes(String(v.status || '').toLowerCase())) || immunizationVisits[0];
+      return { ...current, attendanceId: preferred.id };
+    });
+  }, [immunizationVisits, initialAttendanceId]);
   const selectedVaccine = useMemo(() => vaccines.find(v => v.id === form.vaccineId), [vaccines, form.vaccineId]);
 
   const load = async () => {
     setLoading(true); setError('');
     try {
-      const requests: Promise<any>[] = [api.get('/immunization/vaccines'), api.get(`/immunization/patients/${patientId}/records`)];
-      if (canManageCatalogue) requests.push(api.get('/immunization/vaccine-stock-items'), api.get('/immunization/vaccines/manage'));
-      const [v, r, stock, managed] = await Promise.all(requests);
-      setVaccines(v.data?.data ?? []);
-      setRecords(r.data?.data ?? []);
-      if (stock) setVaccineStockItems(stock.data?.data ?? []);
-      if (managed) setCatalogueVaccines(managed.data?.data ?? []);
+      // Patient history is core clinical data. Load it independently from the
+      // administrator-only catalogue endpoints so a catalogue permission/error
+      // cannot prevent the patient's attendance history and vaccinations showing.
+      const [vaccineResult, recordResult] = await Promise.allSettled([
+        api.get('/immunization/vaccines'),
+        api.get(`/immunization/patients/${patientId}/records`)
+      ]);
+      if (vaccineResult.status === 'fulfilled') setVaccines(vaccineResult.value.data?.data ?? []);
+      if (recordResult.status === 'fulfilled') setRecords(recordResult.value.data?.data ?? []);
+      if (vaccineResult.status === 'rejected') throw vaccineResult.reason;
+      if (recordResult.status === 'rejected') throw recordResult.reason;
+
+      if (canManageCatalogue) {
+        const [stockResult, catalogueResult] = await Promise.allSettled([
+          api.get('/immunization/vaccine-stock-items'),
+          api.get('/immunization/vaccines/manage')
+        ]);
+        if (stockResult.status === 'fulfilled') setVaccineStockItems(stockResult.value.data?.data ?? []);
+        if (catalogueResult.status === 'fulfilled') setCatalogueVaccines(catalogueResult.value.data?.data ?? []);
+        const optionalFailure = stockResult.status === 'rejected' ? stockResult.reason : catalogueResult.status === 'rejected' ? catalogueResult.reason : null;
+        if (optionalFailure) setError(optionalFailure.response?.data?.message || optionalFailure.message || 'Some vaccine catalogue information could not be loaded.');
+      }
     } catch (e: any) { setError(e.response?.data?.message || e.message || 'Unable to load immunization records.'); }
     finally { setLoading(false); }
   };
