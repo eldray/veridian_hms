@@ -23,10 +23,11 @@ export class InsuranceProviderService extends BaseService {
   // Because 'name' has a @unique constraint in your schema, Prisma will throw P2002 if duplicate.
   // BaseController.error() automatically maps P2002 to a clean 400 Bad Request.
   async createProvider(data: CreateInsuranceProviderDTO) {
-    return this.repository.create({ 
-      ...data, 
-      name: data.name.trim(), 
-      isActive: data.isActive ?? true 
+    return this.repository.create({
+      ...data,
+      coveragePercentage: data.type === InsuranceType.nhis ? 100 : data.coveragePercentage,
+      name: data.name.trim(),
+      isActive: data.isActive ?? true
     });
   }
 
@@ -35,7 +36,12 @@ export class InsuranceProviderService extends BaseService {
   async updateProvider(id: string, data: UpdateInsuranceProviderDTO) {
     const updateData: any = { ...data };
     if (updateData.name) updateData.name = updateData.name.trim();
-    if (updateData.coveragePercentage !== undefined) {
+    const existing = await this.repository.findById(id);
+    const providerType = updateData.type ?? existing?.type;
+    if (providerType === InsuranceType.nhis) {
+      // The schema retains this legacy field for compatibility; NHIS billing is tariff-based.
+      updateData.coveragePercentage = 100;
+    } else if (updateData.coveragePercentage !== undefined) {
       updateData.coveragePercentage = parseFloat(updateData.coveragePercentage as any);
     }
     return this.repository.update(id, updateData);
