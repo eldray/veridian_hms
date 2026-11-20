@@ -972,11 +972,11 @@ export default function Reports() {
     const reconciliationChecks = billed != null && collected != null && outstanding != null
       ? [{ label: 'Billed = collected + outstanding', detail: 'Difference: ' + fmt(billed - collected - outstanding, true), ok: Math.abs(billed - collected - outstanding) < 0.01 }]
       : [{ label: 'Financial reconciliation', detail: 'Not assessed — one or more source totals were not returned.', ok: null as boolean | null }];
-    const exportRows: any[] = sections.flatMap(section => section.rows.map(([label, paths, money]: any) => ({
+    const exportRows: any[] = sections.flatMap(section => section.rows.map(([label, paths, money, formLabel]: any) => ({
       Section: section.title,
       Indicator: label,
       // Preserve numeric cells for Excel; unavailable source values remain blank, not zero.
-      Value: read(section.data, paths, (section.rows.find((row: any) => row[0] === label) || [])[3]),
+      Value: read(section.data, paths, formLabel),
       Unit: money ? 'GHS' : '',
     })));
     exportRows.push({
