@@ -918,7 +918,7 @@ export default function ScansEntry() {
                     onPrint={() => handlePrintScan(scan)}
                     onSend={() => { setSendResultScan(scan); setShowSendResult(true); }}
                     onEdit={() => handleEditResult(scan)}
-                    canEdit={!!canUpdateScan && scan.status !== 'cancelled'}
+                    canEdit={!!canUpdateScan && scan.status !== 'completed' && scan.status !== 'cancelled'}
                   />
                 ))}
               </div>
