@@ -1626,3 +1626,6 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     throw error;
   }
 };
+
+// Integration tests and the main seed runner can close this module's Prisma client cleanly.
+export const disconnectCoreSeedPrisma = () => prisma.$disconnect();
