@@ -1361,7 +1361,6 @@ export interface StockItem {
   strength: string | null;
   unitOfMeasure: string;
   drugCode: string | null;
-  nhisServiceCode?: string | null;
   reorderLevel: number;
   currentStock: number;
   costPrice: number;
