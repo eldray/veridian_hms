@@ -171,18 +171,20 @@ export class ServiceCatalogService extends BaseService {
     const payer = payers[0];
 
     const validLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
-    const validModes = ['none', 'fixed_amount', 'percentage', 'cash_price_difference'];
     if (typeof input.isCovered !== 'boolean') throw new ValidationError('Choose whether this medicine is covered by NHIS.');
     if (typeof input.authorizationRequired !== 'boolean') throw new ValidationError('Configure whether NHIS prior authorization is required.');
     if (!validLevels.includes(input.prescribingLevel)) throw new ValidationError('Select a valid NHIS prescribing level.');
-    if (!validModes.includes(input.copaymentMode)) throw new ValidationError('Select a valid co-payment policy.');
+    if (input.copaymentMode !== 'none') {
+      throw new ValidationError('NHIA does not permit co-payments for covered NHIS medicines. Select No co-payment.');
+    }
 
     const amount = input.copaymentAmount === '' || input.copaymentAmount == null ? null : Number(input.copaymentAmount);
     const percentage = input.copaymentPercentage === '' || input.copaymentPercentage == null ? null : Number(input.copaymentPercentage);
     if (amount != null && (!Number.isFinite(amount) || amount < 0)) throw new ValidationError('Co-payment amount must be zero or greater.');
     if (percentage != null && (!Number.isFinite(percentage) || percentage < 0 || percentage > 100)) throw new ValidationError('Co-payment percentage must be between 0 and 100.');
-    if (input.copaymentMode === 'fixed_amount' && amount == null) throw new ValidationError('Enter a fixed co-payment amount.');
-    if (input.copaymentMode === 'percentage' && percentage == null) throw new ValidationError('Enter a co-payment percentage between 0 and 100.');
+    if ((amount ?? 0) > 0 || (percentage ?? 0) > 0) {
+      throw new ValidationError('NHIA does not permit co-payments for covered NHIS medicines. Set both contribution fields to zero or leave them blank.');
+    }
     const tariff = input.tariffPrice === '' || input.tariffPrice == null ? null : Number(input.tariffPrice);
     if (tariff != null && (!Number.isFinite(tariff) || tariff < 0)) throw new ValidationError('NHIS tariff must be zero or greater.');
 
