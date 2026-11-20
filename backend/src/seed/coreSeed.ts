@@ -1398,7 +1398,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         serviceType: ServiceType.medication,
         serviceCategory: ServiceCategory.pharmacy,
         subType: stockItem.category || 'medication',
-        
+        nhisServiceCode: null,
+        isNHISCovered: stockItem.isNHISCovered === true,
         stockItemId: stockItem.id,
         isActive: true,
         pricing,
@@ -1416,7 +1417,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           serviceCategory: service.serviceCategory,
           subType: service.subType,
           nhisServiceCode: service.nhisServiceCode,
-          isNHISCovered: Boolean(service.nhisServiceCode) && (service.pricing?.nhisPrice ?? 0) > 0,
+          isNHISCovered: (service.serviceType === ServiceType.medication ? service.isNHISCovered === true : Boolean(service.nhisServiceCode)) && (service.pricing?.nhisPrice ?? 0) > 0,
           nhisCoverageType: NHISCoverageType.full,
           nhisRequiresAuth: service.serviceType === ServiceType.procedure,
           privateInsRequiresAuth: service.serviceType === ServiceType.procedure,
@@ -1432,11 +1433,18 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           isActive: service.isActive ?? true,
         }, 'serviceCatalog');
 
-        const catalog = await prisma.serviceCatalog.upsert({
-          where: { code: service.code },
-          create: catalogData,
-          update: catalogData,
-        });
+        // Reuse the existing medicine catalogue row by stockItemId when its
+        // canonical code changes; do not create a second service entry.
+        const existingCatalog = service.stockItemId
+          ? await prisma.serviceCatalog.findFirst({ where: { stockItemId: service.stockItemId }, orderBy: { createdAt: 'asc' } })
+          : null;
+        const catalog = existingCatalog
+          ? await prisma.serviceCatalog.update({ where: { id: existingCatalog.id }, data: catalogData })
+          : await prisma.serviceCatalog.upsert({
+              where: { code: service.code },
+              create: catalogData,
+              update: catalogData,
+            });
         if (service.pricing) {
           await createServicePricing(catalog.id, service.pricing);
         }
