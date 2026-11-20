@@ -81,6 +81,10 @@ export class ServiceCatalogRepository extends BaseRepository<ServiceCatalog, any
         { code: { contains: search, mode: 'insensitive' } },
         { description: { contains: search, mode: 'insensitive' } },
         { nhisServiceCode: { contains: search, mode: 'insensitive' } },
+        { StockItem: { is: { drugCode: { contains: search, mode: 'insensitive' } } } },
+        { LabTestTemplate: { is: { investigationCode: { contains: search, mode: 'insensitive' } } } },
+        { ScanTemplate: { is: { investigationCode: { contains: search, mode: 'insensitive' } } } },
+        { ProcedureTemplate: { is: { procedureCode: { contains: search, mode: 'insensitive' } } } },
       ];
     }
 
