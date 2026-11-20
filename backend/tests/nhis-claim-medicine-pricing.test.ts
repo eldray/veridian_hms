@@ -48,6 +48,7 @@ describe('NHIS claim medicine pricing', () => {
           code: 'NHIS-MED-1',
           StockItem: {
             id: 'stock-1',
+            nhisServiceCode: 'NHIS-MED-1',
             payerRules: [{
               isCovered: true,
               authorizationRequired: opts.authorizationRequired,
