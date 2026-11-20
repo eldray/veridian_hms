@@ -183,6 +183,12 @@ export class EncounterController extends BaseController {
     return this.created(res, diagnosis, 'Diagnosis added successfully');
   });
 
+  updateDiagnosis = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id, diagnosisId } = req.params;
+    const updated = await this.service.updateDiagnosis(id, diagnosisId, req.body);
+    return this.ok(res, updated, 'Diagnosis updated successfully');
+  });
+
   setPrimaryDiagnosis = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { diagnosisId } = req.body;
