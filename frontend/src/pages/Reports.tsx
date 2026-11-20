@@ -927,7 +927,13 @@ export default function Reports() {
 
   const renderMonthlyOverview = () => {
     if (!monthlyOverview) return <EmptyState message="No monthly overview data available" />;
-    const read = (obj: any, paths: string[]) => {
+    const read = (obj: any, paths: string[], formLabel?: string) => {
+      if (formLabel) {
+        const rows = (obj?.form?.sections || []).flatMap((section: any) => section.tables || []).flatMap((table: any) => table.rows || []);
+        const row = rows.find((item: any) => item.label === formLabel);
+        const value = row?.values?.[0];
+        return value != null && Number.isFinite(Number(value)) ? Number(value) : null;
+      }
       for (const path of paths) {
         const value = path.split('.').reduce((v: any, key: string) => v == null ? undefined : v[key], obj);
         if (value !== undefined && value !== null && Number.isFinite(Number(value))) return Number(value);
@@ -950,7 +956,13 @@ export default function Reports() {
       { title: 'Insurance claims', data: monthlyOverview.claims, rows: [['Claims', ['summary.totalClaims','totalClaims']], ['Claimed amount', ['summary.totalClaimAmount','totalClaimAmount'], true], ['Outstanding', ['summary.outstandingAmount','outstandingAmount'], true]] },
       { title: 'Stock movement', data: monthlyOverview.stock, rows: [['Transactions', ['summary.totalTransactions','totalTransactions']], ['Units in', ['summary.totalIn','totalIn']], ['Units out', ['summary.totalOut','totalOut']]] },
       { title: 'EPI / Immunization', data: monthlyOverview.epi, rows: [['Vaccine doses administered', ['summary.totalDoses']], ['Children vaccinated', ['summary.uniqueChildren']], ['Overdue follow-ups', ['summary.overdueFollowUps']], ['Adverse reactions recorded', ['summary.adverseReactions']]] },
-      { title: 'Maternal health / ANC', data: monthlyOverview.maternalFormA, rows: [['Form A generated', ['form.totalDeliveries','form.totalANCVisits','summary.totalANCVisits']]] },
+      { title: 'Maternal health / ANC', data: monthlyOverview.maternalFormA, rows: [
+        ['New ANC registrants', [], false, 'New ANC registrants'],
+        ['ANC attendances', [], false, 'Total ANC attendances (all visits)'],
+        ['Mothers making 4th visit', [], false, 'Mothers making 4th visit'],
+        ['Mothers making 8th visit', [], false, 'Mothers making 8th visit'],
+        ['High-risk pregnancies', [], false, 'High-risk pregnancies'],
+      ] },
       { title: 'Malaria', data: monthlyOverview.malaria, rows: [['Under-5 suspected', ['opdMalaria.under5.suspected']], ['Under-5 tested', ['opdMalaria.under5.tested']], ['Under-5 confirmed', ['opdMalaria.under5.confirmed']], ['Above-5 suspected', ['opdMalaria.above5.suspected']], ['Above-5 tested', ['opdMalaria.above5.tested']], ['Above-5 confirmed', ['opdMalaria.above5.confirmed']]] },
       { title: 'IDSR', data: monthlyOverview.idsr, rows: [['Notifiable disease indicators', ['diseases.length']], ['Suspected diagnosis signals', ['summary.totalSuspected']]] },
     ];
@@ -964,7 +976,7 @@ export default function Reports() {
       Section: section.title,
       Indicator: label,
       // Preserve numeric cells for Excel; unavailable source values remain blank, not zero.
-      Value: read(section.data, paths),
+      Value: read(section.data, paths, (section.rows.find((row: any) => row[0] === label) || [])[3]),
       Unit: money ? 'GHS' : '',
     })));
     exportRows.push({
@@ -1011,8 +1023,8 @@ export default function Reports() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {sections.map(section => <Card key={section.title} title={section.title} padded={false}>
           <div className="divide-y divide-[var(--border-color)]">
-            {section.rows.map(([label, paths, money]: any) => {
-              const value = read(section.data, paths);
+            {section.rows.map(([label, paths, money, formLabel]: any) => {
+              const value = read(section.data, paths, formLabel);
               return <div key={label} className="flex items-center justify-between gap-3 px-4 py-3"><span className="text-xs text-[var(--text-secondary)]">{label}</span><strong className="text-sm tabular-nums text-[var(--text-primary)]">{fmt(value, Boolean(money))}</strong></div>;
             })}
           </div>
