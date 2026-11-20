@@ -118,22 +118,28 @@ export const seedDatabase = async (force: boolean = false) => {
   // seed throws "CounterService not initialized" on every bill and writes none.
   await initCounterService(prisma);
 
-  // Keep demo/test-data seeding separate from reference-data maintenance.
-  // A populated facility database must not receive demo patients, but it should
-  // still be able to add missing ICD-10 diagnoses safely without overwriting local edits.
+  // Keep demo/test patients separate from reference-data maintenance. A populated
+  // facility database must not receive demo records, but every clinical, NHIS and
+  // billing catalogue must still be reconciled on every seed run.
   const hasRealData = await checkDatabaseHasData();
 
   if (hasRealData) {
-    console.log('✅ Patient data that is not part of the demo dataset detected; skipping demo/test data seeding regardless of force mode.');
-    console.log('🛡️ Force mode never overrides the populated-database safety guard.');
-    console.log('🔄 Reconciling missing clinical diagnosis reference data only...');
+    console.log('✅ Real facility patient data detected; demo/test data remains protected.');
+    console.log('🔄 Reconciling the full production-safe reference catalogue (medicines, NHIS rules, labs, scans, procedures, tariffs and service pricing)...');
     try {
+      const coreCatalogue = await seedCoreData(true, {
+        profile: 'production',
+        adminPassword: process.env.SEED_ADMIN_PASSWORD,
+      });
+      if (coreCatalogue?.success === false) throw new Error(coreCatalogue.message || 'Production reference catalogue seeding failed.');
       const diagnosisReferences = await seedDiagnosisReferenceData();
       await seedDiagnosisGDRGLinks();
+      await seedProcedureGDRGLinks();
       return {
         success: true,
-        message: 'Demo/test data skipped; diagnosis reference data reconciled safely',
-        skipped: true,
+        message: 'Reference catalogues reconciled; demo/test data safely excluded',
+        skippedDemoData: true,
+        coreCatalogue,
         diagnosisReferences,
       };
     } finally {
