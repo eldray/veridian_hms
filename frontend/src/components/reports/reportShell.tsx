@@ -231,6 +231,8 @@ export interface ReportShape {
   source: DataSource;
   /** Response field holding the period actually covered, when it is not `period`. */
   periodField?: string;
+  /** False when the report has its own window filter and must not inherit the page date range. */
+  dateRange?: boolean;
   filters?: FilterRef[];
   /** Response field holding the currency code. */
   currencyField?: string;
