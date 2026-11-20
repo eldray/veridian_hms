@@ -250,7 +250,7 @@ export default function TheatreProcedure() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      await Promise.all([loadPatients(), getProcedureTemplates(false)]);
+      await Promise.all([loadPatients().catch(() => undefined), getProcedureTemplates(false)]);
 
       const statePatient = location.state?.patient;
       const patientId = statePatient?.id || id;
@@ -298,7 +298,7 @@ export default function TheatreProcedure() {
     }
   };
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => { loadData(); }, [id, location.key, location.state?.attendanceId]);
 
   useEffect(() => {
     if (selectedAttendanceId && selectedAttendanceId !== 'undefined' && selectedAttendanceId !== 'null') {

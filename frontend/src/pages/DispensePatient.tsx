@@ -308,7 +308,7 @@ export default function DispensePatient() {
     }
   };
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => { loadData(); }, [id, location.key, location.state?.attendanceId]);
 
   useEffect(() => {
     if (!selectedAttendanceId) {
