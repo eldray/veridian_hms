@@ -86,6 +86,18 @@ export class BackupService extends BaseService {
       const stats = await fs.stat(filePath);
       if (stats.size === 0) throw new Error('Backup file is empty - backup failed');
 
+      // Validate the custom archive before reporting a successful backup. This catches
+      // truncated/invalid pg_dump output rather than storing a file that cannot restore.
+      const pgRestoreCmd = process.env.PG_RESTORE_PATH || 'pg_restore';
+      try {
+        await execFilePromise(pgRestoreCmd, ['--list', filePath], {
+          env, timeout: PG_OPERATION_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
+        });
+      } catch (error: any) {
+        if (error.code === 'ENOENT') throw new Error('pg_restore was not found. Install PostgreSQL client tools or set PG_RESTORE_PATH to validate backups.');
+        throw new Error(`Backup archive validation failed: ${error.message}`);
+      }
+
       const checksum = await checksumFile(filePath);
       await fs.writeFile(`${filePath}.sha256`, `${checksum}  ${filename}\n`, { mode: 0o600 });
 
@@ -131,6 +143,20 @@ export class BackupService extends BaseService {
 
       const env = { ...process.env, PGPASSWORD: password };
       const extension = path.extname(backupFilePath).toLowerCase();
+
+      // Validate custom-format archives before running pg_restore with --clean,
+      // which otherwise begins destructive work against the target database.
+      if (extension !== '.sql') {
+        const pgRestoreCmd = process.env.PG_RESTORE_PATH || 'pg_restore';
+        try {
+          await execFilePromise(pgRestoreCmd, ['--list', backupFilePath], {
+            env, timeout: PG_OPERATION_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
+          });
+        } catch (error: any) {
+          if (error.code === 'ENOENT') throw new Error('pg_restore was not found. Install PostgreSQL client tools or set PG_RESTORE_PATH.');
+          throw new Error(`Backup archive validation failed; database was not modified: ${error.message}`);
+        }
+      }
 
       this.logInfo('Running database restore', { dbName, extension, checksum });
       try {

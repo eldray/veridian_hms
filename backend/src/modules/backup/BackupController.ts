@@ -1,6 +1,4 @@
 import { Response } from 'express';
-import fs from 'fs/promises';
-import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { BackupService } from './BackupService';
 import { AuthRequest } from '../../middleware/authMiddleware';
@@ -31,15 +29,10 @@ export class BackupController extends BaseController {
     if (!validExtensions.includes(ext)) return this.badRequest(res, 'Invalid backup file. Only .sql, .backup, or .dump supported');
     if (req.file.size === 0) return this.badRequest(res, 'Backup file is empty');
 
-    // ✅ Send immediate response and continue in background
-    const response = this.ok(res, null, 'Restore started in background. This may take several minutes.');
-
-    const uploadedPath = req.file.path;
-    this.backupService.restoreBackup(uploadedPath, req.user!.id)
-      .catch(err => console.error('❌ Background restore failed:', err))
-      // The upload is a full database dump; do not leave it on disk after the restore.
-      .finally(() => fs.unlink(uploadedPath).catch(() => undefined));
-    return response;
+    // Wait for the restore to finish so the UI never reports success prematurely.
+    // The service deletes the uploaded dump on both success and failure.
+    await this.backupService.restoreBackup(req.file.path, req.user!.id);
+    return this.ok(res, { restored: true }, 'Database restore completed successfully');
   });
 
   getBackupList = this.asyncHandler(async (req: AuthRequest, res: Response) => {
