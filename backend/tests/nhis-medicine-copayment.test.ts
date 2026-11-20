@@ -46,6 +46,6 @@ describe('NHIS medicine co-payment allocation', () => {
   it('rejects incomplete co-payment configuration instead of silently guessing', () => {
     expect(() => calculateNHISMedicineAllocation({
       cashPrice: 30, nhisTariff: 20, covered: true, copaymentMode: 'fixed_amount',
-    })).toThrow(/requires a configured/);
+    })).toThrow(/configuration is invalid|NHIA does not permit/i);
   });
 });
