@@ -112,7 +112,7 @@ describe('NHIS claim medicine pricing', () => {
     const { service, prisma, tx } = setupDraft();
     prisma.serviceCatalog.findFirst = vi.fn().mockResolvedValue({
       code: 'NHIS-MED-1',
-      StockItem: { id: 'stock-1', payerRules: [{ isCovered: false, authorizationRequired: null, prescribingLevel: 'A', effectiveFrom: null, effectiveTo: null }] },
+      StockItem: { id: 'stock-1', nhisServiceCode: 'NHIS-MED-1', payerRules: [{ isCovered: false, authorizationRequired: null, prescribingLevel: 'A', effectiveFrom: null, effectiveTo: null }] },
       pricing: [{ cashPrice: 12.5, nhisPrice: 5 }],
     });
 
@@ -130,7 +130,7 @@ describe('NHIS claim medicine pricing', () => {
     const { service, prisma, tx } = setupDraft();
     prisma.serviceCatalog.findFirst = vi.fn().mockResolvedValue({
       code: 'METOCLO-INJ-10',
-      StockItem: { id: 'stock-9', payerRules: [] },
+      StockItem: { id: 'stock-9', nhisServiceCode: null, payerRules: [] },
       pricing: [{ cashPrice: 2.5, nhisPrice: 0 }],
     });
 
