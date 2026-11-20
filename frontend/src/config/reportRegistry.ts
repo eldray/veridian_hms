@@ -626,6 +626,8 @@ export const REPORT_REGISTRY: ReportShape[] = [
     source: { api: 'getNhisExpiryReport' },
     roles: ACCOUNTS_ONLY,
     periodField: 'period',
+    // This report is driven by its own forward-looking window, not the shared report date range.
+    dateRange: false,
     filters: [
       { kind: 'select', key: 'daysThreshold', label: 'Window', options: EXPIRY_WINDOW_OPTIONS, defaultValue: '30' },
     ],
