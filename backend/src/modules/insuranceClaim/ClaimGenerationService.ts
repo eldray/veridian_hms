@@ -171,17 +171,22 @@ export async function buildNHISClaimItems(
       extractNHISPrice(lab.ServiceCatalog),
     );
   }
-  // NHIS treats all imaging performed by the facility under its ultrasound
-  // investigation code, regardless of the local modality or scan-template code.
-  const NHIS_ULTRASOUND_INVESTIGATION_CODE = 'INVE30E';
   for (const scan of att.Scan) {
+    const investigationCode = String(
+      scan.ScanTemplate?.investigationCode ?? scan.ServiceCatalog?.nhisServiceCode ?? '',
+    ).trim().toUpperCase();
+    if (!/^INVE[0-9]/.test(investigationCode)) {
+      throw new ValidationError(
+        `Completed scan "${scan.ScanTemplate?.name ?? scan.id}" has no valid NHIS INVE investigation code.`,
+      );
+    }
     push(
       {
         scan: { connect: { id: scan.id } },
         serviceCatalog: scan.serviceCatalogId ? { connect: { id: scan.serviceCatalogId } } : undefined,
         itemCategory: 'investigation',
         itemType: 'N',
-        code: NHIS_ULTRASOUND_INVESTIGATION_CODE,
+        code: investigationCode,
         description: scan.ScanTemplate?.name ?? scan.ServiceCatalog?.name ?? 'Ultrasound',
         quantity: 1,
         serviceDate: scan.completedAt ?? scan.requestedAt,
