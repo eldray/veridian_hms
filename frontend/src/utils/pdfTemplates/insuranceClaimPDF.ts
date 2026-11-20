@@ -69,7 +69,7 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
     };
   });
   const investigations = [...labTests, ...scans].map((i) => ({
-    code: i.ServiceCatalog?.investigationCode || i.ServiceCatalog?.nhisServiceCode || '',
+    code: i.LabTestTemplate?.investigationCode || i.ScanTemplate?.investigationCode || i.ServiceCatalog?.nhisServiceCode || '',
     name: i.ServiceCatalog?.name || i.name || 'Investigation',
     date: i.requestedAt || i.createdAt,
     total: n(i.unitPrice),
