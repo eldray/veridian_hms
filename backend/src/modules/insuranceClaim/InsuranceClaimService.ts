@@ -558,10 +558,43 @@ ${claimsXml}
   }
 
   async updateClaimDraft(claimId: string, data: any, userId: string) {
+    const existing = await this.prisma.insuranceClaim.findUnique({
+      where: { id: claimId },
+      select: { id: true, status: true },
+    });
+    if (!existing) throw new NotFoundError('Claim', claimId);
+    if (existing.status !== 'draft') throw new ValidationError('Only draft claims can be edited.');
+
     const fields = ['diagnosisCodes', 'procedureCodes', 'labTestCodes', 'scanCodes', 'serviceCodes', 'medicationCodes', 'totalClaimAmount', 'notes', 'preAuthNumber', 'principalGDRG', 'typeOfService', 'serviceOutcome', 'typeOfAttendance', 'mdcCode', 'datesOfService', 'metadata'];
     const toUpdate: any = { updatedById: userId, updatedAt: new Date() };
     fields.forEach(f => { if (data[f] !== undefined) toUpdate[f] = data[f]; });
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
+  }
+
+  /**
+   * A claim is a financial/audit record. Only an untouched draft may be removed:
+   * finalized, batched, tracked or externally submitted claims must remain immutable.
+   * Claim items are removed by their schema cascade with the draft itself.
+   */
+  async deleteDraftClaim(claimId: string) {
+    const claim = await this.prisma.insuranceClaim.findUnique({
+      where: { id: claimId },
+      select: {
+        id: true,
+        claimNumber: true,
+        status: true,
+        batchId: true,
+        trackingEvents: { select: { id: true }, take: 1 },
+        claimitSubmissions: { select: { id: true }, take: 1 },
+      },
+    });
+    if (!claim) throw new NotFoundError('Claim', claimId);
+    if (claim.status !== 'draft') throw new ValidationError('Only draft claims can be deleted. Finalized claim history must be retained.');
+    if (claim.batchId) throw new ValidationError('This claim belongs to a claim batch and cannot be deleted.');
+    if (claim.trackingEvents.length || claim.claimitSubmissions.length) {
+      throw new ValidationError('This claim has submission or tracking history and cannot be deleted. Keep it for audit.');
+    }
+    return this.prisma.insuranceClaim.delete({ where: { id: claimId } });
   }
 
   /**
