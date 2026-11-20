@@ -138,7 +138,6 @@ export default function Billing() {
     bills,
     isLoading: billsLoading,
     getBills,
-    getBillStatistics,
   } = useBillingStore();
 
   const {
