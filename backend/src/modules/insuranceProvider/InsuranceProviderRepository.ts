@@ -23,6 +23,10 @@ export class InsuranceProviderRepository extends BaseRepository<any, any, any> {
     });
   }
 
+  async findTypeById(id: string) {
+    return this.getModel().findUnique({ where: { id }, select: { type: true } });
+  }
+
   async findById(id: string) {
     const provider = await this.getModel().findUnique({
       where: { id },
