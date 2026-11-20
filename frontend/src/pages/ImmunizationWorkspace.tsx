@@ -6,7 +6,7 @@ import { useToast } from '../store/toastStore';
 import api from '../api/api';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import {
-  AlertCircle, ArrowRight, CheckCircle, Clock, Eye, RefreshCw, Syringe, Users,
+  ArrowRight, CheckCircle, Clock, Eye, RefreshCw, Syringe, Users,
 } from 'lucide-react';
 import {
   Badge, Button, Card, humanStatus, PageHeader, Pagination, SearchInput,
