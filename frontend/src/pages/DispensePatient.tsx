@@ -717,6 +717,7 @@ export default function DispensePatient() {
           <p className="text-xs font-medium text-[var(--icon-yellow-text)]">
             This visit is <strong>{attendance.status}</strong> — medications can be viewed but not dispensed.
           </p>
+            </div>
         )}
       </div>
 
