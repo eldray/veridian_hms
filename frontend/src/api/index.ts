@@ -3686,6 +3686,24 @@ export const getGHSIDSRReport = async (params: ReportFilter) => {
   return response.data;
 };
 
+export const getIDSRAlerts = async (params: ReportFilter) => {
+  const response = await api.get('/ghs-reports/idsr/alerts', { params });
+  return response.data;
+};
+
+export const createIDSRAlert = async (data: {
+  diseaseCode: string; diseaseName: string; alertDate: string;
+  suspectedCases: number; confirmedCases: number; deaths: number;
+}) => {
+  const response = await api.post('/ghs-reports/idsr/alerts', data);
+  return response.data;
+};
+
+export const acknowledgeIDSRAlert = async (id: string, responseNotes?: string) => {
+  const response = await api.patch(`/ghs-reports/idsr/alerts/${id}/acknowledge`, { responseNotes });
+  return response.data;
+};
+
 export const getGHSMalariaReport = async (params: ReportFilter) => {
   const response = await api.get('/ghs-reports/malaria', { params });
   return response.data;
