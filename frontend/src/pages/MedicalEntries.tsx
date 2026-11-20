@@ -2178,12 +2178,7 @@ export default function MedicalEntries() {
                             <Td className="whitespace-pre-wrap">{scan.findings || scan.result || '—'}</Td>
                             <Td className="whitespace-pre-wrap">{scan.impression || '—'}</Td>
                             <Td className="px-1">
-                              {canAddEntries && (
-                                <button onClick={() => setScanResultFor(scan)}
-                                  className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
-                                  <Edit className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                              {canAddEntries && <span className="text-[10px] text-[var(--text-tertiary)]" title="Completed reports are locked. Use the documented clinical correction workflow.">Locked</span>}
                             </Td>
                           </tr>
                         ))}
