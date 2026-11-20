@@ -89,7 +89,7 @@ export class StockItemService extends BaseService {
       catalog = await tx.serviceCatalog.create({
         data: {
           ...flags,
-          code: item.drugCode,
+          code: `MED-${item.drugCode}`,
           serviceType: ServiceType.medication,
           serviceCategory: ServiceCategory.pharmacy,
           subType: item.category || 'medication',
@@ -101,7 +101,7 @@ export class StockItemService extends BaseService {
         }
       });
     } else {
-      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: { ...flags, code: item.drugCode, nhisServiceCode: item.isNHISCovered === true ? item.drugCode : null } });
+      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: { ...flags, code: `MED-${item.drugCode}`, nhisServiceCode: item.isNHISCovered === true ? item.drugCode : null } });
     }
 
     const changed = !current
