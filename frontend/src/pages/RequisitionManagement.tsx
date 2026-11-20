@@ -904,7 +904,8 @@ export default function RequisitionsPage() {
                         <button
                           key={type}
                           type="button"
-                          disabled={!!editingRequisition}\n                          onClick={() => setFormData({ ...formData, requesterType: type })}
+                          disabled={!!editingRequisition}
+                          onClick={() => setFormData({ ...formData, requesterType: type })}
                           className={`px-4 py-2 text-xs font-semibold transition-colors ${
                             formData.requesterType === type
                               ? 'bg-[var(--icon-cyan-text)] text-white'
