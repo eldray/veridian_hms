@@ -11,6 +11,7 @@ interface PatientAttendanceSelectorProps {
   selectedPatientId: string;
   selectedAttendanceId: string;
   onPatientSelect: (patientId: string) => void;
+  onPatientRecordSelect?: (patient: any) => void;
   onAttendanceSelect: (attendanceId: string) => void;
   onClearSelection: () => void;
   autoSelectMostRecent?: boolean;
@@ -115,6 +116,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
   selectedPatientId,
   selectedAttendanceId,
   onPatientSelect,
+  onPatientRecordSelect,
   onAttendanceSelect,
   onClearSelection,
   autoSelectMostRecent = true,
@@ -259,7 +261,8 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
   }, []);
 
   const handlePatientSelect = (patient: any) => {
-    onPatientSelect(patient.id);
+    onPatientSelect(patient.id || patient._id);
+    onPatientRecordSelect?.(patient);
     setPatientSearch(getPatientFullName(patient));
     setShowPatientDropdown(false);
   };
