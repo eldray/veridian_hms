@@ -253,13 +253,15 @@
     // Only send a filter whose endpoint reads it, and send the range under both names the
     // reporting endpoints accept (dateFrom/dateTo and startDate/endDate).
     const request = useMemo(() => {
-      const params: Record<string, string | number> = { dateFrom, dateTo, startDate: dateFrom, endDate: dateTo };
+      const params: Record<string, string | number> = shape.dateRange === false
+        ? {}
+        : { dateFrom, dateTo, startDate: dateFrom, endDate: dateTo };
       for (const filter of filters) {
         const value = (values[filter.stateKey || filter.key] || '').trim();
         if (value) params[filter.key] = value;
       }
       return { ...shape.source.params, ...params };
-    }, [dateFrom, dateTo, filters, values, shape.source.params]);
+    }, [dateFrom, dateTo, filters, values, shape.source.params, shape.dateRange]);
 
     const load = useCallback(async () => {
       const helper = REPORT_LOADERS[shape.source.api];
