@@ -3695,6 +3695,11 @@ export const getGHSIDSRReport = async (params: ReportFilter) => {
   return response.data;
 };
 
+export const getGHSEPIReport = async (params: ReportFilter) => {
+  const response = await api.get('/ghs-reports/epi/stats', { params });
+  return response.data;
+};
+
 export const getIDSRAlerts = async (params: ReportFilter) => {
   const response = await api.get('/ghs-reports/idsr/alerts', { params });
   return response.data;
@@ -4750,7 +4755,7 @@ export default {
   getTemplates, createTemplate, updateTemplate, deleteTemplate,
 
   // Reports
-  getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport, getGHSDeliveryReport, getGHSFormAReport,
+  getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSEPIReport, getGHSMalariaReport, getGHSDeliveryReport, getGHSFormAReport,
   getMorbidityMortalityReport, getTopDiagnoses, getFamilyPlanningReport, getConsultingRoomRegister,
   getReportSubmissions, getReportSubmissionById, exportGHSReportToCSV,
   getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,
