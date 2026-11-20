@@ -97,16 +97,24 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
   });
 
   router.get('/attendances', requireRole(readRoles), async (req: Request, res: Response) => {
-    const dateParam = req.query.date ? String(req.query.date) : new Date().toISOString().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) return res.status(400).json({ success: false, message: 'Date must use YYYY-MM-DD format.' });
-    const start = new Date(dateParam + 'T00:00:00.000Z');
-    const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);
+    // The waiting list is a patient worklist, not a "today only" report. Seeded
+    // and previously booked immunization attendances may have historical dates.
+    const dateParam = req.query.date ? String(req.query.date) : null;
+    if (dateParam && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dateParam)) {
+      return res.status(400).json({ success: false, message: 'Date must use YYYY-MM-DD format.' });
+    }
+    const dateStart = dateParam ? new Date(dateParam + 'T00:00:00.000Z') : null;
+    const dateEnd = dateStart ? new Date(dateStart) : null;
+    if (dateEnd) dateEnd.setUTCDate(dateEnd.getUTCDate() + 1);
     const visits = await prisma.attendance.findMany({
-      where: { attendanceType: 'immunization', dateTime: { gte: start, lt: end } },
+      where: {
+        attendanceType: 'immunization',
+        ...(dateStart && dateEnd ? { dateTime: { gte: dateStart, lt: dateEnd } } : {})
+      },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, phoneNumber: true, dateOfBirth: true, gender: true, imageUrl: true } } },
-      orderBy: { dateTime: 'asc' }
+      orderBy: { dateTime: 'desc' }
     });
-    return res.json({ success: true, data: visits });
+    return res.json({ success: true, data: visits, meta: { count: visits.length, date: dateParam } });
   });
 
   router.get('/patients/:patientId/context', requireRole(readRoles), async (req: Request, res: Response) => {
