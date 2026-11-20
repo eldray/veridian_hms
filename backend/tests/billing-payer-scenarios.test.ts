@@ -42,7 +42,7 @@ describe('payer liability aggregation', () => {
     const provider = { id: 'nhis-provider', isActive: true, type: 'nhis', coveragePercentage: 80 };
     const lines = [
       { lineTotal: 100, patientPayableAmount: 100, insuranceCoveredAmount: 0, sourceKey: null },
-      { lineTotal: 65, patientPayableAmount: 13, insuranceCoveredAmount: 52, sourceKey: null },
+      { lineTotal: 65, patientPayableAmount: 0, insuranceCoveredAmount: 65, sourceKey: null },
     ];
     const billUpdate = vi.fn().mockImplementation(async ({ data }: any) => ({ id: 'bill-payer-test', ...data }));
     const tx: any = {
@@ -69,9 +69,9 @@ describe('payer liability aggregation', () => {
 
     const persistedAmounts = billUpdate.mock.calls[0][0].data;
     expect(persistedAmounts.totalAmount).toBe(165);
-    expect(persistedAmounts.insuranceCovered).toBe(52);
-    expect(persistedAmounts.patientPayable).toBe(113);
-    expect(persistedAmounts.balance).toBe(113);
+    expect(persistedAmounts.insuranceCovered).toBe(65);
+    expect(persistedAmounts.patientPayable).toBe(100);
+    expect(persistedAmounts.balance).toBe(100);
   });
 });
 
