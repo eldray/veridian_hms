@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ClipboardList, RefreshCw, Filter, Plus, X, Send, CheckCheck, Truck,
-  XCircle, Trash2, Eye, User, Building2, Package, ChevronRight,
+  XCircle, Trash2, Eye, User, Building2, Package, ChevronRight, Edit,
   Calendar, Clock, AlertCircle
 } from 'lucide-react';
 import AsyncSelect from 'react-select/async';
@@ -14,6 +14,9 @@ import {
   getRequisition as apiGetRequisition,
   lookupRequisitionStock,
   updateRequisitionStatus,
+  updateRequisition as apiUpdateRequisition,
+  getDepartments,
+  getWards,
   type Requisition,
   type RequisitionStockLookupItem,
 } from '../api';
@@ -70,6 +73,7 @@ export default function RequisitionsPage() {
   const [showForm, setShowForm] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null);
+  const [editingRequisition, setEditingRequisition] = useState<Requisition | null>(null);
 
   // Supporting data for the form
   const [departments, setDepartments] = useState<any[]>([]);
@@ -96,11 +100,21 @@ export default function RequisitionsPage() {
   // ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
-      await getRequisitions();
-      // Load departments / wards if your store has them; otherwise fetch here
-      // Example (adjust to your actual APIs):
-      // const [depts, wds] = await Promise.all([getDepartments(), getWards()]);
-      // setDepartments(depts); setWards(wds);
+      const [requisitionResult, departmentResult, wardResult] = await Promise.all([
+        getRequisitions(),
+        getDepartments(),
+        getWards(),
+      ]);
+      // The API helpers normalize paginated and wrapped responses. Keep a final
+      // defensive unwrap here because the wards endpoint has legacy envelopes.
+      const rows = (value: any) => Array.isArray(value) ? value
+        : Array.isArray(value?.data) ? value.data
+        : Array.isArray(value?.items) ? value.items
+        : Array.isArray(value?.wards) ? value.wards
+        : Array.isArray(value?.departments) ? value.departments : [];
+      setDepartments(rows(departmentResult).filter((item: any) => item?.isActive !== false));
+      setWards(rows(wardResult).filter((item: any) => item?.isActive !== false));
+      void requisitionResult;
     } catch (error) {
       console.error('Failed to load data:', error);
       toastError('Load failed', 'Could not load requisition data');
@@ -226,6 +240,29 @@ export default function RequisitionsPage() {
     }
   };
 
+  const handleEdit = (requisition: Requisition) => {
+    if (requisition.status !== 'draft' || !(requisition.requestedById === user?.id || hasRole(['admin', 'super_admin']))) return;
+    setEditingRequisition(requisition);
+    setFormData(prev => ({
+      ...prev,
+      requesterType: requisition.requestingWardId ? 'ward' : 'department',
+      requestingDepartmentId: requisition.requestingDepartmentId || myDepartmentId,
+      requestingWardId: requisition.requestingWardId || '',
+      supplyingDepartmentId: requisition.supplyingDepartmentId || '',
+      purpose: requisition.purpose || '',
+      urgency: requisition.urgency || 'routine',
+      requiredDate: requisition.requiredDate ? String(requisition.requiredDate).slice(0, 10) : '',
+      notes: requisition.notes || '',
+      requisitionItems: (requisition.RequisitionItem || []).map((item: any) => ({
+        stockItemId: item.stockItemId,
+        quantityRequested: item.quantityRequested,
+        purpose: item.purpose || '',
+        picked: item.StockItem ? { id: item.stockItemId, name: item.StockItem.name, drugCode: item.StockItem.drugCode || '', strength: '', category: '', unitOfMeasure: item.StockItem.unitOfMeasure || '', supplierQty: 0, requesterQty: 0, reorderLevel: item.StockItem.reorderLevel || 0 } : null,
+      })),
+    }));
+    setShowForm(true);
+  };
+
   const openDetails = async (requisition: Requisition) => {
     setSelectedRequisition(requisition);
     setShowDetailModal(true);
@@ -241,6 +278,7 @@ export default function RequisitionsPage() {
   };
 
   const resetForm = () => {
+    setEditingRequisition(null);
     setFormData({
       requesterType: 'department',
       requestingDepartmentId: myDepartmentId,
@@ -272,6 +310,22 @@ export default function RequisitionsPage() {
     }
 
     const validItems = formData.requisitionItems.filter(item => item.stockItemId && item.quantityRequested > 0);
+    if (editingRequisition) {
+      try {
+        await apiUpdateRequisition(editingRequisition.id, {
+          purpose: formData.purpose,
+          urgency: formData.urgency,
+          notes: formData.notes,
+        });
+        success('Updated', 'Draft requisition updated successfully');
+        setShowForm(false);
+        resetForm();
+        await loadData();
+      } catch (error: any) {
+        toastError('Update failed', error?.response?.data?.message || error.message || 'Could not update requisition');
+      }
+      return;
+    }
     if (validItems.length === 0) {
       toastError('Validation', 'Please add at least one item');
       return;
@@ -700,6 +754,10 @@ export default function RequisitionsPage() {
                               onClick={() => openDetails(requisition)}
                             />
 
+                            {requisition.status === 'draft' && (requisition.requestedById === user?.id || hasRole(['admin', 'super_admin'])) && (
+                              <Button size="sm" variant="ghost" iconOnly icon={Edit} className="text-[var(--icon-yellow-text)]" title="Edit draft details" aria-label={`Edit ${requisition.requisitionNumber}`} onClick={() => handleEdit(requisition)} />
+                            )}
+
                             {canSubmit(requisition) && (
                               <Button
                                 size="sm"
@@ -787,22 +845,23 @@ export default function RequisitionsPage() {
           CREATE FORM MODAL
           ═══════════════════════════════════════════════════════════ */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowForm(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => { setShowForm(false); resetForm(); }}>
           <div
             className="bg-[var(--bg-card)] rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-[var(--border-color)]"
             onClick={e => e.stopPropagation()}
           >
             <div className="bg-[var(--bg-card)] border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-[var(--text-primary)]">New Requisition</h2>
+                <h2 className="text-lg font-bold text-[var(--text-primary)]">{editingRequisition ? `Edit Draft — ${editingRequisition.requisitionNumber}` : 'New Requisition'}</h2>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   Fill the four steps below to raise a stock request
                 </p>
               </div>
-              <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close form" onClick={() => setShowForm(false)} />
+              <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close form" onClick={() => { setShowForm(false); resetForm(); }} />
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              {editingRequisition && <div className="mx-6 mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">Only purpose, urgency and notes can be changed on a draft. Requester, supplier, required date and stock lines are preserved.</div>}
               {/* Sticky context bar */}
               <div className="sticky top-0 z-10 bg-[var(--bg-main)] border-b border-[var(--border-color)] px-6 py-2.5 flex items-center gap-3 text-xs shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
@@ -845,6 +904,7 @@ export default function RequisitionsPage() {
                         <button
                           key={type}
                           type="button"
+                          disabled={!!editingRequisition}
                           onClick={() => setFormData({ ...formData, requesterType: type })}
                           className={`px-4 py-2 text-xs font-semibold transition-colors ${
                             formData.requesterType === type
@@ -870,7 +930,7 @@ export default function RequisitionsPage() {
                     ) : (
                       <select
                         required
-                        value={formData.requestingWardId}
+                        disabled={!!editingRequisition} value={formData.requestingWardId}
                         onChange={e => setFormData({ ...formData, requestingWardId: e.target.value })}
                         className={cn(SELECT, 'w-full')}
                       >
@@ -892,7 +952,7 @@ export default function RequisitionsPage() {
                   <div className="pl-8">
                     <select
                       required
-                      value={formData.supplyingDepartmentId}
+                      disabled={!!editingRequisition} value={formData.supplyingDepartmentId}
                       onChange={e => changeSupplier(e.target.value)}
                       className={cn(SELECT, 'w-full')}
                     >
@@ -925,8 +985,8 @@ export default function RequisitionsPage() {
                       size="sm"
                       variant="outline"
                       icon={Plus}
-                      disabled={!formData.supplyingDepartmentId}
-                      onClick={addRequisitionItem}
+                      disabled={!!editingRequisition || !formData.supplyingDepartmentId}
+                      disabled={!!editingRequisition} onClick={addRequisitionItem}
                     >
                       Add item
                     </Button>
@@ -966,7 +1026,7 @@ export default function RequisitionsPage() {
                               icon={Trash2}
                               className="text-[var(--text-tertiary)] hover:bg-[var(--icon-red-bg)] hover:text-[var(--icon-red-text)]"
                               title="Remove item"
-                              onClick={() => removeRequisitionItem(index)}
+                              disabled={!!editingRequisition} onClick={() => removeRequisitionItem(index)}
                             />
                           </div>
 
@@ -979,7 +1039,7 @@ export default function RequisitionsPage() {
                                 key={`${formData.supplyingDepartmentId}-${index}`}
                                 cacheOptions={false}
                                 defaultOptions
-                                isDisabled={!formData.supplyingDepartmentId}
+                                isDisabled={!!editingRequisition || !formData.supplyingDepartmentId}
                                 loadOptions={loadItemOptions}
                                 value={picked || null}
                                 onChange={(sel) => updateRequisitionItem(index, {
@@ -1032,7 +1092,7 @@ export default function RequisitionsPage() {
                                     min="1"
                                     step="1"
                                     required
-                                    value={item.quantityRequested}
+                                    disabled={!!editingRequisition} value={item.quantityRequested}
                                     onChange={e => updateRequisitionItem(index, { quantityRequested: parseInt(e.target.value) || 0 })}
                                     className={cn(INPUT, 'flex-1', over && 'border-[var(--icon-red-text)]')}
                                   />
@@ -1048,7 +1108,7 @@ export default function RequisitionsPage() {
                                 <input
                                   type="text"
                                   placeholder="e.g. For Ward 3 deliveries this week"
-                                  value={item.purpose}
+                                  disabled={!!editingRequisition} value={item.purpose}
                                   onChange={e => updateRequisitionItem(index, { purpose: e.target.value })}
                                   className={cn(INPUT, 'w-full')}
                                 />
@@ -1135,7 +1195,7 @@ export default function RequisitionsPage() {
                       </label>
                       <input
                         type="date"
-                        value={formData.requiredDate}
+                        disabled={!!editingRequisition} value={formData.requiredDate}
                         onChange={e => setFormData({ ...formData, requiredDate: e.target.value })}
                         className={cn(INPUT, 'w-full md:w-64')}
                       />
