@@ -6,6 +6,7 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { useAuthStore } from '../store/authStore';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { useToast } from '../store/toastStore';
+import { exportReport as exportReportFile } from '../api';
 import {
   Package, TrendingUp, AlertTriangle, Calendar,
   DollarSign, Building, FileText, RefreshCw, BarChart3,
@@ -511,6 +512,29 @@ export default function StockReports() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     success('Exported', 'Report downloaded as CSV');
+  };
+
+  const exportToExcel = async () => {
+    if (!reportData || !selectedReport) {
+      toastError('Export failed', 'Generate a report before exporting.');
+      return;
+    }
+    try {
+      await exportReportFile({
+        reportType: `stock-${selectedReport}`,
+        format: 'excel',
+        filters: {
+          startDate: dateRange.startDate || undefined,
+          endDate: dateRange.endDate || undefined,
+        },
+        // Export the complete report payload so the workbook includes its summary,
+        // detail tables, batch information and reconciliation fields.
+        data: reportData,
+      });
+      success('Exported', 'Stock report downloaded as an Excel workbook.');
+    } catch (err: any) {
+      toastError('Excel export failed', err?.message || 'Could not export this stock report.');
+    }
   };
 
   const printReport = () => {
@@ -1033,7 +1057,8 @@ export default function StockReports() {
           <>
             <Button size="sm" icon={RefreshCw} loading={busy} onClick={generateReport}>Refresh</Button>
             <Button size="sm" icon={FileSpreadsheet} onClick={exportToCSV}>CSV</Button>
-            <Button size="sm" icon={Printer} onClick={printReport}>Print</Button>
+            <Button size="sm" icon={FileSpreadsheet} onClick={exportToExcel}>Excel</Button>
+            <Button size="sm" icon={Printer} onClick={printReport}>Print / PDF</Button>
           </>
         )}
       />
