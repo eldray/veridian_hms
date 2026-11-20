@@ -54,6 +54,7 @@ export default function ImmunizationWorkspace() {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [completingId, setCompletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -99,6 +100,20 @@ export default function ImmunizationWorkspace() {
 
   const openEntries = (visit: Visit) => {
     if (visit.Patient?.id) navigate('/dashboard/immunization/entries/' + visit.Patient.id);
+  };
+
+  const markCompleted = async (visit: Visit) => {
+    setCompletingId(visit.id);
+    setError('');
+    try {
+      await api.patch(`/immunization/attendances/${visit.id}/complete`);
+      await loadWaitingList();
+      setActiveTab('pending');
+    } catch (e: any) {
+      setError(e.response?.data?.message || e.message || 'Could not complete this immunization visit.');
+    } finally {
+      setCompletingId(null);
+    }
   };
 
   const pageHeader = (
@@ -226,11 +241,21 @@ export default function ImmunizationWorkspace() {
                         </Badge>
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <Button size="sm" variant="soft" accent="cyan" icon={ArrowRight} className="mx-auto"
-                          disabled={!patient?.id}
-                          onClick={(event) => { event.stopPropagation(); openEntries(visit); }}>
-                          Open Entries
-                        </Button>
+                        <div className="flex flex-wrap justify-center gap-1.5">
+                          <Button size="sm" variant="soft" accent="cyan" icon={ArrowRight}
+                            disabled={!patient?.id}
+                            onClick={(event) => { event.stopPropagation(); openEntries(visit); }}>
+                            {activeTab === 'completed' ? 'View Entries' : 'Open Entries'}
+                          </Button>
+                          {activeTab === 'pending' && (
+                            <Button size="sm" variant="outline" icon={CheckCircle}
+                              loading={completingId === visit.id}
+                              disabled={!!completingId}
+                              onClick={(event) => { event.stopPropagation(); void markCompleted(visit); }}>
+                              Mark Completed
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
