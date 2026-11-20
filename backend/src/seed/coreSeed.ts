@@ -1070,7 +1070,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           const stockItem = await prisma.stockItem.upsert({
             where: { drugCode: canonicalDrugCode },
             create: stockData,
-            update: isProdProfile ? stockUpdate : stockData,
+            update: stockUpdate,
           });
           stockItemMap.set(canonicalDrugCode, stockItem);
           if (file === 'nhismedicines.json') {
