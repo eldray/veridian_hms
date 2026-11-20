@@ -134,7 +134,7 @@ export const seedDatabase = async (force: boolean = false) => {
       if (coreCatalogue?.success === false) throw new Error(coreCatalogue.message || 'Production reference catalogue seeding failed.');
       const diagnosisReferences = await seedDiagnosisReferenceData();
       await seedDiagnosisGDRGLinks();
-      await seedProcedureGDRGLinks();
+      await seedProcedureGDRGLinks(prisma);
       return {
         success: true,
         message: 'Reference catalogues reconciled; demo/test data safely excluded',
@@ -191,7 +191,7 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('-----------------------------------');
     console.log('   Mapping procedure codes to GDRG tariffs...');
 
-    const procResult = await safeSeed('Procedure-GDRG Links', seedProcedureGDRGLinks, force, 'procedureLinks', status);
+    const procResult = await safeSeed('Procedure-GDRG Links', () => seedProcedureGDRGLinks(prisma), force, 'procedureLinks', status);
     results.procedureLinks = procResult;
     if (!procResult.success) results.errors.push('Procedure-GDRG links: failed');
 
