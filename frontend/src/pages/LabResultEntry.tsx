@@ -487,7 +487,7 @@ export default function LabResultEntry() {
     }
   };
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => { loadData(); }, [id, location.key, location.state?.attendanceId]);
 
   const handleAttendanceChange = (attendanceId: string) => {
     const att = allAttendances.find(a => a.id === attendanceId);
