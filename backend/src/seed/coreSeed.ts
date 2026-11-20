@@ -1035,6 +1035,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             ...canonicalItem,
             isMedication,
             isNHISCovered: file === 'nhismedicines.json' && item.isNHISCovered !== false,
+            tariffCode: canonicalDrugCode,
             // Production profile: the catalogue is loaded but nothing is in stock until real stock is received.
             currentStock: isProdProfile ? 0 : (item.currentStock ?? 100),
             reorderLevel: item.reorderLevel ?? 50,
@@ -1338,7 +1339,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         serviceType: ServiceType.scan,
         serviceCategory: ServiceCategory.diagnostics,
         subType: template.category,
-        nhisServiceCode: code,
+        nhisServiceCode: (template as any).investigationCode || null,
         scanTemplateId: template.id,
         isActive: true,
         pricing,
