@@ -406,7 +406,7 @@ export default function ScansEntry() {
     }
   };
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => { loadData(); }, [id, location.key, location.state?.attendanceId]);
 
   useEffect(() => {
     if (selectedAttendanceId && selectedAttendanceId !== 'undefined' && selectedAttendanceId !== 'null') {
