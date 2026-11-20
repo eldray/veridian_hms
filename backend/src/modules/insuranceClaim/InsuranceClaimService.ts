@@ -1688,6 +1688,9 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       if (!catalog?.StockItem) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" is not a stocked medicine this claim can be billed against.`);
       }
+      if (catalog.StockItem.isNHISCovered !== true) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has a facility catalogue code and is not listed as NHIS-covered.`);
+      }
       if (!rule) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" has no NHIS payer rule, so it is not on the medicine list this scheme pays. It is patient-pay: remove the line or replace it with a covered item.`);
       }
