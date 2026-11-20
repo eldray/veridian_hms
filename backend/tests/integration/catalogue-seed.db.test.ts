@@ -33,7 +33,7 @@ describeDb('clinical and NHIS catalogue seeding against PostgreSQL', () => {
 
   beforeAll(async () => {
     const databaseUrl = process.env.DATABASE_URL ?? '';
-    if (!/_test(\\?|$)/.test(databaseUrl)) {
+    if (!/_test(\?|$)/.test(databaseUrl)) {
       throw new Error('Catalogue seed integration tests require a *_test database');
     }
 
