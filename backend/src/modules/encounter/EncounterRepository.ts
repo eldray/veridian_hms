@@ -1865,7 +1865,7 @@ async addScan(encounterId: string, data: any, userId: string) {
     }
     await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.scan.updateMany({
-      where: { id: scanId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
+      where: { id: scanId, attendanceId: encounterId, status: { in: ['requested', 'scheduled', 'in_progress'] } },
       data: { status: 'cancelled' },
     });
     if (result.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
