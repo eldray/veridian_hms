@@ -163,7 +163,7 @@ Medicine rules the HMS enforces when generating an NHIS claim (R, HMS):
 1. The medicine needs an NHIS payer rule that is **covered** and **in effect on the service date**. Otherwise it is patient-paid and **not claimed**.
 2. The payer rule must set the **prescribing level** (A, M, B1, B2, C, D or SM) and whether **authorisation is required**.
 3. If authorisation is required, an **approved (or partly approved) pre-authorisation** for that visit must name **that exact medicine** with a quantity at least equal to the dispensed quantity, with an unexpired authorisation number. The number goes into the claim's `preAuthorizationCodes` (comma separated if several).
-4. A valid active cash price and a positive NHIS tariff are needed. The patient's co-payment is configured per medicine (none, fixed amount, percentage of tariff, or cash-price difference). NHIS is claimed for **tariff minus co-payment**.
+4. A valid active cash price and a positive NHIS tariff are needed. For a medicine covered by NHIS, providers must not collect a co-payment or charge the patient the cash-price difference; claim the applicable NHIS tariff in full. A medicine that is not covered by NHIS is patient-payable at the cash price and must not be included in the NHIS claim.
 5. Prescribing levels: **M** midwife only; **A** CHPS only; **B1** health centre without a doctor; **B2** health centre with a doctor; **C** primary, secondary or tertiary hospital; **D** secondary or tertiary hospital; **SM** licensed clinician with a recorded specialization. Prescribers must be an active doctor, midwife or nurse with a professional licence.
 
 ---
