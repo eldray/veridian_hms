@@ -840,6 +840,7 @@ export default function TheatreProcedure() {
               <p className="text-xs text-yellow-800">
                 This visit is <strong>{attendance.status}</strong>. Procedures can be viewed but not modified.
               </p>
+                </div>
             )}
           </div>
 
