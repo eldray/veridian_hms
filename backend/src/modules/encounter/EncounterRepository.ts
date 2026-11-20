@@ -1362,6 +1362,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
+      const prescriptionFields = ['dosage', 'frequency', 'duration', 'route', 'instructions'];
+      if (med.status !== 'prescribed' && prescriptionFields.some((field) => data[field] !== undefined)) {
+        throw new ConflictError('Only an undispensed prescription can be edited; dispensed or administered medication requires a documented clinical correction workflow');
+      }
+      for (const field of prescriptionFields) if (data[field] !== undefined) updateData[field] = data[field];
 
       const isDispensing = data.status === 'dispensed' && med.status !== 'dispensed';
       if (med.status === 'dispensed' && data.quantity !== undefined && data.quantity !== med.quantity) {
@@ -1665,7 +1670,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     }
 
     const updateData: any = {}
-    for (const field of ['result', 'normalRange', 'units', 'notes']) if (data[field] !== undefined) updateData[field] = data[field];
+    for (const field of ['result', 'normalRange', 'units', 'notes', 'priority']) if (data[field] !== undefined) updateData[field] = data[field];
     if (status !== current.status) updateData.status = status;
     if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
     else if (status === 'in_progress') updateData.performedById = actorId;
@@ -1831,7 +1836,7 @@ async addScan(encounterId: string, data: any, userId: string) {
     }
 
     const updateData: any = {}
-    for (const field of ['result', 'findings', 'impression']) if (data[field] !== undefined) updateData[field] = data[field];
+    for (const field of ['result', 'findings', 'impression', 'notes', 'priority']) if (data[field] !== undefined) updateData[field] = data[field];
     if (data.imageUrls !== undefined) {
       if (!Array.isArray(data.imageUrls) || data.imageUrls.some((url: unknown) => typeof url !== 'string' || !url.trim())) throw new ValidationError('Scan image URLs must be a list of non-empty strings');
       updateData.imageUrls = data.imageUrls;
