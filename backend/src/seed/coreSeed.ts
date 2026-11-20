@@ -1014,13 +1014,33 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     const stockFiles = ['medications1.json', 'medications2.json', 'nhismedicines.json', 'consumables.json'];
     let totalStockProcessed = 0;
     const stockItemMap = new Map();
+    // Identity matching ignores harmless punctuation/spacing differences in imported
+    // names and strengths (e.g. "500mg" vs "500 mg") so an NHIS reference row can
+    // re-key the existing local stock row instead of creating a second medicine.
+    const normalizeIdentityPart = (value: unknown) => String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const stockIdentityKey = (item: any) => [
+      normalizeIdentityPart(item.name),
+      normalizeIdentityPart(item.strength || 'N/A'),
+      normalizeIdentityPart(item.unitOfMeasure || 'units'),
+    ].join('|');
+    const stockIdentityMap = new Map<string, any>();
     // Patient prices per drugCode, taken from each item's own selling/insurance prices in the JSON files
     const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number; corporatePrice: number }>();
     // Keep NHIS reference rows separate from inventory pricing so payer rules can be reviewed independently.
     const nhisReferenceByDrugCode = new Map<string, any>();
     const usedDrugCodes = new Set<string>();
-    const existingStockCodes = await prisma.stockItem.findMany({ select: { drugCode: true } });
-    for (const existing of existingStockCodes) if (existing.drugCode) usedDrugCodes.add(String(existing.drugCode).trim().toUpperCase());
+    const existingStockItems = await prisma.stockItem.findMany({
+      select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true },
+    });
+    for (const existing of existingStockItems) {
+      if (existing.drugCode) usedDrugCodes.add(String(existing.drugCode).trim().toUpperCase());
+      const identity = stockIdentityKey(existing);
+      if (stockIdentityMap.has(identity) && stockIdentityMap.get(identity).id !== existing.id) {
+        seedFailures.push(`Multiple existing stock rows share the same medicine identity: ${existing.name} (${existing.strength}, ${existing.unitOfMeasure})`);
+      } else {
+        stockIdentityMap.set(identity, existing);
+      }
+    }
     for (const sourceFile of stockFiles) {
       const sourceItems = readJSON(sourceFile);
       if (Array.isArray(sourceItems)) for (const sourceItem of sourceItems) {
@@ -1041,14 +1061,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       for (const item of items) {
         try {
           if (!item.name || (file === 'nhismedicines.json' && !item.drugCode)) throw new Error(file === 'nhismedicines.json' ? 'NHIS reference medicine is missing its official source drugCode; refusing to invent an NHIS code.' : 'Medicine/consumable is missing its name.');
-          const existingGeneratedItem = !item.drugCode ? await prisma.stockItem.findFirst({
-            where: {
-              name: String(item.name || '').trim(),
-              strength: String(item.strength || 'N/A').trim(),
-              unitOfMeasure: String(item.unitOfMeasure || 'units').trim(),
-            },
-            select: { drugCode: true },
-          }) : null;
+          const identity = stockIdentityKey(item);
+          const existingGeneratedItem = !item.drugCode ? stockIdentityMap.get(identity) ?? null : null;
           const canonicalDrugCode = String(item.drugCode || existingGeneratedItem?.drugCode || generateFacilityDrugCode(item, usedDrugCodes)).trim().toUpperCase();
           usedDrugCodes.add(canonicalDrugCode);
           const canonicalItem = { ...item, drugCode: canonicalDrugCode };
@@ -1073,14 +1087,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           // instead of creating a duplicate product with a second code.
           let stockItem: any;
           if (file === 'nhismedicines.json') {
-            const existingByIdentity = await prisma.stockItem.findFirst({
-              where: {
-                name: String(item.name).trim(),
-                strength: String(item.strength || 'N/A').trim(),
-                unitOfMeasure: String(item.unitOfMeasure || 'units').trim(),
-              },
-              select: { id: true, drugCode: true },
-            });
+            const existingByIdentity = stockIdentityMap.get(identity) ?? null;
             if (existingByIdentity && existingByIdentity.drugCode !== canonicalDrugCode) {
               const codeOwner = await prisma.stockItem.findUnique({ where: { drugCode: canonicalDrugCode }, select: { id: true } });
               if (codeOwner && codeOwner.id !== existingByIdentity.id) {
@@ -1103,6 +1110,13 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             });
           }
           stockItemMap.set(canonicalDrugCode, stockItem);
+          stockIdentityMap.set(identity, {
+            id: stockItem.id,
+            drugCode: stockItem.drugCode,
+            name: stockItem.name,
+            strength: stockItem.strength,
+            unitOfMeasure: stockItem.unitOfMeasure,
+          });
           if (file === 'nhismedicines.json') {
             nhisReferenceByDrugCode.set(canonicalDrugCode, canonicalItem);
           }
