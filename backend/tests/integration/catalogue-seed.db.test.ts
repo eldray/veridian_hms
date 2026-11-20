@@ -17,14 +17,32 @@ import { MAPPINGS } from '../../src/seed/procedureGdrgMappings';
 
 const enabled = process.env.RUN_DB_TESTS === '1';
 const describeDb = enabled ? describe : describe.skip;
-const sourceStock = [...medications1, ...medications2, ...nhisMedicines, ...consumables];
+const sourceStock = [
+  ...medications1.map((item) => ({ ...item, sourceFile: 'local' })),
+  ...medications2.map((item) => ({ ...item, sourceFile: 'local' })),
+  ...nhisMedicines.map((item) => ({ ...item, sourceFile: 'nhis' })),
+  ...consumables.map((item) => ({ ...item, sourceFile: 'consumables' })),
+];
 const normalize = (value: unknown) => String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const identity = (item: any) => [
   normalize(item.name),
   normalize(item.strength || 'N/A'),
   normalize(item.unitOfMeasure || 'units'),
+  item.isMedication === false ? 'consumable' : 'medication',
 ].join('|');
-const expectedStockIdentities = new Set(sourceStock.map(identity)).size;
+const nhisCodesByIdentity = new Map<string, Set<string>>();
+for (const item of nhisMedicines) {
+  const key = identity(item);
+  const codes = nhisCodesByIdentity.get(key) ?? new Set<string>();
+  codes.add(String(item.drugCode).toUpperCase());
+  nhisCodesByIdentity.set(key, codes);
+}
+const expectedStockIdentities = new Set(sourceStock.map((item) => {
+  if (item.sourceFile === 'nhis') return `NHIS:${item.drugCode}`;
+  const nhisCodes = item.isMedication === false ? undefined : nhisCodesByIdentity.get(identity(item));
+  if (nhisCodes?.size === 1) return `NHIS:${[...nhisCodes][0]}`;
+  return `LOCAL:${identity(item)}`;
+})).size;
 const expectedProcedureLinks = MAPPINGS.reduce((sum, mapping) => sum + mapping.gdrgCodes.length, 0);
 
 describeDb('clinical and NHIS catalogue seeding against PostgreSQL', () => {
