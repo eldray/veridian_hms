@@ -67,7 +67,7 @@ export class GHSReportController extends BaseController {
       return this.badRequest(res, 'Disease code and name are required');
     }
     if (!alertDate || Number.isNaN(new Date(alertDate).getTime()) ||
-      counts.some(value => !Number.isInteger(Number(value)) || Number(value) < 0)) {
+      counts.some(value => !Number.isInteger(value) || value < 0)) {
       return this.badRequest(res, 'A valid date and non-negative whole-number counts are required');
     }
     const record = await this.reportService.recordIDSRAlert({
