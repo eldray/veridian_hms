@@ -103,7 +103,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1);
     const visits = await prisma.attendance.findMany({
       where: { attendanceType: 'immunization', dateTime: { gte: start, lt: end } },
-      include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, phoneNumber: true } } },
+      include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, phoneNumber: true, dateOfBirth: true, gender: true, imageUrl: true } } },
       orderBy: { dateTime: 'asc' }
     });
     return res.json({ success: true, data: visits });
