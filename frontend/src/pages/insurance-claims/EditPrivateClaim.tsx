@@ -697,8 +697,8 @@ export default function EditPrivateClaim() {
     return out;
   };
 
-  const handleSave = async () => {
-    if (!isDraft) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!isDraft) return false;
     try {
       setIsSubmitting(true);
 
@@ -709,12 +709,14 @@ export default function EditPrivateClaim() {
       });
 
       const items = buildItemsPayload();
-      if (items.length > 0) await replaceClaimItems(id!, items);
+      await replaceClaimItems(id!, items);
 
       success('Saved', 'Private insurance claim updated successfully');
       await getInsuranceClaim(id!);
+      return true;
     } catch (err: any) {
       toastError('Save Failed', err.message);
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -722,7 +724,8 @@ export default function EditPrivateClaim() {
 
   const handleFinalize = async () => {
     try {
-      await handleSave();
+      const saved = await handleSave();
+      if (!saved) return;
       await finalizeClaim(id!);
       success('Finalized', 'Claim is ready for submission');
       navigate('/dashboard/insurance/private/claims');
@@ -733,6 +736,10 @@ export default function EditPrivateClaim() {
 
   const handlePrintClaim = async () => {
     try {
+      if (isDraft) {
+        const saved = await handleSave();
+        if (!saved) return;
+      }
       await printClaim(id!);
       success('Print ready', 'Claim data ready for printing');
     } catch (err: any) {
