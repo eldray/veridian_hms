@@ -40,20 +40,18 @@ const readJSON = (fileName: string) => {
 
 const hashPassword = (password: string) => bcrypt.hashSync(password, 10);
 
-// Deterministic fallback for facility-only medicines absent from the NHIS list.
-// The value uses an NHIS-like compact alphanumeric shape, but is never treated as
-// an official NHIS code unless the item exists in the NHIS reference catalogue.
-const generateFacilityDrugCode = (item: any): string => {
-  const identity = [item.name, item.strength, item.unitOfMeasure]
-    .map((value) => String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
-    .join('|');
-  let hash = 2166136261;
-  for (let index = 0; index < identity.length; index++) {
-    hash ^= identity.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+// Facility-only medicines use a readable NHIS-style code: eight name letters
+// followed by a two-digit sequence, e.g. PARACETA01.
+const generateFacilityDrugCode = (item: any, usedCodes: Set<string>): string => {
+  const base = String(item.name ?? 'MEDICINE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'MEDICINE';
+  for (let sequence = 1; sequence <= 99; sequence++) {
+    const code = `${base}${String(sequence).padStart(2, '0')}`;
+    if (!usedCodes.has(code)) {
+      usedCodes.add(code);
+      return code;
+    }
   }
-  const namePart = String(item.name ?? 'MEDICINE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9) || 'MEDICINE';
-  return `FCH${namePart}${(hash >>> 0).toString(36).toUpperCase().padStart(7, '0')}`;
+  throw new Error(`Could not generate a unique medicine code for ${item.name}; enter a code manually.`);
 };
 
 
@@ -1015,6 +1013,13 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number; corporatePrice: number }>();
     // Keep NHIS reference rows separate from inventory pricing so payer rules can be reviewed independently.
     const nhisReferenceByDrugCode = new Map<string, any>();
+    const usedDrugCodes = new Set<string>();
+    for (const sourceFile of stockFiles) {
+      const sourceItems = readJSON(sourceFile);
+      if (Array.isArray(sourceItems)) for (const sourceItem of sourceItems) {
+        if (sourceItem?.drugCode) usedDrugCodes.add(String(sourceItem.drugCode).trim().toUpperCase());
+      }
+    }
 
     for (const file of stockFiles) {
       const items = readJSON(file);
@@ -1027,7 +1032,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
 
       for (const item of items) {
         try {
-          const canonicalDrugCode = String(item.drugCode || generateFacilityDrugCode(item)).trim().toUpperCase();
+          const canonicalDrugCode = String(item.drugCode || generateFacilityDrugCode(item, usedDrugCodes)).trim().toUpperCase();
+          usedDrugCodes.add(canonicalDrugCode);
           const canonicalItem = { ...item, drugCode: canonicalDrugCode };
           if (!item.drugCode) {
             console.warn(`⚠️ Generated facility-only catalogue code ${canonicalDrugCode} for ${item.name}; it is not an official NHIS code.`);
@@ -1036,7 +1042,6 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             ...canonicalItem,
             isMedication,
             isNHISCovered: file === 'nhismedicines.json' && item.isNHISCovered !== false,
-            nhisServiceCode: file === 'nhismedicines.json' ? canonicalDrugCode : null,
             tariffCode: canonicalDrugCode,
             // Production profile: the catalogue is loaded but nothing is in stock until real stock is received.
             currentStock: isProdProfile ? 0 : (item.currentStock ?? 100),
@@ -1391,11 +1396,11 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       };
       serviceCatalogEntries.push({
         name: stockItem.name,
-        code: `MED-${drugCode}`,
+        code: drugCode,
         serviceType: ServiceType.medication,
         serviceCategory: ServiceCategory.pharmacy,
         subType: stockItem.category || 'medication',
-        nhisServiceCode: stockItem.nhisServiceCode || null,
+        
         stockItemId: stockItem.id,
         isActive: true,
         pricing,
