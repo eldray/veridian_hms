@@ -114,7 +114,7 @@ export async function fetchLabExtras() {
 
   return {
     criticalLabs,
-    pendingLabTests: pendingLabTests || worklistLen,
+    pendingLabTests: pendingLabTests ?? worklistLen,
     labSlaBreaches,
   };
 }
@@ -165,7 +165,7 @@ export async function fetchMaternalExtras() {
   const eddThisWeek = anc?.eddThisWeek ?? anc?.upcomingDeliveries ?? 0;
 
   return {
-    highRiskANC: anc?.byRiskLevel?.high ?? anc?.highRisk ?? 0,
+    highRiskANC: anc?.byRiskLevel?.high ?? anc?.highRiskBookings ?? anc?.highRisk ?? 0,
     overdueANC: anc?.overdueANC ?? anc?.missed ?? 0,
     pncDueToday: pnc?.dueToday ?? pnc?.todayVisits ?? 0,
     deliveriesThisWeek: eddThisWeek,
