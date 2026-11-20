@@ -2607,7 +2607,7 @@ const NoteCard: React.FC<{ author: string; date?: string; text?: string; childre
     <div className="flex items-center justify-between mb-1.5">
       <span className="text-[10px] font-bold text-[var(--icon-cyan-text)]">{author}</span>
       {date && <span className="text-[9px] text-[var(--text-tertiary)]">{new Date(date).toLocaleString()}</span>}
-      {(onEdit || onDelete) && <span className="flex items-center gap-1">{onEdit && <button onClick={onEdit} title="Edit note" className="p-1 rounded hover:bg-[var(--icon-cyan-bg)] hover:text-[var(--icon-cyan-text)]"><Edit className="w-3 h-3" /></button>}{onDelete && <button onClick={onDelete} title="Delete note" className="p-1 rounded hover:bg-[var(--icon-red-bg)] hover:text-[var(--icon-red-text)]"><Trash2 className="w-3 h-3" /></button>}</span>
+      {(onEdit || onDelete) && <span className="flex items-center gap-1">{onEdit && <button onClick={onEdit} title="Edit note" className="p-1 rounded hover:bg-[var(--icon-cyan-bg)] hover:text-[var(--icon-cyan-text)]"><Edit className="w-3 h-3" /></button>}{onDelete && <button onClick={onDelete} title="Delete note" className="p-1 rounded hover:bg-[var(--icon-red-bg)] hover:text-[var(--icon-red-text)]"><Trash2 className="w-3 h-3" /></button>}</span>}
     </div>
     {text && <p className="text-[11px] text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{text}</p>}
     {children}
