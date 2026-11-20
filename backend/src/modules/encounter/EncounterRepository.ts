@@ -720,6 +720,29 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     }, { isolationLevel: 'Serializable' });
   }
 
+  async updateDiagnosis(encounterId: string, diagnosisRowId: string, data: any) {
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({ where: { id: encounterId }, select: { id: true, encounterCategory: true, status: true } });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(encounter.status))) {
+        throw new ConflictError('Diagnoses cannot be changed for a closed encounter');
+      }
+      const current = await tx.attendanceDiagnosis.findFirst({ where: { id: diagnosisRowId, attendanceId: encounterId } });
+      if (!current) throw new NotFoundError('Diagnosis in encounter', diagnosisRowId);
+      const diagnosisType = data.diagnosisType ?? current.diagnosisType;
+      const classification = data.classification ?? current.classification;
+      if (!['primary', 'additional', 'provisional'].includes(String(diagnosisType))) throw new ValidationError('Invalid diagnosis type');
+      if (classification != null && !['NEW_DIAGNOSIS', 'OLD_DIAGNOSIS'].includes(String(classification))) throw new ValidationError('Invalid HMIS diagnosis classification');
+      if (encounter.encounterCategory === 'opd' && !classification) throw new ValidationError('HMIS diagnosis classification is required for OPD diagnoses');
+      if (diagnosisType === 'primary') {
+        await tx.attendanceDiagnosis.updateMany({ where: { attendanceId: encounterId, diagnosisType: 'primary', id: { not: diagnosisRowId } }, data: { diagnosisType: 'additional' } });
+      }
+      return tx.attendanceDiagnosis.update({ where: { id: diagnosisRowId }, data: {
+        diagnosisType, classification, notes: data.notes !== undefined ? data.notes : current.notes,
+      }, include: { Diagnosis: true } });
+    });
+  }
+
   async removeDiagnosis(encounterId: string, diagnosisId: string) {
     return this.prisma.$transaction(async (tx) => {
       const encounter = await tx.attendance.findUnique({
