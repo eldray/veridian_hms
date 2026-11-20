@@ -1115,6 +1115,19 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           // The NHIS reference row owns the canonical code. If the same medicine
           // already exists in a local medication file, re-key that same stock row
           // instead of creating a duplicate product with a second code.
+          if (!existingByIdentity) {
+            const codeOwner = await prisma.stockItem.findUnique({
+              where: { drugCode: canonicalDrugCode },
+              select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true, isMedication: true },
+            });
+            if (codeOwner) {
+              if (stockIdentityKey(codeOwner, codeOwner.isMedication) !== identity) {
+                throw new Error(`Catalogue code ${canonicalDrugCode} is already assigned to a different product (${codeOwner.name}).`);
+              }
+              existingByIdentity = codeOwner;
+            }
+          }
+
           let stockItem: any;
           if (existingByIdentity && existingByIdentity.drugCode !== canonicalDrugCode) {
             const codeOwner = await prisma.stockItem.findUnique({ where: { drugCode: canonicalDrugCode }, select: { id: true } });
