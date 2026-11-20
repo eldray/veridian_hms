@@ -1,29 +1,64 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
-import { Search, RefreshCw, ArrowRight } from 'lucide-react';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
+import {
+  AlertCircle, ArrowRight, CheckCircle, Clock, RefreshCw, Syringe, Users,
+} from 'lucide-react';
+import {
+  Badge, Button, Card, humanStatus, PageHeader, Pagination, SearchInput,
+  StatCard, statusTone, TD, TD_MONO, TH, TH_ROW, TR, cn,
+} from '../components/ui';
 
-type Patient = { id: string; surname?: string; otherNames?: string; folderNumber?: string; phoneNumber?: string };
-type Visit = { id: string; attendanceNumber?: string; attendanceType?: string; dateTime?: string; status?: string; Patient?: Patient };
-const patientName = (p?: Patient) => [p?.otherNames, p?.surname].filter(Boolean).join(' ') || 'Patient';
+type Patient = {
+  id: string;
+  surname?: string;
+  otherNames?: string;
+  folderNumber?: string;
+  phoneNumber?: string;
+  age?: number;
+  gender?: string;
+  photoUrl?: string;
+};
+type Visit = {
+  id: string;
+  attendanceNumber?: string;
+  attendanceType?: string;
+  dateTime?: string;
+  status?: string;
+  Patient?: Patient;
+};
+
+const patientName = (patient?: Patient) =>
+  [patient?.otherNames, patient?.surname].filter(Boolean).join(' ') || 'Patient';
+
+const isCompleted = (status?: string) =>
+  ['completed', 'complete', 'closed', 'discharged'].includes((status || '').toLowerCase());
+
+const isInProgress = (status?: string) =>
+  ['in_progress', 'attending', 'processing'].includes((status || '').toLowerCase());
 
 export default function ImmunizationWorkspace() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const loadWaitingList = async () => {
-    setLoading(true);
+    setRefreshing(true);
     setError('');
     try {
       const response = await api.get('/immunization/attendances');
-      setVisits(response.data?.data ?? []);
+      setVisits(Array.isArray(response.data?.data) ? response.data.data : []);
     } catch (e: any) {
       setError(e.response?.data?.message || e.message || 'Unable to load the immunization waiting list.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -31,54 +66,175 @@ export default function ImmunizationWorkspace() {
 
   const queue = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return visits;
-    return visits.filter(v => [
-      v.Patient?.otherNames, v.Patient?.surname, v.Patient?.folderNumber,
-      v.Patient?.phoneNumber, v.attendanceNumber
+    const filtered = !term ? visits : visits.filter(visit => [
+      visit.Patient?.otherNames,
+      visit.Patient?.surname,
+      patientName(visit.Patient),
+      visit.Patient?.folderNumber,
+      visit.Patient?.phoneNumber,
+      visit.attendanceNumber,
     ].some(value => String(value ?? '').toLowerCase().includes(term)));
+    return filtered;
   }, [visits, search]);
 
-  return <main className="space-y-5">
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Immunization Waiting List</h1>
-        <p className="text-sm text-[var(--text-secondary)]">Select a patient to open their separate vaccination entries workspace.</p>
-      </div>
-      <button onClick={() => void loadWaitingList()} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm disabled:opacity-50">
-        <RefreshCw className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} /> Refresh
-      </button>
-    </header>
+  useEffect(() => { setCurrentPage(1); }, [search]);
 
-    <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="font-semibold text-[var(--text-primary)]">Patients waiting ({queue.length})</h2>
-          <p className="text-xs text-[var(--text-secondary)]">Immunization attendances registered today.</p>
-        </div>
-        <div className="flex min-w-[220px] items-center gap-2 rounded-lg border border-[var(--border-color)] px-3">
-          <Search className="h-4 w-4 text-[var(--text-secondary)]" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, folder or phone" className="w-full bg-transparent py-2 text-sm outline-none" />
+  const totalPages = Math.ceil(queue.length / itemsPerPage);
+  const paginatedVisits = queue.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const completedCount = queue.filter(visit => isCompleted(visit.status)).length;
+  const inProgressCount = queue.filter(visit => isInProgress(visit.status)).length;
+  const waitingCount = queue.length - completedCount - inProgressCount;
+
+  const openEntries = (visit: Visit) => {
+    if (visit.Patient?.id) {
+      navigate('/dashboard/immunization/entries/' + visit.Patient.id);
+    }
+  };
+
+  const pageHeader = (
+    <PageHeader
+      title="Immunization Waiting List"
+      subtitle="Select a patient to open their vaccination entries and history"
+      icon={Syringe}
+      accent="cyan"
+      backTo="/dashboard"
+      actions={(
+        <Button icon={RefreshCw} variant="secondary" loading={refreshing} onClick={() => void loadWaitingList()}>
+          Refresh
+        </Button>
+      )}
+    />
+  );
+
+  if (loading) {
+    return (
+      <div className="space-y-6 p-6">
+        {pageHeader}
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
+          <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-[var(--text-secondary)]">Loading Immunization Queue…</p>
         </div>
       </div>
+    );
+  }
 
-      {error && <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
-      {loading ? <p className="py-10 text-center text-sm text-[var(--text-secondary)]">Loading waiting list…</p>
-        : queue.length === 0 ? <p className="py-10 text-center text-sm text-[var(--text-secondary)]">No patients are currently on the immunization waiting list.</p>
-        : <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead><tr className="border-b border-[var(--border-color)] text-xs text-[var(--text-secondary)]">
-              <th className="p-3">Patient</th><th className="p-3">Folder number</th><th className="p-3">Attendance number</th><th className="p-3">Time</th><th className="p-3">Status</th><th className="p-3 text-right">Action</th>
-            </tr></thead>
-            <tbody>{queue.map(visit => <tr key={visit.id} className="border-b border-[var(--border-color)] last:border-0">
-              <td className="p-3 font-medium text-[var(--text-primary)]">{patientName(visit.Patient)}</td>
-              <td className="p-3">{visit.Patient?.folderNumber || '—'}</td>
-              <td className="p-3">{visit.attendanceNumber || '—'}</td>
-              <td className="p-3">{visit.dateTime ? new Date(visit.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-              <td className="p-3">{visit.status || 'Waiting'}</td>
-              <td className="p-3 text-right"><button onClick={() => navigate('/dashboard/immunization/entries/' + visit.Patient?.id)} className="inline-flex items-center gap-1 font-medium text-[var(--icon-cyan-text)] hover:underline">Open entries <ArrowRight className="h-4 w-4" /></button></td>
-            </tr>)}</tbody>
-          </table>
-        </div>}
-    </section>
-  </main>;
+  return (
+    <div className="space-y-6 p-6">
+      {pageHeader}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard label="Registered Today" value={queue.length} icon={Users} accent="cyan" />
+        <StatCard label="Waiting" value={waitingCount} icon={Clock} accent="orange" />
+        <StatCard label="Completed" value={completedCount} icon={CheckCircle} accent="green" />
+      </div>
+
+      {error && (
+        <div role="alert" className="flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-4 py-3 text-sm text-[var(--icon-red-text)]">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Could not load the immunization waiting list: {error}</span>
+        </div>
+      )}
+
+      <Card>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search by patient name, folder number, phone, or attendance number…"
+        />
+      </Card>
+
+      <Card
+        title={`Patients on Immunization Queue (${queue.length})`}
+        description="Immunization attendances registered today"
+        icon={Syringe}
+        accent="cyan"
+        padded={false}
+      >
+        {queue.length === 0 ? (
+          <div className="p-8 text-center">
+            {error ? (
+              <>
+                <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3 opacity-75" />
+                <p className="text-[var(--text-secondary)]">Immunization waiting list unavailable</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Refresh to try again</p>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
+                <p className="text-[var(--text-secondary)]">{search ? 'No patients match your search' : 'No patients on the immunization waiting list'}</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">New immunization attendances will appear here</p>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className={TH_ROW}>
+                <tr>
+                  <th className={TH}>Patient</th>
+                  <th className={TH}>Folder #</th>
+                  <th className={TH}>Attendance #</th>
+                  <th className={TH}>Visit date</th>
+                  <th className={cn(TH, 'text-center')}>Status</th>
+                  <th className={cn(TH, 'text-center')}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedVisits.map(visit => {
+                  const patient = visit.Patient;
+                  return (
+                    <tr key={visit.id} className={cn(TR, patient?.id && 'cursor-pointer')} onClick={() => openEntries(visit)}>
+                      <td className={TD}>
+                        <div className="flex items-center gap-3">
+                          <PatientAvatar patient={{ ...patient, name: patientName(patient) }} size="sm" />
+                          <div>
+                            <p className="font-medium text-[var(--text-primary)] text-sm">{patientName(patient)}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {[patient?.age != null ? patient.age + ' years' : null, patient?.gender].filter(Boolean).join(' • ') || 'Patient'}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className={TD_MONO}>{patient?.folderNumber || '—'}</td>
+                      <td className={TD_MONO}>{visit.attendanceNumber || '—'}</td>
+                      <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
+                        {visit.dateTime ? new Date(visit.dateTime).toLocaleString() : '—'}
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <Badge tone={statusTone(visit.status || 'pending')} dot size="sm">
+                          {humanStatus(visit.status || 'waiting')}
+                        </Badge>
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          accent="cyan"
+                          icon={ArrowRight}
+                          className="mx-auto"
+                          disabled={!patient?.id}
+                          onClick={(event) => { event.stopPropagation(); openEntries(visit); }}
+                        >
+                          Open Entries
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={queue.length}
+        noun="patients"
+        onChange={setCurrentPage}
+      />
+    </div>
+  );
 }
