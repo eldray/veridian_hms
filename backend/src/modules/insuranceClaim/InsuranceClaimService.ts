@@ -416,7 +416,7 @@ ${claimsXml}
               select: {
                 id: true, name: true, status: true, quantity: true, dosage: true, frequency: true, duration: true,
                 dispensedAt: true, stockItemId: true, serviceCatalogId: true,
-                StockItem: { select: { id: true, drugCode: true, nhisServiceCode: true, name: true, unitOfMeasure: true } },
+                StockItem: { select: { id: true, drugCode: true, isNHISCovered: true, name: true, unitOfMeasure: true } },
               },
             },
           },
@@ -938,7 +938,7 @@ ${claimsXml}
         nhisMedicineItems.push({
           itemCategory: 'medicine',
           itemType: 'medication',
-          code: stockItem.nhisServiceCode || '',
+          code: stockItem.drugCode || '',
           description: med.name || stockItem.name,
           quantity,
           unitPrice: coveredUnitAmount,
@@ -1126,7 +1126,7 @@ ${claimsXml}
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.nhisServiceCode),
           scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.nhisServiceCode),
           procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
-          medicationCodes: safeMap(att.Medication, m => m.StockItem?.nhisServiceCode),
+          medicationCodes: safeMap(att.Medication, m => m.StockItem?.isNHISCovered ? m.StockItem?.drugCode : null),
           serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.nhisServiceCode),
           gdrgCodes: [tariff.gdrgCode], nhisServiceCodes: tariff.nhisServiceCode ? [tariff.nhisServiceCode] : [],
           principalGDRG: tariff.gdrgCode, claimCheckCode: att.nhisCCC,
@@ -1651,7 +1651,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     for (const row of medRows) {
       const rowPolicyDate = row.serviceDate ?? policyDate;
       const catalog = await this.prisma.serviceCatalog.findFirst({
-        where: { OR: [{ code: row.code }, { nhisServiceCode: row.code }, { StockItem: { drugCode: row.code } }, { StockItem: { nhisServiceCode: row.code } }] },
+        where: { OR: [{ code: row.code }, { nhisServiceCode: row.code }, { StockItem: { drugCode: row.code } }, { StockItem: { drugCode: row.code } }] },
         select: {
           code: true,
           StockItem: {
