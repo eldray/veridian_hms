@@ -143,6 +143,11 @@ export class InsuranceClaimController extends BaseController {
     return this.ok(res, claim, 'Draft updated');
   });
 
+  deleteDraft = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const claim = await this.service.deleteDraftClaim(req.params.claimId);
+    return this.ok(res, { id: claim.id, claimNumber: claim.claimNumber }, 'Draft claim deleted');
+  });
+
   replaceItems = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const claim = await this.service.replaceClaimItems(
       req.params.claimId,

@@ -43,7 +43,9 @@ const ClaimItemSchema = z.object({
 });
 
 export const ReplaceClaimItemsSchema = z.object({
-  items: z.array(ClaimItemSchema).min(1, 'items cannot be empty'),
+  // A draft may temporarily have no line items while a user removes/rebuilds its sections.
+  // Finalization separately requires at least one payable item.
+  items: z.array(ClaimItemSchema),
 });
 
 export const GenerateBatchSchema = z.object({
