@@ -10,7 +10,7 @@
   },
   "scripts": {
     "client": "cd frontend && npm run dev",
-    "server": "cd backend && npm run dev:nogen",
+    "server": "cd backend && npx prisma generate --schema=prisma/schema.prisma && npm run dev:nogen",
     "prisma:generate": "cd backend && npx prisma generate --schema=prisma/schema.prisma",
     "start": "concurrently \"npm run client\" \"npm run server\" \"electron .\"",
     "start:public": "concurrently \"npm run client\" \"npm run server:public\"",
