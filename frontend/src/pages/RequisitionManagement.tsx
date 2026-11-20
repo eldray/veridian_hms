@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ClipboardList, RefreshCw, Filter, Plus, X, Send, CheckCheck, Truck,
   XCircle, Trash2, Eye, User, Building2, Package, ChevronRight,
-  Calendar, Clock, AlertCircle
+  Calendar, Clock, AlertCircle, Edit
 } from 'lucide-react';
 import AsyncSelect from 'react-select/async';
 import { useStockStore } from '../store/stockStore';
@@ -928,7 +928,7 @@ export default function RequisitionsPage() {
                     ) : (
                       <select
                         required
-                        value={formData.requestingWardId}
+                        disabled={!!editingRequisition} value={formData.requestingWardId}
                         onChange={e => setFormData({ ...formData, requestingWardId: e.target.value })}
                         className={cn(SELECT, 'w-full')}
                       >
@@ -950,7 +950,7 @@ export default function RequisitionsPage() {
                   <div className="pl-8">
                     <select
                       required
-                      value={formData.supplyingDepartmentId}
+                      disabled={!!editingRequisition} value={formData.supplyingDepartmentId}
                       onChange={e => changeSupplier(e.target.value)}
                       className={cn(SELECT, 'w-full')}
                     >
@@ -983,8 +983,8 @@ export default function RequisitionsPage() {
                       size="sm"
                       variant="outline"
                       icon={Plus}
-                      disabled={!formData.supplyingDepartmentId}
-                      onClick={addRequisitionItem}
+                      disabled={!!editingRequisition || !formData.supplyingDepartmentId}
+                      disabled={!!editingRequisition} onClick={addRequisitionItem}
                     >
                       Add item
                     </Button>
@@ -1024,7 +1024,7 @@ export default function RequisitionsPage() {
                               icon={Trash2}
                               className="text-[var(--text-tertiary)] hover:bg-[var(--icon-red-bg)] hover:text-[var(--icon-red-text)]"
                               title="Remove item"
-                              onClick={() => removeRequisitionItem(index)}
+                              disabled={!!editingRequisition} onClick={() => removeRequisitionItem(index)}
                             />
                           </div>
 
@@ -1040,7 +1040,7 @@ export default function RequisitionsPage() {
                                 isDisabled={!formData.supplyingDepartmentId}
                                 loadOptions={loadItemOptions}
                                 value={picked || null}
-                                onChange={(sel) => updateRequisitionItem(index, {
+                                isDisabled={!!editingRequisition}\n                                onChange={(sel) => updateRequisitionItem(index, {
                                   stockItemId: sel?.id || '',
                                   picked: sel || null,
                                 })}
@@ -1090,7 +1090,7 @@ export default function RequisitionsPage() {
                                     min="1"
                                     step="1"
                                     required
-                                    value={item.quantityRequested}
+                                    disabled={!!editingRequisition} value={item.quantityRequested}
                                     onChange={e => updateRequisitionItem(index, { quantityRequested: parseInt(e.target.value) || 0 })}
                                     className={cn(INPUT, 'flex-1', over && 'border-[var(--icon-red-text)]')}
                                   />
@@ -1106,7 +1106,7 @@ export default function RequisitionsPage() {
                                 <input
                                   type="text"
                                   placeholder="e.g. For Ward 3 deliveries this week"
-                                  value={item.purpose}
+                                  disabled={!!editingRequisition} value={item.purpose}
                                   onChange={e => updateRequisitionItem(index, { purpose: e.target.value })}
                                   className={cn(INPUT, 'w-full')}
                                 />
@@ -1193,7 +1193,7 @@ export default function RequisitionsPage() {
                       </label>
                       <input
                         type="date"
-                        value={formData.requiredDate}
+                        disabled={!!editingRequisition} value={formData.requiredDate}
                         onChange={e => setFormData({ ...formData, requiredDate: e.target.value })}
                         className={cn(INPUT, 'w-full md:w-64')}
                       />
