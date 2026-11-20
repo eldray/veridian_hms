@@ -44,6 +44,7 @@ export const createInsuranceClaimRoutes = () => {
   router.get('/:claimId/xml', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.downloadClaimXml);
   router.get('/:claimId/print', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.printClaim);
   router.patch('/:claimId/draft', requireRole(['admin', 'accounts']), validateBody(UpdateClaimDraftSchema), insuranceClaimController.updateDraft);
+  router.delete('/:claimId', requireRole(['admin', 'accounts']), insuranceClaimController.deleteDraft);
   router.put('/:claimId/items', requireRole(['admin', 'accounts']), validateBody(ReplaceClaimItemsSchema), insuranceClaimController.replaceItems);
   router.patch('/:claimId/finalize', requireRole(['admin', 'accounts']), insuranceClaimController.finalizeClaim);
   router.post('/:claimId/submit-claimit', requireRole(['admin', 'accounts']), insuranceClaimController.submitClaimToClaimIt);
