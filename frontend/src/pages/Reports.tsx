@@ -99,7 +99,7 @@ const NUM_TD = 'px-3 py-2 text-right text-xs tabular-nums text-[var(--text-prima
 const NUM_TD_BOLD = `${NUM_TD} font-bold`;
 
 const GHS_REPORTS = [
-  { key: 'monthly-overview', label: 'Monthly Facility Overview', icon: BarChart3, color: 'cyan' },
+  { key: 'monthly-overview', label: 'Monthly Facility Overview', icon: BarChart3, color: 'cyan', roles: ['admin', 'accounts'] },
   { key: 'opd-attendance', label: 'OPD Attendance', icon: Users, color: 'cyan' },
   { key: 'consulting-room-register', label: 'Consulting Register', icon: ClipboardList, color: 'cyan' },
   { key: 'opd-morbidity', label: 'OPD Morbidity (Form A)', icon: FileSpreadsheet, color: 'red' },
@@ -255,7 +255,7 @@ export default function Reports() {
   // FIX #32 — dedupe by key so a registry/GHS collision cannot create duplicate React keys.
   const reportsForCategory = useCallback((groupId: ReportsTab) => {
     const list = [
-      ...(groupId === 'ghs' ? GHS_REPORTS.map(item => ({ ...item, roles: GHS_REPORT_ROLES })) : []),
+      ...(groupId === 'ghs' ? GHS_REPORTS.map(item => ({ ...item, roles: item.roles || GHS_REPORT_ROLES })) : []),
       // FIX #8 — ReportShape carries no icon/color, so shell pills share ListOrdered/green by design.
       ...shellReportsForGroup(groupId).map(shape => ({ key: shape.key, label: shape.label, icon: ListOrdered, color: 'green', roles: shape.roles })),
     ].filter(item => allowedForRole(item.roles));
@@ -857,7 +857,7 @@ export default function Reports() {
       <PageHeader title="Reports & Analytics" subtitle="GHS-compliant reporting" icon={BarChart3} accent="cyan" onBack={goBack}
         // FIX #58 — Refresh is hidden for shell reports on purpose: GenericReportPage owns its own Reload.
         actions={!shellReport ? (<>
-          {canExport ? (<>
+          {canExport && reportType !== 'monthly-overview' ? (<>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg">
               <span className="text-[11px] text-[var(--text-tertiary)]">Export as</span>
               {/* FIX #23 — narrowed cast, and only for the three legal values. */}
@@ -873,7 +873,7 @@ export default function Reports() {
               </select>
             </div>
             <button onClick={handleExport} disabled={isLoading_ || !getActiveReport()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50"><Download className="w-3.5 h-3.5" /> Export</button>
-          </>) : (<span className="text-[11px] text-[var(--text-tertiary)]">Reading only — exporting a report is limited to admin, accounts and records.</span>)}
+          </>) : (!canExport ? <span className="text-[11px] text-[var(--text-tertiary)]">Reading only — exporting a report is limited to admin, accounts and records.</span> : null)}
           <button onClick={loadReportNow} disabled={isLoading_} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${isLoading_ ? 'animate-spin' : ''}`} /> Refresh</button>
         </>) : undefined} />
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1">
