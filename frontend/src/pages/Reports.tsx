@@ -67,6 +67,14 @@ import GenericReportPage from '../components/reports/GenericReportPage';
 import { SHELL_REPORT_BY_KEY, shellReportsForGroup } from '../config/reportRegistry';
 import { REPORT_EXPORT_ROLES, type ReportShape } from '../components/reports/reportShell';
 import { Card, PageHeader, Pagination, StatCard, TD, TD_MONO, TH, TH_ROW, TR, cn } from '../components/ui';
+import {
+  getGHSOPDReport as apiGetOPD, getGHSIPDReport as apiGetIPD,
+  getGHSDeliveryReport as apiGetDelivery, getFamilyPlanningReport as apiGetFP,
+  getFinancialReport as apiGetFinancial, getLabReport as apiGetLab,
+  getScanReport as apiGetScans, getProcedureReport as apiGetProcedures,
+  getMedicationReport as apiGetMedications, getInsuranceClaimsReport as apiGetClaims,
+  getStockMovementReport as apiGetStockMovement,
+} from '../api';
 
 const AGE_GROUPS = ['<28d', '1-11m', '1-4', '5-9', '10-14', '15-17', '18-19', '20-34', '35-49', '50-59', '60-69', '70+'];
 const humanize = (s: any) => String(s ?? '').replace(/_/g, ' ').replace(/-/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).trim();
@@ -91,6 +99,7 @@ const NUM_TD = 'px-3 py-2 text-right text-xs tabular-nums text-[var(--text-prima
 const NUM_TD_BOLD = `${NUM_TD} font-bold`;
 
 const GHS_REPORTS = [
+  { key: 'monthly-overview', label: 'Monthly Facility Overview', icon: BarChart3, color: 'cyan' },
   { key: 'opd-attendance', label: 'OPD Attendance', icon: Users, color: 'cyan' },
   { key: 'consulting-room-register', label: 'Consulting Register', icon: ClipboardList, color: 'cyan' },
   { key: 'opd-morbidity', label: 'OPD Morbidity (Form A)', icon: FileSpreadsheet, color: 'red' },
@@ -139,6 +148,7 @@ export default function Reports() {
   const [isLoading, setIsLoading] = useState(false);
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
+  const [monthlyOverview, setMonthlyOverview] = useState<Record<string, any> | null>(null);
   const [registerPage, setRegisterPage] = useState(1);
   const [registerPageSize] = useState(50);
   // FIX #50 — remember whether the user has deliberately picked a category, so the
@@ -170,6 +180,19 @@ export default function Reports() {
     try {
       const f = { startDate: dateRange.start, endDate: dateRange.end };
       switch (reportType) {
+        case 'monthly-overview': {
+          const requests = await Promise.all([
+            apiGetOPD(f), apiGetIPD(f), apiGetDelivery(f), apiGetFP(f),
+            apiGetFinancial(f), apiGetLab(f), apiGetScans(f), apiGetProcedures(f),
+            apiGetMedications(f), apiGetClaims(f), apiGetStockMovement(f),
+          ]);
+          const unwrapMonthly = (value: any) => value?.success && value?.data
+            ? (value.data.data ?? value.data)
+            : (value?.data ?? value);
+          const keys = ['opd', 'ipd', 'delivery', 'familyPlanning', 'financial', 'lab', 'scans', 'procedures', 'medications', 'claims', 'stock'];
+          setMonthlyOverview(Object.fromEntries(keys.map((key, index) => [key, unwrapMonthly(requests[index])])));
+          break;
+        }
         case 'opd-attendance': await getGHSOPDReport(f); break;
         case 'opd-morbidity': await getMorbidityMortalityReport(f); break;
         case 'top-diagnoses': await getTopDiagnoses(f, 10); break;
@@ -212,6 +235,7 @@ export default function Reports() {
 
   const getActiveReport = () => {
     const map: Record<string, any> = {
+      'monthly-overview': monthlyOverview,
       'opd-attendance': opdReport, 'consulting-room-register': consultingRoomRegister,
       'opd-morbidity': morbidityMortalityReport, 'top-diagnoses': topDiagnoses, 'form-a': formAReport,
       'ipd': ipdReport, 'malaria': malariaReport, 'idsr': idsrReport, 'delivery-report': deliveryReport, 'family-planning': familyPlanningReport,
@@ -257,6 +281,7 @@ export default function Reports() {
   const getReportTitle = () => {
     if (shellReport) return shellReport.label;
     const m: Record<string, string> = {
+      'monthly-overview': 'Monthly Facility Overview',
       'opd-attendance': 'OPD Attendance', 'consulting-room-register': 'Consulting Room Register',
       'opd-morbidity': 'OPD Morbidity (Form A)', 'top-diagnoses': 'Top 10 Diagnoses',
       'form-a': 'Form A — Maternal Health', 'ipd': 'IPD & Mortality', 'malaria': 'Malaria Data',
@@ -767,10 +792,60 @@ export default function Reports() {
     );
   };
 
+  const renderMonthlyOverview = () => {
+    if (!monthlyOverview) return <EmptyState message="No monthly overview data available" />;
+    const read = (obj: any, paths: string[]) => {
+      for (const path of paths) {
+        const value = path.split('.').reduce((v: any, key: string) => v == null ? undefined : v[key], obj);
+        if (value !== undefined && value !== null && Number.isFinite(Number(value))) return Number(value);
+      }
+      return null;
+    };
+    const fmt = (value: number | null, money = false) => value == null ? '—' : money
+      ? `₵${value.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : value.toLocaleString('en-GH');
+    const sections = [
+      { title: 'OPD attendance', data: monthlyOverview.opd, rows: [['Attendances', ['totals.totalAttendances','summary.totalAttendances','totalAttendances','summary.totalPatients']], ['New cases', ['totals.totalNewCases','summary.newPatients','totalNewCases']], ['Re-attendances', ['totals.totalReAttendances','summary.oldPatients','totalReAttendances']]] },
+      { title: 'Inpatient & mortality', data: monthlyOverview.ipd, rows: [['Admissions', ['totals.totalAdmissions','summary.totalAdmissions','totalAdmissions']], ['Deaths', ['totals.totalDeaths','summary.totalDeaths','totalDeaths']]] },
+      { title: 'Maternal & family planning', data: monthlyOverview.delivery, rows: [['Deliveries', ['summary.totalDeliveries','totalDeliveries','deliveries.length']], ['Live births', ['summary.liveBirths','totals.liveBirths','liveBirths']]] },
+      { title: 'Family planning', data: monthlyOverview.familyPlanning, rows: [['Clients', ['summary.totalFPClients','summary.totalClients','totalFPClients']], ['Visits', ['summary.totalFPVisits','summary.totalVisits','totalFPVisits']], ['New acceptors', ['summary.newAcceptors','newAcceptors']]] },
+      { title: 'Financial performance', data: monthlyOverview.financial, rows: [['Billed', ['summary.totalRevenue','summary.totalBilled','totalRevenue'], true], ['Collected', ['summary.totalPaid','summary.totalCollected','totalPaid'], true], ['Outstanding', ['summary.outstandingBalance','summary.outstanding','outstandingBalance'], true]] },
+      { title: 'Laboratory', data: monthlyOverview.lab, rows: [['Tests', ['summary.totalTests','totalTests','total']], ['Completed', ['summary.completedTests','completedTests']], ['Pending', ['summary.pendingTests','pendingTests']]] },
+      { title: 'Scans', data: monthlyOverview.scans, rows: [['Scans', ['summary.totalScans','totalScans','total']]] },
+      { title: 'Procedures', data: monthlyOverview.procedures, rows: [['Procedures', ['summary.totalProcedures','totalProcedures','total']]] },
+      { title: 'Medication activity', data: monthlyOverview.medications, rows: [['Items dispensed', ['summary.totalDispensed','totalDispensed','summary.totalItems','totalItems']]] },
+      { title: 'Insurance claims', data: monthlyOverview.claims, rows: [['Claims', ['summary.totalClaims','totalClaims']], ['Claimed amount', ['summary.totalClaimAmount','totalClaimAmount'], true], ['Outstanding', ['summary.outstandingAmount','outstandingAmount'], true]] },
+      { title: 'Stock movement', data: monthlyOverview.stock, rows: [['Transactions', ['summary.totalTransactions','totalTransactions']], ['Units in', ['summary.totalIn','totalIn']], ['Units out', ['summary.totalOut','totalOut']]] },
+    ];
+    const csvRows = [['Section','Indicator','Value'], ...sections.flatMap(section => section.rows.map(([label, paths, money]: any) => [section.title, label, fmt(read(section.data, paths), Boolean(money))]))];
+    const downloadCsv = () => {
+      const blob = new Blob([csvRows.map(row => row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob); const link = document.createElement('a');
+      link.href = url; link.download = `facility-monthly-overview-${dateRange.start}-to-${dateRange.end}.csv`; link.click(); URL.revokeObjectURL(url);
+    };
+    return <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div><p className="text-sm font-bold text-[var(--text-primary)]">Facility performance overview</p><p className="text-xs text-[var(--text-tertiary)]">{dateRange.start} to {dateRange.end} · Existing report endpoints</p></div>
+        <div className="flex gap-2"><button onClick={downloadCsv} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold"><Download className="inline w-3.5 h-3.5 mr-1"/>Export CSV</button><button onClick={() => window.print()} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold">Print</button></div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {sections.map(section => <Card key={section.title} title={section.title} padded={false}>
+          <div className="divide-y divide-[var(--border-color)]">
+            {section.rows.map(([label, paths, money]: any) => {
+              const value = read(section.data, paths);
+              return <div key={label} className="flex items-center justify-between gap-3 px-4 py-3"><span className="text-xs text-[var(--text-secondary)]">{label}</span><strong className="text-sm tabular-nums text-[var(--text-primary)]">{fmt(value, Boolean(money))}</strong></div>;
+            })}
+          </div>
+        </Card>)}
+      </div>
+      <p className="text-[11px] text-[var(--text-tertiary)]">Figures are read from the corresponding existing reports for the selected period. A dash means that the source endpoint did not provide that indicator; it is not treated as zero. Insurance claims are shown separately from patient billing. This management overview does not replace statutory GHS returns.</p>
+    </div>;
+  };
+
   const renderReportContent = () => {
     if (shellReport) return <GenericReportPage shape={shellReport} dateFrom={dateRange.start} dateTo={dateRange.end} />;
     const map: Record<string, () => React.ReactNode> = {
-      'consulting-room-register': renderConsultingRoomRegister, 'opd-attendance': renderOPDAttendanceReport,
+      'monthly-overview': renderMonthlyOverview, 'consulting-room-register': renderConsultingRoomRegister, 'opd-attendance': renderOPDAttendanceReport,
       'opd-morbidity': renderFullMorbidityReport, 'top-diagnoses': renderTopDiagnoses, 'form-a': renderFormAReport,
       'ipd': renderIPDReport, 'malaria': renderMalariaReport, 'idsr': renderIDSRReport, 'delivery-report': renderDeliveryReport, 'family-planning': renderFamilyPlanningReport,
     };
