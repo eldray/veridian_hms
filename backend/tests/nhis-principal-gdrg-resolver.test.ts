@@ -124,6 +124,18 @@ describe('NHIS principal G-DRG resolver', () => {
     })).toThrow(/ASUR02A.*facility level 4/is);
   });
 
+  it('does not allow a level-restricted tariff when the facility level is unknown', () => {
+    const restricted = row('ASUR02A', true);
+    restricted.tariff = tariff('ASUR02A', { applicableLevels: [1, 2] });
+    expect(() => resolvePrincipalGdrg({
+      caseType: 'ipd',
+      age: 33,
+      facilityLevel: null,
+      links: [restricted],
+      fallbacks: [],
+    })).toThrow(/facility NHIS level is not configured or could not be determined/i);
+  });
+
   it('explains what is missing when no code can bill the case', () => {
     expect(() => resolvePrincipalGdrg({
       caseType: 'ipd',
