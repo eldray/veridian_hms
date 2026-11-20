@@ -860,7 +860,8 @@ export default function RequisitionsPage() {
               <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close form" onClick={() => { setShowForm(false); resetForm(); }} />
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">\n              {editingRequisition && <div className="mx-6 mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">Only purpose, urgency and notes can be changed on a draft. Requester, supplier, required date and stock lines are preserved.</div>}
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              {editingRequisition && <div className="mx-6 mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">Only purpose, urgency and notes can be changed on a draft. Requester, supplier, required date and stock lines are preserved.</div>}
               {/* Sticky context bar */}
               <div className="sticky top-0 z-10 bg-[var(--bg-main)] border-b border-[var(--border-color)] px-6 py-2.5 flex items-center gap-3 text-xs shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
