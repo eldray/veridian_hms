@@ -139,7 +139,7 @@ describe('NHIS claim medicine pricing', () => {
       { itemCategory: 'gdrg', code: 'OPDC06A', description: 'G-DRG OPDC06A', quantity: 1 },
       { itemCategory: 'medicine', code: 'METOCLO-INJ-10', description: 'Metoclopramide Injection 10mg/2ml', quantity: 1 },
     ], 'user-1'))
-      .rejects.toThrow(/has no NHIS payer rule, so it is not on the medicine list this scheme pays/);
+      .rejects.toThrow(/facility catalogue code and is not listed as NHIS-covered/);
     expect(tx.insuranceClaimItem.createMany).not.toHaveBeenCalled();
   });
 });
