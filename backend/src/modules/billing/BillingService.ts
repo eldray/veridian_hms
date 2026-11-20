@@ -327,7 +327,11 @@ export class BillingService extends BaseService {
           isPrivateInsuranceExempted: service.isPrivateInsuranceExempted
         });
         if (payerCovered && provider) {
-          const coverageRate = Math.min(100, Math.max(0, Number(provider.coveragePercentage) || 0)) / 100;
+          // NHIS-covered benefits are paid at the applicable tariff without patient co-payment.
+          // Keep provider coverage percentages for private insurance only.
+          const coverageRate = data.paymentMode === 'nhis'
+            ? 1
+            : Math.min(100, Math.max(0, Number(provider.coveragePercentage) || 0)) / 100;
           insuranceCoveredAmount = Math.round(lineTotal * coverageRate * 100) / 100;
           patientPayableAmount = Math.round((lineTotal - insuranceCoveredAmount) * 100) / 100;
         }
