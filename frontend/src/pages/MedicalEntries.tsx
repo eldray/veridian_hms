@@ -27,6 +27,7 @@ import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
 import { deleteEncounterConsumableUse, getEncounterConsumableUses, finalizeEncounterClinicalRecord, dischargeFromEncounter } from '../api';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
+import { MedicalEntryEditModal, type MedicalEntryEditType } from '../components/medical-entries/MedicalEntryEditModal';
 
 import {
   ClinicalAssessmentModal,
@@ -154,6 +155,13 @@ const AddBtn: React.FC<{ onClick: () => void; label: string }> = ({ onClick, lab
 );
 
 // ─── Inline delete button ─────────────────────────────────────────────────────
+const EditBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button type="button" onClick={onClick} title="Edit entry" aria-label="Edit entry"
+    className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
+    <Edit className="w-3.5 h-3.5" />
+  </button>
+);
+
 const DelBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   <button
     onClick={onClick}
@@ -657,7 +665,7 @@ export default function MedicalEntries() {
     attendances, currentAttendance, getAttendance, getAttendances, refreshAttendance,
     updateAttendance,
     removeDiagnosis, removeLabTest, removeProcedure, removeMedication, removeScan,
-    updateScanStatus, canAddMedicalEntries, getVitalsByAttendance, calculateBill,
+    updateScanStatus, updateLabTestStatus, updateProcedureStatus, updateMedicationStatus, updateDiagnosis, canAddMedicalEntries, getVitalsByAttendance, calculateBill,
   } = useAttendanceStore();
 
   const {
@@ -721,6 +729,8 @@ export default function MedicalEntries() {
   const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
   const [consumableUses, setConsumableUses] = useState<any[]>([]);
   const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
+  const [editingEntry, setEditingEntry] = useState<{ type: MedicalEntryEditType; entry: any } | null>(null);
+  const [savingEntry, setSavingEntry] = useState(false);
 
   const assessmentValue: ClinicalAssessmentValue = {
     complaints: presentedComplaints,
@@ -1246,6 +1256,24 @@ export default function MedicalEntries() {
       await getAttendance(selectedAttendanceId);
       await calculateBill(selectedAttendanceId);
     } catch (err: any) { toastError('Delete failed', err.message); }
+  };
+
+  const handleSaveEntryEdit = async (values: any) => {
+    if (!selectedAttendanceId || !editingEntry) return;
+    const { type, entry } = editingEntry;
+    setSavingEntry(true);
+    try {
+      if (type === 'diagnosis') await updateDiagnosis(selectedAttendanceId, entry.id, values);
+      else if (type === 'lab') await updateLabTestStatus(selectedAttendanceId, entry.id, { status: entry.status, priority: values.priority, notes: values.notes });
+      else if (type === 'scan') await updateScanStatus(selectedAttendanceId, entry.id, { status: entry.status === 'scheduled' ? 'requested' : entry.status, priority: values.priority, notes: values.notes });
+      else if (type === 'procedure') await updateProcedureStatus(selectedAttendanceId, entry.id, { status: entry.status, scheduledDate: values.scheduledDate || null, notes: values.notes });
+      else if (type === 'medication') await updateMedicationStatus(selectedAttendanceId, entry.id, { status: entry.status, dosage: values.dosage, frequency: values.frequency, duration: values.duration, route: values.route, instructions: values.instructions });
+      success('Saved', 'Medical entry updated');
+      await getAttendance(selectedAttendanceId);
+      await calculateBill(selectedAttendanceId);
+      setEditingEntry(null);
+    } catch (err: any) { toastError('Update failed', err?.response?.data?.message || err.message || 'Could not update medical entry'); }
+    finally { setSavingEntry(false); }
   };
 
   const handleSaveScanResult = async (scanId: string, resultData: any) => {
@@ -2472,6 +2500,7 @@ export default function MedicalEntries() {
       />
 
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
+      {editingEntry && <MedicalEntryEditModal type={editingEntry.type} entry={editingEntry.entry} saving={savingEntry} onClose={() => setEditingEntry(null)} onSave={handleSaveEntryEdit} />}
       <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} diagnoses={diagnoses} canAdd={canAddEntries}
         userId={user?.id} userName={user?.fullName} />
