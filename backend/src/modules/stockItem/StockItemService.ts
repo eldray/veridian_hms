@@ -42,7 +42,11 @@ export class StockItemService extends BaseService {
     const base = String(name ?? 'MEDICINE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'MEDICINE';
     for (let sequence = 1; sequence <= 99; sequence++) {
       const code = `${base}${String(sequence).padStart(2, '0')}`;
-      if (!await this.prisma.stockItem.findUnique({ where: { drugCode: code }, select: { id: true } })) return code;
+      const [stockItem, service] = await Promise.all([
+        this.prisma.stockItem.findUnique({ where: { drugCode: code }, select: { id: true } }),
+        this.prisma.serviceCatalog.findUnique({ where: { code }, select: { id: true } }),
+      ]);
+      if (!stockItem && !service) return code;
     }
     throw new ConflictError(`Could not generate a unique medicine code for ${name}. Enter a code manually.`);
   }
@@ -167,8 +171,11 @@ export class StockItemService extends BaseService {
     // drugCode is required + unique in the schema: use the one supplied, otherwise generate it
     let drugCode = String(data.drugCode ?? '').trim().toUpperCase();
     if (drugCode) {
-      const existing = await this.prisma.stockItem.findUnique({ where: { drugCode }, select: { id: true } });
-      if (existing) throw new ConflictError(`Drug code "${drugCode}" is already in use`);
+      const [existing, service] = await Promise.all([
+        this.prisma.stockItem.findUnique({ where: { drugCode }, select: { id: true } }),
+        this.prisma.serviceCatalog.findUnique({ where: { code: drugCode }, select: { id: true } }),
+      ]);
+      if (existing || service) throw new ConflictError(`Drug code "${drugCode}" is already in use`);
     } else {
       drugCode = await this.generateDrugCode(name);
     }
@@ -181,7 +188,7 @@ export class StockItemService extends BaseService {
         reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, isNHISCovered: data.isNHISCovered === true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
-        tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
+        tariffCode: (data.isMedication ?? true) ? drugCode : data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
       }, tx);
       await this.savePatientPrices(tx, created, data, userId);
       if (initialStock > 0) {
@@ -230,6 +237,18 @@ export class StockItemService extends BaseService {
     // Price fields and relations are not stock-item columns: strip them, then apply the prices to the catalog entry
     const { id: _, createdAt, cashPrice, nhisPrice, insurancePrice, corporatePrice, ServiceCatalog, StockBatch, currentStock: _currentStock, stockBalances: _stockBalances, ...cleanData } = updateData;
     return this.prisma.$transaction(async (tx) => {
+      const current = await tx.stockItem.findUnique({
+        where: { id },
+        select: { drugCode: true, tariffCode: true, isMedication: true },
+      });
+      if (!current) throw new NotFoundError('Stock item', id);
+      const requestedCode = cleanData.drugCode ? String(cleanData.drugCode).trim().toUpperCase() : current.drugCode;
+      if (requestedCode !== current.drugCode) {
+        throw new ValidationError('A medicine catalogue code cannot be changed after creation; retain the canonical code used by billing and claims.');
+      }
+      delete cleanData.drugCode;
+      const nextIsMedication = cleanData.isMedication ?? current.isMedication;
+      cleanData.tariffCode = nextIsMedication ? current.drugCode : (cleanData.tariffCode ?? current.tariffCode);
       const updated = await this.repo.update(id, { ...cleanData, expiryDate: cleanData.expiryDate ? new Date(cleanData.expiryDate) : undefined }, tx);
       await this.savePatientPrices(tx, updated, { cashPrice, nhisPrice, insurancePrice, corporatePrice }, userId);
       return updated;
