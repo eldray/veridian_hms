@@ -764,7 +764,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
       if (existing.diagnosisType === 'primary') {
         const otherDiagnoses = await tx.attendanceDiagnosis.count({
-          where: { attendanceId: encounterId, diagnosisId: { not: diagnosisId } },
+          where: { attendanceId: encounterId, id: { not: existing.id } },
         });
         if (otherDiagnoses > 0) {
           throw new ConflictError('Assign another diagnosis as primary before removing the current primary diagnosis');
@@ -1639,6 +1639,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported laboratory order status');
+    if (data.priority !== undefined && !['routine', 'urgent', 'stat'].includes(String(data.priority))) throw new ValidationError('Unsupported laboratory priority');
     const current = await this.prisma.labTest.findUnique({
       where: { id: labOrderId },
       select: { id: true, status: true, attendanceId: true, result: true },
@@ -1813,6 +1814,7 @@ async addScan(encounterId: string, data: any, userId: string) {
   async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported scan order status');
+    if (data.priority !== undefined && !['routine', 'urgent', 'stat'].includes(String(data.priority))) throw new ValidationError('Unsupported scan priority');
     const current = await this.prisma.scan.findUnique({
       where: { id: scanId },
       select: { id: true, status: true, attendanceId: true, result: true, findings: true, impression: true },
