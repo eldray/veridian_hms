@@ -701,21 +701,24 @@ export default function DispensePatient() {
       </div>
       )}
 
-      <AllergyBanner
-        patientId={patient?.id || selectedPatientId}
-        allergies={patient?.allergies}
-        allergyReviewStatus={attendance?.allergyReviewStatus}
-      />
+      <div className="flex flex-wrap items-stretch gap-2">
+        <div className="min-w-0 flex-1 basis-[320px]">
+          <AllergyBanner
+            patientId={patient?.id || selectedPatientId}
+            allergies={patient?.allergies}
+            allergyReviewStatus={attendance?.allergyReviewStatus}
+          />
+        </div>
 
-      {/* ── ALERT BANNERS ───────────────────────────────────────────────── */}
-      {attendance && !canDispense && (
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)]">
+        {/* ── ALERT BANNERS ───────────────────────────────────────────────── */}
+        {attendance && !canDispense && (
+          <div className="flex min-w-0 flex-1 basis-[320px] items-center gap-2.5 px-3 py-2 rounded-lg border border-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)]">
           <AlertCircle className="w-4 h-4 text-[var(--icon-yellow-text)] flex-shrink-0" />
           <p className="text-xs font-medium text-[var(--icon-yellow-text)]">
             This visit is <strong>{attendance.status}</strong> — medications can be viewed but not dispensed.
           </p>
-        </div>
-      )}
+        )}
+      </div>
 
       {!selectedAttendanceId && (
         <QueuedVisits
