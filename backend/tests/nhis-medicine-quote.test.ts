@@ -47,7 +47,7 @@ function quote(medicines: any[], rules: any[] = [], catalogs: any[] = []) {
         duration: '5 days',
         dispensedAt: m.status === 'dispensed' ? serviceDate : null,
         serviceCatalogId: `cat-${m.stockItemId}`,
-        StockItem: { id: m.stockItemId, drugCode: `CODE-${m.stockItemId}`, name: m.name, unitOfMeasure: 'tablet' },
+        StockItem: { id: m.stockItemId, drugCode: `CODE-${m.stockItemId}`, isNHISCovered: m.isNHISCovered ?? true, name: m.name, unitOfMeasure: 'tablet' },
         ...m,
       })),
     },
