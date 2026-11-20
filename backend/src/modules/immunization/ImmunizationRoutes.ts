@@ -117,6 +117,25 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     return res.json({ success: true, data: visits, meta: { count: visits.length, date: dateParam } });
   });
 
+  router.patch('/attendances/:id/complete', requireRole(writeRoles), async (req: AuthRequest, res: Response) => {
+    const attendance = await prisma.attendance.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, attendanceType: true, status: true }
+    });
+    if (!attendance || attendance.attendanceType !== 'immunization') {
+      return res.status(404).json({ success: false, message: 'Immunization visit not found.' });
+    }
+    if (attendance.status !== 'completed') {
+      const updated = await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: { status: 'completed', finalizedAt: new Date(), finalizedById: req.user?.id || null },
+        select: { id: true, status: true, finalizedAt: true, finalizedById: true }
+      });
+      return res.json({ success: true, data: updated });
+    }
+    return res.json({ success: true, data: attendance });
+  });
+
   router.get('/patients/:patientId/context', requireRole(readRoles), async (req: Request, res: Response) => {
     const patientId = req.params.patientId;
     const [patient, attendances] = await Promise.all([
