@@ -25,6 +25,7 @@ export type AttendanceType =
   | 'emergency_acute'
   | 'antenatal'
   | 'postnatal'
+  | 'immunization'
   | 'chronic_followup'
   | 'specialist_consultation'
   | 'delivery'

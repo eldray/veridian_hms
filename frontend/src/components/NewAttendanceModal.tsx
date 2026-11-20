@@ -7,12 +7,13 @@ import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
 import { describeApiError } from '../utils/apiError';
-import { X, Save, User, CheckCircle, CreditCard, Tag, Shield, Building, AlertCircle, Calendar, Clock, FileText, Stethoscope } from 'lucide-react';
+import { X, Save, User, CheckCircle, CreditCard, Tag, Shield, Building, AlertCircle, Calendar, Clock, FileText, Stethoscope, Syringe } from 'lucide-react';
 import type { AttendanceType, PaymentMode, AttendanceStatus } from '../types';
 import ComplaintInput from './ComplaintInput';
 
 interface NewAttendanceModalProps {
   patientId?: string;
+  initialAttendanceType?: AttendanceType;
   corporateAccountId?: string;
   paymentMode?: PaymentMode;
   onSuccess: (attendance: any) => void;
@@ -23,6 +24,7 @@ interface NewAttendanceModalProps {
 
 export default function NewAttendanceModal({
   patientId,
+  initialAttendanceType,
   corporateAccountId,
   paymentMode: initialPaymentMode,
   onSuccess,
@@ -36,7 +38,7 @@ export default function NewAttendanceModal({
   const { user } = useAuthStore();
   const { success, error } = useToast();
 
-  const [attendanceType, setAttendanceType] = useState<AttendanceType>('emergency_acute');
+  const [attendanceType, setAttendanceType] = useState<AttendanceType>(initialAttendanceType || 'emergency_acute');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(initialPaymentMode || 'cash');
   const [nhisCCC, setNhisCCC] = useState('');
   const [complaints, setComplaints] = useState('');
@@ -65,6 +67,8 @@ export default function NewAttendanceModal({
     if (!p) return 'Unknown Patient';
     return p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim();
   };
+
+  useEffect(() => { if (initialAttendanceType) setAttendanceType(initialAttendanceType); }, [initialAttendanceType]);
 
   // Load insurance providers
   useEffect(() => {
@@ -150,7 +154,8 @@ export default function NewAttendanceModal({
       errors.push('Corporate account is required for corporate patients');
     }
 
-    if (!complaints.trim()) {
+    // Routine vaccination check-ins do not require an illness complaint.
+    if (attendanceType !== 'immunization' && !complaints.trim()) {
       errors.push('Patient complaints are required');
     }
 
@@ -200,7 +205,7 @@ export default function NewAttendanceModal({
         insuranceProviderId
       }),
       ...(paymentMode === 'corporate' && corporateAccountId && { corporateAccountId }),
-      complaints: complaints.trim() || 'No complaints recorded',
+      complaints: complaints.trim() || (attendanceType === 'immunization' ? 'Routine immunization / vaccination' : 'No complaints recorded'),
       createdById: isEditMode ? attendanceData.createdById : user.id,
       ...(isEditMode && { updatedById: user.id }),
       ...(isEditMode ? { status } : { status: 'pending' }),
@@ -257,7 +262,8 @@ export default function NewAttendanceModal({
     { id: 'chronic_followup', name: 'Chronic Follow-up', icon: <Clock className="w-3.5 h-3.5" /> },
     { id: 'specialist_consultation', name: 'Specialist Consultation', icon: <Stethoscope className="w-3.5 h-3.5" /> },
     { id: 'delivery', name: 'Delivery', icon: <User className="w-3.5 h-3.5" /> },
-    { id: 'surgery', name: 'Surgery', icon: <FileText className="w-3.5 h-3.5" /> }
+    { id: 'surgery', name: 'Surgery', icon: <FileText className="w-3.5 h-3.5" /> },
+    { id: 'immunization', name: 'Immunization / Vaccination', icon: <Syringe className="w-3.5 h-3.5" /> }
   ];
 
   const getColorClasses = (color: string) => {

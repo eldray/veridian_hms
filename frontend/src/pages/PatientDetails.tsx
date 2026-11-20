@@ -1,6 +1,6 @@
 // src/pages/PatientDetails.tsx - COMPACT REDESIGNED VERSION
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../utils/useSmartBack';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -13,7 +13,7 @@ import { CompactAdditionalInfo } from '../components/patients/CompactAdditionalI
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import {
-  ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors,
+  ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors, Syringe,
   DollarSign, RefreshCw, AlertCircle, Loader, Trash2, Eye, Clock,
   CheckCircle, Activity, File, Download, Printer, ChevronRight,
   Stethoscope, Microscope, Heart, AlertTriangle,
@@ -30,6 +30,7 @@ import type { Attendance, LabTest, Medication, Procedure, Scan, Vitals } from '.
 import { useDocumentStore } from '../store/documentStore';
 import type { GeneratedDocument } from '../types/documents';
 import { getScanDisplayName, humanScanModality } from '../utils/scan';
+import ImmunizationPanel from '../components/patients/ImmunizationPanel';
 
 // ============ HELPERS ============
 const formatCurrency = (amount: unknown): string => {
@@ -106,13 +107,15 @@ export default function PatientDetails() {
   const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
   const { getInsuranceProviders } = useInsuranceStore();
-  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'attendances' | 'medical-records' | 'overview' | 'diagnoses' | 'medications' | 'lab-tests' | 'procedures' | 'vitals' | 'billing'>('overview');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'attendances' | 'medical-records' | 'overview' | 'diagnoses' | 'medications' | 'lab-tests' | 'procedures' | 'vitals' | 'billing' | 'immunizations'>(searchParams.get('tab') === 'immunizations' ? 'immunizations' : 'overview');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Attendance | null>(null);
   const [showMedicalDetails, setShowMedicalDetails] = useState(false);
   const [stats, setStats] = useState({ totalVisits: 0, completedVisits: 0, pendingVisits: 0, totalMedications: 0, totalLabTests: 0 });
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [returnToImmunizations, setReturnToImmunizations] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [vitalsList, setVitalsList] = useState<any[]>([]);
@@ -220,12 +223,15 @@ export default function PatientDetails() {
     setShowAttendanceModal(false);
     try {
       await getAttendances({ patientId: patient?.id || id });
-      setActiveTab('attendances'); setRefreshTrigger(p => p + 1);
+      setActiveTab(returnToImmunizations ? 'immunizations' : 'attendances');
+      setReturnToImmunizations(false);
+      setRefreshTrigger(p => p + 1);
       success('Check-in complete', 'New visit created');
     } catch { toastError('Refresh failed', 'Could not update visit list'); }
   };
   const handleEdit = () => navigate(`/dashboard/patients/register?edit=true&id=${patient?.id}`);
   const handleNewAttendance = () => setShowAttendanceModal(true);
+  const handleCreateImmunizationAttendance = () => { setReturnToImmunizations(true); setShowAttendanceModal(true); };
   const handleDeletePatient = async () => {
     if (!patient?.id) return;
     try { await deletePatient(patient.id); success('Patient Deleted', 'Patient record has been removed'); navigate('/dashboard/patients'); }
@@ -290,6 +296,7 @@ export default function PatientDetails() {
     { id: 'vitals' as const, label: 'Vitals', icon: Heart, count: vitalsList.length },
     { id: 'billing' as const, label: 'Billing', icon: DollarSign, count: 0 },
     { id: 'documents' as const, label: 'Docs', icon: File, count: documents.length },
+    { id: 'immunizations' as const, label: 'Vaccines', icon: Syringe, count: 0 },
   ];
   if (isLoading && !refreshing) {
     return (
@@ -608,6 +615,15 @@ export default function PatientDetails() {
                 </Table>
               </div>
             )
+          )}
+          {activeTab === 'immunizations' && patient?.id && (
+            <ImmunizationPanel
+              patientId={patient.id}
+              attendances={patientAttendances as any}
+              canRecord={hasRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife'])}
+              canManageCatalogue={hasRole(['admin', 'super_admin'])}
+              onCreateAttendance={handleCreateImmunizationAttendance}
+            />
           )}
           {activeTab === 'billing' && (
             <div className="max-w-md mx-auto space-y-3">

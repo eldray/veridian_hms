@@ -11,7 +11,8 @@ import Select from 'react-select';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { describeApiError } from '../utils/apiError';
 import { Badge, Button, Card, cn, Field, FilterSelect, humanStatus, INPUT, PageHeader, Pagination, SearchInput, Segmented, SELECT, StatCard, TABLE_SHELL, TD, TH, TH_ROW, TR, type BadgeTone } from '../components/ui';
-import { Plus, Calendar, User, Edit, Trash2, RefreshCw, CheckCircle, XCircle, Grid, List, Filter } from 'lucide-react';
+import { Plus, Calendar, User, Edit, Trash2, RefreshCw, CheckCircle, XCircle, Grid, List, Filter, Syringe } from 'lucide-react';
+import api from '../api/api';
 
 type DateFilterType = 'all' | 'today' | 'tomorrow' | 'week' | 'custom';
 type SortKey = 'dateAsc' | 'dateDesc' | 'patientName' | 'folder' | 'clinician' | 'department' | 'type' | 'status';
@@ -37,6 +38,11 @@ export default function Appointments() {
   const [showForm, setShowForm] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeWorkspace, setActiveWorkspace] = useState<'appointments' | 'immunizations'>('appointments');
+  const canViewImmunizationFollowups = ['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records'].includes(String(user?.role || ''));
+  const [immunizationDue, setImmunizationDue] = useState<any[]>([]);
+  const [immunizationLoading, setImmunizationLoading] = useState(false);
+  const [immunizationError, setImmunizationError] = useState('');
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedAppointmentForAttendance, setSelectedAppointmentForAttendance] = useState<any>(null);
   const [formData, setFormData] = useState({ patientId: '', clinicianId: '', title: '', description: '', appointmentDate: '', appointmentTime: '', duration: 30, type: 'consultation' });
@@ -71,6 +77,28 @@ export default function Appointments() {
   };
   useEffect(() => { loadData(); }, [statusFilter, typeFilter, dateFilter, customStartDate, customEndDate]);
   useEffect(() => { if (storeError) error('Appointments Not Loaded', storeError); }, [storeError]);
+  const loadImmunizationDue = async () => {
+    try {
+      setImmunizationLoading(true);
+      setImmunizationError('');
+      const from = new Date('2000-01-01T00:00:00.000Z');
+      const to = new Date();
+      to.setDate(to.getDate() + 30);
+      const response = await api.get('/immunization/records/due', { params: { from: from.toISOString(), to: to.toISOString() } });
+      setImmunizationDue(Array.isArray(response.data?.data) ? response.data.data : []);
+    } catch (err: any) {
+      const message = describeApiError(err, 'Unable to load immunization follow-ups.');
+      setImmunizationError(message);
+      error('Immunization Follow-ups Not Loaded', message);
+    } finally {
+      setImmunizationLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeWorkspace === 'immunizations') loadImmunizationDue();
+  }, [activeWorkspace]);
+
   useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter, typeFilter, dateFilter, customStartDate, customEndDate, sortKey]);
 
   const getPatientName = (p: any) => !p ? 'Unknown Patient' : p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown Patient';
@@ -104,6 +132,27 @@ export default function Appointments() {
   const paginatedAppointments = filteredAppointments.slice(startIndex, startIndex + itemsPerPage);
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
+  const scheduleImmunizationFollowUp = (record: any) => {
+    const patient = record.Patient || {};
+    const patientId = patient.id || record.patientId;
+    if (!patientId) { error('Cannot Schedule', 'The patient linked to this vaccine record could not be identified.'); return; }
+    const dueDate = record.nextDoseDue ? new Date(record.nextDoseDue) : new Date();
+    const dateValue = Number.isNaN(dueDate.getTime()) ? new Date().toISOString().slice(0, 10) : dueDate.toISOString().slice(0, 10);
+    const vaccineName = record.Vaccine?.name || 'Vaccine';
+    setEditingAppointment(null);
+    setFormData({
+      patientId,
+      clinicianId: '',
+      title: `Immunization follow-up – ${vaccineName}`,
+      description: `Return for the next dose of ${vaccineName}. Previous dose recorded: ${record.doseNumber || '—'}.`,
+      appointmentDate: dateValue,
+      appointmentTime: '09:00',
+      duration: 15,
+      type: 'vaccination'
+    });
+    setActiveWorkspace('appointments');
+    setShowForm(true);
+  };
   const handleConvertToAttendance = (apt: any) => { setSelectedAppointmentForAttendance(apt); setShowAttendanceModal(true); };
   const handleAttendanceSuccess = async (attendance: any) => {
     setShowAttendanceModal(false);
@@ -135,7 +184,46 @@ export default function Appointments() {
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       <PageHeader title="Appointment Management" subtitle="Schedule and manage patient appointments" meta={`${filteredAppointments.length} appointment(s) • ${stats.today} today`} icon={Calendar} accent="purple" backTo="/dashboard" actions={<><Button icon={RefreshCw} loading={refreshing} onClick={loadData}>{refreshing ? 'Refreshing...' : 'Refresh'}</Button><Button variant="secondary" icon={User} onClick={() => navigate('/dashboard/attendance')}>Attendance</Button><Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>New Appointment</Button></>} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4"><StatCard label="Total Appointments" value={stats.total} /><StatCard label="Scheduled" value={stats.scheduled} accent="blue" /><StatCard label="Confirmed" value={stats.confirmed} accent="green" /><StatCard label="Today" value={stats.today} accent="purple" /></div>
+      <div className="flex flex-wrap gap-2 border-b border-[var(--border-color)] pb-3">
+        <Button size="sm" variant={activeWorkspace === 'appointments' ? 'soft' : 'ghost'} accent="purple" icon={Calendar} onClick={() => setActiveWorkspace('appointments')}>Appointments</Button>
+        {canViewImmunizationFollowups && <Button size="sm" variant={activeWorkspace === 'immunizations' ? 'soft' : 'ghost'} accent="cyan" icon={Syringe} onClick={() => setActiveWorkspace('immunizations')}>Immunization follow-ups</Button>}
+      </div>
+      {activeWorkspace === 'immunizations' && canViewImmunizationFollowups && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 className="text-lg font-semibold text-[var(--text-primary)]">Vaccine doses due and overdue</h2><p className="text-sm text-[var(--text-secondary)]">Patients with a recorded next-dose date up to the next 30 days, including overdue doses.</p></div>
+            <Button size="sm" icon={RefreshCw} loading={immunizationLoading} onClick={loadImmunizationDue}>Refresh list</Button>
+          </div>
+          {immunizationError && <div role="alert" className="rounded-lg border border-red-300/50 bg-red-50/50 p-3 text-sm text-red-700">{immunizationError}</div>}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <StatCard label="Follow-ups" value={immunizationDue.length} />
+            <StatCard label="Overdue" value={immunizationDue.filter((r: any) => new Date(r.nextDoseDue).getTime() < new Date(new Date().toDateString()).getTime()).length} accent="red" />
+            <StatCard label="Due in next 30 days" value={immunizationDue.filter((r: any) => new Date(r.nextDoseDue).getTime() >= new Date(new Date().toDateString()).getTime()).length} accent="cyan" />
+          </div>
+          {immunizationLoading ? <div className="rounded-xl border border-[var(--border-color)] p-8 text-center text-sm text-[var(--text-secondary)]">Loading vaccine follow-ups…</div>
+          : immunizationDue.length === 0 ? <Card padded={false} className="p-8 text-center"><Syringe className="w-10 h-10 mx-auto mb-3 text-[var(--text-tertiary)]" /><h3 className="font-semibold text-[var(--text-primary)]">No recorded doses due</h3><p className="text-sm text-[var(--text-secondary)] mt-1">When staff record a next-dose date for a vaccine, it will appear here.</p></Card>
+          : <div className={TABLE_SHELL}><div className="overflow-x-auto"><table className="w-full text-sm min-w-[850px]"><thead className={TH_ROW}><tr><th className={TH}>Patient</th><th className={TH}>Folder #</th><th className={TH}>Vaccine</th><th className={TH}>Dose recorded</th><th className={TH}>Next dose due</th><th className={TH}>Contact</th><th className={TH}>Status</th><th className={TH}>Action</th></tr></thead><tbody>
+            {immunizationDue.map((record: any) => {
+              const patient = record.Patient || {};
+              const patientName = [patient.surname, patient.otherNames].filter(Boolean).join(' ') || 'Unknown patient';
+              const overdue = new Date(record.nextDoseDue).getTime() < new Date(new Date().toDateString()).getTime();
+              return <tr key={record.id} className={TR}>
+                <td className={TD}><span className="font-medium text-[var(--text-primary)]">{patientName}</span></td>
+                <td className={TD}>{patient.folderNumber || '—'}</td>
+                <td className={TD}>{record.Vaccine?.name || 'Vaccine'}</td>
+                <td className={TD}>{record.doseNumber || '—'}</td>
+                <td className={TD}>{new Date(record.nextDoseDue).toLocaleDateString()}</td>
+                <td className={TD}>{patient.phoneNumber || '—'}</td>
+                <td className={TD}><Badge tone={overdue ? 'red' : 'blue'} dot size="sm">{overdue ? 'Overdue' : 'Upcoming'}</Badge></td>
+                <td className={TD}><div className="flex flex-wrap gap-2"><Button size="sm" variant="soft" accent="cyan" onClick={() => scheduleImmunizationFollowUp(record)}>Schedule follow-up</Button><Button size="sm" variant="ghost" onClick={() => navigate(`/dashboard/patients/${patient.id}?tab=immunizations`)}>Open patient</Button></div></td>
+              </tr>;
+            })}
+          </tbody></table></div></div>}
+        </section>
+      )}
 
+
+      {activeWorkspace === 'appointments' && <>
       {/* Date Filter Bar — same shell as Patients / Attendance */}
       <div className="bg-[var(--bg-card)] rounded-xl p-3 sm:p-4 shadow-sm border border-[var(--border-color)]">
         <div className="flex flex-wrap items-center gap-3">
@@ -183,6 +271,8 @@ export default function Appointments() {
         <Pagination page={currentPage} totalPages={totalPages} itemsPerPage={itemsPerPage} totalItems={filteredAppointments.length} noun="appointments" onChange={goToPage} />
         
       </>)}
+
+      </>}
 
       {showAttendanceModal && selectedAppointmentForAttendance && <NewAttendanceModal patientId={selectedAppointmentForAttendance.patientId} onSuccess={handleAttendanceSuccess} onClose={handleAttendanceClose} isEditMode={false} />}
       {showForm && (

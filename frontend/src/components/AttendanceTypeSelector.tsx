@@ -1,5 +1,5 @@
 // src/components/AttendanceTypeSelector.tsx - UPDATED WITH RESPONSIVE DESIGN
-import { Stethoscope, User, Activity, AlertTriangle, Scan, Baby, Home } from 'lucide-react';
+import { Stethoscope, User, Activity, AlertTriangle, Scan, Baby, Home, Syringe } from 'lucide-react';
 import type { AttendanceType } from '../types';
 
 interface AttendanceTypeSelectorProps {
@@ -39,6 +39,13 @@ const attendanceTypes: AttendanceTypeOption[] = [
     description: 'Pregnancy and maternity care',
     icon: Baby,
     color: 'pink'
+  },
+  {
+    value: 'immunization' as AttendanceType,
+    label: 'Immunization / Vaccination',
+    description: 'Routine and catch-up vaccinations',
+    icon: Syringe,
+    color: 'teal'
   },
   {
     value: 'diagnostic_opd' as AttendanceType,

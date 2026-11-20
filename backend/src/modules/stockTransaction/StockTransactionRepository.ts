@@ -57,6 +57,19 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
 
   // PRODUCTION FIX: Thread-safe inventory update using atomic decrement
   async createSafely(data: any) {
+    // Preserve boundary validation before opening a transaction. Besides avoiding
+    // unnecessary DB work, callers and tests rely on malformed quantities failing
+    // even when the transaction adapter is mocked.
+    const numericQuantity = Number(data.quantity);
+    if (!data.stockItemId || !Number.isSafeInteger(numericQuantity) || numericQuantity === 0 ||
+        (numericQuantity < 0 && data.transactionType !== 'adjustment')) {
+      throw new ValidationError('Stock quantity must be a non-zero whole number; negative quantities are only allowed for adjustments');
+    }
+    return this.prisma.$transaction((tx) => this.createWithinTransaction(tx, data));
+  }
+
+  // Used by clinical workflows to commit stock and clinical records atomically.
+  async createWithinTransaction(tx: any, data: any) {
     // Validate before opening a database transaction so malformed requests do
     // not consume a transaction or acquire database resources unnecessarily.
     const { stockItemId, transactionType, quantity, reference, notes, performedBy, requisitionId, invoiceId } = data;
@@ -68,7 +81,6 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     const effectiveQuantity = Math.abs(numericQuantity);
     const adjustmentDirection = transactionType === 'adjustment' ? (numericQuantity < 0 ? 'decrease' : 'increase') : undefined;
 
-    return this.prisma.$transaction(async (tx) => {
 
       if (transactionType === 'transfer_in' || transactionType === 'transfer_out') {
         throw new ValidationError('Internal transfers must use the dedicated stock transfer or requisition fulfilment workflow');
@@ -177,7 +189,6 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           batchAllocations: batchAllocations.length ? batchAllocations as any : undefined
         }
       });
-    });
   }
 
   // PRODUCTION FIX: Thread-safe reversal using atomic increment
@@ -204,7 +215,9 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       if (
         /^Dispensed\b/i.test(notes) ||
         /^Consumable use(?:\s|:)/i.test(notes) ||
-        /^Encounter\s/i.test(reference)
+        /^Vaccine administered\b/i.test(notes) ||
+        /^Encounter\s/i.test(reference) ||
+        /^Immunization record\s/i.test(reference)
       ) {
         throw new ValidationError('This stock movement is linked to a clinical encounter. Use the encounter correction workflow rather than deleting its stock ledger entry.');
       }
@@ -259,7 +272,9 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     const isClinicalMovement =
       /^Dispensed\b/i.test(existingNotes) ||
       /^Consumable use(?:\s|:)/i.test(existingNotes) ||
-      /^Encounter\s/i.test(existingReference);
+      /^Vaccine administered\b/i.test(existingNotes) ||
+      /^Encounter\s/i.test(existingReference) ||
+      /^Immunization record\s/i.test(existingReference);
     if (isClinicalMovement && (notes !== undefined || reference !== undefined)) {
       throw new ValidationError('Clinical stock movement notes and references cannot be edited here. Correct the movement through the encounter workflow.');
     }
