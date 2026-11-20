@@ -1263,7 +1263,7 @@ export default function MedicalEntries() {
     const { type, entry } = editingEntry;
     setSavingEntry(true);
     try {
-      if (type === 'diagnosis') await updateDiagnosis(selectedAttendanceId, entry.id, values);
+      if (type === 'diagnosis') await updateDiagnosis(selectedAttendanceId, entry.id, { ...values, classification: values.classification || null });
       else if (type === 'lab') await updateLabTestStatus(selectedAttendanceId, entry.id, { status: entry.status, priority: values.priority, notes: values.notes });
       else if (type === 'scan') await updateScanStatus(selectedAttendanceId, entry.id, { status: entry.status === 'scheduled' ? 'requested' : entry.status, priority: values.priority, notes: values.notes });
       else if (type === 'procedure') await updateProcedureStatus(selectedAttendanceId, entry.id, { status: entry.status, scheduledDate: values.scheduledDate || null, notes: values.notes });
