@@ -14,6 +14,8 @@ import {
   getRequisition as apiGetRequisition,
   lookupRequisitionStock,
   updateRequisitionStatus,
+  getDepartments,
+  getWards,
   type Requisition,
   type RequisitionStockLookupItem,
 } from '../api';
@@ -96,11 +98,21 @@ export default function RequisitionsPage() {
   // ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
-      await getRequisitions();
-      // Load departments / wards if your store has them; otherwise fetch here
-      // Example (adjust to your actual APIs):
-      // const [depts, wds] = await Promise.all([getDepartments(), getWards()]);
-      // setDepartments(depts); setWards(wds);
+      const [requisitionResult, departmentResult, wardResult] = await Promise.all([
+        getRequisitions(),
+        getDepartments(),
+        getWards(),
+      ]);
+      // The API helpers normalize paginated and wrapped responses. Keep a final
+      // defensive unwrap here because the wards endpoint has legacy envelopes.
+      const rows = (value: any) => Array.isArray(value) ? value
+        : Array.isArray(value?.data) ? value.data
+        : Array.isArray(value?.items) ? value.items
+        : Array.isArray(value?.wards) ? value.wards
+        : Array.isArray(value?.departments) ? value.departments : [];
+      setDepartments(rows(departmentResult).filter((item: any) => item?.isActive !== false));
+      setWards(rows(wardResult).filter((item: any) => item?.isActive !== false));
+      void requisitionResult;
     } catch (error) {
       console.error('Failed to load data:', error);
       toastError('Load failed', 'Could not load requisition data');
