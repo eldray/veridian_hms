@@ -14,6 +14,7 @@ import {
   getRequisition as apiGetRequisition,
   lookupRequisitionStock,
   updateRequisitionStatus,
+  updateRequisition as apiUpdateRequisition,
   getDepartments,
   getWards,
   type Requisition,
@@ -72,6 +73,7 @@ export default function RequisitionsPage() {
   const [showForm, setShowForm] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null);
+  const [editingRequisition, setEditingRequisition] = useState<Requisition | null>(null);
 
   // Supporting data for the form
   const [departments, setDepartments] = useState<any[]>([]);
@@ -238,6 +240,29 @@ export default function RequisitionsPage() {
     }
   };
 
+  const handleEdit = (requisition: Requisition) => {
+    if (requisition.status !== 'draft' || !(requisition.requestedById === user?.id || hasRole(['admin', 'super_admin']))) return;
+    setEditingRequisition(requisition);
+    setFormData(prev => ({
+      ...prev,
+      requesterType: requisition.requestingWardId ? 'ward' : 'department',
+      requestingDepartmentId: requisition.requestingDepartmentId || myDepartmentId,
+      requestingWardId: requisition.requestingWardId || '',
+      supplyingDepartmentId: requisition.supplyingDepartmentId || '',
+      purpose: requisition.purpose || '',
+      urgency: requisition.urgency || 'routine',
+      requiredDate: requisition.requiredDate ? String(requisition.requiredDate).slice(0, 10) : '',
+      notes: requisition.notes || '',
+      requisitionItems: (requisition.RequisitionItem || []).map((item: any) => ({
+        stockItemId: item.stockItemId,
+        quantityRequested: item.quantityRequested,
+        purpose: item.purpose || '',
+        picked: null,
+      })),
+    }));
+    setShowForm(true);
+  };
+
   const openDetails = async (requisition: Requisition) => {
     setSelectedRequisition(requisition);
     setShowDetailModal(true);
@@ -253,6 +278,7 @@ export default function RequisitionsPage() {
   };
 
   const resetForm = () => {
+    setEditingRequisition(null);
     setFormData({
       requesterType: 'department',
       requestingDepartmentId: myDepartmentId,
@@ -284,6 +310,22 @@ export default function RequisitionsPage() {
     }
 
     const validItems = formData.requisitionItems.filter(item => item.stockItemId && item.quantityRequested > 0);
+    if (editingRequisition) {
+      try {
+        await apiUpdateRequisition(editingRequisition.id, {
+          purpose: formData.purpose,
+          urgency: formData.urgency,
+          notes: formData.notes,
+        });
+        success('Updated', 'Draft requisition updated successfully');
+        setShowForm(false);
+        resetForm();
+        await loadData();
+      } catch (error: any) {
+        toastError('Update failed', error?.response?.data?.message || error.message || 'Could not update requisition');
+      }
+      return;
+    }
     if (validItems.length === 0) {
       toastError('Validation', 'Please add at least one item');
       return;
@@ -711,6 +753,10 @@ export default function RequisitionsPage() {
                               aria-label={`View details for ${requisition.requisitionNumber}`}
                               onClick={() => openDetails(requisition)}
                             />
+
+                            {requisition.status === 'draft' && (requisition.requestedById === user?.id || hasRole(['admin', 'super_admin'])) && (
+                              <Button size="sm" variant="ghost" iconOnly icon={Edit} className="text-[var(--icon-yellow-text)]" title="Edit draft details" aria-label={`Edit ${requisition.requisitionNumber}`} onClick={() => handleEdit(requisition)} />
+                            )}
 
                             {canSubmit(requisition) && (
                               <Button
