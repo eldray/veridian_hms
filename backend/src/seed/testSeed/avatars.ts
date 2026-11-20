@@ -18,7 +18,7 @@ const reserveApiSlot = async (): Promise<void> => {
 };
 
 const avatarFile = (category: SeedAvatarCategory, key: string) =>
-  `seed-${hashOf(`${category}:${key}`)}.png`;
+  `seed-${hashOf(`${category}:${key}`)}.jpg`;
 
 export const seedAvatarUrl = (category: SeedAvatarCategory, filename: string): string =>
   category === 'users'
@@ -26,12 +26,10 @@ export const seedAvatarUrl = (category: SeedAvatarCategory, filename: string): s
     : `/uploads/patients/${filename}`;
 
 /**
- * Fetch synthetic, deterministic demo portraits from DiceBear and store them in the
- * application's private upload folders. The browser therefore loads only local,
- * authenticated upload URLs; no third-party image host is exposed to staff browsers.
- *
- * Keys are hashed before being sent to the image API. Never pass patient names,
- * dates of birth, folder numbers, or other clinical data to an external image service.
+ * Download deterministic photographic demo portraits and store them in the
+ * application's protected upload folders. These are synthetic demo images,
+ * never photographs of the named patient or staff member. Keys are hashed
+ * before selecting a portrait; no clinical or personal data is sent externally.
  */
 export const seedAvatarImages = async (
   category: SeedAvatarCategory,
@@ -65,23 +63,23 @@ export const seedAvatarImages = async (
           // Not cached yet; fetch it below.
         }
 
-        const seed = hashOf(key).toString(36);
-        const url = `https://api.dicebear.com/9.x/avataaars/png?seed=${encodeURIComponent(seed)}&size=256&backgroundColor=f1f5f9`;
-        // DiceBear documents a 10 requests/second limit for raster formats; stay below it.
+        const seed = Math.abs(hashOf(key));
+        const gender = seed % 2 === 0 ? 'women' : 'men';
+        const portraitNumber = seed % 100;
+        const url = `https://randomuser.me/api/portraits/${gender}/${portraitNumber}.jpg`;
         await reserveApiSlot();
         const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
-        if (!response.ok) throw new Error(`image API returned HTTP ${response.status}`);
+        if (!response.ok) throw new Error(`portrait source returned HTTP ${response.status}`);
 
         const bytes = Buffer.from(await response.arrayBuffer());
         if (
-          bytes.length < 8 ||
+          bytes.length < 4 ||
           bytes.length > MAX_AVATAR_BYTES ||
-          bytes[0] !== 0x89 ||
-          bytes[1] !== 0x50 ||
-          bytes[2] !== 0x4e ||
-          bytes[3] !== 0x47
+          bytes[0] !== 0xff ||
+          bytes[1] !== 0xd8 ||
+          bytes[2] !== 0xff
         ) {
-          throw new Error('image API did not return a valid PNG within the size limit');
+          throw new Error('portrait source did not return a valid JPEG within the size limit');
         }
 
         await fs.writeFile(destination, bytes, { flag: 'wx' }).catch(async (error: any) => {
@@ -92,7 +90,7 @@ export const seedAvatarImages = async (
         downloaded++;
       } catch (error) {
         failed++;
-        console.warn(`   ⚠️ Demo ${category} avatar unavailable for one record: ${error instanceof Error ? error.message : String(error)}`);
+        console.warn(`   ⚠️ Demo ${category} portrait unavailable for one record: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   };
