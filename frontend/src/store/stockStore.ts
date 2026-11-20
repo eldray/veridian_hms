@@ -66,7 +66,6 @@ interface StockItem {
   strength?: string;
   unitOfMeasure: string;
   drugCode?: string;
-  nhisServiceCode?: string | null;
   reorderLevel: number;
   currentStock: number;
   costPrice: number;
