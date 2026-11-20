@@ -817,6 +817,12 @@ export default function Reports() {
       { title: 'Insurance claims', data: monthlyOverview.claims, rows: [['Claims', ['summary.totalClaims','totalClaims']], ['Claimed amount', ['summary.totalClaimAmount','totalClaimAmount'], true], ['Outstanding', ['summary.outstandingAmount','outstandingAmount'], true]] },
       { title: 'Stock movement', data: monthlyOverview.stock, rows: [['Transactions', ['summary.totalTransactions','totalTransactions']], ['Units in', ['summary.totalIn','totalIn']], ['Units out', ['summary.totalOut','totalOut']]] },
     ];
+    const billed = read(monthlyOverview.financial, ['summary.totalRevenue','summary.totalBilled','totalRevenue']);
+    const collected = read(monthlyOverview.financial, ['summary.totalPaid','summary.totalCollected','totalPaid']);
+    const outstanding = read(monthlyOverview.financial, ['summary.outstandingBalance','summary.outstanding','outstandingBalance']);
+    const reconciliationChecks = billed != null && collected != null && outstanding != null
+      ? [{ label: 'Billed = collected + outstanding', detail: 'Difference: ' + fmt(billed - collected - outstanding, true), ok: Math.abs(billed - collected - outstanding) < 0.01 }]
+      : [{ label: 'Financial reconciliation', detail: 'Not assessed — one or more source totals were not returned.', ok: null as boolean | null }];
     const csvRows = [['Section','Indicator','Value'], ...sections.flatMap(section => section.rows.map(([label, paths, money]: any) => [section.title, label, fmt(read(section.data, paths), Boolean(money))]))];
     const downloadCsv = () => {
       const blob = new Blob([csvRows.map(row => row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\\n')], { type: 'text/csv;charset=utf-8;' });
@@ -828,6 +834,14 @@ export default function Reports() {
         <div><p className="text-sm font-bold text-[var(--text-primary)]">Facility performance overview</p><p className="text-xs text-[var(--text-tertiary)]">{dateRange.start} to {dateRange.end} · Existing report endpoints</p></div>
         <div className="flex gap-2"><button onClick={downloadCsv} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold"><Download className="inline w-3.5 h-3.5 mr-1"/>Export CSV</button><button onClick={() => window.print()} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold">Print</button></div>
       </div>
+      <Card title="Data reconciliation" padded={false}>
+        <div className="divide-y divide-[var(--border-color)]">
+          {reconciliationChecks.map(check => <div key={check.label} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+            <span className="text-xs text-[var(--text-secondary)]">{check.label}</span>
+            <span className={"text-xs font-semibold " + (check.ok === false ? "text-[var(--icon-red-text)]" : check.ok === true ? "text-[var(--icon-green-text)]" : "text-[var(--text-tertiary)]")}>{check.ok === false ? "Check required · " : check.ok === true ? "Balanced · " : ""}{check.detail}</span>
+          </div>)}
+        </div>
+      </Card>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {sections.map(section => <Card key={section.title} title={section.title} padded={false}>
           <div className="divide-y divide-[var(--border-color)]">
