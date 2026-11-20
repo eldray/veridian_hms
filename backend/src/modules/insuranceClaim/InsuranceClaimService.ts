@@ -1651,13 +1651,14 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     for (const row of medRows) {
       const rowPolicyDate = row.serviceDate ?? policyDate;
       const catalog = await this.prisma.serviceCatalog.findFirst({
-        where: { OR: [{ code: row.code }, { nhisServiceCode: row.code }, { StockItem: { drugCode: row.code } }, { StockItem: { drugCode: row.code } }] },
+        where: { OR: [{ code: row.code }, { nhisServiceCode: row.code }, { StockItem: { drugCode: row.code } }] },
         select: {
           code: true,
           StockItem: {
             select: {
               id: true,
-              nhisServiceCode: true,
+              drugCode: true,
+              isNHISCovered: true,
               payerRules: {
                 where: { insuranceProviderId: claim.insuranceProviderId },
                 select: {
