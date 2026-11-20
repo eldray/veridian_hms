@@ -6,6 +6,16 @@ export function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/** A refund must be expressed in whole cents; reject fractions of a pesewa. */
+export function isValidRefundAmount(value: unknown): boolean {
+  if (typeof value !== 'number' && typeof value !== 'string') return false;
+  if (typeof value === 'string' && value.trim() === '') return false;
+  const amount = Number(value);
+  return Number.isFinite(amount)
+    && amount > 0
+    && Math.abs(amount * 100 - Math.round(amount * 100)) < 1e-7;
+}
+
 /**
  * What is still refundable on one recorded payment.
  *
