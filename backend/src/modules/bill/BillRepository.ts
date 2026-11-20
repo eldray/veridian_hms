@@ -3,7 +3,7 @@ import { PrismaClient, Prisma, BillStatus, PaymentMethod, PaymentMode, ServiceTy
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput, RefundPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
-import { roundMoney, refundableAmount, billStatusAfterRefund } from '../../utils/refunds';
+import { roundMoney, refundableAmount, billStatusAfterRefund, isValidRefundAmount } from '../../utils/refunds';
 import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff, resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 import { computeLineTax, loadTaxConfiguration, mergeTaxBreakdowns, type TaxBreakdown } from '../../utils/tax';
@@ -317,10 +317,10 @@ export class BillRepository extends BaseRepository<any, any, any> {
       });
       const alreadyRefunded = priorRefunds.reduce((sum, row) => sum + toNumber(row.amount), 0);
       const refundable = refundableAmount(toNumber(payment.amount), alreadyRefunded);
-      const amount = roundMoney(Number(data.amount));
-      if (!Number.isFinite(amount) || amount <= 0) {
-        throw new ValidationError('Refund amount must be greater than zero.');
+      if (!isValidRefundAmount(data.amount)) {
+        throw new ValidationError('Refund amount must be greater than zero and use no more than two decimal places.');
       }
+      const amount = roundMoney(Number(data.amount));
       if (amount > refundable) {
         throw Object.assign(
           new Error(`Refund exceeds the unrefunded amount on this payment (${refundable.toFixed(2)}).`),
