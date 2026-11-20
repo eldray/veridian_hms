@@ -330,7 +330,7 @@ const createServicePricing = async (
       });
     }
   } catch (error: any) {
-    console.error(`❌ Error creating service pricing for ${serviceCatalogId}:`, error.message);
+    throw new Error(`Service pricing for catalogue ${serviceCatalogId} failed: ${error.message}`);
   }
 };
 
@@ -1067,11 +1067,40 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
 
           // Re-running the seed must never zero (or reset) quantities the facility has since received.
           const { currentStock: _seedStock, ...stockUpdate } = stockData as any;
-          const stockItem = await prisma.stockItem.upsert({
-            where: { drugCode: canonicalDrugCode },
-            create: stockData,
-            update: stockUpdate,
-          });
+          // The NHIS reference row owns the canonical code. If the same medicine
+          // already exists in a local medication file, re-key that same stock row
+          // instead of creating a duplicate product with a second code.
+          let stockItem: any;
+          if (file === 'nhismedicines.json') {
+            const existingByIdentity = await prisma.stockItem.findFirst({
+              where: {
+                name: String(item.name).trim(),
+                strength: String(item.strength || 'N/A').trim(),
+                unitOfMeasure: String(item.unitOfMeasure || 'units').trim(),
+              },
+              select: { id: true, drugCode: true },
+            });
+            if (existingByIdentity && existingByIdentity.drugCode !== canonicalDrugCode) {
+              const codeOwner = await prisma.stockItem.findUnique({ where: { drugCode: canonicalDrugCode }, select: { id: true } });
+              if (codeOwner && codeOwner.id !== existingByIdentity.id) {
+                throw new Error(`Canonical NHIS code ${canonicalDrugCode} is already assigned to a different stock item.`);
+              }
+              stockItemMap.delete(existingByIdentity.drugCode);
+              stockItem = await prisma.stockItem.update({ where: { id: existingByIdentity.id }, data: stockUpdate });
+            } else {
+              stockItem = await prisma.stockItem.upsert({
+                where: { drugCode: canonicalDrugCode },
+                create: stockData,
+                update: stockUpdate,
+              });
+            }
+          } else {
+            stockItem = await prisma.stockItem.upsert({
+              where: { drugCode: canonicalDrugCode },
+              create: stockData,
+              update: stockUpdate,
+            });
+          }
           stockItemMap.set(canonicalDrugCode, stockItem);
           if (file === 'nhismedicines.json') {
             nhisReferenceByDrugCode.set(canonicalDrugCode, canonicalItem);
@@ -1480,7 +1509,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         console.error(`❌ Service catalog ${service.code}:`, error.message);
       }
     }
-    console.log(`✅ ${serviceCatalogCreated} service catalog entries with pricing configured`);
+    if (serviceCatalogCreated !== serviceCatalogEntries.length) seedFailures.push(`Service catalogue seeded ${serviceCatalogCreated}/${serviceCatalogEntries.length} entries`);
+    console.log(`✅ ${serviceCatalogCreated}/${serviceCatalogEntries.length} service catalog entries with pricing configured`);
 
     // ── STEP 14: Wards & Beds ─────────────────────────────────
     const wardsData = readJSON('wards.json');
