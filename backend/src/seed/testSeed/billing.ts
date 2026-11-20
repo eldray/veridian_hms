@@ -221,9 +221,16 @@ export const seedBills = async (
       select: { balance: true, status: true },
     });
     const targetBalance = Math.max(0, money(toNumber(currentBillForPayment?.balance)));
+    // Avoid the exact-balance boundary. Prisma Decimal values can carry more
+    // precision than the two-decimal amount sent to addPayment; a rounded payment
+    // equal to the displayed balance may then fail the conditional balance update.
+    // Seed full-payment scenarios one cent below the persisted balance instead.
+    const requestedPayment = money(Math.min(targetBalance, payableAfterWaiver * plan.paymentFraction));
     const payAmount = plan.status === 'cancelled' || currentBillForPayment?.status === 'cancelled'
       ? 0
-      : money(Math.min(targetBalance, payableAfterWaiver * plan.paymentFraction));
+      : requestedPayment >= targetBalance && targetBalance > 0
+        ? Math.max(0, money(targetBalance - 0.01))
+        : requestedPayment;
     let paidAmount = toNumber(generated.paidAmount);
     if (payAmount > 0) {
       try {
