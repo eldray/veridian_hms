@@ -1940,7 +1940,7 @@ export default function MedicalEntries() {
                             <Td><StatusBadge status={med.status} /></Td>
                             <Td>
                               {canAddEntries && med.status === 'prescribed'
-                                ? <DelBtn onClick={() => handleDeleteItem('medication', med.id)} />
+                                ? <><EditBtn onClick={() => setEditingEntry({ type: 'medication', entry: med })} /><DelBtn onClick={() => handleDeleteItem('medication', med.id)} /></>
                                 : med.status === 'dispensed'
                                   ? <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
                                   : null}
@@ -2039,7 +2039,7 @@ export default function MedicalEntries() {
                             </Td>
                             <Td><StatusBadge status={t.status} /></Td>
                             <Td>{t.requestedAt ? new Date(t.requestedAt).toLocaleDateString() : t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}</Td>
-                            <Td>{canAddEntries && t.status === 'requested' && <DelBtn onClick={() => handleDeleteItem('lab', t.id)} />}</Td>
+                            <Td>{canAddEntries && (t.status === 'requested' || t.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'lab', entry: t })} /><DelBtn onClick={() => handleDeleteItem('lab', t.id)} /></>}</Td>
                           </tr>
                         ))}
                       </Table>
@@ -2142,7 +2142,7 @@ export default function MedicalEntries() {
                             </Td>
                             <Td><StatusBadge status={scan.status} /></Td>
                             <Td>{new Date(scan.requestedAt).toLocaleDateString()}</Td>
-                            <Td>{canAddEntries && (scan.status === 'requested' || scan.status === 'scheduled') && <DelBtn onClick={() => handleDeleteItem('scan', scan.id)} />}</Td>
+                            <Td>{canAddEntries && (scan.status === 'requested' || scan.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'scan', entry: scan })} /><DelBtn onClick={() => handleDeleteItem('scan', scan.id)} /></>}</Td>
                           </tr>
                         ))}
                       </Table>
@@ -2226,7 +2226,7 @@ export default function MedicalEntries() {
                               <Td><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></Td>
                               <Td>{item.user?.fullName || item.createdBy?.fullName || '—'}</Td>
                               <Td>{new Date(item.createdAt).toLocaleDateString()}</Td>
-                              <Td>{canAddEntries && <DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} />}</Td>
+                              <Td>{canAddEntries && <><EditBtn onClick={() => setEditingEntry({ type: 'diagnosis', entry: item })} /><DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} /></>}</Td>
                             </tr>
                           );
                         })}
@@ -2262,7 +2262,7 @@ export default function MedicalEntries() {
                               <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
                               <Td><StatusBadge status={proc.status} /></Td>
                               <Td className="whitespace-pre-wrap">{proc.notes || '—'}</Td>
-                              <Td>{canAddEntries && proc.status === 'scheduled' && <DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} />}</Td>
+                              <Td>{canAddEntries && (proc.status === 'scheduled' || proc.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'procedure', entry: proc })} /><DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} /></>}</Td>
                             </tr>
                           ))}
                         </Table>
