@@ -460,14 +460,26 @@ export class GHSReportService extends BaseService {
       TYPH: ['typhoid', 'paratyphoid'],
     };
     const normalizeDiseaseText = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const surveillanceRecords = await this.listIDSRAlerts(startDate, end);
     const diseases = NOTIFIABLE_DISEASES.map(disease => {
       const terms = (idsrAliases[disease.code] || [disease.name]).map(normalizeDiseaseText).filter(Boolean);
-      const count = attendances.filter((a: any) => a.AttendanceDiagnosis?.some((dx: any) => {
+      const diagnosisSignals = attendances.filter((a: any) => a.AttendanceDiagnosis?.some((dx: any) => {
         const diagnosisName = normalizeDiseaseText(dx.Diagnosis?.name || '');
         return terms.some(term => diagnosisName === term || diagnosisName.includes(term));
       })).length;
-      // confirmed / deaths are not recorded per disease; null means "not captured", never an estimate
-      return { disease: disease.name, code: disease.code, suspected: count, confirmed: null, deaths: null };
+      const entries = surveillanceRecords.filter((record: any) => record.diseaseCode.toUpperCase() === disease.code);
+      const hasReportedTallies = entries.length > 0;
+      return {
+        disease: disease.name, code: disease.code,
+        // Recorded surveillance tallies take precedence; diagnosis signals remain visible
+        // separately so the two sources are not accidentally added together.
+        suspected: hasReportedTallies ? entries.reduce((sum: number, row: any) => sum + row.suspectedCases, 0) : diagnosisSignals,
+        diagnosisSignals,
+        confirmed: hasReportedTallies ? entries.reduce((sum: number, row: any) => sum + row.confirmedCases, 0) : null,
+        deaths: hasReportedTallies ? entries.reduce((sum: number, row: any) => sum + row.deaths, 0) : null,
+        surveillanceEntries: entries.length,
+        acknowledgedEntries: entries.filter((row: any) => row.alertAcknowledged).length,
+      };
     });
     return { period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1 }, facility: { name: facility?.name ?? '', district: facility?.ghsDistrictCode ?? '', ghfCode: facility?.ghaHFCode ?? '' }, diseases };
   }
