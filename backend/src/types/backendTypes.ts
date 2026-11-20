@@ -446,7 +446,6 @@ export interface IStockItem {
   strength: string;
   unitOfMeasure: string;
   drugCode: string;
-  nhisServiceCode?: string | null;
   reorderLevel: number;
   currentStock: number;
   unitPrice: number;
