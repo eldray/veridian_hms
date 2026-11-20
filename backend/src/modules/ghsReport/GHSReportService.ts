@@ -410,6 +410,26 @@ export class GHSReportService extends BaseService {
     return [...counts.values()].map((d: any) => ({ diagnosisId: d.diagnosis.id, diagnosisName: d.diagnosis.name, icdCode: d.diagnosis.icdCode, morbidityGroup: d.diagnosis.morbidityGroup, totalCases: d.male + d.female, male: d.male, female: d.female, byAgeGroup: d.byAgeGroup })).sort((a, b) => b.totalCases - a.totalCases).slice(0, limit);
   }
 
+  async listIDSRAlerts(startDate: Date, endDate: Date) {
+    return this.prisma.iDSRAlert.findMany({
+      where: { alertDate: { gte: startDate, lte: this.eod(endDate) } },
+      include: { acknowledgedBy: { select: { fullName: true } } },
+      orderBy: [{ alertDate: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async recordIDSRAlert(input: { diseaseCode: string; diseaseName: string; alertDate: Date; suspectedCases: number; confirmedCases: number; deaths: number }) {
+    return this.prisma.iDSRAlert.create({ data: input });
+  }
+
+  async acknowledgeIDSRAlert(id: string, userId: string, responseNotes?: string) {
+    return this.prisma.iDSRAlert.update({
+      where: { id },
+      data: { alertAcknowledged: true, acknowledgedAt: new Date(), acknowledgedById: userId, ...(responseNotes !== undefined ? { responseNotes } : {}) },
+      include: { acknowledgedBy: { select: { fullName: true } } },
+    });
+  }
+
   async generateIDSRReport(startDate: Date, endDate: Date): Promise<any> {
     const end = this.eod(endDate);
     const attendances = await this.repository.getAttendancesWithDiagnoses(startDate, end);
