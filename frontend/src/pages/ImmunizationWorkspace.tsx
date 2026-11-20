@@ -136,7 +136,7 @@ export default function ImmunizationWorkspace() {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Patients" value={queue.length} icon={Users} accent="cyan" />
+        <StatCard label="Total Visits" value={filteredVisits.length} icon={Users} accent="cyan" />
         <StatCard label="Waiting" value={waitingCount} icon={Clock} accent="orange" />
         <StatCard label="In Progress" value={inProgressCount} icon={UserCheck} accent="purple" />
         <StatCard label="Completed" value={completedCount} icon={CheckCircle} accent="green" />
@@ -151,11 +151,11 @@ export default function ImmunizationWorkspace() {
       </Card>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant={activeTab === 'pending' ? 'solid' : 'outline'} accent="orange"
+        <Button size="sm" variant={activeTab === 'pending' ? 'primary' : 'outline'} accent="orange"
           onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}>
           Pending ({pendingVisits.length})
         </Button>
-        <Button size="sm" variant={activeTab === 'completed' ? 'solid' : 'outline'} accent="green"
+        <Button size="sm" variant={activeTab === 'completed' ? 'primary' : 'outline'} accent="green"
           onClick={() => { setActiveTab('completed'); setCurrentPage(1); }}>
           Completed ({completedVisits.length})
         </Button>
