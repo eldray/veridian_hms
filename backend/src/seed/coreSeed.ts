@@ -1023,6 +1023,23 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       normalizeIdentityPart(item.strength || 'N/A'),
       normalizeIdentityPart(item.unitOfMeasure || 'units'),
     ].join('|');
+    // Resolve local catalogue rows to the official NHIS code before processing
+    // either file. This makes the seed stable on the first run and every rerun.
+    const nhisCodeByIdentity = new Map<string, string>();
+    const nhisSourceItems = readJSON('nhismedicines.json');
+    if (Array.isArray(nhisSourceItems)) {
+      for (const reference of nhisSourceItems) {
+        if (!reference?.name || !reference?.drugCode) continue;
+        const identity = stockIdentityKey(reference);
+        const code = String(reference.drugCode).trim().toUpperCase();
+        const existingCode = nhisCodeByIdentity.get(identity);
+        if (existingCode && existingCode !== code) {
+          seedFailures.push(`NHIS source assigns conflicting codes ${existingCode} and ${code} to the same medicine identity (${reference.name}).`);
+        } else {
+          nhisCodeByIdentity.set(identity, code);
+        }
+      }
+    }
     const stockIdentityMap = new Map<string, any>();
     // Patient prices per drugCode, taken from each item's own selling/insurance prices in the JSON files
     const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number; corporatePrice: number }>();
@@ -1062,8 +1079,12 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         try {
           if (!item.name || (file === 'nhismedicines.json' && !item.drugCode)) throw new Error(file === 'nhismedicines.json' ? 'NHIS reference medicine is missing its official source drugCode; refusing to invent an NHIS code.' : 'Medicine/consumable is missing its name.');
           const identity = stockIdentityKey(item);
-          const existingGeneratedItem = !item.drugCode ? stockIdentityMap.get(identity) ?? null : null;
-          const canonicalDrugCode = String(item.drugCode || existingGeneratedItem?.drugCode || generateFacilityDrugCode(item, usedDrugCodes)).trim().toUpperCase();
+          const existingByIdentity = stockIdentityMap.get(identity) ?? null;
+          const nhisCanonicalCode = nhisCodeByIdentity.get(identity);
+          const existingGeneratedItem = !item.drugCode ? existingByIdentity : null;
+          const canonicalDrugCode = String(
+            nhisCanonicalCode || existingByIdentity?.drugCode || item.drugCode || existingGeneratedItem?.drugCode || generateFacilityDrugCode(item, usedDrugCodes)
+          ).trim().toUpperCase();
           usedDrugCodes.add(canonicalDrugCode);
           const canonicalItem = { ...item, drugCode: canonicalDrugCode };
           if (!item.drugCode) {
@@ -1086,22 +1107,13 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           // already exists in a local medication file, re-key that same stock row
           // instead of creating a duplicate product with a second code.
           let stockItem: any;
-          if (file === 'nhismedicines.json') {
-            const existingByIdentity = stockIdentityMap.get(identity) ?? null;
-            if (existingByIdentity && existingByIdentity.drugCode !== canonicalDrugCode) {
-              const codeOwner = await prisma.stockItem.findUnique({ where: { drugCode: canonicalDrugCode }, select: { id: true } });
-              if (codeOwner && codeOwner.id !== existingByIdentity.id) {
-                throw new Error(`Canonical NHIS code ${canonicalDrugCode} is already assigned to a different stock item.`);
-              }
-              stockItemMap.delete(existingByIdentity.drugCode);
-              stockItem = await prisma.stockItem.update({ where: { id: existingByIdentity.id }, data: stockUpdate });
-            } else {
-              stockItem = await prisma.stockItem.upsert({
-                where: { drugCode: canonicalDrugCode },
-                create: stockData,
-                update: stockUpdate,
-              });
+          if (existingByIdentity && existingByIdentity.drugCode !== canonicalDrugCode) {
+            const codeOwner = await prisma.stockItem.findUnique({ where: { drugCode: canonicalDrugCode }, select: { id: true } });
+            if (codeOwner && codeOwner.id !== existingByIdentity.id) {
+              throw new Error(`Canonical code ${canonicalDrugCode} is already assigned to a different stock item.`);
             }
+            stockItemMap.delete(existingByIdentity.drugCode);
+            stockItem = await prisma.stockItem.update({ where: { id: existingByIdentity.id }, data: stockUpdate });
           } else {
             stockItem = await prisma.stockItem.upsert({
               where: { drugCode: canonicalDrugCode },
