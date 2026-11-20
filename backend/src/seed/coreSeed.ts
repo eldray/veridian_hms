@@ -975,6 +975,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       if (failed || successful !== gdrgData.gdrgTariffs.length) seedFailures.push(`G-DRG tariffs seeded ${successful}/${gdrgData.gdrgTariffs.length}; ${failed} failed`);
       console.log(`✅ GDRG Tariffs: ${successful}/${gdrgData.gdrgTariffs.length} successful, ${failed} failed`);
     } else {
+      seedFailures.push('gdrgTariffs.json is missing, empty, or has no gdrgTariffs array');
       console.log(`⚠️ No GDRG tariffs found. File: gdrgTariffs.json`);
     }
 
