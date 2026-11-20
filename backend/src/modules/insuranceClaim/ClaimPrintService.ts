@@ -58,9 +58,21 @@ export class ClaimPrintService {
       0,
     );
 
-    const itemsTable = items
-      .map(
-        (i) => `
+    const claimCategories = [
+      { key: 'diagnosis', label: 'Diagnoses', payable: false },
+      { key: 'service', label: 'Consultation / Services', payable: true },
+      { key: 'procedure', label: 'Procedures', payable: true },
+      { key: 'investigation', label: 'Laboratory & Imaging', payable: true },
+      { key: 'medicine', label: 'Medicines', payable: true },
+      { key: 'gdrg', label: 'G-DRG package', payable: true },
+    ];
+    const categoryTotals = claimCategories.map((category) => {
+      const rows = items.filter((item) => String(item.itemCategory || '').toLowerCase() === category.key);
+      return { ...category, rows, total: rows.reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0) };
+    }).filter((category) => category.rows.length > 0);
+    const itemsTable = categoryTotals.map((category) => `
+      <tr class="category-row"><td colspan="6">${esc(category.label)} · ${category.rows.length} item(s)</td></tr>
+      ${category.rows.map((i) => `
         <tr>
           <td>${esc(i.itemNumber)}</td>
           <td>${esc(i.description)}</td>
@@ -68,9 +80,10 @@ export class ClaimPrintService {
           <td style="text-align:center">${esc(i.quantity)}</td>
           <td style="text-align:right">${formatMoney(i.unitPrice)}</td>
           <td style="text-align:right">${formatMoney(i.lineTotal)}</td>
-        </tr>`,
-      )
-      .join('');
+        </tr>`).join('')}
+      <tr class="subtotal-row"><td colspan="5" style="text-align:right">${esc(category.label)} subtotal</td><td style="text-align:right">${formatMoney(category.total)}</td></tr>
+    `).join('');
+    const payableTotal = categoryTotals.filter((category) => category.payable).reduce((sum, category) => sum + category.total, 0);
 
     const statusBadge =
       claim.status === 'finalized'
@@ -114,7 +127,7 @@ export class ClaimPrintService {
   table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0; }
   thead th { background: #f1f5f9; padding: 9px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; }
   tbody td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
-  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:last-child td { border-bottom: none; }\n  .category-row td { background:#eaf1f8; color:#1e3a8a; font-weight:700; padding:9px 12px; border-top:2px solid #cbd5e1; }\n  .subtotal-row td { background:#f8fafc; color:#475569; font-weight:600; padding:7px 12px; }
   code { font-family: 'Courier New', monospace; font-size: 12px; background: #f1f5f9; padding: 1px 6px; border-radius: 3px; }
   .totals { margin-top: 14px; display: flex; justify-content: flex-end; }
   .totals-table { width: 320px; border-collapse: collapse; font-size: 13px; }
@@ -209,7 +222,7 @@ export class ClaimPrintService {
     <div class="totals">
       <table class="totals-table">
         <tr><td>Items</td><td>${items.length}</td></tr>
-        <tr><td>Grand Total (GHS)</td><td>${formatMoney(totalItems)}</td></tr>
+        <tr><td>Payable line total (GHS)</td><td>${formatMoney(payableTotal)}</td></tr>\n        <tr><td>All line records</td><td>${items.length}</td></tr>
       </table>
     </div>
 
