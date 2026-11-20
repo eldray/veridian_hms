@@ -308,7 +308,7 @@ export default function Reports() {
   const handleExport = async () => {
     const activeReport = getActiveReport();
     if (!activeReport) { toastError('Export Failed', 'No report data available'); return; }
-    try { await exportReport({ reportType, format: exportFormat, filters: { startDate: dateRange.start, endDate: dateRange.end }, data: activeReport }); success('Export Started', `Generating as ${exportFormat.toUpperCase()}`); }
+    try { await exportReport({ reportType, format: exportFormat, filters: { startDate: dateRange.start, endDate: dateRange.end }, data: activeReport }); success('Export complete', 'Your report file has been downloaded.'); }
     catch (err: any) { toastError('Export Failed', err.message); }
   };
   const isLoading_ = isLoading || storeLoading;
@@ -887,16 +887,45 @@ export default function Reports() {
     const reconciliationChecks = billed != null && collected != null && outstanding != null
       ? [{ label: 'Billed = collected + outstanding', detail: 'Difference: ' + fmt(billed - collected - outstanding, true), ok: Math.abs(billed - collected - outstanding) < 0.01 }]
       : [{ label: 'Financial reconciliation', detail: 'Not assessed — one or more source totals were not returned.', ok: null as boolean | null }];
-    const csvRows = [['Section','Indicator','Value'], ...sections.flatMap(section => section.rows.map(([label, paths, money]: any) => [section.title, label, fmt(read(section.data, paths), Boolean(money))]))];
-    const downloadCsv = () => {
-      const blob = new Blob([csvRows.map(row => row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob); const link = document.createElement('a');
-      link.href = url; link.download = `facility-monthly-overview-${dateRange.start}-to-${dateRange.end}.csv`; link.click(); URL.revokeObjectURL(url);
+    const exportRows: any[] = sections.flatMap(section => section.rows.map(([label, paths, money]: any) => ({
+      Section: section.title,
+      Indicator: label,
+      // Preserve numeric cells for Excel; unavailable source values remain blank, not zero.
+      Value: read(section.data, paths),
+      Unit: money ? 'GHS' : '',
+    })));
+    exportRows.push({
+      Section: 'Data reconciliation',
+      Indicator: 'Billed = collected + outstanding',
+      Value: billed != null && collected != null && outstanding != null ? Number((billed - collected - outstanding).toFixed(2)) : null,
+      Unit: 'GHS difference',
+    });
+    const downloadMonthlyOverview = async () => {
+      try {
+        const result = await exportReport({
+          reportType: 'monthly-overview',
+          format: exportFormat,
+          filters: { startDate: dateRange.start, endDate: dateRange.end },
+          data: exportRows,
+        });
+        success('Export complete', result?.filename || `Monthly overview exported as ${exportFormat.toUpperCase()}.`);
+      } catch (error: any) {
+        toastError('Export failed', error?.message || 'The monthly overview could not be exported.');
+      }
     };
     return <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><p className="text-sm font-bold text-[var(--text-primary)]">Facility performance overview</p><p className="text-xs text-[var(--text-tertiary)]">{dateRange.start} to {dateRange.end} · Existing report endpoints</p></div>
-        <div className="flex gap-2"><button onClick={downloadCsv} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold"><Download className="inline w-3.5 h-3.5 mr-1"/>Export CSV</button><button onClick={() => window.print()} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold">Print</button></div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs">
+            <span className="text-[var(--text-tertiary)]">Export as</span>
+            <select value={exportFormat} onChange={event => setExportFormat(event.target.value as 'csv' | 'excel' | 'pdf')} className="bg-transparent font-semibold text-[var(--text-primary)]">
+              <option value="csv">CSV</option><option value="excel">Excel</option><option value="pdf">PDF</option>
+            </select>
+          </label>
+          <button type="button" onClick={downloadMonthlyOverview} disabled={isLoading_} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold disabled:opacity-50"><Download className="inline w-3.5 h-3.5 mr-1"/>Export</button>
+          <button type="button" onClick={() => window.print()} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold">Print</button>
+        </div>
       </div>
       <Card title="Data reconciliation" padded={false}>
         <div className="divide-y divide-[var(--border-color)]">
