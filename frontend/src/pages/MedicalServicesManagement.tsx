@@ -377,6 +377,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
           case 'scans':
             return (
               item.name?.toLowerCase().includes(term) ||
+              item.investigationCode?.toLowerCase().includes(term) ||
               item.scanCode?.toLowerCase().includes(term) ||
               item.category?.toLowerCase().includes(term)
             );
@@ -533,14 +534,14 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
       case 'diagnoses':
         return `${item.icdCode || 'N/A'}${item.gdrgGroupCode ? ` / ${item.gdrgGroupCode}` : ''}`;
       case 'lab-tests':
-        // Lab tests use the service catalog code
-        return item.code || item.investigationCode || 'N/A';
+        // NHIS claims use the tariff investigation code, not the internal catalogue ID.
+        return item.investigationCode || item.code || 'N/A';
       case 'procedures':
-        // Procedures use the service catalog code
-        return item.code || item.procedureCode || 'N/A';
+        // Procedure templates carry the NHIS procedure tariff code.
+        return item.procedureCode || item.code || 'N/A';
       case 'scans':
-        // Scans use the service catalog code
-        return item.code || item.scanCode || 'N/A';
+        // Display the NHIS investigation code; scanCode remains the facility's local identifier.
+        return item.investigationCode || item.scanCode || item.code || 'N/A';
       default:
         return 'N/A';
     }

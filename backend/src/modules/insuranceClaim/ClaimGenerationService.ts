@@ -199,13 +199,21 @@ export async function buildNHISClaimItems(
 
   // 3. Procedures
   for (const proc of att.Procedure) {
+    const procedureCode = String(
+      proc.ProcedureTemplate?.procedureCode ?? proc.ServiceCatalog?.nhisServiceCode ?? '',
+    ).trim().toUpperCase();
+    if (!procedureCode || /^PROC-/i.test(procedureCode)) {
+      throw new ValidationError(
+        `Completed procedure "${proc.ProcedureTemplate?.name ?? proc.id}" has no valid NHIS procedure tariff code.`,
+      );
+    }
     push(
       {
         procedure: { connect: { id: proc.id } },
         serviceCatalog: proc.serviceCatalogId ? { connect: { id: proc.serviceCatalogId } } : undefined,
         itemCategory: 'procedure',
         itemType: 'N',
-        code: proc.ProcedureTemplate?.procedureCode ?? proc.ServiceCatalog?.code ?? '',
+        code: procedureCode,
         description: proc.ProcedureTemplate?.name ?? proc.ServiceCatalog?.name ?? '',
         quantity: 1,
         serviceDate: proc.performedAt ?? proc.scheduledDate ?? undefined,
@@ -337,7 +345,7 @@ export async function buildBillClaimItems(
       serviceCatalog: line.serviceCatalogId ? { connect: { id: line.serviceCatalogId } } : undefined,
       itemCategory: mapBillServiceType(line.serviceType),
       itemType: null,
-      code: line.serviceCatalog?.code ?? '',
+      code: line.serviceCatalog?.nhisServiceCode ?? line.serviceCatalog?.code ?? '',
       description: line.description,
       quantity: line.quantity,
       unitPrice: line.unitPrice,

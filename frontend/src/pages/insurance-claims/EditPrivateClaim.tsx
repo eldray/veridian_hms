@@ -202,7 +202,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
 
   const filtered = (serviceCatalog || []).filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (s.code || '').toLowerCase().includes(searchTerm.toLowerCase())
+    String(s.nhisServiceCode || s.code || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
@@ -267,7 +267,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
                 }`}
               >
                 <div className="font-medium text-sm">{s.name}</div>
-                <div className="text-xs text-[var(--text-secondary)]">Code: {s.code} | {priceLabel(payerUnitPrice(s, 'private_insurance'))}</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {s.nhisServiceCode || s.code} | {priceLabel(payerUnitPrice(s, 'private_insurance'))}</div>
               </button>
             ))}
           </div>

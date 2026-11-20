@@ -792,7 +792,7 @@ function AddProcedureModal({ isOpen, onClose, onAdd, editing = null }: { isOpen:
     setServiceDate(editing?.date || new Date().toISOString().split('T')[0]);
   }, [isOpen, editing]);
 
-  const codeOf = (t: any) => t?.tariffCode || t?.procedureCode || '';
+  const codeOf = (t: any) => t?.procedureCode || t?.tariffCode || '';
 
   // Current selection: what the user picked, else the row being edited
   const selectedItem = pickedItem ?? (editing
@@ -1164,7 +1164,7 @@ export default function EditNHISClaim() {
     } else {
       const labs = (attendance?.labTest ?? attendance?.LabTest ?? []).map((l: any) => ({
         id: l.id,
-        gdrgCode: l.serviceCatalog?.investigationCode || l.ServiceCatalog?.investigationCode || '',
+        gdrgCode: l.labTestTemplate?.investigationCode || l.LabTestTemplate?.investigationCode || l.serviceCatalog?.nhisServiceCode || l.ServiceCatalog?.nhisServiceCode || '',
         description: l.serviceCatalog?.name || l.ServiceCatalog?.name || l.name || '',
         date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : '',
         serviceCatalogId: l.serviceCatalogId,
@@ -1172,7 +1172,7 @@ export default function EditNHISClaim() {
       }));
       const scans = (attendance?.scan ?? attendance?.Scan ?? []).map((s: any) => ({
         id: s.id,
-        gdrgCode: s.serviceCatalog?.investigationCode || s.ServiceCatalog?.investigationCode || '',
+        gdrgCode: s.scanTemplate?.investigationCode || s.ScanTemplate?.investigationCode || s.serviceCatalog?.nhisServiceCode || s.ServiceCatalog?.nhisServiceCode || '',
         description: s.serviceCatalog?.name || s.ServiceCatalog?.name || s.name || '',
         date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : '',
         serviceCatalogId: s.serviceCatalogId,
@@ -1182,9 +1182,12 @@ export default function EditNHISClaim() {
     }
 
     if (medFromServer.length) {
+      const attendanceMedications: any[] = attendance?.Medication ?? attendance?.medication ?? [];
       setMedicines(medFromServer.map((m: any) => ({
         id: m.id,
-        code: m.code,
+        code: attendanceMedications.find((a: any) => a.id === m.medicationId)?.StockItem?.drugCode
+          || attendanceMedications.find((a: any) => a.id === m.medicationId)?.stockItem?.drugCode
+          || m.code,
         description: m.description,
         quantity: m.quantity,
         date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
@@ -1216,7 +1219,7 @@ export default function EditNHISClaim() {
     } else {
       const attProcs = (attendance?.procedure ?? attendance?.Procedure ?? []).map((pr: any) => ({
         id: pr.id,
-        code: pr.serviceCatalog?.nhisServiceCode || pr.ServiceCatalog?.nhisServiceCode || pr.serviceCatalog?.code || pr.ServiceCatalog?.code || '',
+        code: pr.procedureTemplate?.procedureCode || pr.ProcedureTemplate?.procedureCode || pr.serviceCatalog?.nhisServiceCode || pr.ServiceCatalog?.nhisServiceCode || '',
         description: pr.serviceCatalog?.name || pr.ServiceCatalog?.name || pr.procedureTemplate?.name || pr.ProcedureTemplate?.name || 'Procedure',
         date: (pr.performedAt || pr.scheduledDate || pr.createdAt || '').toString().split('T')[0],
       }));

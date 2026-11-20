@@ -1279,10 +1279,28 @@ ${claimsXml}
       if (covered <= 0) return;
       const type = String(catalog.serviceType || '').toLowerCase();
       const itemCategory = category || (type === 'lab_test' || type === 'scan' ? 'investigation' : type === 'medication' ? 'medicine' : type === 'procedure' ? 'procedure' : 'service');
+      const code = source === 'lab'
+        ? String(record.LabTestTemplate?.investigationCode ?? catalog.nhisServiceCode ?? '').trim().toUpperCase()
+        : source === 'scan'
+          ? String(record.ScanTemplate?.investigationCode ?? catalog.nhisServiceCode ?? '').trim().toUpperCase()
+          : source === 'procedure'
+            ? String(record.ProcedureTemplate?.procedureCode ?? catalog.nhisServiceCode ?? '').trim().toUpperCase()
+            : source === 'medication'
+              ? String(record.StockItem?.drugCode ?? catalog.code ?? '').trim().toUpperCase()
+              : String(catalog.nhisServiceCode ?? catalog.code ?? type.toUpperCase()).trim().toUpperCase();
+      if ((source === 'lab' || source === 'scan') && !/^INVE[0-9]/.test(code)) {
+        throw new ValidationError(`Cannot generate this claim: ${source} "${catalog.name}" has no valid NHIS INVE investigation code.`);
+      }
+      if (source === 'procedure' && (!code || /^PROC-/i.test(code))) {
+        throw new ValidationError(`Cannot generate this claim: procedure "${catalog.name}" has no valid NHIS procedure tariff code.`);
+      }
+      if (source === 'medication' && !code) {
+        throw new ValidationError(`Cannot generate this claim: medicine "${catalog.name}" has no canonical drug code.`);
+      }
       lines.push({
         itemCategory: itemCategory as any,
         itemType: type || source,
-        code: catalog.code || type.toUpperCase(),
+        code,
         description: catalog.name || record.name || record.description || source,
         quantity: qty,
         unitPrice: money(covered / qty),
@@ -1313,9 +1331,9 @@ ${claimsXml}
       if (existing) return { claim: existing, isExisting: true };
       const att = await tx.attendance.findUnique({ where: { id: attendanceId }, include: {
         Patient: true, InsuranceProvider: true, AttendanceDiagnosis: { include: { Diagnosis: true } },
-        ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true } },
-        Medication: { include: { ServiceCatalog: true, StockItem: true } }, Procedure: { include: { ServiceCatalog: true } },
-        Scan: { include: { ServiceCatalog: true } },
+        ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true, LabTestTemplate: true } },
+        Medication: { include: { ServiceCatalog: true, StockItem: true } }, Procedure: { include: { ServiceCatalog: true, ProcedureTemplate: true } },
+        Scan: { include: { ServiceCatalog: true, ScanTemplate: true } },
       }});
       if (!att) throw new NotFoundError('Attendance', attendanceId);
       if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
@@ -1329,9 +1347,9 @@ ${claimsXml}
         insuranceProviderId: att.insuranceProviderId!, totalClaimAmount: total, status: 'draft', createdById: userId,
         metadata: { source: 'attendance_direct', coveragePercentage: coverage },
         diagnosisCodes: safeMap(att.AttendanceDiagnosis, (d: any) => d.Diagnosis?.icdCode),
-        procedureCodes: safeMap(att.Procedure, (p: any) => p.ServiceCatalog?.code),
-        labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? l.ServiceCatalog?.code : null),
-        scanCodes: safeMap(att.Scan, (s: any) => s.status === 'completed' ? s.ServiceCatalog?.code : null),
+        procedureCodes: safeMap(att.Procedure, (p: any) => p.ProcedureTemplate?.procedureCode ?? p.ServiceCatalog?.nhisServiceCode),
+        labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? (l.LabTestTemplate?.investigationCode ?? l.ServiceCatalog?.nhisServiceCode) : null),
+        scanCodes: safeMap(att.Scan, (s: any) => s.status === 'completed' ? (s.ScanTemplate?.investigationCode ?? s.ServiceCatalog?.nhisServiceCode) : null),
         serviceCodes: safeMap(att.ServiceRendered, (s: any) => s.ServiceCatalog?.code),
         medicationCodes: safeMap(att.Medication, (m: any) => m.status === 'dispensed' ? (m.StockItem?.drugCode || m.ServiceCatalog?.code) : null),
         notes: 'Private insurance claim - generated directly from attendance services; no bill created.',
@@ -1348,9 +1366,11 @@ ${claimsXml}
       if (existing) return { claim: existing, isExisting: true };
       const att = await tx.attendance.findUnique({ where: { id: attendanceId }, include: {
         Patient: true, InsuranceProvider: true, CorporateAccount: true, AttendanceDiagnosis: { include: { Diagnosis: true } },
-        ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true } },
-        Medication: { include: { ServiceCatalog: true, StockItem: true } }, Procedure: { include: { ServiceCatalog: true } },
-        Scan: { include: { ServiceCatalog: true } }, Admission: true,
+        ServiceRendered: { include: { ServiceCatalog: true } },
+        LabTest: { include: { ServiceCatalog: true, LabTestTemplate: true } },
+        Medication: { include: { ServiceCatalog: true, StockItem: true } },
+        Procedure: { include: { ServiceCatalog: true, ProcedureTemplate: true } },
+        Scan: { include: { ServiceCatalog: true, ScanTemplate: true } }, Admission: true,
       }});
       if (!att) throw new NotFoundError('Attendance', attendanceId);
       if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
@@ -1371,9 +1391,9 @@ ${claimsXml}
         insuranceProviderId: corp.insuranceProviderId, corporateAccountId: att.corporateAccountId, totalClaimAmount: claimAmt,
         status: 'draft', createdById: userId, metadata: { source: 'attendance_direct', discountPercentage: Number(corp.discountPercentage) || 0 },
         diagnosisCodes: safeMap(att.AttendanceDiagnosis, (d: any) => d.Diagnosis?.icdCode),
-        procedureCodes: safeMap(att.Procedure, (p: any) => p.ServiceCatalog?.code),
-        labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? l.ServiceCatalog?.code : null),
-        scanCodes: safeMap(att.Scan, (s: any) => s.status === 'completed' ? s.ServiceCatalog?.code : null),
+        procedureCodes: safeMap(att.Procedure, (p: any) => p.ProcedureTemplate?.procedureCode ?? p.ServiceCatalog?.nhisServiceCode),
+        labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? (l.LabTestTemplate?.investigationCode ?? l.ServiceCatalog?.nhisServiceCode) : null),
+        scanCodes: safeMap(att.Scan, (s: any) => s.status === 'completed' ? (s.ScanTemplate?.investigationCode ?? s.ServiceCatalog?.nhisServiceCode) : null),
         serviceCodes: safeMap(att.ServiceRendered, (s: any) => s.ServiceCatalog?.code),
         medicationCodes: safeMap(att.Medication, (m: any) => m.status === 'dispensed' ? (m.StockItem?.drugCode || m.ServiceCatalog?.code) : null),
         notes: `Corporate claim - Employee ID: ${att.corporateEmployeeId || 'N/A'}. Generated directly from attendance services; no bill created.`,
