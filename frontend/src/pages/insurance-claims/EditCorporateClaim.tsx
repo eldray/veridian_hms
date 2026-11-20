@@ -522,11 +522,11 @@ export default function EditCorporateClaim() {
 
   const addService = (s: ServiceItem) => setServices([...services, s]);
   const removeService = (i: number) => setServices(services.filter((_, idx) => idx !== i));
-  const updateService = (s: ServiceItem) => setServices(services.map(x => x.id === s.id ? s : x));
+  const updateService = (s: ServiceItem) => { setServices((current) => { const index = current.findIndex((item) => editingService?.id ? item.id === editingService.id : item === editingService); return index < 0 ? current : current.map((item, i) => i === index ? { ...s, id: item.id ?? s.id } : item); }); setEditingService(null); };
 
   const addMedicine = (m: MedicineItem) => setMedicines([...medicines, m]);
   const removeMedicine = (i: number) => setMedicines(medicines.filter((_, idx) => idx !== i));
-  const updateMedicine = (m: MedicineItem) => setMedicines(medicines.map(x => x.id === m.id ? m : x));
+  const updateMedicine = (m: MedicineItem) => { setMedicines((current) => { const index = current.findIndex((item) => editingMedicine?.id ? item.id === editingMedicine.id : item === editingMedicine); return index < 0 ? current : current.map((item, i) => i === index ? { ...m, id: item.id ?? m.id } : item); }); setEditingMedicine(null); };
 
   const buildItemsPayload = () => {
     const out: any[] = [];
