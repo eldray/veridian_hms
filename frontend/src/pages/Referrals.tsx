@@ -256,6 +256,8 @@ export default function Referrals() {
     const prefillKey = searchParams.toString();
     if (prefillKeyApplied.current === prefillKey) return;
     prefillKeyApplied.current = prefillKey;
+    lastAutoPatientId.current = '';
+    setSelectedPatientRecord(null);
     setSelectedPatientId(patientId);
     setSelectedAttendanceId(attendanceId);
     setReferralType('outgoing');
@@ -342,7 +344,8 @@ export default function Referrals() {
         clientName: getPatientName(p), patientName: getPatientName(p), fullName: getPatientName(p),
         folderNumber: p.folderNumber || p.folderNo || '', folderNo: p.folderNumber || '',
         age: age !== '' && age != null ? `${age} years` : '',
-        sex: p.gender || p.sex || '', gender: p.gender || p.sex || '',
+        sex: (() => { const value = String(p.gender || p.sex || '').trim().toLowerCase(); return value ? value.charAt(0).toUpperCase() + value.slice(1) : ''; })(),
+        gender: (() => { const value = String(p.gender || p.sex || '').trim().toLowerCase(); return value ? value.charAt(0).toUpperCase() + value.slice(1) : ''; })(),
         dateOfBirth: fmtDate(dob), dob: fmtDate(dob),
         contact, phone: contact, phoneNumber: contact, telephone: contact,
         address, residentialAddress: address, homeAddress: address,
