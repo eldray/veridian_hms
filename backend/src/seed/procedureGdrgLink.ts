@@ -35,7 +35,7 @@ const prisma = new PrismaClient();
 // SEED RUNNER
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function seedProcedureGDRGLinks() {
+async function seedProcedureGDRGLinks(client: PrismaClient = prisma) {
   console.log('🔗 Starting ProcedureTemplate ↔ GDRGTariff link seeding...\n');
   console.log('ℹ️  NOTE: GDRGTariffProcedure.procedureId references ServiceCatalog.id');
   console.log('   Resolving via ServiceCatalog.procedureTemplateId → ProcedureTemplate.procedureCode\n');
@@ -48,7 +48,7 @@ async function seedProcedureGDRGLinks() {
   const errors: string[] = [];
 
   // ── Step 1: Fetch all ProcedureTemplates keyed by procedureCode ─────────
-  const allTemplates = await prisma.procedureTemplate.findMany({
+  const allTemplates = await client.procedureTemplate.findMany({
     select: { id: true, procedureCode: true, name: true }
   });
   const templateMap = new Map(allTemplates.map(t => [t.procedureCode, t]));
@@ -56,7 +56,7 @@ async function seedProcedureGDRGLinks() {
   // ── Step 2: Fetch ServiceCatalog rows that link to a ProcedureTemplate ──
   // GDRGTariffProcedure.procedureId = ServiceCatalog.id (not ProcedureTemplate.id)
   // so we need the ServiceCatalog ID for each template.
-  const allCatalogs = await prisma.serviceCatalog.findMany({
+  const allCatalogs = await client.serviceCatalog.findMany({
     where: { procedureTemplateId: { not: null } },
     select: { id: true, procedureTemplateId: true, name: true }
   });
@@ -79,7 +79,7 @@ async function seedProcedureGDRGLinks() {
   }
 
   // ── Step 4: GDRG Tariffs ─────────────────────────────────────────────────
-  const allTariffs = await prisma.gDRGTariff.findMany({
+  const allTariffs = await client.gDRGTariff.findMany({
     select: { id: true, gdrgCode: true, description: true }
   });
   const tariffMap = new Map(allTariffs.map(t => [t.gdrgCode, t]));
@@ -128,7 +128,7 @@ async function seedProcedureGDRGLinks() {
 
       try {
         // procedureId here = ServiceCatalog.id — that's what the FK expects
-        await prisma.gDRGTariffProcedure.upsert({
+        await client.gDRGTariffProcedure.upsert({
           where: {
             gdrgTariffId_procedureId: {
               gdrgTariffId: tariff.id,
