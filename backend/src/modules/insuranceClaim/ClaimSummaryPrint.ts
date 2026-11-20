@@ -39,8 +39,9 @@ export const costBucketsFor = (insuranceType: string): Array<{ label: string; ca
         { label: 'NHIS medicines', categories: ['medicine'] },
       ]
     : [
-        { label: 'Labs and imaging', categories: ['investigation'] },
-        { label: 'Services and procedures', categories: ['service', 'procedure'] },
+        { label: 'Consultations and services', categories: ['service'] },
+        { label: 'Procedures', categories: ['procedure'] },
+        { label: 'Laboratory and imaging', categories: ['investigation'] },
         { label: 'Medicines', categories: ['medicine'] },
       ];
 

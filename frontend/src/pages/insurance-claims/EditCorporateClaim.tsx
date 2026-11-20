@@ -51,13 +51,14 @@ const toNum = (v: any): number => (v === null || v === undefined ? 0 : parseFloa
 function buildServicesFromBill(bill: any): ServiceItem[] {
   const lineItems = bill?.billLineItem ?? bill?.BillLineItem ?? [];
   return lineItems
-    .filter((li: any) => !li.isVoided && li.serviceType !== 'medication')
+    .filter((li: any) => !li.isVoided && li.serviceType !== 'medication' && li.serviceType !== 'diagnosis')
     .map((li: any) => {
       const quantity = li.quantity || 1;
       const unitPrice = toNum(li.unitPrice);
       return {
         id: li.id,
         billLineItemId: li.id,
+        itemCategory: li.serviceType === 'procedure' ? 'procedure' : ['lab_test', 'scan', 'investigation'].includes(String(li.serviceType || li.serviceCatalog?.serviceType || '')) ? 'investigation' : 'service',
         description: li.description || li.serviceCatalog?.name || 'Service',
         date: li.createdAt ? new Date(li.createdAt).toISOString().split('T')[0] : '',
         serviceCatalogId: li.serviceCatalogId || undefined,
@@ -164,7 +165,7 @@ function AddDiagnosisModalCorporate({ isOpen, onClose, onAdd }: any) {
   );
 }
 
-function AddServiceModal({ isOpen, onClose, onAdd }: any) {
+function AddServiceModal({ isOpen, onClose, onAdd, itemCategory = 'service' }: any) {
   const { serviceCatalog, getServiceCatalog } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selected, setSelected] = useState<any>(null);
@@ -173,15 +174,16 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
 
   useEffect(() => { if (isOpen) getServiceCatalog({ isActive: true }); }, [isOpen, getServiceCatalog]);
 
+  const allowedTypes = itemCategory === 'procedure' ? ['procedure'] : itemCategory === 'investigation' ? ['lab_test', 'scan'] : ['consultation'];
   const filtered = (serviceCatalog || []).filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(s.nhisServiceCode || s.code || '').toLowerCase().includes(searchTerm.toLowerCase())
+    allowedTypes.includes(String(s.serviceType || '').toLowerCase()) &&
+    (s.name.toLowerCase().includes(searchTerm.toLowerCase()) || String(s.nhisServiceCode || s.code || '').toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleAdd = () => {
     if (!selected) return;
     const unitPrice = payerUnitPrice(selected, 'corporate');
-    onAdd({ description: selected.name, date: serviceDate, serviceCatalogId: selected.id, quantity, unitPrice, total: quantity * unitPrice });
+    onAdd({ id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, itemCategory, description: selected.name, date: serviceDate, serviceCatalogId: selected.id, quantity, unitPrice, total: quantity * unitPrice });
     setSelected(null);
     setSearchTerm('');
     setQuantity(1);
@@ -194,7 +196,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
         <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Service</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{itemCategory === 'procedure' ? 'Add Procedure' : itemCategory === 'investigation' ? 'Add Laboratory / Imaging' : 'Add Consultation / Service'}</h3>
           <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><XCircle className="w-5 h-5 text-[var(--text-secondary)]" /></button>
         </div>
         <div className="p-4 space-y-4">
@@ -223,7 +225,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
           </div>
         </div>
         <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button onClick={handleAdd} disabled={!selected} className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg disabled:opacity-50 text-sm font-medium">Add Service</button>
+          <button onClick={handleAdd} disabled={!selected} className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg disabled:opacity-50 text-sm font-medium">{itemCategory === 'procedure' ? 'Add Procedure' : itemCategory === 'investigation' ? 'Add Lab / Scan' : 'Add Consultation'}</button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">Cancel</button>
         </div>
       </div>
@@ -456,7 +458,7 @@ export default function EditCorporateClaim() {
 
     const serverItems: any[] = (currentClaim as any).items ?? [];
     const diagServer = serverItems.filter((i: any) => i.itemCategory === 'diagnosis');
-    const serviceServer = serverItems.filter((i: any) => i.itemCategory === 'service');
+    const serviceServer = serverItems.filter((i: any) => ['service', 'procedure', 'investigation'].includes(i.itemCategory));
     const medServer = serverItems.filter((i: any) => i.itemCategory === 'medicine');
 
     if (diagServer.length) {
@@ -481,6 +483,7 @@ export default function EditCorporateClaim() {
     if (serviceServer.length) {
       setServices(serviceServer.map((s: any) => ({
         id: s.id,
+        itemCategory: s.itemCategory || 'service',
         billLineItemId: s.billLineItemId ?? null,
         description: s.description,
         date: s.serviceDate ? String(s.serviceDate).split('T')[0] : '',
@@ -490,7 +493,7 @@ export default function EditCorporateClaim() {
         total: toNum(s.lineTotal),
       })));
     } else if (meta.services?.length) {
-      setServices(meta.services);
+      setServices(meta.services.map((item: any) => ({ ...item, itemCategory: item.itemCategory || 'service' })));
     } else {
       setServices(buildServicesFromBill(billOf(currentClaim)));
     }
@@ -541,7 +544,7 @@ export default function EditCorporateClaim() {
     }
     for (const s of services) {
       out.push({
-        itemCategory: 'service',
+        itemCategory: s.itemCategory || 'service',
         code: s.serviceCatalogId || s.description,
         description: s.description,
         quantity: s.quantity,
@@ -568,8 +571,8 @@ export default function EditCorporateClaim() {
     return out;
   };
 
-  const handleSave = async () => {
-    if (!isDraft) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!isDraft) return false;
     if (creditWarning && !(await confirmDialog({
       title: 'Credit limit exceeded',
       message: `This claim (GHS ${finalAmount.toFixed(2)}) exceeds the available credit of GHS ${availableCredit.toFixed(2)}. Continue anyway?`,
@@ -585,11 +588,13 @@ export default function EditCorporateClaim() {
         metadata: { discountPercentage, visitDate },
       });
       const items = buildItemsPayload();
-      if (items.length > 0) await replaceClaimItems(id!, items);
+      await replaceClaimItems(id!, items);
       success('Saved', 'Corporate claim updated successfully');
       await getInsuranceClaim(id!);
+      return true;
     } catch (err: any) {
       toastError('Save Failed', err.message);
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -600,7 +605,8 @@ export default function EditCorporateClaim() {
     if (creditWarning && !(await confirmDialog({ title: 'Credit limit exceeded', message: 'This claim exceeds the available credit limit. Finalize anyway?', confirmText: 'Finalize', type: 'warning' }))) return;
     try {
       setIsSubmitting(true);
-      await handleSave();
+      const saved = await handleSave();
+      if (!saved) return;
       await finalizeClaim(id!);
       success('Finalized', 'Claim is ready for submission');
       navigate('/dashboard/insurance/corporate/claims');
@@ -613,6 +619,10 @@ export default function EditCorporateClaim() {
 
   const handlePrintClaim = async () => {
     try {
+      if (isDraft) {
+        const saved = await handleSave();
+        if (!saved) return;
+      }
       await printClaim(id!);
       success('Print ready', 'Claim data ready for printing');
     } catch (err: any) {
@@ -642,6 +652,24 @@ export default function EditCorporateClaim() {
   ) : undefined;
   const money = (n: number) => `GHS ${n.toFixed(2)}`;
   const unpricedLines = services.filter(s => !s.unitPrice).length + medicines.filter(m => !m.unitPrice).length;
+
+  const renderServiceSection = (category: string, title: string) => {
+    const rows = services.filter(item => (item.itemCategory || 'service') === category);
+    const addLabel = category === 'service' ? 'Add consultation' : category === 'procedure' ? 'Add procedure' : 'Add lab / scan';
+    return (
+      <ListSection title={title} count={rows.length} open={tablesOpen} emptyText={category === 'service' ? 'No consultations or services added...' : category === 'procedure' ? 'No procedures added...' : 'No laboratory or imaging entries added...'} action={addBtn(addLabel, category)}>
+        <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-sm">
+          <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">Actions</TH>}</tr></thead>
+          <tbody>{rows.map((item, idx) => (
+            <tr key={item.id || item.billLineItemId || idx} className="border-t border-gray-100">
+              <td className="px-3 py-3 text-gray-500">{idx + 1}.</td><td className="px-3 py-3 text-gray-700">{item.description}</td><td className="px-3 py-3 text-gray-700">{fmtDate(item.date)}</td><td className="px-3 py-3 text-center text-gray-700">{item.quantity}</td><td className="px-3 py-3 text-right text-gray-700">{money(item.unitPrice)}</td><td className="px-3 py-3 text-right text-gray-800 font-medium">{money(item.quantity * item.unitPrice)}</td>
+              {isDraft && <td className="px-3 py-3 text-center whitespace-nowrap"><button type="button" onClick={() => setEditingService(item)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button><button type="button" onClick={() => removeService(services.indexOf(item))} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>}
+            </tr>
+          ))}</tbody>
+        </table></div>
+      </ListSection>
+    );
+  };
 
   return (
     <>
@@ -698,29 +726,9 @@ export default function EditCorporateClaim() {
           </table>
         </ListSection>
 
-        <ListSection title="SERVICES & PROCEDURES" count={services.length} open={tablesOpen} emptyText="No services added..." action={addBtn('Add', 'service')}>
-          <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
-            <tbody>
-              {services.map((srv, idx) => (
-                <tr key={idx} className="border-t border-gray-100">
-                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-gray-700">{srv.description}</td>
-                  <td className="px-3 py-3 text-gray-700">{fmtDate(srv.date)}</td>
-                  <td className="px-3 py-3 text-center text-gray-700">{srv.quantity}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{money(srv.unitPrice)}</td>
-                  <td className="px-3 py-3 text-right text-gray-800 font-medium">{money(srv.quantity * srv.unitPrice)}</td>
-                  {isDraft && (
-                    <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => setEditingService(srv)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
-                      <button type="button" onClick={() => removeService(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </ListSection>
+        {renderServiceSection('service', 'CONSULTATION / SERVICES')}
+        {renderServiceSection('procedure', 'PROCEDURES')}
+        {renderServiceSection('investigation', 'LABORATORY & IMAGING')}
 
         <ListSection title="MEDICINES" count={medicines.length} open={tablesOpen} emptyText="No medicines added..." action={addBtn('Add', 'medicine')}>
           <table className="w-full text-sm">
@@ -751,6 +759,10 @@ export default function EditCorporateClaim() {
 
         <ClaimCard title="Financial Summary">
           <div className="max-w-md ml-auto text-[15px] text-gray-700 space-y-2">
+            <div className="flex justify-between"><span>Consultation / services</span><span>{money(services.filter(x => (x.itemCategory || 'service') === 'service').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</span></div>
+            <div className="flex justify-between"><span>Procedures</span><span>{money(services.filter(x => x.itemCategory === 'procedure').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</span></div>
+            <div className="flex justify-between"><span>Laboratory & imaging</span><span>{money(services.filter(x => x.itemCategory === 'investigation').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</span></div>
+            <div className="flex justify-between"><span>Medicines</span><span>{money(medicines.reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</span></div>
             <div className="flex justify-between"><span>Subtotal</span><span>{money(subtotal)}</span></div>
             <div className="flex justify-between items-center">
               <span>Corporate discount</span>
@@ -776,12 +788,15 @@ export default function EditCorporateClaim() {
             <button type="button" onClick={goBack} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
           </div>
         ) : (
-          <ClaimFooter onCancel={goBack} onSave={handleSave} saving={isSubmitting} />
+          <>
+            <div className="flex justify-end px-5 pb-3"><button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim Form</button></div>
+            <ClaimFooter onCancel={goBack} onSave={handleSave} saving={isSubmitting} />
+          </>
         )}
       </ClaimFrame>
 
       <AddDiagnosisModalCorporate isOpen={activeModal === 'diagnosis'} onClose={() => setActiveModal(null)} onAdd={addDiagnosis} />
-      <AddServiceModal isOpen={activeModal === 'service'} onClose={() => setActiveModal(null)} onAdd={addService} />
+      <AddServiceModal isOpen={['service', 'procedure', 'investigation'].includes(activeModal || '')} itemCategory={activeModal || 'service'} onClose={() => setActiveModal(null)} onAdd={addService} />
       <AddMedicineModal isOpen={activeModal === 'medicine'} onClose={() => setActiveModal(null)} onAdd={addMedicine} />
       <EditLineItemModal isOpen={!!editingService} onClose={() => setEditingService(null)} onSave={updateService} item={editingService} title="Edit Service" />
       <EditLineItemModal isOpen={!!editingMedicine} onClose={() => setEditingMedicine(null)} onSave={updateMedicine} item={editingMedicine} title="Edit Medicine" />
