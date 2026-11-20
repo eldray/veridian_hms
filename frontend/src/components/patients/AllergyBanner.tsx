@@ -14,7 +14,7 @@ interface AllergyBannerProps {
   className?: string;
 }
 
-const shell = 'flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5';
+const shell = 'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2';
 
 export function AllergyBanner({
   patientId,
@@ -59,12 +59,12 @@ export function AllergyBanner({
         role="alert"
         className={`${shell} bg-[var(--icon-yellow-bg)] border-[var(--icon-yellow-text)] ${className}`}
       >
-        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[var(--icon-yellow-text)]" />
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-[var(--icon-yellow-text)]">
+        <AlertTriangle className="h-4 w-4 flex-shrink-0 text-[var(--icon-yellow-text)]" />
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="inline text-xs font-bold text-[var(--icon-yellow-text)]">
             Allergy information could not be loaded
           </p>
-          <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
+          <p className="inline text-[11px] text-[var(--text-secondary)]">
             Open the patient record and check the allergy list before prescribing or dispensing.
           </p>
         </div>
@@ -81,12 +81,12 @@ export function AllergyBanner({
         role="alert"
         className={`${shell} bg-[var(--icon-red-bg)] border-[var(--icon-red-text)] ${className}`}
       >
-        <ShieldAlert className="w-4 h-4 flex-shrink-0 mt-0.5 text-[var(--icon-red-text)]" />
+        <ShieldAlert className="h-4 w-4 flex-shrink-0 text-[var(--icon-red-text)]" />
         <div className="min-w-0">
-          <p className="text-xs font-bold text-[var(--icon-red-text)]">
+          <p className="inline text-xs font-bold text-[var(--icon-red-text)]">
             Allergy alert — {recorded.length} recorded allerg{recorded.length === 1 ? 'y' : 'ies'}
           </p>
-          <div className="flex flex-wrap gap-1.5 mt-1">
+          <div className="flex flex-wrap items-center gap-1">
             {recorded.map((allergy) => (
               <span
                 key={allergy.id || allergy.allergen}
@@ -99,7 +99,7 @@ export function AllergyBanner({
             ))}
           </div>
           {allergyReviewStatus === 'not_reviewed' && (
-            <p className="text-[10px] text-[var(--icon-red-text)] mt-1">
+            <p className="inline border-l border-current/30 pl-2 text-[10px] text-[var(--icon-red-text)]">
               Allergy status has not been confirmed for this visit. Confirm with the patient before treatment.
             </p>
           )}
@@ -116,7 +116,7 @@ export function AllergyBanner({
       >
         <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-[var(--icon-yellow-text)]" />
         <div className="min-w-0">
-          <p className="text-xs font-bold text-[var(--icon-yellow-text)]">
+          <p className="inline text-xs font-bold text-[var(--icon-yellow-text)]">
             Allergy status not reviewed for this visit
           </p>
           <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
@@ -152,7 +152,7 @@ export function AllergyBanner({
         role="status"
         className={`${shell} bg-[var(--icon-green-bg)] border-[var(--icon-green-text)] ${className}`}
       >
-        <ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5 text-[var(--icon-green-text)]" />
+        <ShieldCheck className="h-4 w-4 flex-shrink-0 text-[var(--icon-green-text)]" />
         <p className="text-xs font-bold text-[var(--icon-green-text)]">
           No known allergies — confirmed for this visit
         </p>
