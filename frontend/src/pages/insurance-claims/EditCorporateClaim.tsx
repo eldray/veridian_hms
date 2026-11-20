@@ -578,7 +578,7 @@ export default function EditCorporateClaim() {
       message: `This claim (GHS ${finalAmount.toFixed(2)}) exceeds the available credit of GHS ${availableCredit.toFixed(2)}. Continue anyway?`,
       confirmText: 'Continue',
       type: 'warning',
-    }))) return;
+    }))) return false;
 
     try {
       setIsSubmitting(true);
