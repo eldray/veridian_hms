@@ -3873,26 +3873,42 @@ export const exportReport = async (data: {
 }) => {
   const response = await api.post('/reports/export', data, { responseType: 'blob', timeout: 120000 });
   const blob: Blob = response.data;
+  const kind = String(data.format).toLowerCase();
+  const extension = kind === 'excel' || kind === 'xlsx' ? 'xlsx' : kind === 'pdf' ? 'pdf' : 'csv';
+  const contentType = String(response.headers?.['content-type'] || blob.type || '').toLowerCase();
+  const prefix = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
+  const prefixText = new TextDecoder().decode(prefix);
 
-  // On a server error the body is JSON text, not a file: show its message instead of saving it as a "report"
-  if (blob.type && blob.type.includes('application/json')) {
+  // Axios preserves JSON error bodies as Blobs when responseType is blob.
+  if (contentType.includes('application/json') || prefixText.trimStart().startsWith('{')) {
     let message = 'Export failed';
     try { message = JSON.parse(await blob.text())?.message || message; } catch { /* keep default */ }
     throw new Error(message);
   }
+  if (!blob.size) throw new Error('The server returned an empty report file.');
+  if (extension === 'pdf' && !prefixText.startsWith('%PDF-')) {
+    throw new Error('The PDF export was not a valid PDF file. Please retry or contact support.');
+  }
+  if (extension === 'xlsx' && !(prefix[0] === 0x50 && prefix[1] === 0x4b)) {
+    throw new Error('The Excel export was not a valid .xlsx workbook. Please retry or contact support.');
+  }
+  if (extension === 'csv' && !contentType.includes('text/csv') && !contentType.includes('octet-stream') && !contentType.includes('text/plain')) {
+    throw new Error('The CSV export returned an unexpected file type.');
+  }
 
-  const extension = data.format === 'excel' ? 'xlsx' : data.format === 'pdf' ? 'pdf' : 'csv';
   const disposition: string = response.headers?.['content-disposition'] || '';
   const match = /filename="?([^";]+)"?/i.exec(disposition);
   const filename = match?.[1] || `${data.reportType}_${new Date().toISOString().split('T')[0]}.${extension}`;
-  const url = window.URL.createObjectURL(blob);
+  const downloadBlob = blob.type ? blob : new Blob([blob], { type: extension === 'pdf' ? 'application/pdf' : extension === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv;charset=utf-8' });
+  const url = window.URL.createObjectURL(downloadBlob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
+  // Give the browser time to begin reading the Blob before revoking its object URL.
+  window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
   return { success: true, filename };
 };
 
