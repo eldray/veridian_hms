@@ -37,16 +37,22 @@ export class StockItemService extends BaseService {
     this.repo = new StockItemRepository(prisma);
   }
 
-  // Builds a readable unique code in the same style as the seed data, e.g. "GLOVES-BOX" or "SYRINGE-5ML-2"
-  private async generateDrugCode(name: string, strength?: string): Promise<string> {
-    const namePart = slugPart(name);
-    const strengthPart = slugPart(strength || '');
-    // Only append the strength when the name doesn't already contain it ("Syringe 5ml" + "5ml" -> SYRINGE-5ML)
-    const parts = strengthPart && !namePart.includes(strengthPart) ? [namePart, strengthPart] : [namePart];
-    const base = parts.filter(Boolean).join('-').slice(0, 40).replace(/-+$/, '') || 'ITEM';
+  // Generates a stable, compact facility catalogue code. The FCH prefix identifies
+  // a facility-generated code; it must never be represented as an official NHIS tariff.
+  private async generateDrugCode(name: string, strength?: string, unitOfMeasure?: string): Promise<string> {
+    const identity = [name, strength, unitOfMeasure]
+      .map((value) => String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
+      .join('|');
+    let hash = 2166136261;
+    for (let index = 0; index < identity.length; index++) {
+      hash ^= identity.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    const namePart = String(name ?? 'MEDICINE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9) || 'MEDICINE';
+    const base = `FCH${namePart}${(hash >>> 0).toString(36).toUpperCase().padStart(7, '0')}`;
     let code = base;
-    for (let i = 2; await this.prisma.stockItem.findUnique({ where: { drugCode: code }, select: { id: true } }); i++) {
-      code = `${base}-${i}`;
+    for (let suffix = 2; await this.prisma.stockItem.findUnique({ where: { drugCode: code }, select: { id: true } }); suffix++) {
+      code = `${base}${suffix}`;
     }
     return code;
   }
@@ -174,7 +180,7 @@ export class StockItemService extends BaseService {
       const existing = await this.prisma.stockItem.findUnique({ where: { drugCode }, select: { id: true } });
       if (existing) throw new ConflictError(`Drug code "${drugCode}" is already in use`);
     } else {
-      drugCode = await this.generateDrugCode(name, strength);
+      drugCode = await this.generateDrugCode(name, strength, unitOfMeasure);
     }
 
     this.logInfo('Creating stock item', { name, drugCode });
