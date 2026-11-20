@@ -824,21 +824,24 @@ export default function TheatreProcedure() {
             </div>
           </div>
 
-          <AllergyBanner
-            patientId={patient?.id}
-            allergies={patient?.allergies}
-            allergyReviewStatus={attendance?.allergyReviewStatus}
-          />
+          <div className="flex flex-wrap items-stretch gap-2">
+            <div className="min-w-0 flex-1 basis-[320px]">
+              <AllergyBanner
+                patientId={patient?.id}
+                allergies={patient?.allergies}
+                allergyReviewStatus={attendance?.allergyReviewStatus}
+              />
+            </div>
 
-          {/* ── READ-ONLY WARNING ─────────────────────────────── */}
-          {!canUpdateProcedure && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3.5 flex items-start gap-2.5">
+            {/* ── READ-ONLY WARNING ─────────────────────────────── */}
+            {!canUpdateProcedure && (
+              <div className="min-w-0 flex-1 basis-[320px] bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-yellow-800">
                 This visit is <strong>{attendance.status}</strong>. Procedures can be viewed but not modified.
               </p>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* ── STATS STRIP ───────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-3">
