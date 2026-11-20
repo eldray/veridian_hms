@@ -731,6 +731,9 @@ export default function MedicalEntries() {
   const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
   const [editingEntry, setEditingEntry] = useState<{ type: MedicalEntryEditType; entry: any } | null>(null);
   const [savingEntry, setSavingEntry] = useState(false);
+  const [editingNote, setEditingNote] = useState<{ type: 'treatment' | 'physician'; index: number } | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
 
   const assessmentValue: ClinicalAssessmentValue = {
     complaints: presentedComplaints,
@@ -1256,6 +1259,61 @@ export default function MedicalEntries() {
       await getAttendance(selectedAttendanceId);
       await calculateBill(selectedAttendanceId);
     } catch (err: any) { toastError('Delete failed', err.message); }
+  };
+
+  const handleEditNote = (type: 'treatment' | 'physician', index: number) => {
+    const note = (type === 'treatment' ? treatmentNotes : physicianNotes)[index];
+    if (!note) return;
+    setEditingNote({ type, index });
+    setEditingNoteText(note.text || '');
+  };
+
+  const handleSaveNoteEdit = async () => {
+    if (!selectedAttendanceId || !editingNote || !editingNoteText.trim()) return;
+    setSavingNote(true);
+    try {
+      if (editingNote.type === 'treatment') {
+        const updatedNotes = treatmentNotes.map((note, i) => i === editingNote.index ? { ...note, text: editingNoteText.trim() } : note);
+        const clinicalNotes = {
+          ...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes) ? currentAttendance.clinicalNotes : {}),
+          treatmentNotes: updatedNotes,
+        };
+        await updateAttendance(selectedAttendanceId, { clinicalNotes, updatedById: user?.id });
+        setTreatmentNotes(updatedNotes);
+      } else {
+        const updatedNotes = physicianNotes.map((note, i) => i === editingNote.index ? { ...note, text: editingNoteText.trim() } : note);
+        await updateAttendance(selectedAttendanceId, { physicianNotes: updatedNotes, updatedById: user?.id });
+        setPhysicianNotes(updatedNotes);
+      }
+      success('Saved', 'Note updated');
+      setEditingNote(null);
+      setEditingNoteText('');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) { toastError('Note update failed', err.message || 'Could not update note'); }
+    finally { setSavingNote(false); }
+  };
+
+  const handleDeleteNote = async (type: 'treatment' | 'physician', index: number) => {
+    if (!selectedAttendanceId) return;
+    const confirmed = await confirmDialog({ title: 'Delete note?', message: 'This note will be removed from the visit record. Continue?', confirmText: 'Delete note', type: 'warning' });
+    if (!confirmed) return;
+    try {
+      if (type === 'treatment') {
+        const updatedNotes = treatmentNotes.filter((_, i) => i !== index);
+        const clinicalNotes = {
+          ...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes) ? currentAttendance.clinicalNotes : {}),
+          treatmentNotes: updatedNotes,
+        };
+        await updateAttendance(selectedAttendanceId, { clinicalNotes, updatedById: user?.id });
+        setTreatmentNotes(updatedNotes);
+      } else {
+        const updatedNotes = physicianNotes.filter((_, i) => i !== index);
+        await updateAttendance(selectedAttendanceId, { physicianNotes: updatedNotes, updatedById: user?.id });
+        setPhysicianNotes(updatedNotes);
+      }
+      success('Deleted', 'Note removed');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) { toastError('Note deletion failed', err.message || 'Could not delete note'); }
   };
 
   const handleSaveEntryEdit = async (values: any) => {
@@ -2390,7 +2448,9 @@ export default function MedicalEntries() {
                 >
                   {physicianNotes.length > 0 ? (
                     [...physicianNotes].reverse().map((note, i) => (
-                      <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                      <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
+                        onEdit={() => handleEditNote('physician', physicianNotes.length - 1 - i)}
+                        onDelete={() => handleDeleteNote('physician', physicianNotes.length - 1 - i)} />
                     ))
                   ) : (
                     <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No physician notes yet</p>
@@ -2436,7 +2496,9 @@ export default function MedicalEntries() {
                 >
                   {treatmentNotes.length > 0 ? (
                     [...treatmentNotes].reverse().map((note, i) => (
-                      <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                      <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
+                        onEdit={() => handleEditNote('treatment', treatmentNotes.length - 1 - i)}
+                        onDelete={() => handleDeleteNote('treatment', treatmentNotes.length - 1 - i)} />
                     ))
                   ) : (
                     <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No treatment notes yet</p>
@@ -2495,6 +2557,7 @@ export default function MedicalEntries() {
       />
 
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
+      {editingNote && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/50" onClick={() => !savingNote && setEditingNote(null)} /><div className="relative w-full max-w-lg rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl"><div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]"><h3 className="text-sm font-bold text-[var(--text-primary)]">Edit {editingNote.type === 'treatment' ? 'treatment' : 'physician'} note</h3><button disabled={savingNote} onClick={() => setEditingNote(null)} className="text-[var(--text-tertiary)]"><XCircle className="w-4 h-4" /></button></div><div className="p-4"><textarea value={editingNoteText} onChange={e => setEditingNoteText(e.target.value)} rows={6} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" /></div><div className="flex gap-2 p-4 border-t border-[var(--border-color)]"><button disabled={savingNote || !editingNoteText.trim()} onClick={handleSaveNoteEdit} className="flex-1 rounded-lg bg-[var(--icon-cyan-text)] text-white py-2 text-sm font-semibold disabled:opacity-50">{savingNote ? 'Saving…' : 'Save note'}</button><button disabled={savingNote} onClick={() => setEditingNote(null)} className="px-4 rounded-lg border border-[var(--border-color)] text-sm">Cancel</button></div></div></div>}
       {editingEntry && <MedicalEntryEditModal type={editingEntry.type} entry={editingEntry.entry} saving={savingEntry} onClose={() => setEditingEntry(null)} onSave={handleSaveEntryEdit} />}
       <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} diagnoses={diagnoses} canAdd={canAddEntries}
@@ -2539,11 +2602,12 @@ export default function MedicalEntries() {
 }
 
 // ─── Note display helpers ─────────────────────────────────────────────────────
-const NoteCard: React.FC<{ author: string; date?: string; text?: string; children?: React.ReactNode }> = ({ author, date, text, children }) => (
+const NoteCard: React.FC<{ author: string; date?: string; text?: string; children?: React.ReactNode; onEdit?: () => void; onDelete?: () => void }> = ({ author, date, text, children, onEdit, onDelete }) => (
   <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
     <div className="flex items-center justify-between mb-1.5">
       <span className="text-[10px] font-bold text-[var(--icon-cyan-text)]">{author}</span>
       {date && <span className="text-[9px] text-[var(--text-tertiary)]">{new Date(date).toLocaleString()}</span>}
+      {(onEdit || onDelete) && <span className="flex items-center gap-1">{onEdit && <button onClick={onEdit} title="Edit note" className="p-1 rounded hover:bg-[var(--icon-cyan-bg)] hover:text-[var(--icon-cyan-text)]"><Edit className="w-3 h-3" /></button>}{onDelete && <button onClick={onDelete} title="Delete note" className="p-1 rounded hover:bg-[var(--icon-red-bg)] hover:text-[var(--icon-red-text)]"><Trash2 className="w-3 h-3" /></button>}</span>
     </div>
     {text && <p className="text-[11px] text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{text}</p>}
     {children}
