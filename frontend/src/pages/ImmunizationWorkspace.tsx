@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
-import NewAttendanceModal from '../components/NewAttendanceModal';
-import ImmunizationPanel from '../components/patients/ImmunizationPanel';
 import { useAuthStore } from '../store/authStore';
-import { Syringe, Search, ArrowRight, RefreshCw, Download, UserRound, CalendarClock } from 'lucide-react';
+import { Search, ArrowRight, RefreshCw, Download } from 'lucide-react';
 
 type Patient = { id: string; surname?: string; otherNames?: string; folderNumber?: string; phoneNumber?: string; dateOfBirth?: string; gender?: string };
 type Visit = { id: string; attendanceNumber?: string; attendanceType?: string; dateTime?: string; status?: string; Patient?: Patient };
