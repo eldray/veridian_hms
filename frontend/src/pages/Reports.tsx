@@ -74,7 +74,7 @@ import {
   getScanReport as apiGetScans, getProcedureReport as apiGetProcedures,
   getMedicationReport as apiGetMedications, getInsuranceClaimsReport as apiGetClaims,
   getStockMovementReport as apiGetStockMovement,
-  getIDSRAlerts, createIDSRAlert, acknowledgeIDSRAlert,
+  getIDSRAlerts, createIDSRAlert, acknowledgeIDSRAlert, getGHSEPIReport, getGHSFormAReport as apiGetFormA, getGHSMalariaReport as apiGetMalaria, getGHSIDSRReport as apiGetIDSR,
 } from '../api';
 
 const AGE_GROUPS = ['<28d', '1-11m', '1-4', '5-9', '10-14', '15-17', '18-19', '20-34', '35-49', '50-59', '60-69', '70+'];
@@ -109,6 +109,7 @@ const GHS_REPORTS = [
   { key: 'ipd', label: 'IPD & Mortality', icon: Hospital, color: 'purple' },
   { key: 'malaria', label: 'Malaria Data', icon: Droplet, color: 'green' },
   { key: 'idsr', label: 'IDSR (Notifiable)', icon: AlertTriangle, color: 'orange' },
+  { key: 'epi', label: 'EPI / Immunization', icon: Baby, color: 'purple' },
   { key: 'delivery-report', label: 'Delivery Report', icon: Baby, color: 'purple' },
   { key: 'family-planning', label: 'Family Planning', icon: Users, color: 'cyan' },
 ];
@@ -208,6 +209,7 @@ export default function Reports() {
   const [exportFormat, setExportFormat] = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
   const [monthlyOverview, setMonthlyOverview] = useState<Record<string, any> | null>(null);
+  const [epiReport, setEpiReport] = useState<any>(null);
   const [registerPage, setRegisterPage] = useState(1);
   const [registerPageSize] = useState(50);
   // FIX #50 — remember whether the user has deliberately picked a category, so the
@@ -244,16 +246,23 @@ export default function Reports() {
             apiGetOPD(f), apiGetIPD(f), apiGetDelivery(f), apiGetFP(f),
             apiGetFinancial(f), apiGetLab(f), apiGetScans(f), apiGetProcedures(f),
             apiGetMedications(f), apiGetClaims(f), apiGetStockMovement(f),
+            getGHSEPIReport(f), apiGetFormA(f), apiGetMalaria(f), apiGetIDSR(f),
           ]);
           const unwrapMonthly = (value: any) => value?.success && value?.data
             ? (value.data.data ?? value.data)
             : (value?.data ?? value);
-          const keys = ['opd', 'ipd', 'delivery', 'familyPlanning', 'financial', 'lab', 'scans', 'procedures', 'medications', 'claims', 'stock'];
+          const keys = ['opd', 'ipd', 'delivery', 'familyPlanning', 'financial', 'lab', 'scans', 'procedures', 'medications', 'claims', 'stock', 'epi', 'maternalFormA', 'malaria', 'idsr'];
           const values = requests.map(result => result.status === 'fulfilled' ? unwrapMonthly(result.value) : null);
           setMonthlyOverview({
             ...Object.fromEntries(keys.map((key, index) => [key, values[index]])),
             unavailableSources: keys.filter((key, index) => requests[index].status === 'rejected'),
           });
+          break;
+        }
+        case 'epi': {
+          const response: any = await getGHSEPIReport(f);
+          setEpiReport(response?.data?.data ?? response?.data ?? response);
+          break;
           break;
         }
         case 'opd-attendance': await getGHSOPDReport(f); break;
@@ -301,7 +310,7 @@ export default function Reports() {
       'monthly-overview': monthlyOverview,
       'opd-attendance': opdReport, 'consulting-room-register': consultingRoomRegister,
       'opd-morbidity': morbidityMortalityReport, 'top-diagnoses': topDiagnoses, 'form-a': formAReport,
-      'ipd': ipdReport, 'malaria': malariaReport, 'idsr': idsrReport, 'delivery-report': deliveryReport, 'family-planning': familyPlanningReport,
+      'ipd': ipdReport, 'malaria': malariaReport, 'idsr': idsrReport, 'epi': epiReport, 'delivery-report': deliveryReport, 'family-planning': familyPlanningReport,
     };
     return map[reportType] ?? null;
   };
@@ -348,7 +357,7 @@ export default function Reports() {
       'opd-attendance': 'OPD Attendance', 'consulting-room-register': 'Consulting Room Register',
       'opd-morbidity': 'OPD Morbidity (Form A)', 'top-diagnoses': 'Top 10 Diagnoses',
       'form-a': 'Form A — Maternal Health', 'ipd': 'IPD & Mortality', 'malaria': 'Malaria Data',
-      'idsr': 'IDSR Notifiable Diseases', 'delivery-report': 'Delivery Report', 'family-planning': 'Family Planning',
+      'idsr': 'IDSR Notifiable Diseases', 'epi': 'EPI / Immunization', 'delivery-report': 'Delivery Report', 'family-planning': 'Family Planning',
     };
     return m[reportType] || 'Report';
   };
@@ -668,6 +677,63 @@ export default function Reports() {
   const renderMalariaReport = () => { const report = malariaReport as any; if (!report) return <EmptyState message="No malaria data available" />; return <MalariaReportView data={report} dateRange={dateRange} />; };
 
   // -------------------------------------------------------------------------
+  // EPI / Immunization — actual vaccine administrations in the selected period.
+  // -------------------------------------------------------------------------
+  const renderEPIReport = () => {
+    const report = epiReport as any;
+    if (!report?.available) return <EmptyState message={report?.message || 'No immunization records are available for this period'} />;
+    const summary = report.summary || {};
+    const vaccines = Array.isArray(report.byVaccine) ? report.byVaccine : [];
+    const count = (value: any) => Number(value || 0).toLocaleString('en-GH');
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard label="Doses administered" value={count(summary.totalDoses)} icon={Baby} accent="purple" />
+          <StatCard label="Children vaccinated" value={count(summary.uniqueChildren)} icon={Users} accent="cyan" />
+          <StatCard label="Overdue follow-ups" value={count(summary.overdueFollowUps)} icon={Calendar} accent="orange" />
+          <StatCard label="Adverse reactions recorded" value={count(summary.adverseReactions)} icon={AlertTriangle} accent="red" />
+        </div>
+        <Card title="Vaccine doses by vaccine" icon={Baby} accent="purple" padded={false}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs table-fixed">
+              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr>
+                <th className={TEXT_TH}>Vaccine</th><th className={NUM_TH}>Doses</th><th className={NUM_TH}>Children</th>
+                <th className={NUM_TH}>Under 1</th><th className={NUM_TH}>1–4 yrs</th><th className={NUM_TH}>5–14 yrs</th><th className={NUM_TH}>15+ yrs</th>
+              </tr></thead>
+              <tbody className="divide-y divide-[var(--border-color)]">
+                {vaccines.map((v: any) => <tr key={v.vaccineId}>
+                  <td className={TEXT_TD}><div className="font-semibold">{v.vaccine}</div><div className="text-[10px] text-[var(--text-tertiary)]">{v.code}</div></td>
+                  <td className={NUM_TD_BOLD}>{count(v.doses)}</td><td className={NUM_TD}>{count(v.uniqueChildren)}</td>
+                  <td className={NUM_TD}>{count(v.ageGroups?.['<1 year'])}</td><td className={NUM_TD}>{count(v.ageGroups?.['1–4 years'])}</td>
+                  <td className={NUM_TD}>{count(v.ageGroups?.['5–14 years'])}</td><td className={NUM_TD}>{count(v.ageGroups?.['15+ years'])}</td>
+                </tr>)}
+                {!vaccines.length && <tr><td className={TEXT_TD} colSpan={7}>No vaccine administrations recorded for this period.</td></tr>}
+              </tbody>
+              <tfoot className="border-t-2 border-[var(--border-color)] bg-[var(--bg-main)]"><tr>
+                <td className={TEXT_TD}>TOTAL</td><td className={NUM_TD_BOLD}>{count(summary.totalDoses)}</td>
+                <td className={NUM_TD_BOLD}>{count(summary.uniqueChildren)}</td>
+                {['<1 year','1–4 years','5–14 years','15+ years'].map(age => <td key={age} className={NUM_TD_BOLD}>{count(report.byAgeGroup?.[age])}</td>)}
+              </tr></tfoot>
+            </table>
+          </div>
+        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card title="Dose sequence" icon={ClipboardList} padded={false}>
+            <div className="divide-y divide-[var(--border-color)]">{Object.entries(report.byDoseNumber || {}).map(([dose, total]: any) =>
+              <div key={dose} className="flex justify-between px-4 py-2.5 text-xs"><span>{dose}</span><strong>{count(total)}</strong></div>)}
+              {!Object.keys(report.byDoseNumber || {}).length && <p className="p-4 text-xs text-[var(--text-tertiary)]">No dose entries in this period.</p>}
+            </div>
+          </Card>
+          <Card title="Reporting limitations" icon={Shield} padded>
+            <p className="text-xs text-[var(--text-secondary)]">Coverage and fully immunized rates are not calculated without a catchment-population denominator and validated vaccine schedules.</p>
+            <ul className="mt-2 list-disc pl-5 space-y-1 text-xs text-[var(--text-tertiary)]">{(report.dataLimitations || []).map((item: string, i: number) => <li key={i}>{item}</li>)}</ul>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  // -------------------------------------------------------------------------
   // IDSR
   // -------------------------------------------------------------------------
   const renderIDSRReport = () => {
@@ -880,6 +946,10 @@ export default function Reports() {
       { title: 'Medication activity', data: monthlyOverview.medications, rows: [['Items dispensed', ['summary.totalDispensed','totalDispensed','summary.totalItems','totalItems']]] },
       { title: 'Insurance claims', data: monthlyOverview.claims, rows: [['Claims', ['summary.totalClaims','totalClaims']], ['Claimed amount', ['summary.totalClaimAmount','totalClaimAmount'], true], ['Outstanding', ['summary.outstandingAmount','outstandingAmount'], true]] },
       { title: 'Stock movement', data: monthlyOverview.stock, rows: [['Transactions', ['summary.totalTransactions','totalTransactions']], ['Units in', ['summary.totalIn','totalIn']], ['Units out', ['summary.totalOut','totalOut']]] },
+      { title: 'EPI / Immunization', data: monthlyOverview.epi, rows: [['Vaccine doses administered', ['summary.totalDoses']], ['Children vaccinated', ['summary.uniqueChildren']], ['Overdue follow-ups', ['summary.overdueFollowUps']], ['Adverse reactions recorded', ['summary.adverseReactions']]] },
+      { title: 'Maternal health / ANC', data: monthlyOverview.maternalFormA, rows: [['Form A generated', ['form.totalDeliveries','form.totalANCVisits','summary.totalANCVisits']]] },
+      { title: 'Malaria', data: monthlyOverview.malaria, rows: [['Under-5 suspected', ['opdMalaria.under5.suspected']], ['Under-5 tested', ['opdMalaria.under5.tested']], ['Under-5 confirmed', ['opdMalaria.under5.confirmed']], ['Above-5 suspected', ['opdMalaria.above5.suspected']], ['Above-5 tested', ['opdMalaria.above5.tested']], ['Above-5 confirmed', ['opdMalaria.above5.confirmed']]] },
+      { title: 'IDSR', data: monthlyOverview.idsr, rows: [['Notifiable disease indicators', ['diseases.length']], ['Suspected diagnosis signals', ['summary.totalSuspected']]] },
     ];
     const billed = read(monthlyOverview.financial, ['summary.totalRevenue','summary.totalBilled','totalRevenue']);
     const collected = read(monthlyOverview.financial, ['summary.totalPaid','summary.totalCollected','totalPaid']);
@@ -954,7 +1024,7 @@ export default function Reports() {
     const map: Record<string, () => React.ReactNode> = {
       'monthly-overview': renderMonthlyOverview, 'consulting-room-register': renderConsultingRoomRegister, 'opd-attendance': renderOPDAttendanceReport,
       'opd-morbidity': renderFullMorbidityReport, 'top-diagnoses': renderTopDiagnoses, 'form-a': renderFormAReport,
-      'ipd': renderIPDReport, 'malaria': renderMalariaReport, 'idsr': renderIDSRReport, 'delivery-report': renderDeliveryReport, 'family-planning': renderFamilyPlanningReport,
+      'ipd': renderIPDReport, 'malaria': renderMalariaReport, 'idsr': renderIDSRReport, 'epi': renderEPIReport, 'delivery-report': renderDeliveryReport, 'family-planning': renderFamilyPlanningReport,
     };
     return map[reportType]?.() ?? <EmptyState message="Select a report type to view data" />;
   };
