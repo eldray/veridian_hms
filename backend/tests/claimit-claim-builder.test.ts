@@ -193,6 +193,7 @@ describe('CLAIM-it pre-flight check', () => {
   const cases: Array<[string, Record<string, any>, string]> = [
     ['a patient with no NHIS number', { Patient: { ...claimFixture().Patient, nhisNumber: '' } }, 'no NHIS number'],
     ['an NHIS number that is neither 8 nor 10 digits', { Patient: { ...claimFixture().Patient, nhisNumber: '123456' } }, 'is not an 8-digit number'],
+    ['no clinician identifier', { items: claimFixture().items.map((i: any) => ({ ...i, clinician: '', prescriberNo: '' })) }, 'No clinician or prescriber number is recorded'],
     ['no claim check code', { claimCheckCode: '', Attendance: { ...claimFixture().Attendance, nhisCCC: null } }, 'no Claim Check Code'],
     ['a 4-digit claim check code', { claimCheckCode: '7437' }, 'not the 5 digits'],
     ['a claim with no diagnosis line', { items: claimFixture().items.filter((i: any) => i.itemCategory !== 'diagnosis') }, 'no diagnosis line'],
