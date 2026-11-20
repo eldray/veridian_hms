@@ -24,7 +24,11 @@ export class InsuranceProviderService extends BaseService {
   // BaseController.error() automatically maps P2002 to a clean 400 Bad Request.
   async createProvider(data: CreateInsuranceProviderDTO) {
     return this.repository.create({ 
-      ...data, 
+      ...data,
+      // NHIS provider-level percentage is not a configurable benefit rule.
+      // Keep the legacy database column at 100 for compatibility; tariff rules
+      // determine the actual covered amount.
+      coveragePercentage: data.type === InsuranceType.nhis ? 100 : data.coveragePercentage,
       name: data.name.trim(), 
       isActive: data.isActive ?? true 
     });
@@ -37,6 +41,12 @@ export class InsuranceProviderService extends BaseService {
     if (updateData.name) updateData.name = updateData.name.trim();
     if (updateData.coveragePercentage !== undefined) {
       updateData.coveragePercentage = parseFloat(updateData.coveragePercentage as any);
+    }
+    const existing = await this.repository.findById(id);
+    const effectiveType = updateData.type ?? existing?.type;
+    if (effectiveType === InsuranceType.nhis) {
+      // Prevent API clients and older screens from reintroducing an NHIS percentage.
+      updateData.coveragePercentage = 100;
     }
     return this.repository.update(id, updateData);
   }
