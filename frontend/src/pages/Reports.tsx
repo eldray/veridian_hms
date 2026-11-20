@@ -152,6 +152,7 @@ function IDSRSurveillanceRegister({ startDate, endDate, diseases }: { startDate:
     } catch (error: any) { setMessage(error?.response?.data?.message || error?.message || 'Could not load surveillance entries.'); }
   }, [startDate, endDate]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setAlertDate(startDate); }, [startDate]);
   useEffect(() => { if (!diseases.some(d => d.code === diseaseCode)) setDiseaseCode(diseases[0]?.code || ''); }, [diseases, diseaseCode]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
