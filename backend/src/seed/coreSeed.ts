@@ -1044,7 +1044,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     const nhisReferenceByDrugCode = new Map<string, any>();
     const usedDrugCodes = new Set<string>();
     const existingStockItems = await prisma.stockItem.findMany({
-      select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true },
+      select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true, isMedication: true },
     });
     for (const existing of existingStockItems) {
       if (existing.drugCode) usedDrugCodes.add(String(existing.drugCode).trim().toUpperCase());
