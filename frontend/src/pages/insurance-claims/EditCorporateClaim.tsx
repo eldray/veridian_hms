@@ -196,7 +196,7 @@ function AddServiceModal({ isOpen, onClose, onAdd, itemCategory = 'service' }: a
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
         <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Service</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{itemCategory === 'procedure' ? 'Add Procedure' : itemCategory === 'investigation' ? 'Add Laboratory / Imaging' : 'Add Consultation / Service'}</h3>
           <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><XCircle className="w-5 h-5 text-[var(--text-secondary)]" /></button>
         </div>
         <div className="p-4 space-y-4">
@@ -225,7 +225,7 @@ function AddServiceModal({ isOpen, onClose, onAdd, itemCategory = 'service' }: a
           </div>
         </div>
         <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button onClick={handleAdd} disabled={!selected} className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg disabled:opacity-50 text-sm font-medium">Add Service</button>
+          <button onClick={handleAdd} disabled={!selected} className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg disabled:opacity-50 text-sm font-medium">{itemCategory === 'procedure' ? 'Add Procedure' : itemCategory === 'investigation' ? 'Add Lab / Scan' : 'Add Consultation'}</button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">Cancel</button>
         </div>
       </div>
@@ -752,6 +752,10 @@ export default function EditCorporateClaim() {
 
         <ClaimCard title="Financial Summary">
           <div className="max-w-md ml-auto text-[15px] text-gray-700 space-y-2">
+            <div className="flex justify-between"><span>Consultation / services</span><span>{money(services.filter(x => (x.itemCategory || 'service') === 'service').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</span></div>
+            <div className="flex justify-between"><span>Procedures</span><span>{money(services.filter(x => x.itemCategory === 'procedure').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</span></div>
+            <div className="flex justify-between"><span>Laboratory & imaging</span><span>{money(services.filter(x => x.itemCategory === 'investigation').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</span></div>
+            <div className="flex justify-between"><span>Medicines</span><span>{money(medicines.reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</span></div>
             <div className="flex justify-between"><span>Subtotal</span><span>{money(subtotal)}</span></div>
             <div className="flex justify-between items-center">
               <span>Corporate discount</span>
