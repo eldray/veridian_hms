@@ -167,7 +167,7 @@ export async function fetchMaternalExtras() {
   return {
     highRiskANC: anc?.byRiskLevel?.high ?? anc?.highRiskBookings ?? anc?.highRisk ?? 0,
     overdueANC: anc?.overdueANC ?? anc?.missed ?? 0,
-    pncDueToday: pnc?.dueToday ?? pnc?.todayVisits ?? 0,
+    pncDueToday: anc?.pncDueToday ?? pnc?.dueToday ?? pnc?.todayVisits ?? 0,
     deliveriesThisWeek: eddThisWeek,
   };
 }
