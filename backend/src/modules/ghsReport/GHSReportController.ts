@@ -64,11 +64,11 @@ export class GHSReportController extends BaseController {
     const { diseaseCode, diseaseName, alertDate, suspectedCases, confirmedCases, deaths } = req.body || {};
     const counts = [suspectedCases, confirmedCases, deaths];
     if (typeof diseaseCode !== 'string' || !diseaseCode.trim() || typeof diseaseName !== 'string' || !diseaseName.trim()) {
-      return this.fail(res, 'Disease code and name are required', 400);
+      return this.badRequest(res, 'Disease code and name are required');
     }
     if (!alertDate || Number.isNaN(new Date(alertDate).getTime()) ||
       counts.some(value => !Number.isInteger(Number(value)) || Number(value) < 0)) {
-      return this.fail(res, 'A valid date and non-negative whole-number counts are required', 400);
+      return this.badRequest(res, 'A valid date and non-negative whole-number counts are required');
     }
     const record = await this.reportService.recordIDSRAlert({
       diseaseCode: diseaseCode.trim(), diseaseName: diseaseName.trim(), alertDate: new Date(alertDate),
