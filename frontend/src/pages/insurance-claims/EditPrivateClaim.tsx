@@ -267,7 +267,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
                 }`}
               >
                 <div className="font-medium text-sm">{s.name}</div>
-                <div className="text-xs text-[var(--text-secondary)]">Code: {s.code} | {priceLabel(payerUnitPrice(s, 'private_insurance'))}</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {s.nhisServiceCode || s.code} | {priceLabel(payerUnitPrice(s, 'private_insurance'))}</div>
               </button>
             ))}
           </div>
