@@ -232,7 +232,7 @@ function AddServiceModal({ isOpen, onClose, onAdd, itemCategory = 'service' }: a
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
         <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Service</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{itemCategory === 'procedure' ? 'Add Procedure' : itemCategory === 'investigation' ? 'Add Laboratory / Imaging' : 'Add Consultation / Service'}</h3>
           <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
             <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
@@ -878,6 +878,18 @@ export default function EditPrivateClaim() {
             <Hint>{unpricedLines} line(s) have no tariff configured for this payer. Open the line and set its unit price, or add the price in Settings → Service Catalog, before finalizing.</Hint>
           )}
         </ListSection>
+
+        <ClaimCard title="Claim Summary">
+          <div className="max-w-xl ml-auto space-y-2 text-sm text-gray-700">
+            <div className="flex justify-between"><span>Consultation / services</span><strong>{money(services.filter(x => (x.itemCategory || 'service') === 'service').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
+            <div className="flex justify-between"><span>Procedures</span><strong>{money(services.filter(x => x.itemCategory === 'procedure').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
+            <div className="flex justify-between"><span>Laboratory & imaging</span><strong>{money(services.filter(x => x.itemCategory === 'investigation').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
+            <div className="flex justify-between"><span>Medicines</span><strong>{money(medicines.reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
+            <div className="flex justify-between border-t pt-2"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
+            <div className="flex justify-between"><span>Insurance coverage ({coveragePercentage}%)</span><strong>{money(insuranceCoverage)}</strong></div>
+            <div className="flex justify-between font-bold border-t pt-2 text-base"><span>Patient payable</span><strong>{money(patientPayable)}</strong></div>
+          </div>
+        </ClaimCard>
 
         <ClaimCard title="Authorization Codes">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
