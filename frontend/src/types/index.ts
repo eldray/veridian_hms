@@ -272,7 +272,6 @@ export interface GDRGTariff {
   minAgeYears?: number | null;
   maxAgeYears?: number | null;
   applicableLevels: number[];
-  nhisServiceCode?: string | null;
   isZoomCode: boolean;
   allowsAddOn: boolean;
   effectiveFrom: string;
