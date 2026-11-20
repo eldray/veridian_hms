@@ -22,30 +22,30 @@ describe('NHIS medicine co-payment allocation', () => {
     });
   });
 
-  it('charges only the cash-price difference when that policy is explicitly selected', () => {
-    expect(calculateNHISMedicineAllocation({
+  it('rejects a positive cash-price difference on a covered NHIS medicine', () => {
+    expect(() => calculateNHISMedicineAllocation({
       cashPrice: 30, nhisTariff: 20, covered: true, copaymentMode: 'cash_price_difference',
-    })).toEqual({ cashPrice: 30, nhisCoveredAmount: 20, patientPayableAmount: 10, copaymentAmount: 10 });
+    })).toThrow(/NHIA does not permit a co-payment/i);
   });
 
-  it('applies fixed and percentage co-payments against the configured NHIS tariff', () => {
-    expect(calculateNHISMedicineAllocation({
+  it('rejects positive fixed and percentage contributions on covered NHIS medicines', () => {
+    expect(() => calculateNHISMedicineAllocation({
       cashPrice: 30, nhisTariff: 20, covered: true, copaymentMode: 'fixed_amount', copaymentAmount: 5,
-    })).toMatchObject({ nhisCoveredAmount: 15, patientPayableAmount: 5 });
-    expect(calculateNHISMedicineAllocation({
+    })).toThrow(/NHIA does not permit a co-payment/i);
+    expect(() => calculateNHISMedicineAllocation({
       cashPrice: 30, nhisTariff: 20, covered: true, copaymentMode: 'percentage', copaymentPercentage: 25,
-    })).toMatchObject({ nhisCoveredAmount: 15, patientPayableAmount: 5 });
+    })).toThrow(/NHIA does not permit a co-payment/i);
   });
 
   it('does not let an NHIS tariff exceed the cash price', () => {
     expect(calculateNHISMedicineAllocation({
-      cashPrice: 12, nhisTariff: 20, covered: true, copaymentMode: 'cash_price_difference',
+      cashPrice: 12, nhisTariff: 20, covered: true,
     })).toMatchObject({ nhisCoveredAmount: 12, patientPayableAmount: 0 });
   });
 
   it('rejects incomplete co-payment configuration instead of silently guessing', () => {
     expect(() => calculateNHISMedicineAllocation({
       cashPrice: 30, nhisTariff: 20, covered: true, copaymentMode: 'fixed_amount',
-    })).toThrow(/requires a configured/);
+    })).toThrow(/configuration is invalid|NHIA does not permit/i);
   });
 });

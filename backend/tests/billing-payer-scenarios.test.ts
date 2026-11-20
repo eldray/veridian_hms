@@ -42,7 +42,7 @@ describe('payer liability aggregation', () => {
     const provider = { id: 'nhis-provider', isActive: true, type: 'nhis', coveragePercentage: 80 };
     const lines = [
       { lineTotal: 100, patientPayableAmount: 100, insuranceCoveredAmount: 0, sourceKey: null },
-      { lineTotal: 65, patientPayableAmount: 13, insuranceCoveredAmount: 52, sourceKey: null },
+      { lineTotal: 65, patientPayableAmount: 0, insuranceCoveredAmount: 65, sourceKey: null },
     ];
     const billUpdate = vi.fn().mockImplementation(async ({ data }: any) => ({ id: 'bill-payer-test', ...data }));
     const tx: any = {
@@ -69,9 +69,9 @@ describe('payer liability aggregation', () => {
 
     const persistedAmounts = billUpdate.mock.calls[0][0].data;
     expect(persistedAmounts.totalAmount).toBe(165);
-    expect(persistedAmounts.insuranceCovered).toBe(52);
-    expect(persistedAmounts.patientPayable).toBe(113);
-    expect(persistedAmounts.balance).toBe(113);
+    expect(persistedAmounts.insuranceCovered).toBe(65);
+    expect(persistedAmounts.patientPayable).toBe(100);
+    expect(persistedAmounts.balance).toBe(100);
   });
 });
 
@@ -90,33 +90,27 @@ describe('NHIS medicine payer allocation rules', () => {
     });
   });
 
-  it('allocates a covered medicine tariff between insurer and configured fixed co-payment', () => {
+  it('allocates the full covered NHIS tariff to the insurer without a patient contribution', () => {
     expect(calculateNHISMedicineAllocation({
       cashPrice: 120,
       nhisTariff: 75,
       covered: true,
-      copaymentMode: 'fixed_amount',
-      copaymentAmount: 10,
-    })).toEqual({
-      cashPrice: 120,
-      nhisCoveredAmount: 65,
-      patientPayableAmount: 10,
-      copaymentAmount: 10,
-    });
-  });
-
-  it('uses the cash-price difference only when that co-payment policy is explicitly selected', () => {
-    expect(calculateNHISMedicineAllocation({
-      cashPrice: 120,
-      nhisTariff: 75,
-      covered: true,
-      copaymentMode: 'cash_price_difference',
     })).toEqual({
       cashPrice: 120,
       nhisCoveredAmount: 75,
-      patientPayableAmount: 45,
-      copaymentAmount: 45,
+      patientPayableAmount: 0,
+      copaymentAmount: 0,
     });
+  });
+
+  it('rejects fixed and cash-price-difference contributions for covered medicines', () => {
+    expect(() => calculateNHISMedicineAllocation({
+      cashPrice: 120, nhisTariff: 75, covered: true,
+      copaymentMode: 'fixed_amount', copaymentAmount: 10,
+    })).toThrow(/NHIA does not permit a co-payment/i);
+    expect(() => calculateNHISMedicineAllocation({
+      cashPrice: 120, nhisTariff: 75, covered: true, copaymentMode: 'cash_price_difference',
+    })).toThrow(/NHIA does not permit a co-payment/i);
   });
 
   it('fails closed when a covered medicine has no positive NHIS tariff', () => {

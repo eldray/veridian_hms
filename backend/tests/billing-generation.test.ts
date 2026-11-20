@@ -98,7 +98,7 @@ describe('automatic bill generation payer allocations', () => {
     });
   });
 
-  it('applies configured NHIS medicine co-payment rules instead of treating the whole tariff as insurer-paid', async () => {
+  it('allocates the full covered NHIS medicine tariff to the insurer without patient co-payment', async () => {
     const attendance = {
       id: 'attendance-1',
       patientId: 'patient-1',
@@ -138,8 +138,8 @@ describe('automatic bill generation payer allocations', () => {
         tariffPrice: 60,
         effectiveFrom: null,
         effectiveTo: null,
-        copaymentMode: 'fixed_amount',
-        copaymentAmount: 10,
+        copaymentMode: 'none',
+        copaymentAmount: null,
         copaymentPercentage: null,
       }],
     };
@@ -147,7 +147,7 @@ describe('automatic bill generation payer allocations', () => {
       attendance,
       { coveragePercentage: 100 },
       stockItem,
-      [{ lineTotal: 120, patientPayableAmount: 20, insuranceCoveredAmount: 100 }],
+      [{ lineTotal: 120, patientPayableAmount: 0, insuranceCoveredAmount: 120 }],
     );
 
     await repository.generateFromEncounter('attendance-1', 'user-1');
@@ -157,8 +157,8 @@ describe('automatic bill generation payer allocations', () => {
     expect(lines[0]).toMatchObject({
       quantity: 2,
       lineTotal: 120,
-      insuranceCoveredAmount: 100,
-      patientPayableAmount: 20,
+      insuranceCoveredAmount: 120,
+      patientPayableAmount: 0,
     });
   });
 });

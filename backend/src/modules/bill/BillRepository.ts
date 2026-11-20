@@ -640,7 +640,12 @@ export class BillRepository extends BaseRepository<any, any, any> {
             select: { coveragePercentage: true }
           })
         : null;
-      const coverageRate = Math.min(100, Math.max(0, Number(payerProvider?.coveragePercentage) || 0)) / 100;
+      // NHIS-covered benefits are paid at the applicable NHIS tariff without a patient co-payment.
+      // Provider coverage percentages are for private insurance; they must not create an NHIS
+      // member contribution on a covered service or ward rate.
+      const coverageRate = paymentMode === 'nhis'
+        ? 1
+        : Math.min(100, Math.max(0, Number(payerProvider?.coveragePercentage) || 0)) / 100;
 
       // Corporate patients with no corporate price get their account's discount off the cash price.
       let corporateDiscountPercent = 0;

@@ -112,9 +112,9 @@ export const resolveMedicationUnitPrice = (
 };
 
 /**
- * Calculates an NHIS medicine line allocation from an explicit payer-rule policy.
- * The reference JSON does not establish co-payment terms; those must be configured on
- * StockItemPayerRule. All amounts are rounded to two decimal places.
+ * Calculates an NHIS medicine line allocation.
+ * NHIA guidance prohibits providers from collecting co-payments for covered NHIS services.
+ * Uncovered medicines remain patient-payable at the cash price and are not claimable.
  */
 export type NHISCopaymentMode = 'none' | 'fixed_amount' | 'percentage' | 'cash_price_difference';
 
@@ -148,6 +148,18 @@ export const calculateNHISMedicineAllocation = (input: {
   }
 
   const mode = input.copaymentMode ?? 'none';
+  if (mode !== 'none') {
+    const configuredContribution = mode === 'fixed_amount'
+      ? Number(input.copaymentAmount ?? 0)
+      : mode === 'percentage'
+        ? Number(input.copaymentPercentage ?? 0)
+        : mode === 'cash_price_difference'
+          ? Math.max(0, cashPrice - tariff)
+          : 0;
+    if (!Number.isFinite(configuredContribution) || configuredContribution > 0) {
+      throw new Error('NHIA does not permit a co-payment for a covered NHIS medicine. Set the policy to No co-payment and use the applicable NHIS tariff.');
+    }
+  }
   let copayment = 0;
   switch (mode) {
     case 'none':
@@ -155,25 +167,19 @@ export const calculateNHISMedicineAllocation = (input: {
       break;
     case 'fixed_amount':
       if (input.copaymentAmount == null || !Number.isFinite(input.copaymentAmount) || input.copaymentAmount < 0) {
-        throw new Error('Fixed NHIS co-payment requires a configured non-negative amount.');
+        throw new Error('Fixed NHIS co-payment configuration is invalid. Set the policy to No co-payment.');
       }
-      copayment = input.copaymentAmount;
+      copayment = 0;
       break;
     case 'percentage':
       if (input.copaymentPercentage == null || !Number.isFinite(input.copaymentPercentage) || input.copaymentPercentage < 0 || input.copaymentPercentage > 100) {
-        throw new Error('Percentage NHIS co-payment requires a configured percentage from 0 to 100.');
+        throw new Error('NHIS co-payment configuration is invalid. Set the policy to No co-payment.');
       }
-      copayment = money(tariff * input.copaymentPercentage / 100);
+      copayment = 0;
       break;
     case 'cash_price_difference':
-      // This is permitted only when a hospital has explicitly selected this policy.
-      copayment = Math.max(0, cashPrice - tariff);
-      return {
-        cashPrice,
-        nhisCoveredAmount: tariff,
-        patientPayableAmount: money(copayment),
-        copaymentAmount: money(copayment),
-      };
+      copayment = 0;
+      break;
     default:
       throw new Error(`Unsupported NHIS co-payment mode: ${mode}`);
   }
