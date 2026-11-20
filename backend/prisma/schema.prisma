@@ -1915,6 +1915,7 @@ model StockItem {
   strength               String
   unitOfMeasure          String
   drugCode               String    @unique
+  nhisServiceCode        String?
   reorderLevel           Int
   currentStock           Int       @default(0) // NOTE: Use DB transactions with row-locking when updating this!
   costPrice              Decimal   @db.Decimal(15, 2)
