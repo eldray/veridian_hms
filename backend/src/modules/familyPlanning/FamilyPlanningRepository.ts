@@ -12,7 +12,7 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
     return {
       patient: {
         select: {
-          id: true, surname: true, otherNames: true, folderNumber: true,
+          id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true,
           dateOfBirth: true, gender: true, contact: true,
         },
       },
