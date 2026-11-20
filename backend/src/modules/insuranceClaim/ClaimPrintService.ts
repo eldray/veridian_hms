@@ -53,11 +53,6 @@ export class ClaimPrintService {
     const admission = attendance.Admission ?? null;
     const items: any[] = claim.items ?? [];
 
-    const totalItems = items.reduce(
-      (s, i) => s + parseFloat(i.lineTotal?.toString?.() ?? '0'),
-      0,
-    );
-
     const claimCategories = [
       { key: 'diagnosis', label: 'Diagnoses', payable: false },
       { key: 'service', label: 'Consultation / Services', payable: true },
