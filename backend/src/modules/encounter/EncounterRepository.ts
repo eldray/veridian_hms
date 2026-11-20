@@ -1681,7 +1681,7 @@ async addScan(encounterId: string, data: any, userId: string) {
     const catalogEntry = await this.prisma.serviceCatalog.findUnique({
       where: { id: serviceCatalogId },
       select: {
-        id: true, name: true, code: true, description: true, serviceType: true,
+        id: true, name: true, code: true, nhisServiceCode: true, description: true, serviceType: true,
         scanTemplateId: true, subType: true, metadata: true, isNHISCovered: true,
         nhisRequiresAuth: true, isActive: true,
       },
@@ -1705,6 +1705,12 @@ async addScan(encounterId: string, data: any, userId: string) {
       const scanType = metadata.scanType;
       const bodyPart = normalizeBodyPart(metadata.bodyPart ?? catalogEntry.subType);
       const scanCategory = normalizeScanCategory(catalogEntry.name, scanType);
+      const investigationCode = String(catalogEntry.nhisServiceCode ?? '').trim().toUpperCase();
+      const scanCode = String(catalogEntry.code ?? '').replace(/^SCAN-/i, '').trim();
+      if (!/^INVE[0-9]/.test(investigationCode)) {
+        throw new ValidationError(`Scan service "${catalogEntry.name}" has no valid NHIS INVE investigation code.`);
+      }
+      if (!scanCode) throw new ValidationError(`Scan service "${catalogEntry.name}" has no catalogue scan code.`);
 
       templateId = await this.prisma.$transaction(async (tx) => {
         const currentCatalog = await tx.serviceCatalog.findUnique({
@@ -1721,11 +1727,11 @@ async addScan(encounterId: string, data: any, userId: string) {
         }
 
         const template = await tx.scanTemplate.upsert({
-          where: { scanCode: catalogEntry.code },
+          where: { scanCode },
           create: {
             name: catalogEntry.name,
-            investigationCode: catalogEntry.code,
-            scanCode: catalogEntry.code,
+            investigationCode,
+            scanCode,
             description: catalogEntry.description || catalogEntry.name,
             category: scanCategory,
             bodyPart,
@@ -1738,7 +1744,7 @@ async addScan(encounterId: string, data: any, userId: string) {
             scanType: typeof scanType === 'string' ? scanType : catalogEntry.name,
             resultTemplate: Array.isArray(metadata.resultTemplate) ? metadata.resultTemplate : undefined,
           },
-          update: {},
+          update: { investigationCode },
           select: { id: true },
         });
         await tx.serviceCatalog.update({

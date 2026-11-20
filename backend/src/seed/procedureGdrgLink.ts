@@ -35,7 +35,7 @@ const prisma = new PrismaClient();
 // SEED RUNNER
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function seedProcedureGDRGLinks() {
+async function seedProcedureGDRGLinks(client: PrismaClient = prisma) {
   console.log('🔗 Starting ProcedureTemplate ↔ GDRGTariff link seeding...\n');
   console.log('ℹ️  NOTE: GDRGTariffProcedure.procedureId references ServiceCatalog.id');
   console.log('   Resolving via ServiceCatalog.procedureTemplateId → ProcedureTemplate.procedureCode\n');
@@ -48,7 +48,7 @@ async function seedProcedureGDRGLinks() {
   const errors: string[] = [];
 
   // ── Step 1: Fetch all ProcedureTemplates keyed by procedureCode ─────────
-  const allTemplates = await prisma.procedureTemplate.findMany({
+  const allTemplates = await client.procedureTemplate.findMany({
     select: { id: true, procedureCode: true, name: true }
   });
   const templateMap = new Map(allTemplates.map(t => [t.procedureCode, t]));
@@ -56,7 +56,7 @@ async function seedProcedureGDRGLinks() {
   // ── Step 2: Fetch ServiceCatalog rows that link to a ProcedureTemplate ──
   // GDRGTariffProcedure.procedureId = ServiceCatalog.id (not ProcedureTemplate.id)
   // so we need the ServiceCatalog ID for each template.
-  const allCatalogs = await prisma.serviceCatalog.findMany({
+  const allCatalogs = await client.serviceCatalog.findMany({
     where: { procedureTemplateId: { not: null } },
     select: { id: true, procedureTemplateId: true, name: true }
   });
@@ -79,7 +79,7 @@ async function seedProcedureGDRGLinks() {
   }
 
   // ── Step 4: GDRG Tariffs ─────────────────────────────────────────────────
-  const allTariffs = await prisma.gDRGTariff.findMany({
+  const allTariffs = await client.gDRGTariff.findMany({
     select: { id: true, gdrgCode: true, description: true }
   });
   const tariffMap = new Map(allTariffs.map(t => [t.gdrgCode, t]));
@@ -90,17 +90,13 @@ async function seedProcedureGDRGLinks() {
   console.log(`   ${procedureCodeToCatalogId.size} templates resolved to a ServiceCatalog ID`);
   console.log(`   ${allTariffs.length} GDRG tariffs\n`);
 
-  // ── Warn about templates with no ServiceCatalog entry ───────────────────
+  // Every procedure template must have a mapping and a linked service-catalogue row.
   const mappedCodes = new Set(MAPPINGS.map(m => m.procedureCode));
-  const unmappedTemplates = allTemplates.filter(
-    t => mappedCodes.has(t.procedureCode) && !procedureCodeToCatalogId.has(t.procedureCode)
-  );
-  if (unmappedTemplates.length > 0) {
-    console.log(`⚠️  ${unmappedTemplates.length} mapped procedure(s) have NO ServiceCatalog entry — they will be skipped:`);
-    unmappedTemplates.forEach(t => console.log(`   - ${t.procedureCode}: ${t.name}`));
-    console.log('   → Create a ServiceCatalog row with procedureTemplateId set for each of these.\n');
-    skipped += unmappedTemplates.length;
-  }
+  const unmappedTemplates = allTemplates.filter(t => !mappedCodes.has(t.procedureCode));
+  const templatesWithoutCatalog = allTemplates.filter(t => mappedCodes.has(t.procedureCode) && !procedureCodeToCatalogId.has(t.procedureCode));
+  for (const item of unmappedTemplates) errors.push(`Procedure template has no G-DRG mapping: ${item.procedureCode} (${item.name})`);
+  for (const item of templatesWithoutCatalog) errors.push(`Procedure template has no linked ServiceCatalog row: ${item.procedureCode} (${item.name})`);
+  skipped = unmappedTemplates.length + templatesWithoutCatalog.length;
 
   // ── Main loop ─────────────────────────────────────────────────────────────
   for (const mapping of MAPPINGS) {
@@ -132,7 +128,7 @@ async function seedProcedureGDRGLinks() {
 
       try {
         // procedureId here = ServiceCatalog.id — that's what the FK expects
-        await prisma.gDRGTariffProcedure.upsert({
+        await client.gDRGTariffProcedure.upsert({
           where: {
             gdrgTariffId_procedureId: {
               gdrgTariffId: tariff.id,
@@ -171,29 +167,30 @@ async function seedProcedureGDRGLinks() {
   console.log('   but has no ServiceCatalog row with procedureTemplateId pointing to it.');
   console.log('   Run your ServiceCatalog seed first, then re-run this script.\n');
 
-  if (errors.length > 0) {
-    console.log('⚠️  Warnings / Errors:');
-    errors.forEach(e => console.log('   ' + e));
+  const expectedLinks = MAPPINGS.reduce((sum, mapping) => sum + mapping.gdrgCodes.length, 0);
+  if (created !== expectedLinks) errors.push(`Procedure G-DRG links processed ${created}/${expectedLinks}`);
+  if (errors.length > 0 || skipped > 0 || procNotFound > 0 || gdrgNotFound > 0 || catalogNotFound > 0) {
+    const summary = `Procedure G-DRG seeding incomplete: ${errors.length} error(s), ${skipped} skipped template(s).\\n${errors.slice(0, 50).join('\\n')}`;
+    console.error(summary);
+    throw new Error(summary);
   }
 
-  await prisma.$disconnect();
+  console.log('🎉 All procedure templates and G-DRG links were reconciled.');
+  return { success: true, templates: allTemplates.length, links: created, mappings: MAPPINGS.length };
 }
 
-seedProcedureGDRGLinks().catch(async (e) => {
-  console.error('Fatal error:', e);
-  await prisma.$disconnect();
-  process.exit(1);
-});
-// At the very bottom of procedureGdrgLink.ts
-
-// ✅ Export the function so it can be imported
+// Export for the main seed runner. Importing this module must never start a seed
+// or disconnect the caller's shared Prisma lifecycle.
 export { seedProcedureGDRGLinks };
 
-// Then call it (only when file is run directly)
+// Standalone CLI execution only.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  seedProcedureGDRGLinks().catch(async (e) => {
-    console.error('Fatal error:', e);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+  seedProcedureGDRGLinks()
+    .catch((error) => {
+      console.error('Fatal error:', error);
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
 }

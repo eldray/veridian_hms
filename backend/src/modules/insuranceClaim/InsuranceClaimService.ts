@@ -416,7 +416,7 @@ ${claimsXml}
               select: {
                 id: true, name: true, status: true, quantity: true, dosage: true, frequency: true, duration: true,
                 dispensedAt: true, stockItemId: true, serviceCatalogId: true,
-                StockItem: { select: { id: true, drugCode: true, name: true, unitOfMeasure: true } },
+                StockItem: { select: { id: true, drugCode: true, isNHISCovered: true, name: true, unitOfMeasure: true } },
               },
             },
           },
@@ -478,6 +478,10 @@ ${claimsXml}
       }
       if (!stockItem) {
         unclaimable.push({ description: label, reason: 'its stock item is missing' });
+        continue;
+      }
+      if (stockItem.isNHISCovered !== true) {
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has a facility catalogue code and is not listed as NHIS-covered' });
         continue;
       }
       const rule = ruleByStockItem.get(stockItem.id);
@@ -784,7 +788,7 @@ ${claimsXml}
 
       const att = await tx.attendance.findUnique({
         where: { id: attendanceId },
-        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: 'dispensed' }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true } } }
+        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: 'dispensed' }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } } }
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
@@ -938,7 +942,7 @@ ${claimsXml}
         nhisMedicineItems.push({
           itemCategory: 'medicine',
           itemType: 'medication',
-          code: stockItem.drugCode || med.ServiceCatalog?.code || 'NHIS-MEDICINE',
+          code: stockItem.drugCode || '',
           description: med.name || stockItem.name,
           quantity,
           unitPrice: coveredUnitAmount,
@@ -1048,6 +1052,21 @@ ${claimsXml}
       const gdrgIdForDiagnosis = (diagnosisId: string): string =>
         billableGdrgId(otherDiagnosisLinks.filter((link) => link.diagnosisId === diagnosisId));
 
+      const requiredNhisInvestigationCode = (value: unknown, label: string): string => {
+        const code = String(value ?? '').trim().toUpperCase();
+        if (!/^INVE[0-9]/.test(code)) {
+          throw new ValidationError(`NHIS claim cannot include ${label}: no valid NHIS INVE investigation code is configured.`);
+        }
+        return code;
+      };
+      const requiredNhisProcedureCode = (value: unknown, label: string): string => {
+        const code = String(value ?? '').trim().toUpperCase();
+        if (!code || /^PROC-/i.test(code)) {
+          throw new ValidationError(`NHIS claim cannot include procedure ${label}: no valid NHIS procedure code is configured.`);
+        }
+        return code;
+      };
+
       const supportingItems: any[] = [
         {
           itemCategory: 'diagnosis',
@@ -1076,7 +1095,7 @@ ${claimsXml}
         ...att.LabTest.map((l) => ({
           itemCategory: 'investigation',
           itemType: 'N',
-          code: l.ServiceCatalog?.nhisServiceCode ?? l.ServiceCatalog?.code ?? '',
+          code: requiredNhisInvestigationCode(l.LabTestTemplate?.investigationCode ?? l.ServiceCatalog?.nhisServiceCode, l.ServiceCatalog?.name ?? l.LabTestTemplate?.name ?? 'laboratory investigation'),
           description: l.ServiceCatalog?.name ?? '',
           quantity: 1,
           unitPrice: 0,
@@ -1088,7 +1107,7 @@ ${claimsXml}
         ...att.Scan.map((s) => ({
           itemCategory: 'investigation',
           itemType: 'N',
-          code: s.ServiceCatalog?.nhisServiceCode ?? s.ServiceCatalog?.code ?? '',
+          code: requiredNhisInvestigationCode(s.ScanTemplate?.investigationCode ?? s.ServiceCatalog?.nhisServiceCode, s.ServiceCatalog?.name ?? s.ScanTemplate?.name ?? 'scan'),
           description: s.ServiceCatalog?.name ?? '',
           quantity: 1,
           unitPrice: 0,
@@ -1100,7 +1119,7 @@ ${claimsXml}
         ...att.Procedure.map((p) => ({
           itemCategory: 'procedure',
           itemType: 'P',
-          code: p.ServiceCatalog?.nhisServiceCode ?? p.ServiceCatalog?.code ?? '',
+          code: requiredNhisProcedureCode(p.ProcedureTemplate?.procedureCode ?? p.ServiceCatalog?.nhisServiceCode, p.ServiceCatalog?.name ?? p.ProcedureTemplate?.name ?? 'procedure'),
           description: p.ServiceCatalog?.name ?? '',
           quantity: 1,
           unitPrice: 0,
@@ -1123,10 +1142,10 @@ ${claimsXml}
           preAuthNumber: authorizationNumbers.size ? Array.from(authorizationNumbers).join(',') : undefined,
           totalClaimAmount: Math.round((Number(tariff.nhiaTariff) + nhisMedicineClaimTotal) * 100) / 100, status: 'draft', createdById: userId,
           diagnosisCodes: safeMap([pd.Diagnosis?.icdCode], c => c),
-          labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.nhisServiceCode),
-          scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.nhisServiceCode),
-          procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
-          medicationCodes: safeMap(att.Medication, m => m.StockItem?.drugCode || m.ServiceCatalog?.code),
+          labTestCodes: safeMap(att.LabTest, l => requiredNhisInvestigationCode(l.LabTestTemplate?.investigationCode ?? l.ServiceCatalog?.nhisServiceCode, l.ServiceCatalog?.name ?? l.LabTestTemplate?.name ?? 'laboratory investigation')),
+          scanCodes: safeMap(att.Scan, s => requiredNhisInvestigationCode(s.ScanTemplate?.investigationCode ?? s.ServiceCatalog?.nhisServiceCode, s.ServiceCatalog?.name ?? s.ScanTemplate?.name ?? 'scan')),
+          procedureCodes: safeMap(att.Procedure, p => requiredNhisProcedureCode(p.ProcedureTemplate?.procedureCode ?? p.ServiceCatalog?.nhisServiceCode, p.ServiceCatalog?.name ?? p.ProcedureTemplate?.name ?? 'procedure')),
+          medicationCodes: safeMap(att.Medication, m => m.StockItem?.isNHISCovered ? m.StockItem?.drugCode : null),
           serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.nhisServiceCode),
           gdrgCodes: [tariff.gdrgCode], nhisServiceCodes: tariff.nhisServiceCode ? [tariff.nhisServiceCode] : [],
           principalGDRG: tariff.gdrgCode, claimCheckCode: att.nhisCCC,
@@ -1651,12 +1670,14 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     for (const row of medRows) {
       const rowPolicyDate = row.serviceDate ?? policyDate;
       const catalog = await this.prisma.serviceCatalog.findFirst({
-        where: { OR: [{ code: row.code }, { StockItem: { drugCode: row.code } }] },
+        where: { OR: [{ code: row.code }, { nhisServiceCode: row.code }, { StockItem: { drugCode: row.code } }] },
         select: {
           code: true,
           StockItem: {
             select: {
               id: true,
+              drugCode: true,
+              isNHISCovered: true,
               payerRules: {
                 where: { insuranceProviderId: claim.insuranceProviderId },
                 select: {
@@ -1681,6 +1702,9 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       // patient-pay item, while an uncovered or out-of-date rule is a configuration gap.
       if (!catalog?.StockItem) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" is not a stocked medicine this claim can be billed against.`);
+      }
+      if (catalog.StockItem.isNHISCovered !== true) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has a facility catalogue code and is not listed as NHIS-covered.`);
       }
       if (!rule) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" has no NHIS payer rule, so it is not on the medicine list this scheme pays. It is patient-pay: remove the line or replace it with a covered item.`);

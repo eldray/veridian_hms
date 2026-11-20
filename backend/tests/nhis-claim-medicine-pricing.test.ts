@@ -48,6 +48,7 @@ describe('NHIS claim medicine pricing', () => {
           code: 'NHIS-MED-1',
           StockItem: {
             id: 'stock-1',
+            drugCode: 'NHIS-MED-1', isNHISCovered: true,
             payerRules: [{
               isCovered: true,
               authorizationRequired: opts.authorizationRequired,
@@ -112,7 +113,7 @@ describe('NHIS claim medicine pricing', () => {
     const { service, prisma, tx } = setupDraft();
     prisma.serviceCatalog.findFirst = vi.fn().mockResolvedValue({
       code: 'NHIS-MED-1',
-      StockItem: { id: 'stock-1', payerRules: [{ isCovered: false, authorizationRequired: null, prescribingLevel: 'A', effectiveFrom: null, effectiveTo: null }] },
+      StockItem: { id: 'stock-1', drugCode: 'NHIS-MED-1', isNHISCovered: true, payerRules: [{ isCovered: false, authorizationRequired: null, prescribingLevel: 'A', effectiveFrom: null, effectiveTo: null }] },
       pricing: [{ cashPrice: 12.5, nhisPrice: 5 }],
     });
 
@@ -130,7 +131,7 @@ describe('NHIS claim medicine pricing', () => {
     const { service, prisma, tx } = setupDraft();
     prisma.serviceCatalog.findFirst = vi.fn().mockResolvedValue({
       code: 'METOCLO-INJ-10',
-      StockItem: { id: 'stock-9', payerRules: [] },
+      StockItem: { id: 'stock-9', drugCode: 'METOCLO-INJ-10', isNHISCovered: false, payerRules: [] },
       pricing: [{ cashPrice: 2.5, nhisPrice: 0 }],
     });
 
@@ -138,7 +139,7 @@ describe('NHIS claim medicine pricing', () => {
       { itemCategory: 'gdrg', code: 'OPDC06A', description: 'G-DRG OPDC06A', quantity: 1 },
       { itemCategory: 'medicine', code: 'METOCLO-INJ-10', description: 'Metoclopramide Injection 10mg/2ml', quantity: 1 },
     ], 'user-1'))
-      .rejects.toThrow(/has no NHIS payer rule, so it is not on the medicine list this scheme pays/);
+      .rejects.toThrow(/facility catalogue code and is not listed as NHIS-covered/);
     expect(tx.insuranceClaimItem.createMany).not.toHaveBeenCalled();
   });
 });

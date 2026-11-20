@@ -494,7 +494,7 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }:
   }, [isOpen, editing, type]);
 
   const items = kind === 'lab' ? labTestTemplates : scanTemplates;
-  const codeField = kind === 'lab' ? 'investigationCode' : 'scanCode';
+  const codeField = 'investigationCode';
 
   // Current selection: what the user picked, else the row being edited
   const selectedItem = pickedItem ?? (editing
@@ -512,7 +512,7 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }:
     if (!selectedItem) return;
     onAdd({
       id: editing?.id,
-      gdrgCode: selectedItem[codeField] || selectedItem.code || 'INVE000',
+      gdrgCode: selectedItem.investigationCode || selectedItem.nhisServiceCode || '',
       description: selectedItem.name,
       date: serviceDate,
       serviceCatalogId: selectedItem.id,

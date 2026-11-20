@@ -1,5 +1,5 @@
 // src/seed/seedData.ts
-import { seedCoreData, seedDiagnosisReferenceData } from './coreSeed.js';
+import { seedCoreData, seedDiagnosisReferenceData, disconnectCoreSeedPrisma } from './coreSeed.js';
 import { seedDiagnosisGDRGLinks } from './diagnosisGdrgLink.js';
 import { seedProcedureGDRGLinks } from './procedureGdrgLink.js';
 import { seedTestData, hasNonDemoPatients } from './testSeed.js';
@@ -118,26 +118,32 @@ export const seedDatabase = async (force: boolean = false) => {
   // seed throws "CounterService not initialized" on every bill and writes none.
   await initCounterService(prisma);
 
-  // Keep demo/test-data seeding separate from reference-data maintenance.
-  // A populated facility database must not receive demo patients, but it should
-  // still be able to add missing ICD-10 diagnoses safely without overwriting local edits.
+  // Keep demo/test patients separate from reference-data maintenance. A populated
+  // facility database must not receive demo records, but every clinical, NHIS and
+  // billing catalogue must still be reconciled on every seed run.
   const hasRealData = await checkDatabaseHasData();
 
   if (hasRealData) {
-    console.log('✅ Patient data that is not part of the demo dataset detected; skipping demo/test data seeding regardless of force mode.');
-    console.log('🛡️ Force mode never overrides the populated-database safety guard.');
-    console.log('🔄 Reconciling missing clinical diagnosis reference data only...');
+    console.log('✅ Real facility patient data detected; demo/test data remains protected.');
+    console.log('🔄 Reconciling the full production-safe reference catalogue (medicines, NHIS rules, labs, scans, procedures, tariffs and service pricing)...');
     try {
+      const coreCatalogue = await seedCoreData(true, {
+        profile: 'production',
+        adminPassword: process.env.SEED_ADMIN_PASSWORD,
+      });
+      if (coreCatalogue?.success === false) throw new Error(coreCatalogue.message || 'Production reference catalogue seeding failed.');
       const diagnosisReferences = await seedDiagnosisReferenceData();
       await seedDiagnosisGDRGLinks();
+      await seedProcedureGDRGLinks(prisma);
       return {
         success: true,
-        message: 'Demo/test data skipped; diagnosis reference data reconciled safely',
-        skipped: true,
+        message: 'Reference catalogues reconciled; demo/test data safely excluded',
+        skippedDemoData: true,
+        coreCatalogue,
         diagnosisReferences,
       };
     } finally {
-      await prisma.$disconnect();
+      await Promise.all([prisma.$disconnect(), disconnectCoreSeedPrisma()]);
     }
   }
 
@@ -163,12 +169,18 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('   - Stock Items');
     console.log('   - Wards & Beds');
 
-    const coreResult = await safeSeed('Core Data', () => seedCoreData(force), force, 'coreData', status);
+    const productionProfile = process.env.NODE_ENV === 'production' || process.env.ELECTRON === 'true';
+    const coreSeedOptions = productionProfile
+      ? { profile: 'production' as const, adminPassword: process.env.SEED_ADMIN_PASSWORD }
+      : {};
+    const coreResult = await safeSeed('Core Data', () => seedCoreData(productionProfile ? true : force, coreSeedOptions), force, 'coreData', status);
     results.coreData = coreResult;
 
-    // If core data failed and not in force mode, stop
-    if (!coreResult.success && !force) {
-      throw new Error('Core data seeding failed. Use --force to continue anyway.');
+    // Force mode may continue to later seed stages, but it must never hide a
+    // failed core catalogue from the final result.
+    if (!coreResult.success) {
+      results.errors.push(`Core data: ${coreResult.error || 'failed'}`);
+      if (!force) throw new Error('Core data seeding failed. Use --force to continue other stages.');
     }
 
     // ========== STEP 2: DIAGNOSIS ↔ GDRG LINKS ==========
@@ -185,7 +197,7 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('-----------------------------------');
     console.log('   Mapping procedure codes to GDRG tariffs...');
 
-    const procResult = await safeSeed('Procedure-GDRG Links', seedProcedureGDRGLinks, force, 'procedureLinks', status);
+    const procResult = await safeSeed('Procedure-GDRG Links', () => seedProcedureGDRGLinks(prisma), force, 'procedureLinks', status);
     results.procedureLinks = procResult;
     if (!procResult.success) results.errors.push('Procedure-GDRG links: failed');
 
@@ -204,9 +216,15 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('   - Notifications');
     if (force) console.log('   - Force mode: the demo dataset from the previous run is deleted and written again');
 
-    const testResult = await safeSeed('Test Data', () => seedTestData(force), force, 'testData', status);
-    results.testData = testResult;
-    if (!testResult.success) results.errors.push(`Test data: ${testResult.error || 'failed'}`);
+    if (productionProfile) {
+      console.log('🛡️ Production profile: demo/test patients and encounters are intentionally excluded.');
+      results.testData = { success: true, data: { skipped: true, reason: 'production profile' } };
+      status.testData = false;
+    } else {
+      const testResult = await safeSeed('Test Data', () => seedTestData(force), force, 'testData', status);
+      results.testData = testResult;
+      if (!testResult.success) results.errors.push(`Test data: ${testResult.error || 'failed'}`);
+    }
 
     // ========== SUMMARY ==========
     console.log('\n==================================================');
@@ -224,12 +242,16 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('\nSummary:');
     // A step that skipped is not a step that wrote, so report the skip before the success.
     const describe = (result: any, verb: string) =>
-      result?.data?.skipped ? '⏭️ already existed, nothing written' : result?.success ? `✅ ${verb}` : '❌ failed';
+      result?.data?.skipped
+        ? (result.data.reason === 'production profile' ? '⏭️ excluded by production safety' : '⏭️ already existed, nothing written')
+        : result?.success ? `✅ ${verb}` : '❌ failed';
     console.log(`   Core Data         : ${describe(results.coreData, 'seeded')}`);
     console.log(`   Diagnosis Links   : ${describe(results.diagnosisLinks, 'created')}`);
     console.log(`   Procedure Links   : ${describe(results.procedureLinks, 'created')}`);
     console.log(`   Test Data         : ${describe(results.testData, 'seeded')}`);
-    if (results.testData?.data?.skipped) {
+    if (results.testData?.data?.reason === 'production profile') {
+      console.log('   ℹ️ Demo/test records are intentionally not written to production databases.');
+    } else if (results.testData?.data?.skipped) {
       console.log('   ℹ️ The demo dataset is already in this database. To write it again: npm run seed -- --force');
     }
 
@@ -258,7 +280,7 @@ export const seedDatabase = async (force: boolean = false) => {
       results,
     };
   } finally {
-    await prisma.$disconnect();
+    await Promise.all([prisma.$disconnect(), disconnectCoreSeedPrisma()]);
   }
 };
 

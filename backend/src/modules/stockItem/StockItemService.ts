@@ -37,18 +37,18 @@ export class StockItemService extends BaseService {
     this.repo = new StockItemRepository(prisma);
   }
 
-  // Builds a readable unique code in the same style as the seed data, e.g. "GLOVES-BOX" or "SYRINGE-5ML-2"
-  private async generateDrugCode(name: string, strength?: string): Promise<string> {
-    const namePart = slugPart(name);
-    const strengthPart = slugPart(strength || '');
-    // Only append the strength when the name doesn't already contain it ("Syringe 5ml" + "5ml" -> SYRINGE-5ML)
-    const parts = strengthPart && !namePart.includes(strengthPart) ? [namePart, strengthPart] : [namePart];
-    const base = parts.filter(Boolean).join('-').slice(0, 40).replace(/-+$/, '') || 'ITEM';
-    let code = base;
-    for (let i = 2; await this.prisma.stockItem.findUnique({ where: { drugCode: code }, select: { id: true } }); i++) {
-      code = `${base}-${i}`;
+  // Readable NHIS-style code: eight name letters plus a unique two-digit sequence.
+  private async generateDrugCode(name: string): Promise<string> {
+    const base = String(name ?? 'MEDICINE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'MEDICINE';
+    for (let sequence = 1; sequence <= 99; sequence++) {
+      const code = `${base}${String(sequence).padStart(2, '0')}`;
+      const [stockItem, service] = await Promise.all([
+        this.prisma.stockItem.findUnique({ where: { drugCode: code }, select: { id: true } }),
+        this.prisma.serviceCatalog.findUnique({ where: { code }, select: { id: true } }),
+      ]);
+      if (!stockItem && !service) return code;
     }
-    return code;
+    throw new ConflictError(`Could not generate a unique medicine code for ${name}. Enter a code manually.`);
   }
 
   /**
@@ -79,7 +79,7 @@ export class StockItemService extends BaseService {
       name: item.name,
       isActive: item.isActive,
       tariffCode: item.tariffCode ?? null,
-      isNHISCovered: item.isNHISCovered !== false && nhis > 0,
+      isNHISCovered: item.isNHISCovered === true && nhis > 0,
       isPrivateInsuranceExempted: item.isPrivateInsExempted === true,
       nhisRequiresAuth: item.nhisRequiresAuth === true,
       privateInsRequiresAuth: item.privateInsRequiresAuth === true
@@ -89,11 +89,11 @@ export class StockItemService extends BaseService {
       catalog = await tx.serviceCatalog.create({
         data: {
           ...flags,
-          code: `MED-${item.drugCode}`,
+          code: item.drugCode,
           serviceType: ServiceType.medication,
           serviceCategory: ServiceCategory.pharmacy,
           subType: item.category || 'medication',
-          nhisServiceCode: item.drugCode,
+          nhisServiceCode: null,
           unit: item.unitOfMeasure || 'Each',
           isPending: false,
           stockItemId: item.id,
@@ -101,7 +101,7 @@ export class StockItemService extends BaseService {
         }
       });
     } else {
-      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: flags });
+      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: { ...flags, code: item.drugCode, nhisServiceCode: null } });
     }
 
     const changed = !current
@@ -171,10 +171,13 @@ export class StockItemService extends BaseService {
     // drugCode is required + unique in the schema: use the one supplied, otherwise generate it
     let drugCode = String(data.drugCode ?? '').trim().toUpperCase();
     if (drugCode) {
-      const existing = await this.prisma.stockItem.findUnique({ where: { drugCode }, select: { id: true } });
-      if (existing) throw new ConflictError(`Drug code "${drugCode}" is already in use`);
+      const [existing, service] = await Promise.all([
+        this.prisma.stockItem.findUnique({ where: { drugCode }, select: { id: true } }),
+        this.prisma.serviceCatalog.findUnique({ where: { code: drugCode }, select: { id: true } }),
+      ]);
+      if (existing || service) throw new ConflictError(`Drug code "${drugCode}" is already in use`);
     } else {
-      drugCode = await this.generateDrugCode(name, strength);
+      drugCode = await this.generateDrugCode(name);
     }
 
     this.logInfo('Creating stock item', { name, drugCode });
@@ -182,10 +185,10 @@ export class StockItemService extends BaseService {
     const item = await this.prisma.$transaction(async (tx) => {
       const created = await this.repo.create({
         name, category, description: data.description, strength, unitOfMeasure, drugCode,
-        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, isNHISCovered: data.isNHISCovered ?? true,
+        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, isNHISCovered: data.isNHISCovered === true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
-        tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
+        tariffCode: (data.isMedication ?? true) ? drugCode : data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
       }, tx);
       await this.savePatientPrices(tx, created, data, userId);
       if (initialStock > 0) {
@@ -234,6 +237,18 @@ export class StockItemService extends BaseService {
     // Price fields and relations are not stock-item columns: strip them, then apply the prices to the catalog entry
     const { id: _, createdAt, cashPrice, nhisPrice, insurancePrice, corporatePrice, ServiceCatalog, StockBatch, currentStock: _currentStock, stockBalances: _stockBalances, ...cleanData } = updateData;
     return this.prisma.$transaction(async (tx) => {
+      const current = await tx.stockItem.findUnique({
+        where: { id },
+        select: { drugCode: true, tariffCode: true, isMedication: true },
+      });
+      if (!current) throw new NotFoundError('Stock item', id);
+      const requestedCode = cleanData.drugCode ? String(cleanData.drugCode).trim().toUpperCase() : current.drugCode;
+      if (requestedCode !== current.drugCode) {
+        throw new ValidationError('A medicine catalogue code cannot be changed after creation; retain the canonical code used by billing and claims.');
+      }
+      delete cleanData.drugCode;
+      const nextIsMedication = cleanData.isMedication ?? current.isMedication;
+      cleanData.tariffCode = nextIsMedication ? current.drugCode : (cleanData.tariffCode ?? current.tariffCode);
       const updated = await this.repo.update(id, { ...cleanData, expiryDate: cleanData.expiryDate ? new Date(cleanData.expiryDate) : undefined }, tx);
       await this.savePatientPrices(tx, updated, { cashPrice, nhisPrice, insurancePrice, corporatePrice }, userId);
       return updated;
