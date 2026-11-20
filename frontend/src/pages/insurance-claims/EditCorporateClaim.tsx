@@ -781,7 +781,10 @@ export default function EditCorporateClaim() {
             <button type="button" onClick={goBack} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
           </div>
         ) : (
-          <ClaimFooter onCancel={goBack} onSave={handleSave} saving={isSubmitting} />
+          <>
+            <div className="flex justify-end px-5 pb-3"><button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim Form</button></div>
+            <ClaimFooter onCancel={goBack} onSave={handleSave} saving={isSubmitting} />
+          </>
         )}
       </ClaimFrame>
 
