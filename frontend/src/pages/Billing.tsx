@@ -115,7 +115,7 @@ export default function Billing() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [refreshing, setRefreshing] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilterType>('month');
+  const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -138,7 +138,6 @@ export default function Billing() {
     bills,
     isLoading: billsLoading,
     getBills,
-    getBillStatistics,
   } = useBillingStore();
 
   const {
@@ -215,7 +214,7 @@ export default function Billing() {
           return `${formatDateOnly(customStartDate)} – ${formatDateOnly(customEndDate)}`;
         }
         return 'Custom Range';
-      default: return 'This Month';
+      default: return 'Today';
     }
   };
 
@@ -226,7 +225,9 @@ export default function Billing() {
     return range ? { from: toDateInput(range.startDate), to: toDateInput(range.endDate) } : { from: '', to: '' };
   }, [getDateRange]);
 
-  // Load data
+  // Load only the data needed by the selected tab. The default bills view should
+  // make one bounded, date-filtered request instead of fetching the whole month,
+  // waiver registers and unrelated financial summaries on every tab change.
   const loadData = async () => {
     try {
       setRefreshing(true);
@@ -235,29 +236,27 @@ export default function Billing() {
       if (activeTab === 'collections' && !dateRange) {
         setCollectionsReport(EMPTY_COLLECTIONS);
       }
+
       const filters: any = {};
       if (dateRange) {
         filters.dateFrom = dateRange.startDate.toISOString();
         filters.dateTo = dateRange.endDate.toISOString();
       }
-      if (statusFilter !== 'all') {
-        filters.status = statusFilter;
-      }
-      const [, , , , collections] = await Promise.all([
-        getBills({ ...filters, limit: 5000 }), // all pages of the selected window (100 per request)
-        getBillStatistics(filters),
-        getWaivers(filters),
-        getWaiverStats(filters),
-        activeTab === 'collections' && dateRange
-          ? getBillingCollections({
-              dateFrom: dateRange.startDate.toISOString(),
-              dateTo: dateRange.endDate.toISOString()
-            })
-          : Promise.resolve(null)
-      ]);
-      if (activeTab === 'collections') {
+      if (statusFilter !== 'all') filters.status = statusFilter;
+
+      if (activeTab === 'bills') {
+        // Repository caps this at 1,000; today's bills are all returned in one request.
+        await getBills({ ...filters, limit: 1000 });
+      } else if (activeTab === 'waivers') {
+        await Promise.all([getWaivers(filters), getWaiverStats(filters)]);
+      } else if (dateRange) {
+        const collections = await getBillingCollections({
+          dateFrom: dateRange.startDate.toISOString(),
+          dateTo: dateRange.endDate.toISOString(),
+        });
         setCollectionsReport(collections || EMPTY_COLLECTIONS);
       }
+
       success('Data refreshed', 'Billing data is up-to-date.');
     } catch (err) {
       toastError('Refresh failed', 'Could not load billing data.');
