@@ -1719,6 +1719,9 @@ export const getWorklistSummary = () =>
 export const addDiagnosisToEncounter = (encounterId: string, data: any) =>
   api.post(`/encounters/${encounterId}/diagnosis`, data).then(r => r.data);
 
+export const updateDiagnosisInEncounter = (encounterId: string, diagnosisRowId: string, data: any) =>
+  api.put(`/encounters/${encounterId}/diagnosis/${diagnosisRowId}`, data).then(r => r.data);
+
 export const removeDiagnosisFromEncounter = (encounterId: string, diagnosisId: string) =>
   api.delete(`/encounters/${encounterId}/diagnosis/${diagnosisId}`).then(r => r.data);
 

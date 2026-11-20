@@ -183,6 +183,12 @@ export class EncounterController extends BaseController {
     return this.created(res, diagnosis, 'Diagnosis added successfully');
   });
 
+  updateDiagnosis = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id, diagnosisId } = req.params;
+    const updated = await this.service.updateDiagnosis(id, diagnosisId, req.body);
+    return this.ok(res, updated, 'Diagnosis updated successfully');
+  });
+
   setPrimaryDiagnosis = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { diagnosisId } = req.body;
@@ -300,10 +306,10 @@ export class EncounterController extends BaseController {
 
   updateLabTestStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { labTestId } = req.params;
-    const { status, result, normalRange, units, notes } = req.body;
+    const { status, result, normalRange, units, notes, priority } = req.body;
     const user = req.user!;
 
-    const labOrder = await this.service.updateLabTestStatus(labTestId, status, { result, normalRange, units, notes }, user.id);
+    const labOrder = await this.service.updateLabTestStatus(labTestId, status, { result, normalRange, units, notes, priority }, user.id);
     return this.ok(res, labOrder, 'Lab order status updated');
   });
 
@@ -338,9 +344,9 @@ export class EncounterController extends BaseController {
 
   updateScanStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { scanId } = req.params;
-    const { status, result, findings, impression, imageUrls } = req.body;
+    const { status, result, findings, impression, imageUrls, notes, priority } = req.body;
     const user = req.user!;
-    const scan = await this.service.updateScanStatus(scanId, status, { result, findings, impression, imageUrls }, user.id);
+    const scan = await this.service.updateScanStatus(scanId, status, { result, findings, impression, imageUrls, notes, priority }, user.id);
     return this.ok(res, scan, 'Scan status updated');
   });
 

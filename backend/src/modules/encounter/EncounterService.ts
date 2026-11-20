@@ -725,6 +725,7 @@ export class EncounterService extends BaseService {
   
   // Clinical Sub-resources
   async addDiagnosis(id: string, data: AddDiagnosisDTO, userId: string) { return this.repository.addDiagnosis(id, data, userId); }
+  async updateDiagnosis(id: string, diagnosisRowId: string, data: any) { return this.repository.updateDiagnosis(id, diagnosisRowId, data); }
   async setPrimaryDiagnosis(id: string, diagnosisId: string, userId: string) { return this.addDiagnosis(id, { diagnosisId, diagnosisType: 'primary' }, userId); }
   async removeDiagnosis(id: string, diagnosisId: string) { return this.repository.removeDiagnosis(id, diagnosisId); }
   

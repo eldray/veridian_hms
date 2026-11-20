@@ -139,7 +139,9 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
 
   // DIAGNOSIS
   router.post('/:id/diagnosis', requireRole(['admin', 'super_admin', 'doctor']), controller.addDiagnosis);
+  // The fixed /primary path must precede the diagnosisId parameter route.
   router.put('/:id/diagnosis/primary', requireRole(['admin', 'super_admin', 'doctor']), controller.setPrimaryDiagnosis);
+  router.put('/:id/diagnosis/:diagnosisId', requireRole(['admin', 'super_admin', 'doctor']), controller.updateDiagnosis);
   router.delete('/:id/diagnosis/:diagnosisId', requireRole(['admin', 'super_admin', 'doctor']), controller.removeDiagnosis);
 
   // VITALS
