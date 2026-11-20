@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../api/api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import ImmunizationPanel from '../components/patients/ImmunizationPanel';
+import { useAuthStore } from '../store/authStore';
 import { Syringe, Search, ArrowRight, RefreshCw, Download, UserRound } from 'lucide-react';
 
 type DueRow = { id: string; nextDoseDue: string; administeredAt: string; doseNumber: string; Patient?: { id: string; surname?: string; otherNames?: string; folderNumber?: string; phoneNumber?: string }; Vaccine?: { name?: string; code?: string } };
@@ -11,6 +12,7 @@ const labelName = (p?: DueRow['Patient']) => [p?.otherNames,p?.surname].filter(B
 
 export default function ImmunizationWorkspace() {
   const [search, setSearch] = useState('');
+  const { hasRole } = useAuthStore();
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [due, setDue] = useState<DueRow[]>([]);
@@ -54,7 +56,6 @@ export default function ImmunizationWorkspace() {
     finally { setLoading(false); }
   };
   useEffect(()=>{ load(); },[]);
-  const today = dayKey(new Date());
   const visible = useMemo(()=>due.filter(r=>!search.trim() || labelName(r.Patient).toLowerCase().includes(search.toLowerCase()) || String(r.Patient?.folderNumber||'').includes(search.trim()) || String(r.Patient?.phoneNumber||'').includes(search.trim())),[due,search]);
 
   return <div className="space-y-6">
@@ -72,7 +73,7 @@ export default function ImmunizationWorkspace() {
     {loading?<p className="py-8 text-center text-sm text-[var(--text-secondary)]">Loading worklist…</p>:visible.length===0?<p className="py-8 text-center text-sm text-[var(--text-secondary)]">No follow-up doses found in this 60-day window.</p>:<div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-[var(--border-color)] text-xs text-[var(--text-secondary)]"><th className="p-2">Patient</th><th className="p-2">Folder</th><th className="p-2">Vaccine</th><th className="p-2">Dose</th><th className="p-2">Due</th><th className="p-2">Status</th><th className="p-2">Action</th></tr></thead><tbody>{visible.map(r=><tr key={r.id} className="border-b border-[var(--border-color)]"><td className="p-2 font-medium text-[var(--text-primary)]">{labelName(r.Patient)}</td><td className="p-2">{r.Patient?.folderNumber||'—'}</td><td className="p-2">{r.Vaccine?.name||r.Vaccine?.code||'Vaccine'}</td><td className="p-2">{r.doseNumber}</td><td className="p-2">{r.nextDoseDue?new Date(r.nextDoseDue).toLocaleDateString():'—'}</td><td className="p-2"><span className={r.nextDoseDue?.slice(0,10)<today?'text-red-600':'text-emerald-600'}>{r.nextDoseDue?.slice(0,10)<today?'Overdue':'Upcoming'}</span></td><td className="p-2"><Link to={r.Patient?.id? `/dashboard/patients/${r.Patient.id}?tab=immunizations`:'/dashboard/patients'} className="inline-flex items-center gap-1 text-[var(--icon-cyan-text)] hover:underline">Open record <ArrowRight className="h-3 w-3"/></Link></td></tr>)}</tbody></table></div>}</div>
 <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-color)] pb-3"><div><h2 className="font-semibold text-[var(--text-primary)]">Vaccination workspace</h2><p className="text-sm text-[var(--text-secondary)]">{[selectedVisit.Patient?.otherNames,selectedVisit.Patient?.surname].filter(Boolean).join(' ')} · Folder {selectedVisit.Patient?.folderNumber||'—'} · Attendance {selectedVisit.attendanceNumber||'—'}</p></div><button onClick={()=>setSelectedVisit(null)} className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm">Back to waiting list</button></div>
-      <ImmunizationPanel patientId={selectedVisit.Patient.id} attendances={todayVisits.filter(v=>v.Patient?.id===selectedVisit.Patient.id)} canRecord={true} canManageCatalogue={false} onCreateAttendance={()=>setShowAttendanceModal(true)} />
+      <ImmunizationPanel patientId={selectedVisit.Patient.id} attendances={todayVisits.filter(v=>v.Patient?.id===selectedVisit.Patient.id)} canRecord={hasRole(['admin','super_admin','doctor','nurse','midwife'])} canManageCatalogue={hasRole(['admin','super_admin'])} onCreateAttendance={()=>setShowAttendanceModal(true)} />
       {showAttendanceModal&&<NewAttendanceModal patientId={selectedVisit.Patient.id} initialAttendanceType="immunization" onClose={()=>setShowAttendanceModal(false)} onSuccess={()=>{setShowAttendanceModal(false);load();}}/>}
     </section>}<section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold text-[var(--text-primary)]">Immunization administration register</h2><p className="mt-1 text-xs text-[var(--text-secondary)]">Clinical line list of doses administered. This is not an EPI coverage report.</p></div><button onClick={exportRegister} disabled={!registerRows.length} className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm disabled:opacity-50"><Download className="h-4 w-4"/>Export CSV</button></div>
