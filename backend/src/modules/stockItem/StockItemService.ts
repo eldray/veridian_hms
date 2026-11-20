@@ -85,7 +85,7 @@ export class StockItemService extends BaseService {
       name: item.name,
       isActive: item.isActive,
       tariffCode: item.tariffCode ?? null,
-      isNHISCovered: item.isNHISCovered === true && nhis > 0,
+      isNHISCovered: Boolean(item.nhisServiceCode) && item.isNHISCovered === true && nhis > 0,
       isPrivateInsuranceExempted: item.isPrivateInsExempted === true,
       nhisRequiresAuth: item.nhisRequiresAuth === true,
       privateInsRequiresAuth: item.privateInsRequiresAuth === true
