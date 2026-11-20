@@ -1,26 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InsuranceType } from '@prisma/client';
-
-const repositoryMock = vi.hoisted(() => ({
-  create: vi.fn(),
-  findById: vi.fn(),
-  update: vi.fn(),
-}));
-
-vi.mock('../src/modules/insuranceProvider/InsuranceProviderRepository', () => ({
-  InsuranceProviderRepository: vi.fn().mockImplementation(() => repositoryMock),
-}));
-
+import { InsuranceProviderRepository } from '../src/modules/insuranceProvider/InsuranceProviderRepository';
 import { InsuranceProviderService } from '../src/modules/insuranceProvider/InsuranceProviderService';
 
 describe('InsuranceProviderService NHIS percentage policy', () => {
   let service: InsuranceProviderService;
+  let createSpy: ReturnType<typeof vi.spyOn>;
+  let findByIdSpy: ReturnType<typeof vi.spyOn>;
+  let updateSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
     service = new InsuranceProviderService({} as any);
-    repositoryMock.create.mockImplementation(async (data) => data);
-    repositoryMock.update.mockImplementation(async (_id, data) => data);
+    createSpy = vi.spyOn(InsuranceProviderRepository.prototype, 'create').mockImplementation(async (data: any) => data);
+    findByIdSpy = vi.spyOn(InsuranceProviderRepository.prototype, 'findById').mockResolvedValue({ id: 'nhis-1', type: InsuranceType.nhis } as any);
+    updateSpy = vi.spyOn(InsuranceProviderRepository.prototype, 'update').mockImplementation(async (_id: string, data: any) => data);
   });
 
   it('stores NHIS providers at the fixed compatibility value, regardless of submitted percentage', async () => {
@@ -29,7 +23,6 @@ describe('InsuranceProviderService NHIS percentage policy', () => {
       type: InsuranceType.nhis,
       coveragePercentage: 50,
     });
-
     expect(result.coveragePercentage).toBe(100);
   });
 
@@ -39,16 +32,13 @@ describe('InsuranceProviderService NHIS percentage policy', () => {
       type: InsuranceType.private,
       coveragePercentage: 75,
     });
-
     expect(result.coveragePercentage).toBe(75);
   });
 
   it('prevents an NHIS provider update from reintroducing a percentage', async () => {
-    repositoryMock.findById.mockResolvedValue({ id: 'nhis-1', type: InsuranceType.nhis });
-
     const result = await service.updateProvider('nhis-1', { coveragePercentage: 35 });
-
     expect(result.coveragePercentage).toBe(100);
-    expect(repositoryMock.update).toHaveBeenCalledWith('nhis-1', expect.objectContaining({ coveragePercentage: 100 }));
+    expect(findByIdSpy).toHaveBeenCalledWith('nhis-1');
+    expect(updateSpy).toHaveBeenCalledWith('nhis-1', expect.objectContaining({ coveragePercentage: 100 }));
   });
 });
