@@ -181,7 +181,7 @@ export default function Reports() {
       const f = { startDate: dateRange.start, endDate: dateRange.end };
       switch (reportType) {
         case 'monthly-overview': {
-          const requests = await Promise.all([
+          const requests = await Promise.allSettled([
             apiGetOPD(f), apiGetIPD(f), apiGetDelivery(f), apiGetFP(f),
             apiGetFinancial(f), apiGetLab(f), apiGetScans(f), apiGetProcedures(f),
             apiGetMedications(f), apiGetClaims(f), apiGetStockMovement(f),
@@ -190,7 +190,11 @@ export default function Reports() {
             ? (value.data.data ?? value.data)
             : (value?.data ?? value);
           const keys = ['opd', 'ipd', 'delivery', 'familyPlanning', 'financial', 'lab', 'scans', 'procedures', 'medications', 'claims', 'stock'];
-          setMonthlyOverview(Object.fromEntries(keys.map((key, index) => [key, unwrapMonthly(requests[index])])));
+          const values = requests.map(result => result.status === 'fulfilled' ? unwrapMonthly(result.value) : null);
+          setMonthlyOverview({
+            ...Object.fromEntries(keys.map((key, index) => [key, values[index]])),
+            unavailableSources: keys.filter((key, index) => requests[index].status === 'rejected'),
+          });
           break;
         }
         case 'opd-attendance': await getGHSOPDReport(f); break;
@@ -852,7 +856,7 @@ export default function Reports() {
           </div>
         </Card>)}
       </div>
-      <p className="text-[11px] text-[var(--text-tertiary)]">Figures are read from the corresponding existing reports for the selected period. A dash means that the source endpoint did not provide that indicator; it is not treated as zero. Insurance claims are shown separately from patient billing. This management overview does not replace statutory GHS returns.</p>
+      <p className="text-[11px] text-[var(--text-tertiary)]">Figures are read from the corresponding existing reports for the selected period. A dash means that the source endpoint did not provide that indicator; it is not treated as zero. {monthlyOverview.unavailableSources?.length ? "Some source reports could not be loaded: " + monthlyOverview.unavailableSources.join(", ") + ". " : ""}Insurance claims are shown separately from patient billing. This management overview does not replace statutory GHS returns.</p>
     </div>;
   };
 
