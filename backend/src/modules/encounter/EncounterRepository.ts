@@ -731,9 +731,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         throw new ConflictError('Diagnoses cannot be changed for a closed encounter');
       }
 
+      // Accept either the encounter-diagnosis row ID (used by the UI) or the
+      // catalogue diagnosis ID (used by older callers).
       const existing = await tx.attendanceDiagnosis.findFirst({
-        where: { attendanceId: encounterId, diagnosisId },
-        select: { id: true, diagnosisType: true },
+        where: { attendanceId: encounterId, OR: [{ id: diagnosisId }, { diagnosisId }] },
+        select: { id: true, diagnosisId: true, diagnosisType: true },
       });
       if (!existing) throw new NotFoundError('Diagnosis in encounter', diagnosisId);
 
@@ -746,7 +748,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         }
       }
 
-      return tx.attendanceDiagnosis.deleteMany({ where: { attendanceId: encounterId, diagnosisId } });
+      return tx.attendanceDiagnosis.delete({ where: { id: existing.id } });
     });
   }
 
