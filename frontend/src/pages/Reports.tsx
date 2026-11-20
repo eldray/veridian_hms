@@ -889,7 +889,7 @@ export default function Reports() {
       : [{ label: 'Financial reconciliation', detail: 'Not assessed — one or more source totals were not returned.', ok: null as boolean | null }];
     const csvRows = [['Section','Indicator','Value'], ...sections.flatMap(section => section.rows.map(([label, paths, money]: any) => [section.title, label, fmt(read(section.data, paths), Boolean(money))]))];
     const downloadCsv = () => {
-      const blob = new Blob([csvRows.map(row => row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\\n')], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([csvRows.map(row => row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n')], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob); const link = document.createElement('a');
       link.href = url; link.download = `facility-monthly-overview-${dateRange.start}-to-${dateRange.end}.csv`; link.click(); URL.revokeObjectURL(url);
     };
