@@ -4,8 +4,8 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ClipboardList, RefreshCw, Filter, Plus, X, Send, CheckCheck, Truck,
-  XCircle, Trash2, Eye, User, Building2, Package, ChevronRight,
-  Calendar, Clock, AlertCircle, Edit
+  XCircle, Trash2, Eye, User, Building2, Package, ChevronRight, Edit,
+  Calendar, Clock, AlertCircle
 } from 'lucide-react';
 import AsyncSelect from 'react-select/async';
 import { useStockStore } from '../store/stockStore';
@@ -852,15 +852,15 @@ export default function RequisitionsPage() {
           >
             <div className="bg-[var(--bg-card)] border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-[var(--text-primary)]">New Requisition</h2>
+                <h2 className="text-lg font-bold text-[var(--text-primary)]">{editingRequisition ? `Edit Draft — ${editingRequisition.requisitionNumber}` : 'New Requisition'}</h2>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   Fill the four steps below to raise a stock request
                 </p>
               </div>
-              <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close form" onClick={() => setShowForm(false)} />
+              <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close form" onClick={() => { setShowForm(false); resetForm(); }} />
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">\n              {editingRequisition && <div className="mx-6 mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">Only purpose, urgency and notes can be changed on a draft. Requester, supplier, required date and stock lines are preserved.</div>}
               {/* Sticky context bar */}
               <div className="sticky top-0 z-10 bg-[var(--bg-main)] border-b border-[var(--border-color)] px-6 py-2.5 flex items-center gap-3 text-xs shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
@@ -903,7 +903,7 @@ export default function RequisitionsPage() {
                         <button
                           key={type}
                           type="button"
-                          onClick={() => setFormData({ ...formData, requesterType: type })}
+                          disabled={!!editingRequisition}\n                          onClick={() => setFormData({ ...formData, requesterType: type })}
                           className={`px-4 py-2 text-xs font-semibold transition-colors ${
                             formData.requesterType === type
                               ? 'bg-[var(--icon-cyan-text)] text-white'
