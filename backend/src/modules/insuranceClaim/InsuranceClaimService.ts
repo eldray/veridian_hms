@@ -1366,9 +1366,11 @@ ${claimsXml}
       if (existing) return { claim: existing, isExisting: true };
       const att = await tx.attendance.findUnique({ where: { id: attendanceId }, include: {
         Patient: true, InsuranceProvider: true, CorporateAccount: true, AttendanceDiagnosis: { include: { Diagnosis: true } },
-        ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true } },
-        Medication: { include: { ServiceCatalog: true, StockItem: true } }, Procedure: { include: { ServiceCatalog: true } },
-        Scan: { include: { ServiceCatalog: true } }, Admission: true,
+        ServiceRendered: { include: { ServiceCatalog: true } },
+        LabTest: { include: { ServiceCatalog: true, LabTestTemplate: true } },
+        Medication: { include: { ServiceCatalog: true, StockItem: true } },
+        Procedure: { include: { ServiceCatalog: true, ProcedureTemplate: true } },
+        Scan: { include: { ServiceCatalog: true, ScanTemplate: true } }, Admission: true,
       }});
       if (!att) throw new NotFoundError('Attendance', attendanceId);
       if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
@@ -1389,9 +1391,9 @@ ${claimsXml}
         insuranceProviderId: corp.insuranceProviderId, corporateAccountId: att.corporateAccountId, totalClaimAmount: claimAmt,
         status: 'draft', createdById: userId, metadata: { source: 'attendance_direct', discountPercentage: Number(corp.discountPercentage) || 0 },
         diagnosisCodes: safeMap(att.AttendanceDiagnosis, (d: any) => d.Diagnosis?.icdCode),
-        procedureCodes: safeMap(att.Procedure, (p: any) => p.ServiceCatalog?.code),
-        labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? l.ServiceCatalog?.code : null),
-        scanCodes: safeMap(att.Scan, (s: any) => s.status === 'completed' ? s.ServiceCatalog?.code : null),
+        procedureCodes: safeMap(att.Procedure, (p: any) => p.ProcedureTemplate?.procedureCode ?? p.ServiceCatalog?.nhisServiceCode),
+        labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? (l.LabTestTemplate?.investigationCode ?? l.ServiceCatalog?.nhisServiceCode) : null),
+        scanCodes: safeMap(att.Scan, (s: any) => s.status === 'completed' ? (s.ScanTemplate?.investigationCode ?? s.ServiceCatalog?.nhisServiceCode) : null),
         serviceCodes: safeMap(att.ServiceRendered, (s: any) => s.ServiceCatalog?.code),
         medicationCodes: safeMap(att.Medication, (m: any) => m.status === 'dispensed' ? (m.StockItem?.drugCode || m.ServiceCatalog?.code) : null),
         notes: `Corporate claim - Employee ID: ${att.corporateEmployeeId || 'N/A'}. Generated directly from attendance services; no bill created.`,
