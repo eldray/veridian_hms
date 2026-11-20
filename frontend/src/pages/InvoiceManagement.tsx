@@ -110,7 +110,9 @@ export default function InvoiceManagement() {
   const { users, getAllUsers } = useUserStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
-  const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
+  // Match API permissions: Accounts/Admin may create or edit; only Admin may delete.
+  const canManageInvoices = hasRole(['super_admin', 'admin', 'accounts']);
+  const canDeleteInvoices = hasRole(['super_admin', 'admin']);
   const [searchTerm, setSearchTerm] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -251,7 +253,7 @@ export default function InvoiceManagement() {
             <Button variant="soft" accent="green" icon={Download} disabled={sortedInvoices.length === 0} onClick={exportToCSV}>Export CSV</Button>
             <Button icon={RefreshCw} loading={isLoading} onClick={loadData}>Refresh</Button>
             <Button variant={showFilters || hasActiveFilters ? 'soft' : 'secondary'} accent="cyan" icon={Filter} onClick={() => setShowFilters(!showFilters)}>Filters{hasActiveFilters && <span className="ml-1 w-2 h-2 bg-[var(--icon-red-text)] rounded-full"></span>}</Button>
-            {isAdmin && (<Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>New Invoice</Button>)}
+            {canManageInvoices && (<Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>New Invoice</Button>)}
           </>
         )} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -295,7 +297,7 @@ export default function InvoiceManagement() {
           <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4"><FileText className="w-8 h-8 text-[var(--text-tertiary)]" /></div>
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No Invoices Found</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4">{hasActiveFilters ? 'Try adjusting your search or filter criteria' : 'Get started by creating your first purchase invoice'}</p>
-          {hasActiveFilters ? (<Button variant="soft" accent="cyan" icon={X} onClick={clearFilters}>Clear All Filters</Button>) : isAdmin && (<Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>Create First Invoice</Button>)}
+          {hasActiveFilters ? (<Button variant="soft" accent="cyan" icon={X} onClick={clearFilters}>Clear All Filters</Button>) : canManageInvoices && (<Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>Create First Invoice</Button>)}
         </div>
       ) : (
         <div className={TABLE_SHELL}>
@@ -319,10 +321,8 @@ export default function InvoiceManagement() {
                       <div className="flex items-center justify-center gap-1.5">
                         <Button size="xs" variant="ghost" iconOnly icon={Eye} className="text-[var(--icon-cyan-text)]" aria-label="View details" onClick={() => { setSelectedInvoice(invoice); setShowDetailModal(true); }} />
                         <Button size="xs" variant="ghost" iconOnly icon={Printer} className="text-[var(--icon-purple-text)]" aria-label="Print invoice" onClick={() => printInvoice(invoice)} />
-                        {isAdmin && (<>
-                          <Button size="xs" variant="ghost" iconOnly icon={Edit} className="text-[var(--icon-yellow-text)]" aria-label="Edit invoice" onClick={() => handleEdit(invoice)} />
-                          <Button size="xs" variant="ghost" iconOnly icon={Trash2} className="text-[var(--icon-red-text)]" aria-label="Delete invoice" onClick={() => handleDelete(invoice.id)} />
-                        </>)}
+                        {canManageInvoices && <Button size="xs" variant="ghost" iconOnly icon={Edit} className="text-[var(--icon-yellow-text)]" aria-label="Edit invoice" onClick={() => handleEdit(invoice)} />}
+                        {canDeleteInvoices && <Button size="xs" variant="ghost" iconOnly icon={Trash2} className="text-[var(--icon-red-text)]" aria-label="Delete invoice" onClick={() => handleDelete(invoice.id)} />}
                       </div>
                     </td>
                   </tr>
