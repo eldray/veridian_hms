@@ -844,7 +844,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     // ── STEP 6: Lab test templates ────────────────────────────
     const labTestsData = readJSON('labTests.json');
     const labTemplateMap = new Map();
-    if (labTestsData && Array.isArray(labTestsData)) {
+    if (Array.isArray(labTestsData) && labTestsData.length > 0) {
       for (const test of labTestsData) {
         if (!test.investigationCode || !test.name) { seedFailures.push(`Lab template row missing investigationCode/name: ${JSON.stringify(test)}`); continue; }
         try {
@@ -867,7 +867,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     // ── STEP 7: Scan templates ────────────────────────────────
     const scansData = readJSON('scans.json');
     const scanTemplateMap = new Map();
-    if (scansData && Array.isArray(scansData)) {
+    if (Array.isArray(scansData) && scansData.length > 0) {
       for (const scan of scansData) {
         if (!scan.scanCode || !scan.name || !/^INVE[0-9]/i.test(String(scan.investigationCode || ''))) { seedFailures.push(`Scan template row missing scanCode/name/valid NHIS investigationCode: ${JSON.stringify({ name: scan.name, scanCode: scan.scanCode, investigationCode: scan.investigationCode })}`); continue; }
         try {
@@ -890,7 +890,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     // ── STEP 8: Procedure templates ───────────────────────────
     const proceduresData = readJSON('procedures.json');
     const procedureTemplateMap = new Map();
-    if (proceduresData && Array.isArray(proceduresData)) {
+    if (Array.isArray(proceduresData) && proceduresData.length > 0) {
       for (const proc of proceduresData) {
         if (!proc.procedureCode || !proc.name) { seedFailures.push(`Procedure template row missing procedureCode/name: ${JSON.stringify(proc)}`); continue; }
         try {
@@ -912,7 +912,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
 
     // ── STEP 9: GDRG tariffs ──────────────────────────────────
     const gdrgData = readJSON('gdrgTariffs.json');
-    if (gdrgData?.gdrgTariffs && Array.isArray(gdrgData.gdrgTariffs)) {
+    if (Array.isArray(gdrgData?.gdrgTariffs) && gdrgData.gdrgTariffs.length > 0) {
       let successful = 0;
       let failed = 0;
       console.log(`📋 Found ${gdrgData.gdrgTariffs.length} GDRG tariffs to seed`);
@@ -1241,7 +1241,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         });
         nhisRulesSeeded++;
       }
-      console.log(`✅ ${nhisRulesSeeded} NHIS medicine payer rules configured; unknown authorization/prescribing rules remain unset`);
+      if (nhisRulesSeeded !== nhisReferenceByDrugCode.size) seedFailures.push(`NHIS medicine payer rules seeded ${nhisRulesSeeded}/${nhisReferenceByDrugCode.size}`);
+      console.log(`✅ ${nhisRulesSeeded}/${nhisReferenceByDrugCode.size} NHIS medicine payer rules configured; unknown authorization/prescribing rules remain unset`);
     }
 
     // ── STEP 12b: Opening stock, placed by DEPARTMENT ─────────
@@ -1265,7 +1266,8 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     const missing = [];
     for (const d of DEFAULT_STOCK_SPLIT) if (!(await getDept(d.department))) missing.push(d.department);
     if (missing.length) {
-      console.warn(`⚠️ Departments not found for default stock placement: ${missing.join(', ')}. Items will only be placed in the departments that exist.`);
+      seedFailures.push(`Required stock-placement departments missing: ${missing.join(', ')}`);
+      console.warn(`⚠️ Departments not found for default stock placement: ${missing.join(', ')}`);
     }
 
     const sourceByDrugCode = new Map<string, any>();
@@ -1291,7 +1293,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       if (Array.isArray(source.stockLocations) && source.stockLocations.length > 0) {
         for (const loc of source.stockLocations) {
           const dept = await getDept(loc.department);
-          if (!dept) { console.warn(`⚠️ ${drugCode}: department "${loc.department}" not found, skipped`); continue; }
+          if (!dept) { seedFailures.push(`${drugCode}: stock location department "${loc.department}" does not exist`); continue; }
           plan.push({ dept, quantity: Math.max(0, Math.floor(loc.quantity ?? 0)) });
         }
       } else if (source.department) {
@@ -1312,6 +1314,9 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
           return { dept: t.dept, quantity };
         });
       }
+      const plannedQuantity = plan.reduce((sum, row) => sum + row.quantity, 0);
+      if (total > 0 && plannedQuantity !== total) seedFailures.push(`${drugCode}: opening stock placement allocated ${plannedQuantity}/${total} units`);
+      if (total > 0 && plan.length === 0) seedFailures.push(`${drugCode}: no valid department available for opening stock`);
 
       for (const { dept, quantity } of plan) {
         if (quantity <= 0) continue;
