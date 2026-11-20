@@ -11,6 +11,8 @@ import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useWardStore } from '../store/wardStore'; // ✅ ADD THIS
 import { useToast } from '../store/toastStore';
+import { useHospitalStore } from '../store/hospitalStore';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
@@ -675,6 +677,7 @@ export default function MedicalEntries() {
 
   const { stockItems, getStockItems } = useStockStore();
   const { user } = useAuthStore();
+  const { hospital } = useHospitalStore();
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -899,6 +902,40 @@ export default function MedicalEntries() {
   const selectedPatient = (currentPatient?.id === selectedPatientId ? currentPatient : undefined)
     || patients.find(p => getEntityId(p) === selectedPatientId)
     || null;
+  const handlePrintMedicalRecord = () => {
+    if (!selectedAttendanceId || !currentAttendance) {
+      toastError('No visit selected', 'Select a patient attendance before printing the medical record.');
+      return;
+    }
+
+    const loggedTreatmentNotes = treatmentNotes
+      .map(note => [note.date ? new Date(note.date).toLocaleString() : '', note.author, note.text].filter(Boolean).join(' · '))
+      .filter(Boolean)
+      .join('\n');
+
+    const clinicalRecord = {
+      ...currentAttendance,
+      complaints: presentedComplaints || currentAttendance.complaints || currentAttendance.chiefComplaint || '',
+      examination: [
+        hpc ? `History of presenting complaint: ${hpc}` : '',
+        odq ? `Onset / duration / quality: ${odq}` : '',
+        physicalExam || currentAttendance.examination || currentAttendance.physicalExamination || '',
+      ].filter(Boolean).join('\n\n'),
+      assessment: assessment || currentAttendance.assessment || '',
+      medicalNotes: [
+        treatmentPlan ? `Treatment plan:\n${treatmentPlan}` : '',
+        loggedTreatmentNotes ? `Treatment notes:\n${loggedTreatmentNotes}` : '',
+      ].filter(Boolean).join('\n\n') || currentAttendance.medicalNotes || currentAttendance.notes || '',
+      vitals: latestVitals ? [latestVitals] : currentAttendance.Vitals || currentAttendance.vitals || [],
+    };
+
+    const html = generatePDF('visitSummary', {
+      attendance: clinicalRecord,
+      patient: selectedPatient || currentAttendance.Patient || currentAttendance.patient,
+    }, hospital);
+    openPrintWindow(html, `Medical-Record-${currentAttendance.attendanceNumber || selectedAttendanceId}`);
+  };
+
   const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
   const isClinicalFinalized = Boolean((currentAttendance as any)?.finalizedAt);
   const linkedAdmission = (currentAttendance as any)?.Admission || (currentAttendance as any)?.admission || null;
@@ -1642,9 +1679,11 @@ export default function MedicalEntries() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => window.print()}
+            onClick={handlePrintMedicalRecord}
+            disabled={!selectedAttendanceId || !currentAttendance}
+            title={!selectedAttendanceId ? 'Select a patient attendance to print its medical record' : 'Print selected patient medical record'}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
-              text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium"
+              text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Printer className="w-3.5 h-3.5" /> Print
           </button>
