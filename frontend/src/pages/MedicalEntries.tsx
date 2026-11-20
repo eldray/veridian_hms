@@ -2428,57 +2428,31 @@ export default function MedicalEntries() {
                   boxShadow: 'var(--shadow-sm)',
                 }}
               >
-                <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0 overflow-y-auto" style={{ maxHeight: '34%', scrollbarWidth: 'thin' }}>
-                  <ClinicalNotesSummary
-                    impression={assessment}
-                    onEdit={() => setClinicalNotesOpen(true)}
-                    editDisabled={!canAddEntries || isClinicalFinalized}
-                  />
+                {/* Clinical notes replace the separate physician-notes panel. */}
+                <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
+                  <span className="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                    Clinical notes
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setClinicalNotesOpen(true)}
+                    disabled={!canAddEntries || isClinicalFinalized}
+                    className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50"
+                  >
+                    <FileText className="w-3 h-3" />
+                    Edit notes
+                  </button>
                 </div>
-                {/* ── PHYSICIAN NOTES ── */}
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
-                  <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                  <span className="text-xs font-semibold text-[var(--text-primary)]">Physician Notes</span>
-                </div>
-
-                {/* Logged notes list */}
-                <div
-                  className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]"
-                  style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
-                >
-                  {physicianNotes.length > 0 ? (
-                    [...physicianNotes].reverse().map((note, i) => (
-                      <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
-                        onEdit={() => handleEditNote('physician', physicianNotes.length - 1 - i)}
-                        onDelete={() => handleDeleteNote('physician', physicianNotes.length - 1 - i)} />
-                    ))
+                <div className="flex-1 overflow-y-auto p-4 bg-[var(--bg-card)]" style={{ minHeight: 0, scrollbarWidth: 'thin' }}>
+                  {assessment.trim() ? (
+                    <p className="text-xs leading-relaxed whitespace-pre-wrap text-[var(--text-primary)]">{assessment}</p>
                   ) : (
-                    <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No physician notes yet</p>
+                    <p className="text-center text-[11px] text-[var(--text-tertiary)] pt-6">
+                      No clinical impression recorded yet.
+                    </p>
                   )}
                 </div>
-
-                {/* Physician notes input */}
-                {canAddEntries && (
-                  <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                    <textarea
-                      value={physicianNoteText}
-                      onChange={e => setPhysicianNoteText(e.target.value)}
-                      rows={3}
-                      placeholder="Add physician note…"
-                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
-                      focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
-                      text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
-                    />
-                    <button
-                      onClick={handleSavePhysicianNote}
-                      disabled={!physicianNoteText.trim()}
-                      className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
-                      bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-40 transition-all"
-                    >
-                      Add Note
-                    </button>
-                  </div>
-                )}
 
                 {/* ── DIVIDER ── */}
                 <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
