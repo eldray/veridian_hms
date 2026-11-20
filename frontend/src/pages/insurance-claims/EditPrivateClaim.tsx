@@ -202,7 +202,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
 
   const filtered = (serviceCatalog || []).filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (s.code || '').toLowerCase().includes(searchTerm.toLowerCase())
+    String(s.nhisServiceCode || s.code || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
