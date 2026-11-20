@@ -155,8 +155,7 @@ const TableView: React.FC<{ t: FormATable }> = ({ t }) => {
 
 // ── EMONC strip, as in the picture ──
 const EMONC_SERVICES = ['None', 'Basic', 'Comprehensive', 'Blood transfusion services', 'PMTCT', 'EID Services', 'Conduct Delivery', 'Baby Friendly Services'];
-const EmoncStrip: React.FC = () => {
-  const [sel, setSel] = useState<Record<string, 'Yes' | 'No'>>({});
+const EmoncStrip: React.FC<{ sel: Record<string, 'Yes' | 'No'>; setSel: React.Dispatch<React.SetStateAction<Record<string, 'Yes' | 'No'>>> }> = ({ sel, setSel }) => {
   return (
     <div className="border border-[var(--border-color)] mb-4 overflow-x-auto">
       <table className="w-full border-collapse text-[11px]">
@@ -184,6 +183,7 @@ const EmoncStrip: React.FC = () => {
 
 const FormAReportView: React.FC<{ data: FormAData | null | undefined }> = ({ data }) => {
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [sel, setSel] = useState<Record<string, 'Yes' | 'No'>>({});
   const sections = data?.form?.sections ?? [];
   const csv = useMemo(() => {
     if (!data?.form) return '';
@@ -235,7 +235,7 @@ const FormAReportView: React.FC<{ data: FormAData | null | undefined }> = ({ dat
           <p className="text-xs text-[var(--text-secondary)]">District: {data.facility.district} | Region: {data.facility.region} | GHF Code: {data.facility.ghfCode}</p>
           <p className="text-xs font-medium mt-1">Reporting period: {data.period.monthName} {data.period.year}</p>
         </div>
-        <div className="px-3 pb-2"><EmoncStrip /></div>
+        <div className="px-3 pb-2"><EmoncStrip sel={sel} setSel={setSel} /></div>
         {sections.map(s => {
           const isOpen = open[s.id] !== false;
           return (
