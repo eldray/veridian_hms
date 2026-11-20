@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../api/api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import ImmunizationPanel from '../components/patients/ImmunizationPanel';
-import { Syringe, CalendarClock, ClipboardList, Search, ArrowRight, RefreshCw, AlertTriangle, Download, UserRound } from 'lucide-react';
+import { Syringe, Search, ArrowRight, RefreshCw, Download, UserRound } from 'lucide-react';
 
 type DueRow = { id: string; nextDoseDue: string; administeredAt: string; doseNumber: string; Patient?: { id: string; surname?: string; otherNames?: string; folderNumber?: string; phoneNumber?: string }; Vaccine?: { name?: string; code?: string } };
 const dayKey = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0,10);
@@ -15,7 +15,6 @@ export default function ImmunizationWorkspace() {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [due, setDue] = useState<DueRow[]>([]);
   const [todayVisits, setTodayVisits] = useState<any[]>([]);
-  const [vaccines, setVaccines] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [registerFrom, setRegisterFrom] = useState(() => { const d = new Date(); d.setDate(1); return dayKey(d); });
@@ -46,19 +45,16 @@ export default function ImmunizationWorkspace() {
     try {
       const now = new Date(); const from = new Date(now); from.setDate(from.getDate()-30);
       const to = new Date(now); to.setDate(to.getDate()+30);
-      const [d,v,q] = await Promise.all([
+      const [d,q] = await Promise.all([
         api.get('/immunization/records/due', { params: { from: from.toISOString(), to: to.toISOString() } }),
-        api.get('/immunization/vaccines'),
         api.get('/immunization/attendances')
       ]);
-      setDue(d.data?.data ?? []); setVaccines(v.data?.data ?? []); setTodayVisits(q.data?.data ?? []);
+      setDue(d.data?.data ?? []); setTodayVisits(q.data?.data ?? []);
     } catch(e:any) { setError(e.response?.data?.message || e.message || 'Unable to load clinic overview'); }
     finally { setLoading(false); }
   };
   useEffect(()=>{ load(); },[]);
   const today = dayKey(new Date());
-  const overdue = useMemo(()=>due.filter(r=>r.nextDoseDue?.slice(0,10)<today),[due,today]);
-  const upcoming = useMemo(()=>due.filter(r=>r.nextDoseDue?.slice(0,10)>=today),[due,today]);
   const visible = useMemo(()=>due.filter(r=>!search.trim() || labelName(r.Patient).toLowerCase().includes(search.toLowerCase()) || String(r.Patient?.folderNumber||'').includes(search.trim()) || String(r.Patient?.phoneNumber||'').includes(search.trim())),[due,search]);
 
   return <div className="space-y-6">
@@ -68,13 +64,13 @@ export default function ImmunizationWorkspace() {
     </header>
     {error && <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
-    <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-[var(--text-primary)]">Dose follow-up worklist</h2><div className="flex items-center gap-2 rounded-lg border border-[var(--border-color)] px-2"><Search className="h-4 w-4 text-[var(--text-secondary)]"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Filter patient, folder or phone" className="bg-transparent py-2 text-sm outline-none"/></div></div>
-    {loading?<p className="py-8 text-center text-sm text-[var(--text-secondary)]">Loading worklist…</p>:visible.length===0?<p className="py-8 text-center text-sm text-[var(--text-secondary)]">No follow-up doses found in this 60-day window.</p>:<div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-[var(--border-color)] text-xs text-[var(--text-secondary)]"><th className="p-2">Patient</th><th className="p-2">Folder</th><th className="p-2">Vaccine</th><th className="p-2">Dose</th><th className="p-2">Due</th><th className="p-2">Status</th><th className="p-2">Action</th></tr></thead><tbody>{visible.map(r=><tr key={r.id} className="border-b border-[var(--border-color)]"><td className="p-2 font-medium text-[var(--text-primary)]">{labelName(r.Patient)}</td><td className="p-2">{r.Patient?.folderNumber||'—'}</td><td className="p-2">{r.Vaccine?.name||r.Vaccine?.code||'Vaccine'}</td><td className="p-2">{r.doseNumber}</td><td className="p-2">{r.nextDoseDue?new Date(r.nextDoseDue).toLocaleDateString():'—'}</td><td className="p-2"><span className={r.nextDoseDue?.slice(0,10)<today?'text-red-600':'text-emerald-600'}>{r.nextDoseDue?.slice(0,10)<today?'Overdue':'Upcoming'}</span></td><td className="p-2"><Link to={r.Patient?.id? `/dashboard/patients/${r.Patient.id}?tab=immunizations`:'/dashboard/patients'} className="inline-flex items-center gap-1 text-[var(--icon-cyan-text)] hover:underline">Open record <ArrowRight className="h-3 w-3"/></Link></td></tr>)}</tbody></table></div>}</div>
     <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold text-[var(--text-primary)]">Immunization waiting list</h2><p className="text-xs text-[var(--text-secondary)]">Select a patient to open their vaccination workspace.</p></div><div className="flex items-center gap-2 rounded-lg border border-[var(--border-color)] px-2"><Search className="h-4 w-4 text-[var(--text-secondary)]"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search patient, folder or attendance" className="bg-transparent py-2 text-sm outline-none"/></div></div>
       {loading ? <p className="py-8 text-center text-sm text-[var(--text-secondary)]">Loading waiting list…</p> : todayVisits.length===0 ? <p className="py-8 text-center text-sm text-[var(--text-secondary)]">No immunization patients are on today's waiting list.</p> : <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-[var(--border-color)] text-xs text-[var(--text-secondary)]"><th className="p-2">Patient</th><th className="p-2">Folder</th><th className="p-2">Attendance</th><th className="p-2">Time</th><th className="p-2">Status</th><th className="p-2">Action</th></tr></thead><tbody>{todayVisits.filter(v=>!search.trim()||[v.Patient?.otherNames,v.Patient?.surname,v.Patient?.folderNumber,v.attendanceNumber].some(x=>String(x||'').toLowerCase().includes(search.toLowerCase()))).map(v=><tr key={v.id} className={selectedVisit?.id===v.id?'bg-[var(--bg-main)] border-b border-[var(--border-color)]':'border-b border-[var(--border-color)]'}><td className="p-2 font-medium text-[var(--text-primary)]">{[v.Patient?.otherNames,v.Patient?.surname].filter(Boolean).join(' ')||'Patient'}</td><td className="p-2">{v.Patient?.folderNumber||'—'}</td><td className="p-2">{v.attendanceNumber||'—'}</td><td className="p-2">{v.dateTime?new Date(v.dateTime).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'—'}</td><td className="p-2">{v.status||'Waiting'}</td><td className="p-2"><button onClick={()=>setSelectedVisit(v)} className="inline-flex items-center gap-1 text-[var(--icon-cyan-text)] hover:underline"><UserRound className="h-3.5 w-3.5"/>Select patient</button></td></tr>)}</tbody></table></div>}
     </section>
-    {selectedVisit&&<section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 space-y-4">
+    {selectedVisit&&    <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold text-[var(--text-primary)]">Dose follow-up worklist</h2><div className="flex items-center gap-2 rounded-lg border border-[var(--border-color)] px-2"><Search className="h-4 w-4 text-[var(--text-secondary)]"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Filter patient, folder or phone" className="bg-transparent py-2 text-sm outline-none"/></div></div>
+    {loading?<p className="py-8 text-center text-sm text-[var(--text-secondary)]">Loading worklist…</p>:visible.length===0?<p className="py-8 text-center text-sm text-[var(--text-secondary)]">No follow-up doses found in this 60-day window.</p>:<div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b border-[var(--border-color)] text-xs text-[var(--text-secondary)]"><th className="p-2">Patient</th><th className="p-2">Folder</th><th className="p-2">Vaccine</th><th className="p-2">Dose</th><th className="p-2">Due</th><th className="p-2">Status</th><th className="p-2">Action</th></tr></thead><tbody>{visible.map(r=><tr key={r.id} className="border-b border-[var(--border-color)]"><td className="p-2 font-medium text-[var(--text-primary)]">{labelName(r.Patient)}</td><td className="p-2">{r.Patient?.folderNumber||'—'}</td><td className="p-2">{r.Vaccine?.name||r.Vaccine?.code||'Vaccine'}</td><td className="p-2">{r.doseNumber}</td><td className="p-2">{r.nextDoseDue?new Date(r.nextDoseDue).toLocaleDateString():'—'}</td><td className="p-2"><span className={r.nextDoseDue?.slice(0,10)<today?'text-red-600':'text-emerald-600'}>{r.nextDoseDue?.slice(0,10)<today?'Overdue':'Upcoming'}</span></td><td className="p-2"><Link to={r.Patient?.id? `/dashboard/patients/${r.Patient.id}?tab=immunizations`:'/dashboard/patients'} className="inline-flex items-center gap-1 text-[var(--icon-cyan-text)] hover:underline">Open record <ArrowRight className="h-3 w-3"/></Link></td></tr>)}</tbody></table></div>}</div>
+<section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-color)] pb-3"><div><h2 className="font-semibold text-[var(--text-primary)]">Vaccination workspace</h2><p className="text-sm text-[var(--text-secondary)]">{[selectedVisit.Patient?.otherNames,selectedVisit.Patient?.surname].filter(Boolean).join(' ')} · Folder {selectedVisit.Patient?.folderNumber||'—'} · Attendance {selectedVisit.attendanceNumber||'—'}</p></div><button onClick={()=>setSelectedVisit(null)} className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm">Back to waiting list</button></div>
       <ImmunizationPanel patientId={selectedVisit.Patient.id} attendances={todayVisits.filter(v=>v.Patient?.id===selectedVisit.Patient.id)} canRecord={true} canManageCatalogue={false} onCreateAttendance={()=>setShowAttendanceModal(true)} />
       {showAttendanceModal&&<NewAttendanceModal patientId={selectedVisit.Patient.id} initialAttendanceType="immunization" onClose={()=>setShowAttendanceModal(false)} onSuccess={()=>{setShowAttendanceModal(false);load();}}/>}
