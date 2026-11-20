@@ -48,11 +48,21 @@ const safe = async <T,>(fn: () => Promise<T>, fallback: T): Promise<T> => {
 
 const arrayOf = (v: any): any[] => {
   if (Array.isArray(v)) return v;
-  if (Array.isArray(v?.data)) return v.data;
-  if (Array.isArray(v?.doses)) return v.doses;
-  if (Array.isArray(v?.tasks)) return v.tasks;
-  if (Array.isArray(v?.notes)) return v.notes;
-  return [];
+  // BaseController responses can be either { data: [...] } or
+  // { success, data: { data: [...], meta } }. Keep both contracts readable.
+  const candidates = [
+    v?.data?.data,
+    v?.data,
+    v?.doses,
+    v?.tasks,
+    v?.notes,
+    v?.items,
+    v?.results,
+    v?.referrals,
+    v?.bills,
+    v?.claims,
+  ];
+  return candidates.find(Array.isArray) ?? [];
 };
 
 // ── NURSE ───────────────────────────────────────
@@ -166,7 +176,7 @@ export async function fetchMaternalExtras() {
 
 export async function fetchAccountsExtras() {
   const [billsRes, claimsRes, waiversRes, estimatesRes, corporateRes] = await Promise.all([
-    safe(() => getBills({ startDate: today(), endDate: today() }), [] as any),
+    safe(() => getBills({ dateFrom: today(), dateTo: today(), limit: 1000 }), [] as any),
     safe(() => getInsuranceClaims({ status: 'finalized' }), [] as any),
     safe(() => getWaivers({ status: 'pending' }), [] as any),
     safe(() => getExpiringEstimates(7), [] as any),
@@ -218,8 +228,7 @@ export async function fetchRecordsExtras() {
 
   const pats = arrayOf(patsRes);
   const appts = arrayOf(apptsRes);
-  const refsRaw = refsRes?.data ?? refsRes ?? [];
-  const refs = Array.isArray(refsRaw) ? refsRaw : refsRaw?.referrals || [];
+  const refs = arrayOf(refsRes);
 
   const appointmentNoShows = appts.filter((a: any) => a.status === 'no_show').length;
   const pendingIncomingReferrals = refs.filter(
