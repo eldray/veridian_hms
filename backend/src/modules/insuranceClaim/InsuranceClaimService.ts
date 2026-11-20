@@ -480,6 +480,10 @@ ${claimsXml}
         unclaimable.push({ description: label, reason: 'its stock item is missing' });
         continue;
       }
+      if (stockItem.isNHISCovered !== true) {
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has a facility catalogue code and is not listed as NHIS-covered' });
+        continue;
+      }
       const rule = ruleByStockItem.get(stockItem.id);
       if (!rule) {
         unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'is not on the NHIS medicine list' });
