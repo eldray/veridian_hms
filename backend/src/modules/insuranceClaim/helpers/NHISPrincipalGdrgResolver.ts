@@ -127,7 +127,9 @@ function ageMatches(tariff: ResolverTariff, age: number): boolean {
 function levelMatches(tariff: ResolverTariff, facilityLevel: number | null): boolean {
   const levels = tariff.applicableLevels;
   if (!levels || levels.length === 0) return true;
-  if (facilityLevel == null) return true;
+  // A restricted tariff cannot be approved when the facility's NHIS level is unknown.
+  // Treating null as a match silently bypasses the tariff's credentialing restriction.
+  if (facilityLevel == null) return false;
   return levels.includes(facilityLevel);
 }
 
@@ -238,7 +240,7 @@ export function resolvePrincipalGdrg(input: ResolverInput): ResolvedPrincipalGdr
 
   const seen = Array.from(new Set(links.map((link) => link.tariff)));
   const detail = seen.length
-    ? `The codes linked to it are ${seen.map(describe).join(', ')}, and none of them bills ${CASE_LABELS[caseType]} for a patient aged ${age}${facilityLevel != null ? ` at facility level ${facilityLevel}` : ''} with a priced tariff.`
+    ? `The codes linked to it are ${seen.map(describe).join(', ')}, and none of them bills ${CASE_LABELS[caseType]} for a patient aged ${age}${facilityLevel != null ? ` at facility level ${facilityLevel}` : ' because the facility NHIS level is not configured or could not be determined'} with a priced tariff.`
     : 'No G-DRG is linked to it at all.';
   throw new ValidationError(
     `This claim needs a principal G-DRG, and ${detail} ${CASE_RULE_HINTS[caseType]} ` +
