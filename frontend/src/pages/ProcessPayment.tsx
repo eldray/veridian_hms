@@ -471,7 +471,9 @@ export default function ProcessPayment() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-[var(--text-primary)]">{refund.refundNumber} · {refund.reason}</p>
                             <p className="text-xs text-[var(--text-secondary)]">
-                              {new Date(refund.refundedAt).toLocaleDateString()} · {String(refund.refundMethod || '').replace('_', ' ')}
+                              {new Date(refund.refundedAt).toLocaleDateString()} · {String(refund.refundMethod || '').replace(/_/g, ' ')}
+                              {refund.reference ? ` · Ref: ${refund.reference}` : ''}
+                              {(refund.processedBy?.fullName || refund.processedBy?.username) ? ` · By ${refund.processedBy.fullName || refund.processedBy.username}` : ''}
                             </p>
                           </div>
                           <span className="text-sm font-bold text-[var(--icon-red-text)] tabular-nums">-{formatCurrency(refund.amount)}</span>

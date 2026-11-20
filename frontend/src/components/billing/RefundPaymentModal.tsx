@@ -38,7 +38,7 @@ const refundedOn = (payment: RefundablePayment) =>
 const refundableOn = (payment: RefundablePayment) =>
   Math.max(0, roundMoney(Number(payment.amount) - refundedOn(payment)));
 
-const METHODS = ['cash', 'mobile_money', 'card', 'bank_transfer'];
+const METHODS = ['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque'];
 
 /**
  * Money handed back against one payment.
@@ -68,11 +68,11 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
   const refundable = refundableOn(payment);
   const refunded = refundedOn(payment);
   const reasonTooShort = reason.trim().length < 3;
-  const amountTooHigh = amount <= 0 || amount > refundable;
+  const amountTooHigh = !Number.isFinite(amount) || amount < 0.01 || Math.abs(amount * 100 - Math.round(amount * 100)) >= 1e-7 || amount > refundable;
 
   const handleSubmit = async () => {
     if (amountTooHigh) {
-      setError(`Enter an amount between 0.01 and ${formatCurrency(refundable)}.`);
+      setError(`Enter an amount in pesewas (maximum two decimal places), between 0.01 and ${formatCurrency(refundable)}.`);
       return;
     }
     if (reasonTooShort) {

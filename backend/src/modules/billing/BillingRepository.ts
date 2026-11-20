@@ -4,7 +4,7 @@ import { BillFilters } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
 import { resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
 import { mergeTaxBreakdowns } from '../../utils/tax';
-import { roundMoney, refundableAmount, billStatusAfterRefund } from '../../utils/refunds';
+import { roundMoney, refundableAmount, billStatusAfterRefund, isValidRefundAmount } from '../../utils/refunds';
 import { latestSubmissionEvent, withSubmissionDate } from '../insuranceClaim/helpers/claimSubmission';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
@@ -364,10 +364,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       });
       const alreadyRefunded = priorRefunds.reduce((sum, row) => sum + toNumber(row.amount), 0);
       const refundable = refundableAmount(toNumber(payment.amount), alreadyRefunded);
-      const amount = roundMoney(Number(data.amount));
-      if (!Number.isFinite(amount) || amount <= 0) {
-        throw Object.assign(new Error('Refund amount must be greater than zero.'), { statusCode: 400 });
+      if (!isValidRefundAmount(data.amount)) {
+        throw Object.assign(new Error('Refund amount must be greater than zero and use no more than two decimal places.'), { statusCode: 400 });
       }
+      const amount = roundMoney(Number(data.amount));
       if (amount > refundable) {
         throw Object.assign(
           new Error(`Refund exceeds the unrefunded amount on this payment (${refundable.toFixed(2)}).`),

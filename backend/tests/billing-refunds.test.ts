@@ -6,7 +6,7 @@ vi.mock('../src/services/CounterService', () => ({
 
 import { BillRepository } from '../src/modules/bill/BillRepository';
 import { BillingRepository } from '../src/modules/billing/BillingRepository';
-import { refundableAmount, billStatusAfterRefund, roundMoney } from '../src/utils/refunds';
+import { refundableAmount, billStatusAfterRefund, roundMoney, isValidRefundAmount } from '../src/utils/refunds';
 
 const bill = (overrides: Record<string, any> = {}) => ({
   id: 'bill-1',
@@ -72,6 +72,16 @@ describe('refund helpers', () => {
     expect(billStatusAfterRefund(100, 0)).toBe('paid');
   });
 
+  it('accepts only positive refund amounts expressed in whole cents', () => {
+    expect(isValidRefundAmount(12)).toBe(true);
+    expect(isValidRefundAmount('12.34')).toBe(true);
+    expect(isValidRefundAmount(0.01)).toBe(true);
+    expect(isValidRefundAmount(0)).toBe(false);
+    expect(isValidRefundAmount(-1)).toBe(false);
+    expect(isValidRefundAmount(1.001)).toBe(false);
+    expect(isValidRefundAmount('')).toBe(false);
+  });
+
   it('rounds to the cent', () => {
     expect(roundMoney(10.005)).toBe(10.01);
     expect(roundMoney(Number.NaN)).toBe(0);
@@ -133,6 +143,19 @@ describe('bill repository refunds', () => {
     expect(billUpdate).toHaveBeenCalledWith(expect.objectContaining({
       data: { paidAmount: 70, balance: 30, status: 'partial' },
     }));
+  });
+
+  it('rejects fractional-pesewa refund amounts before writing a ledger row', async () => {
+    const { tx, refundCreate } = buildTx();
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillRepository(prisma);
+
+    await expect(repository.createRefund('bill-1', {
+      paymentId: 'payment-1',
+      amount: 10.001,
+      reason: 'Invalid fractional pesewa',
+    }, 'cashier-1')).rejects.toThrow(/two decimal places/i);
+    expect(refundCreate).not.toHaveBeenCalled();
   });
 
   it('rejects a refund larger than the payment remainder', async () => {
