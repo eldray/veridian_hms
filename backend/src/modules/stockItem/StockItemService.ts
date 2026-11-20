@@ -37,24 +37,14 @@ export class StockItemService extends BaseService {
     this.repo = new StockItemRepository(prisma);
   }
 
-  // Generates a stable, compact facility catalogue code. The FCH prefix identifies
-  // a facility-generated code; it must never be represented as an official NHIS tariff.
-  private async generateDrugCode(name: string, strength?: string, unitOfMeasure?: string): Promise<string> {
-    const identity = [name, strength, unitOfMeasure]
-      .map((value) => String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
-      .join('|');
-    let hash = 2166136261;
-    for (let index = 0; index < identity.length; index++) {
-      hash ^= identity.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
+  // Readable NHIS-style code: eight name letters plus a unique two-digit sequence.
+  private async generateDrugCode(name: string): Promise<string> {
+    const base = String(name ?? 'MEDICINE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'MEDICINE';
+    for (let sequence = 1; sequence <= 99; sequence++) {
+      const code = `${base}${String(sequence).padStart(2, '0')}`;
+      if (!await this.prisma.stockItem.findUnique({ where: { drugCode: code }, select: { id: true } })) return code;
     }
-    const namePart = String(name ?? 'MEDICINE').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9) || 'MEDICINE';
-    const base = `FCH${namePart}${(hash >>> 0).toString(36).toUpperCase().padStart(7, '0')}`;
-    let code = base;
-    for (let suffix = 2; await this.prisma.stockItem.findUnique({ where: { drugCode: code }, select: { id: true } }); suffix++) {
-      code = `${base}${suffix}`;
-    }
-    return code;
+    throw new ConflictError(`Could not generate a unique medicine code for ${name}. Enter a code manually.`);
   }
 
   /**
@@ -85,7 +75,7 @@ export class StockItemService extends BaseService {
       name: item.name,
       isActive: item.isActive,
       tariffCode: item.tariffCode ?? null,
-      isNHISCovered: Boolean(item.nhisServiceCode) && item.isNHISCovered === true && nhis > 0,
+      isNHISCovered: item.isNHISCovered === true && nhis > 0,
       isPrivateInsuranceExempted: item.isPrivateInsExempted === true,
       nhisRequiresAuth: item.nhisRequiresAuth === true,
       privateInsRequiresAuth: item.privateInsRequiresAuth === true
@@ -95,11 +85,11 @@ export class StockItemService extends BaseService {
       catalog = await tx.serviceCatalog.create({
         data: {
           ...flags,
-          code: `MED-${item.drugCode}`,
+          code: item.drugCode,
           serviceType: ServiceType.medication,
           serviceCategory: ServiceCategory.pharmacy,
           subType: item.category || 'medication',
-          nhisServiceCode: item.nhisServiceCode ?? null,
+          nhisServiceCode: null,
           unit: item.unitOfMeasure || 'Each',
           isPending: false,
           stockItemId: item.id,
@@ -107,7 +97,7 @@ export class StockItemService extends BaseService {
         }
       });
     } else {
-      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: { ...flags, code: `MED-${item.drugCode}`, nhisServiceCode: item.nhisServiceCode ?? null } });
+      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: { ...flags, code: item.drugCode, nhisServiceCode: null } });
     }
 
     const changed = !current
@@ -180,7 +170,7 @@ export class StockItemService extends BaseService {
       const existing = await this.prisma.stockItem.findUnique({ where: { drugCode }, select: { id: true } });
       if (existing) throw new ConflictError(`Drug code "${drugCode}" is already in use`);
     } else {
-      drugCode = await this.generateDrugCode(name, strength, unitOfMeasure);
+      drugCode = await this.generateDrugCode(name);
     }
 
     this.logInfo('Creating stock item', { name, drugCode });
@@ -188,7 +178,7 @@ export class StockItemService extends BaseService {
     const item = await this.prisma.$transaction(async (tx) => {
       const created = await this.repo.create({
         name, category, description: data.description, strength, unitOfMeasure, drugCode,
-        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, nhisServiceCode: data.nhisServiceCode || null, isNHISCovered: Boolean(data.nhisServiceCode) && data.isNHISCovered === true,
+        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, isNHISCovered: data.isNHISCovered === true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
         tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
