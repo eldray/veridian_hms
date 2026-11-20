@@ -11,7 +11,7 @@ export interface ContactInfo {
 export interface CreateInsuranceProviderDTO {
   name: string;
   type: InsuranceType;
-  coveragePercentage: number;
+  coveragePercentage?: number;
   claimSubmissionMethod?: string;
   portalUrl?: string;
   contactInfo?: ContactInfo | null;
