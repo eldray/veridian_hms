@@ -8,6 +8,24 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
   const stockTransactions = new StockTransactionRepository(prisma);
   router.use(protect);
 
+  // Guard against an outdated generated Prisma client missing new model delegates.
+  router.use((_req: Request, res: Response, next) => {
+    const client = prisma as unknown as Record<string, unknown>;
+    const requiredDelegates = ['vaccine', 'immunizationRecord', 'stockItem'];
+    const missing = requiredDelegates.filter((name) => {
+      const delegate = client[name] as { findMany?: unknown } | undefined;
+      return !delegate || typeof delegate.findMany !== 'function';
+    });
+    if (missing.length) {
+      return res.status(503).json({
+        success: false,
+        message: 'Immunization Prisma client is outdated. Run Prisma generate using backend/prisma/schema.prisma and restart the backend.',
+        missingDelegates: missing
+      });
+    }
+    return next();
+  });
+
   const readRoles: UserRole[] = ['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records'];
   const writeRoles: UserRole[] = ['admin', 'super_admin', 'doctor', 'nurse', 'midwife'];
 
