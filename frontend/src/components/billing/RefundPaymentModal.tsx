@@ -38,7 +38,7 @@ const refundedOn = (payment: RefundablePayment) =>
 const refundableOn = (payment: RefundablePayment) =>
   Math.max(0, roundMoney(Number(payment.amount) - refundedOn(payment)));
 
-const METHODS = ['cash', 'mobile_money', 'card', 'bank_transfer'];
+const METHODS = ['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque'];
 
 /**
  * Money handed back against one payment.
