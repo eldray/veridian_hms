@@ -62,7 +62,7 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
     const unit = n(m.unitPrice ?? m.dispensedUnitCost);
     const qty = n(m.quantity) || 1;
     return {
-      code: m.code || m.StockItem?.drugCode || '',
+      code: m.StockItem?.drugCode || m.code || '',
       name: m.name || m.ServiceCatalog?.name || 'Medicine',
       detail: [m.dosage, m.frequency, m.duration && `x ${m.duration}`].filter(Boolean).join(' '),
       qty, unit, total: qty * unit,
