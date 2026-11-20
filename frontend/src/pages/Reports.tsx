@@ -74,6 +74,7 @@ import {
   getScanReport as apiGetScans, getProcedureReport as apiGetProcedures,
   getMedicationReport as apiGetMedications, getInsuranceClaimsReport as apiGetClaims,
   getStockMovementReport as apiGetStockMovement,
+  getIDSRAlerts, createIDSRAlert, acknowledgeIDSRAlert,
 } from '../api';
 
 const AGE_GROUPS = ['<28d', '1-11m', '1-4', '5-9', '10-14', '15-17', '18-19', '20-34', '35-49', '50-59', '60-69', '70+'];
@@ -132,6 +133,63 @@ const EmptyState = ({ message }: { message: string }) => (
 
 // FIX #9 — statutory returns must match a printed form, so we do not invent labels.
 // If the backend hands us a section we have no curated map for, say so explicitly.
+
+function IDSRSurveillanceRegister({ startDate, endDate, diseases }: { startDate: string; endDate: string; diseases: any[] }) {
+  const [records, setRecords] = useState<any[]>([]);
+  const [diseaseCode, setDiseaseCode] = useState(diseases[0]?.code || '');
+  const [alertDate, setAlertDate] = useState(startDate);
+  const [suspectedCases, setSuspectedCases] = useState('0');
+  const [confirmedCases, setConfirmedCases] = useState('0');
+  const [deaths, setDeaths] = useState('0');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const selectedDisease = diseases.find(d => d.code === diseaseCode) || diseases[0];
+  const load = useCallback(async () => {
+    try {
+      const response: any = await getIDSRAlerts({ startDate, endDate });
+      const rows = response?.data?.data ?? response?.data ?? response;
+      setRecords(Array.isArray(rows) ? rows : []);
+    } catch (error: any) { setMessage(error?.response?.data?.message || error?.message || 'Could not load surveillance entries.'); }
+  }, [startDate, endDate]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (!diseases.some(d => d.code === diseaseCode)) setDiseaseCode(diseases[0]?.code || ''); }, [diseases, diseaseCode]);
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!selectedDisease) return;
+    setSaving(true); setMessage('');
+    try {
+      await createIDSRAlert({ diseaseCode: selectedDisease.code, diseaseName: selectedDisease.disease, alertDate,
+        suspectedCases: Number(suspectedCases), confirmedCases: Number(confirmedCases), deaths: Number(deaths) });
+      setSuspectedCases('0'); setConfirmedCases('0'); setDeaths('0');
+      setMessage('Surveillance tally recorded.'); await load();
+    } catch (error: any) { setMessage(error?.response?.data?.message || error?.message || 'Could not record tally.'); }
+    finally { setSaving(false); }
+  };
+  const acknowledge = async (id: string) => {
+    try { await acknowledgeIDSRAlert(id); await load(); }
+    catch (error: any) { setMessage(error?.response?.data?.message || error?.message || 'Could not acknowledge record.'); }
+  };
+  return <Card title="IDSR surveillance register" description="Record verified daily disease tallies separately from attendance-based suspected signals." icon={ClipboardList} padded={false}>
+    <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-6 gap-2 p-4 border-b border-[var(--border-color)]">
+      <select value={diseaseCode} onChange={e => setDiseaseCode(e.target.value)} className="md:col-span-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required>
+        {diseases.map(d => <option key={d.code} value={d.code}>{d.disease}</option>)}
+      </select>
+      <input type="date" value={alertDate} min={startDate} max={endDate} onChange={e => setAlertDate(e.target.value)} className="px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required />
+      <input type="number" min="0" step="1" value={suspectedCases} onChange={e => setSuspectedCases(e.target.value)} aria-label="Suspected cases" placeholder="Suspected" className="px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required />
+      <input type="number" min="0" step="1" value={confirmedCases} onChange={e => setConfirmedCases(e.target.value)} aria-label="Confirmed cases" placeholder="Confirmed" className="px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required />
+      <div className="flex gap-2"><input type="number" min="0" step="1" value={deaths} onChange={e => setDeaths(e.target.value)} aria-label="Deaths" placeholder="Deaths" className="min-w-0 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required /><button disabled={saving || !selectedDisease} className="px-3 py-2 rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] text-xs font-bold disabled:opacity-50">{saving ? 'Saving…' : 'Record'}</button></div>
+    </form>
+    {message && <p className="px-4 py-2 text-xs text-[var(--text-secondary)]">{message}</p>}
+    <div className="overflow-x-auto"><table className="w-full text-xs">
+      <thead className="bg-[var(--bg-main)]"><tr>{['Date','Disease','Suspected','Confirmed','Deaths','Acknowledgement','Action'].map(label => <th key={label} className="px-3 py-2 text-left text-[10px] font-bold uppercase text-[var(--text-tertiary)]">{label}</th>)}</tr></thead>
+      <tbody className="divide-y divide-[var(--border-color)]">
+        {records.map(record => <tr key={record.id}><td className="px-3 py-2">{record.alertDate ? new Date(record.alertDate).toLocaleDateString() : '—'}</td><td className="px-3 py-2">{record.diseaseName} ({record.diseaseCode})</td><td className="px-3 py-2">{record.suspectedCases}</td><td className="px-3 py-2">{record.confirmedCases}</td><td className="px-3 py-2">{record.deaths}</td><td className="px-3 py-2">{record.alertAcknowledged ? 'Acknowledged' : 'Awaiting acknowledgement'}</td><td className="px-3 py-2">{!record.alertAcknowledged && <button type="button" onClick={() => acknowledge(record.id)} className="text-[var(--icon-cyan-text)] font-semibold">Acknowledge</button>}</td></tr>)}
+        {records.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-[var(--text-tertiary)]">No manual surveillance tallies recorded for this period.</td></tr>}
+      </tbody>
+    </table></div>
+  </Card>;
+}
+
 export default function Reports() {
   const goBack = useSmartBack('/dashboard');
   const navigate = useNavigate();
@@ -673,6 +731,7 @@ export default function Reports() {
             </p>
           )}
         </Card>
+        <IDSRSurveillanceRegister startDate={dateRange.start} endDate={dateRange.end} diseases={diseases} />
       </div>
     );
   };
