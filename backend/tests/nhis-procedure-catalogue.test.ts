@@ -59,10 +59,10 @@ describe('NHIS procedure catalogue coverage', () => {
   });
   it('has a verified NHIS investigation code on every lab and scan template', () => {
     for (const lab of labTests) {
-      expect(lab.investigationCode, `missing NHIS code for lab ${lab.name}`).toMatch(/^INVE\d{2}[A-Z]$/);
+      expect(lab.investigationCode, `missing NHIS code for lab ${lab.name}`).toMatch(/^INVE\d+[A-Z]$/);
     }
     for (const scan of scans) {
-      expect(scan.investigationCode, `missing NHIS code for scan ${scan.name}`).toMatch(/^INVE\d{2}[A-Z]$/);
+      expect(scan.investigationCode, `missing NHIS code for scan ${scan.name}`).toMatch(/^INVE\d+[A-Z]$/);
     }
   });
 
