@@ -173,7 +173,7 @@ export const seedDatabase = async (force: boolean = false) => {
     const coreSeedOptions = productionProfile
       ? { profile: 'production' as const, adminPassword: process.env.SEED_ADMIN_PASSWORD }
       : {};
-    const coreResult = await safeSeed('Core Data', () => seedCoreData(force, coreSeedOptions), force, 'coreData', status);
+    const coreResult = await safeSeed('Core Data', () => seedCoreData(productionProfile ? true : force, coreSeedOptions), force, 'coreData', status);
     results.coreData = coreResult;
 
     // Force mode may continue to later seed stages, but it must never hide a
