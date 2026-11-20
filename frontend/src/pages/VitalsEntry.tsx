@@ -565,6 +565,7 @@ export default function VitalsEntry() {
               <p className="text-sm text-[var(--icon-yellow-text)]">
                 This visit is <strong>{selectedAttendance.status}</strong>. Vitals can be viewed but not recorded.
               </p>
+                </div>
             )}
           </div>
 
