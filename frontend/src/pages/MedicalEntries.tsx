@@ -913,27 +913,28 @@ export default function MedicalEntries() {
       .filter(Boolean)
       .join('\n');
 
+    const attendanceRecord = currentAttendance as any;
     const clinicalRecord = {
-      ...currentAttendance,
-      complaints: presentedComplaints || currentAttendance.complaints || currentAttendance.chiefComplaint || '',
+      ...attendanceRecord,
+      complaints: presentedComplaints || attendanceRecord.complaints || attendanceRecord.chiefComplaint || '',
       examination: [
         hpc ? `History of presenting complaint: ${hpc}` : '',
         odq ? `Onset / duration / quality: ${odq}` : '',
-        physicalExam || currentAttendance.examination || currentAttendance.physicalExamination || '',
+        physicalExam || attendanceRecord.examination || attendanceRecord.physicalExamination || '',
       ].filter(Boolean).join('\n\n'),
-      assessment: assessment || currentAttendance.assessment || '',
+      assessment: assessment || attendanceRecord.assessment || '',
       medicalNotes: [
         treatmentPlan ? `Treatment plan:\n${treatmentPlan}` : '',
         loggedTreatmentNotes ? `Treatment notes:\n${loggedTreatmentNotes}` : '',
-      ].filter(Boolean).join('\n\n') || currentAttendance.medicalNotes || currentAttendance.notes || '',
-      vitals: latestVitals ? [latestVitals] : currentAttendance.Vitals || currentAttendance.vitals || [],
+      ].filter(Boolean).join('\n\n') || attendanceRecord.medicalNotes || attendanceRecord.notes || '',
+      vitals: latestVitals ? [latestVitals] : attendanceRecord.Vitals || attendanceRecord.vitals || [],
     };
 
     const html = generatePDF('visitSummary', {
       attendance: clinicalRecord,
-      patient: selectedPatient || currentAttendance.Patient || currentAttendance.patient,
+      patient: selectedPatient || attendanceRecord.Patient || attendanceRecord.patient,
     }, hospital);
-    openPrintWindow(html, `Medical-Record-${currentAttendance.attendanceNumber || selectedAttendanceId}`);
+    openPrintWindow(html, `Medical-Record-${attendanceRecord.attendanceNumber || selectedAttendanceId}`);
   };
 
   const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
