@@ -1113,6 +1113,8 @@ export const updateClaimDraft = (claimId: string, data: any) =>
   api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => r.data);
 export const replaceClaimItems = (claimId: string, items: any[]) =>
   api.put(`/insurance-claims/${claimId}/items`, { items }).then(r => r.data);
+export const deleteInsuranceClaimDraft = (claimId: string) =>
+  api.delete(`/insurance-claims/${claimId}`).then(r => r.data);
 
 // Alias — same endpoint as updateClaimDraft (drafts only)
 export const updateInsuranceClaim = updateClaimDraft;
