@@ -90,33 +90,27 @@ describe('NHIS medicine payer allocation rules', () => {
     });
   });
 
-  it('allocates a covered medicine tariff between insurer and configured fixed co-payment', () => {
+  it('allocates the full covered NHIS tariff to the insurer without a patient contribution', () => {
     expect(calculateNHISMedicineAllocation({
       cashPrice: 120,
       nhisTariff: 75,
       covered: true,
-      copaymentMode: 'fixed_amount',
-      copaymentAmount: 10,
-    })).toEqual({
-      cashPrice: 120,
-      nhisCoveredAmount: 65,
-      patientPayableAmount: 10,
-      copaymentAmount: 10,
-    });
-  });
-
-  it('uses the cash-price difference only when that co-payment policy is explicitly selected', () => {
-    expect(calculateNHISMedicineAllocation({
-      cashPrice: 120,
-      nhisTariff: 75,
-      covered: true,
-      copaymentMode: 'cash_price_difference',
     })).toEqual({
       cashPrice: 120,
       nhisCoveredAmount: 75,
-      patientPayableAmount: 45,
-      copaymentAmount: 45,
+      patientPayableAmount: 0,
+      copaymentAmount: 0,
     });
+  });
+
+  it('rejects fixed and cash-price-difference contributions for covered medicines', () => {
+    expect(() => calculateNHISMedicineAllocation({
+      cashPrice: 120, nhisTariff: 75, covered: true,
+      copaymentMode: 'fixed_amount', copaymentAmount: 10,
+    })).toThrow(/NHIA does not permit a co-payment/i);
+    expect(() => calculateNHISMedicineAllocation({
+      cashPrice: 120, nhisTariff: 75, covered: true, copaymentMode: 'cash_price_difference',
+    })).toThrow(/NHIA does not permit a co-payment/i);
   });
 
   it('fails closed when a covered medicine has no positive NHIS tariff', () => {
