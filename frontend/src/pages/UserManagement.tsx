@@ -440,8 +440,8 @@ export default function UserManagement() {
         ))}
       </div>
 
-      {/* Tabs — 5 now, was 3 + 3 in two places */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1 max-w-2xl overflow-x-auto">
+      {/* Responsive tabs: equal-width cells on desktop, tidy wrapping on narrow screens */}
+      <div role="tablist" aria-label="User management sections" className="grid w-full grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-2">
         {[
           { id: 'directory' as TabId, label: 'Directory', icon: Users },
           { id: 'payslips' as TabId, label: 'Payslips', icon: DollarSign },
@@ -451,7 +451,15 @@ export default function UserManagement() {
           ...(canAdministerAccounts ? [{ id: 'password-resets' as TabId, label: `Password resets (${passwordResetRequests.filter((r: any) => r.status === 'pending').length})`, icon: KeyRound }] : []),
         ].map((t) => {
           const Icon = t.icon;
-          return (<button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${activeTab === t.id ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}><Icon className="w-3.5 h-3.5" /> {t.label}</button>);
+          const selected = activeTab === t.id;
+          return (
+            <button key={t.id} type="button" role="tab" aria-selected={selected}
+              aria-controls={`user-management-panel-${t.id}`}
+              onClick={() => setActiveTab(t.id)}
+              className={`flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-center text-xs font-semibold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 ${selected ? 'border-cyan-600 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm' : 'border-transparent text-[var(--text-secondary)] hover:border-[var(--border-color)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'}`}>
+              <Icon className="h-4 w-4 shrink-0" /><span className="min-w-0 break-words">{t.label}</span>
+            </button>
+          );
         })}
       </div>
 
