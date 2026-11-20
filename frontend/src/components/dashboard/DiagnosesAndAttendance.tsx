@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Heart, Calendar, BarChart3, Users, Shield, CreditCard } from 'lucide-react';
 import { getEncounterReport, getTopDiagnoses as apiGetTopDiagnoses } from '../../api';
+import { useDashboardDate } from '../../context/DashboardDateContext';
 
 interface AttendanceStats {
     byType: { outpatient?: number; inpatient?: number; emergency?: number; maternal?: number };
@@ -19,9 +20,6 @@ export function DiagnosesAndAttendance() {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const today = new Date().toISOString().split('T')[0];
-                const dateRange = { startDate: today, endDate: today };
-
                 const [attendanceRes, diagnosesRes] = await Promise.all([
                     getEncounterReport(dateRange),
                     apiGetTopDiagnoses(dateRange, 5),
@@ -29,8 +27,8 @@ export function DiagnosesAndAttendance() {
 
                 if (!active) return;
 
-                const attendanceData = attendanceRes?.data || attendanceRes;
-                const diagnosesData = diagnosesRes?.data || diagnosesRes;
+                const attendanceData = attendanceRes?.data?.data ?? attendanceRes?.data ?? attendanceRes;
+                const diagnosesData = diagnosesRes?.data?.data ?? diagnosesRes?.data ?? diagnosesRes;
 
                 let byType: Record<string, number> = {};
                 let byPaymentMode: Record<string, number> = {};
@@ -77,7 +75,7 @@ export function DiagnosesAndAttendance() {
 
         fetchData();
         return () => { active = false; };
-    }, []);
+    }, [dateRange.startDate, dateRange.endDate]);
 
     const getName = (d: any) => d.diagnosisName || d.name || d.disease || d.diagnosis || d.title || 'Unknown';
     const getCount = (d: any) => d.totalCases || d.patients || d.count || d.cases || 1;
