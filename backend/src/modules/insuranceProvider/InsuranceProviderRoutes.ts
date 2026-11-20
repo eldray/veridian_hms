@@ -32,7 +32,9 @@ export function createInsuranceProviderRoutes(prisma: PrismaClient): Router { //
     [
       body('name').notEmpty().trim().isLength({ min: 2 }),
       body('type').isIn(Object.values(InsuranceType)),
-      body('coveragePercentage').isFloat({ min: 0, max: 100 }),
+      body('coveragePercentage')
+        .if((_value, { req }) => req.body.type !== InsuranceType.nhis)
+        .isFloat({ min: 0, max: 100 }),
       body('contactInfo').optional().isObject()
     ], 
     controller.createInsuranceProvider
