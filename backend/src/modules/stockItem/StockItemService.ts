@@ -99,7 +99,7 @@ export class StockItemService extends BaseService {
           serviceType: ServiceType.medication,
           serviceCategory: ServiceCategory.pharmacy,
           subType: item.category || 'medication',
-          nhisServiceCode: item.isNHISCovered === true ? item.drugCode : null,
+          nhisServiceCode: item.nhisServiceCode ?? null,
           unit: item.unitOfMeasure || 'Each',
           isPending: false,
           stockItemId: item.id,
@@ -107,7 +107,7 @@ export class StockItemService extends BaseService {
         }
       });
     } else {
-      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: { ...flags, code: `MED-${item.drugCode}`, nhisServiceCode: item.isNHISCovered === true ? item.drugCode : null } });
+      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: { ...flags, code: `MED-${item.drugCode}`, nhisServiceCode: item.nhisServiceCode ?? null } });
     }
 
     const changed = !current
@@ -188,7 +188,7 @@ export class StockItemService extends BaseService {
     const item = await this.prisma.$transaction(async (tx) => {
       const created = await this.repo.create({
         name, category, description: data.description, strength, unitOfMeasure, drugCode,
-        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, isNHISCovered: data.isNHISCovered ?? false,
+        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, nhisServiceCode: data.nhisServiceCode || null, isNHISCovered: Boolean(data.nhisServiceCode) && data.isNHISCovered === true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
         tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
