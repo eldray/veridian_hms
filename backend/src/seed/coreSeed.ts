@@ -1319,7 +1319,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       const pricing = pricingConfig.labTests?.[code] || { cashPrice: 80, nhisPrice: 60, insurancePrice: 75 };
       serviceCatalogEntries.push({
         name: template.name,
-        code,
+        code: `LAB-${code}`,
         serviceType: ServiceType.lab_test,
         serviceCategory: ServiceCategory.diagnostics,
         subType: template.category,
@@ -1334,7 +1334,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       const pricing = pricingConfig.scans?.[code] || { cashPrice: 200, nhisPrice: 150, insurancePrice: 180 };
       serviceCatalogEntries.push({
         name: template.name,
-        code: (template as any).investigationCode || code,
+        code: `SCAN-${code}`,
         serviceType: ServiceType.scan,
         serviceCategory: ServiceCategory.diagnostics,
         subType: template.category,
@@ -1388,7 +1388,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       };
       serviceCatalogEntries.push({
         name: stockItem.name,
-        code: drugCode,
+        code: `MED-${drugCode}`,
         serviceType: ServiceType.medication,
         serviceCategory: ServiceCategory.pharmacy,
         subType: stockItem.category || 'medication',
