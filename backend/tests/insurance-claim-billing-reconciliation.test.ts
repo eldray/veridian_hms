@@ -91,6 +91,21 @@ describe('private and corporate direct claim generation', () => {
     expect(created[0].procedureCodes).toEqual(['ZOOM05']);
   });
 
+  it('refuses to put internal LAB catalogue identifiers into payer claim lines', async () => {
+    const { service, tx, created } = setup('private');
+    const attendance = await tx.attendance.findUnique();
+    attendance.ServiceRendered = [];
+    attendance.LabTest = [{
+      id: 'lab-legacy', status: 'completed', name: 'Random Blood Glucose',
+      LabTestTemplate: null,
+      ServiceCatalog: { id: 'lab-service', name: 'Random Blood Glucose', code: 'LAB-INVE46D', nhisServiceCode: null, serviceType: 'lab_test', isPrivateInsuranceExempted: false },
+    }];
+
+    await expect(service.generatePrivateInsuranceClaim('attendance-1', 'user-1'))
+      .rejects.toThrow(/no valid NHIS INVE investigation code/i);
+    expect(created).toHaveLength(0);
+  });
+
   it('refuses to generate a claim when the attendance has no completed priced services', async () => {
     const { service, tx } = setup('private');
     const attendance = await tx.attendance.findUnique();
