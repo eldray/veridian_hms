@@ -416,7 +416,7 @@ ${claimsXml}
               select: {
                 id: true, name: true, status: true, quantity: true, dosage: true, frequency: true, duration: true,
                 dispensedAt: true, stockItemId: true, serviceCatalogId: true,
-                StockItem: { select: { id: true, drugCode: true, name: true, unitOfMeasure: true } },
+                StockItem: { select: { id: true, drugCode: true, nhisServiceCode: true, name: true, unitOfMeasure: true } },
               },
             },
           },
@@ -938,7 +938,7 @@ ${claimsXml}
         nhisMedicineItems.push({
           itemCategory: 'medicine',
           itemType: 'medication',
-          code: stockItem.drugCode || med.ServiceCatalog?.code || 'NHIS-MEDICINE',
+          code: stockItem.nhisServiceCode || '',
           description: med.name || stockItem.name,
           quantity,
           unitPrice: coveredUnitAmount,
@@ -1126,7 +1126,7 @@ ${claimsXml}
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.nhisServiceCode),
           scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.nhisServiceCode),
           procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
-          medicationCodes: safeMap(att.Medication, m => m.StockItem?.drugCode || m.ServiceCatalog?.code),
+          medicationCodes: safeMap(att.Medication, m => m.StockItem?.nhisServiceCode),
           serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.nhisServiceCode),
           gdrgCodes: [tariff.gdrgCode], nhisServiceCodes: tariff.nhisServiceCode ? [tariff.nhisServiceCode] : [],
           principalGDRG: tariff.gdrgCode, claimCheckCode: att.nhisCCC,
