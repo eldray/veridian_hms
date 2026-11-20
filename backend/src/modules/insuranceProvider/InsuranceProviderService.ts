@@ -42,7 +42,7 @@ export class InsuranceProviderService extends BaseService {
     if (updateData.coveragePercentage !== undefined) {
       updateData.coveragePercentage = parseFloat(updateData.coveragePercentage as any);
     }
-    const existing = await this.repository.findById(id);
+    const existing = await this.repository.findTypeById(id);
     const effectiveType = updateData.type ?? existing?.type;
     if (effectiveType === InsuranceType.nhis) {
       // Prevent API clients and older screens from reintroducing an NHIS percentage.
