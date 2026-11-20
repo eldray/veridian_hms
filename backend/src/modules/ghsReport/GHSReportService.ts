@@ -481,7 +481,18 @@ export class GHSReportService extends BaseService {
         acknowledgedEntries: entries.filter((row: any) => row.alertAcknowledged).length,
       };
     });
-    return { period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1 }, facility: { name: facility?.name ?? '', district: facility?.ghsDistrictCode ?? '', ghfCode: facility?.ghaHFCode ?? '' }, diseases };
+    const reported = diseases.filter(d => d.confirmed != null);
+    return {
+      period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1 },
+      facility: { name: facility?.name ?? '', district: facility?.ghsDistrictCode ?? '', ghfCode: facility?.ghaHFCode ?? '' },
+      summary: {
+        totalSuspected: diseases.reduce((sum, disease) => sum + disease.suspected, 0),
+        totalConfirmed: reported.length ? reported.reduce((sum, disease) => sum + (disease.confirmed || 0), 0) : null,
+        totalDeaths: diseases.some(disease => disease.deaths != null) ? diseases.reduce((sum, disease) => sum + (disease.deaths || 0), 0) : null,
+        diseasesWithSurveillanceEntries: diseases.filter(disease => disease.surveillanceEntries > 0).length,
+      },
+      diseases,
+    };
   }
 
   async generateConsultingRoomRegister(startDate: string | Date, endDate: string | Date, periodType: 'daily' | 'weekly' | 'monthly' = 'daily', createdById: string) {
