@@ -815,11 +815,6 @@ export interface GeneratedClaimBatch {
   payerResponse: {
     submittedAt: Date;
     payerReference: string;
-    adjudication: {
-      status: 'approved' | 'partially_approved' | 'rejected' | 'under_review' | 'queried';
-      at: Date;
-      notes: string;
-    } | null;
     payments: Array<{ fraction: number; at: Date; reference: string; method: string }>;
     recorder: Actor;
   } | null;
@@ -2353,49 +2348,27 @@ const scenarioByKey = (key: string, fallback: ComplaintScenario): ComplaintScena
  * submitted batches instead of rolled: the demo only has ~10 batches, and a roll can
  * leave the tracking screen without a single queried, rejected or unpaid period.
  */
-const BATCH_OUTCOMES = [
-  'settled', 'partially_settled', 'awaiting_remittance', 'under_review', 'queried',
-  'rejected', 'settled', 'partially_settled', 'settled', 'awaiting_remittance',
-] as const;
-
+const BATCH_OUTCOMES = ['paid', 'partially_paid', 'unpaid', 'paid', 'partially_paid', 'unpaid'] as const;
 type BatchOutcome = (typeof BATCH_OUTCOMES)[number];
 
-/** The answers that decide the period but move no money yet. */
-const BATCH_UNANSWERED: Record<
-  Exclude<BatchOutcome, 'settled' | 'partially_settled'>,
-  { status: 'approved' | 'under_review' | 'queried' | 'rejected'; note: () => string }
-> = {
-  awaiting_remittance: { status: 'approved', note: () => 'Approved; the remittance has not arrived yet.' },
-  under_review: { status: 'under_review', note: () => 'Awaiting adjudication by the payer.' },
-  queried: { status: 'queried', note: () => pick(CLAIM_REJECTION_NOTES) },
-  rejected: { status: 'rejected', note: () => pick(CLAIM_REJECTION_NOTES) },
-};
-
 /**
- * How the payer answered a submitted batch: decided, and how much of the period they have
- * actually remitted. Amounts are fractions because a batch is worth whatever its claims add
- * up to, which is only known once they are priced.
+ * Synthetic batch remittances: only the facility's submission and the money actually received.
+ * No payer decision or adjudication data is created in this system.
  */
 const buildBatchPayerResponse = (
   batchNumber: string,
   finalizedAt: Date,
   submittedOrdinal: number,
 ): GeneratedClaimBatch['payerResponse'] => {
-  // The newest batch period can still be the current month. A step that would be dated today
-  // or later has not happened yet, so the story stops there instead of piling every event
-  // onto one clamped day.
   const cap = Date.now() - 86_400_000;
-  const handed = addDays(finalizedAt, intBetween(1, 4));
-  if (handed.getTime() > cap) return null;
-  const base = { submittedAt: handed, payerReference: `${batchNumber}-SUB`, recorder: actor('accounts') };
-  const adjudicatedAt = addDays(handed, intBetween(5, 21));
-  if (adjudicatedAt.getTime() > cap) return { ...base, adjudication: null, payments: [] };
-  const outcome = BATCH_OUTCOMES[submittedOrdinal % BATCH_OUTCOMES.length];
+  const submittedAt = addDays(finalizedAt, intBetween(1, 4));
+  if (submittedAt.getTime() > cap) return null;
+  const base = { submittedAt, payerReference: `${batchNumber}-SUB`, recorder: actor('accounts') };
+  const outcome: BatchOutcome = BATCH_OUTCOMES[submittedOrdinal % BATCH_OUTCOMES.length];
 
-  // Instalments arrive one after another; a remittance dated beyond today never landed.
   const settle = (fractions: number[]) => {
     const rows: Array<{ fraction: number; at: Date; reference: string; method: string }> = [];
-    let arrival = adjudicatedAt;
+    let arrival = submittedAt;
     for (const fraction of fractions) {
       arrival = addDays(arrival, rows.length ? intBetween(10, 30) : intBetween(5, 25));
       if (arrival.getTime() > cap) break;
@@ -2409,22 +2382,11 @@ const buildBatchPayerResponse = (
     return rows;
   };
 
-  if (outcome === 'settled') {
-    return {
-      ...base,
-      adjudication: { status: 'approved', at: adjudicatedAt, notes: 'Adjudicated at the published tariff.' },
-      payments: settle([1]),
-    };
+  if (outcome === 'paid') return { ...base, payments: settle([1]) };
+  if (outcome === 'partially_paid') {
+    return { ...base, payments: settle([between(0.35, 0.6), between(0.15, 0.3)]) };
   }
-  if (outcome === 'partially_settled') {
-    return {
-      ...base,
-      adjudication: { status: 'partially_approved', at: adjudicatedAt, notes: pick(CLAIM_REJECTION_NOTES) },
-      payments: settle([between(0.35, 0.6), between(0.15, 0.3)]),
-    };
-  }
-  const answer = BATCH_UNANSWERED[outcome];
-  return { ...base, adjudication: { status: answer.status, at: adjudicatedAt, notes: answer.note() }, payments: [] };
+  return { ...base, payments: [] };
 };
 
 export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBundle => {
