@@ -101,15 +101,25 @@ export const useThemeStore = create<ThemeState>()(
 export function initTheme() {
   try {
     const raw = localStorage.getItem('hms-theme');
-    if (raw) {
-      const { schemeId, mode } = JSON.parse(raw) as {
-        schemeId?: string;
-        mode?: ThemeMode;
-      };
-      const scheme = findScheme(schemeId ?? DEFAULT_SCHEME_ID);
-      applyTheme(scheme, mode ?? 'light');
-    }
+    if (!raw) return;
+
+    // Zustand persist stores values inside its { state, version } envelope.
+    // Also accept the older flat shape so existing installations keep their
+    // saved appearance if they were written by a previous implementation.
+    const parsed = JSON.parse(raw) as {
+      state?: { schemeId?: string; mode?: ThemeMode };
+      schemeId?: string;
+      mode?: ThemeMode;
+    };
+    const persisted = parsed.state ?? parsed;
+    const schemeId = typeof persisted.schemeId === 'string'
+      ? persisted.schemeId
+      : DEFAULT_SCHEME_ID;
+    const mode: ThemeMode = persisted.mode === 'dark' ? 'dark' : 'light';
+
+    const scheme = findScheme(schemeId);
+    applyTheme(scheme, mode);
   } catch {
-    // Ignore parse errors — store will self-heal on first render
+    // Ignore malformed storage; the Zustand store will fall back to defaults.
   }
 }
