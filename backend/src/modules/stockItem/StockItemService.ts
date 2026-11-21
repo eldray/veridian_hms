@@ -329,7 +329,7 @@ export class StockItemService extends BaseService {
     id: string,
     page: number = 1,
     limit: number = 50,
-    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
+    filters: { departmentId?: string; includeAllStockLocations?: boolean; startDate?: string; endDate?: string } = {},
   ) {
     const result = await this.repo.getTransactions(id, page, limit, filters);
     return {
