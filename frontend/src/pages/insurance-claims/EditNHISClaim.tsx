@@ -957,6 +957,7 @@ export default function EditNHISClaim() {
   const [notes, setNotes] = useState('');
 
   const [serviceFlags, setServiceFlags] = useState({ diagnostic: false, pharmacy: false, unbundled: false, allInclusive: true });
+  const [diagnosticEligible, setDiagnosticEligible] = useState(false);
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [referringFacility, setReferringFacility] = useState('');
   const [referralCode, setReferralCode] = useState('');
@@ -1265,13 +1266,15 @@ export default function EditNHISClaim() {
       (Array.isArray(attendance?.consultations ?? attendance?.Consultations) &&
         (attendance.consultations ?? attendance.Consultations).length > 0) ||
       attendanceTypeCode.includes('consultation') ||
-      attendanceServices.some((service: any) =>
+      (Array.isArray(attendanceServices) && attendanceServices.some((service: any) =>
         String(service?.serviceType ?? service?.category ?? service?.serviceCategory ?? '').toLowerCase().includes('consultation')
-      );
+      ));
     const hasMedication = attendanceMedicines.length > 0 || medFromServer.length > 0;
+    const isStandaloneDiagnostics = attendanceLabs.length > 0 && !hasConsultation && !hasMedication;
+    setDiagnosticEligible(isStandaloneDiagnostics);
     setServiceFlags({
       // Diagnostic is only for a laboratory-only attendance: labs, but no consultation or medicines.
-      diagnostic: meta.serviceFlags?.diagnostic ?? (attendanceLabs.length > 0 && !hasConsultation && !hasMedication),
+      diagnostic: isStandaloneDiagnostics,
       pharmacy: meta.serviceFlags?.pharmacy ?? attendanceMedicines.length > 0,
       unbundled,
       allInclusive: meta.serviceFlags?.allInclusive ?? !unbundled,
@@ -1713,7 +1716,7 @@ export default function EditNHISClaim() {
                   <CheckItem label="Outpatient" checked={primaryServiceType === 'OPD'} onChange={() => handleServiceTypeChange('OPD')} disabled={locked} />
                   <CheckItem label="Pharmacy" checked={serviceFlags.pharmacy} onChange={v => setServiceFlags({ ...serviceFlags, pharmacy: v })} disabled={locked} />
                   <CheckItem label="Inpatient" checked={primaryServiceType === 'IPD'} onChange={() => handleServiceTypeChange('IPD')} disabled={locked} />
-                  <CheckItem label="Diagnostic" checked={serviceFlags.diagnostic} onChange={v => setServiceFlags({ ...serviceFlags, diagnostic: v })} disabled={locked} />
+                  <CheckItem label="Diagnostic" checked={serviceFlags.diagnostic} onChange={v => setServiceFlags({ ...serviceFlags, diagnostic: v })} disabled={locked || !diagnosticEligible} />
                   <CheckItem label="UnBundled" checked={serviceFlags.unbundled} onChange={v => setServiceFlags({ ...serviceFlags, unbundled: v, allInclusive: v ? false : serviceFlags.allInclusive })} disabled={locked} />
                   <CheckItem label="All-Inclusive" checked={serviceFlags.allInclusive} onChange={v => setServiceFlags({ ...serviceFlags, allInclusive: v, unbundled: v ? false : serviceFlags.unbundled })} disabled={locked} />
                 </div>
