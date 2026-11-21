@@ -18,7 +18,7 @@ describe('claim batch tracking aggregate balances', () => {
     const repo = setup([
       { totalAmount: 100, trackingEvents: [{ status: 'partially_approved', amount: 60 }] },
       { totalAmount: 100, trackingEvents: [{ status: 'under_review', amount: null }] },
-      { totalAmount: 100, trackingEvents: [{ status: 'rejected', amount: null }] },
+      { totalAmount: 100, trackingEvents: [{ status: 'rejected', amount: 90 }] },
     ], 70);
     const result = await repo.findBatchesForTracking({ page: 1, limit: 1 });
     expect(result.summary).toMatchObject({ payable: 160, paid: 70, outstanding: 90, overpaid: 0 });
