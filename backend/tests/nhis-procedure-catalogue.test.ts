@@ -67,7 +67,7 @@ describe('NHIS procedure catalogue coverage', () => {
       expect(scanCodes.has(scan.scanCode), `duplicate internal scan code ${scan.scanCode}`).toBe(false);
       scanCodes.add(scan.scanCode);
       expect(scan).not.toHaveProperty('tariffCode');
-      expect(scan.investigationCode, `missing NHIS code for scan ${scan.name}`).toMatch(/^INVE\\d+[A-Z0-9-]*$/);
+      expect(scan.investigationCode, `missing NHIS code for scan ${scan.name}`).toMatch(/^INVE\d+[A-Z0-9-]*$/);
       if (String(scan.category).toLowerCase() === 'ultrasound') {
         expect(scan.investigationCode, `ultrasound ${scan.name} must use the common NHIS code`).toBe('INVE30E');
       }
