@@ -19,13 +19,13 @@ import { confirmDialog } from '../context/ConfirmDialog';
 import { Plus, FileText, Download, Eye, DollarSign, PlayCircle, Calendar, User, Activity, RefreshCw, Lock, Printer, ArrowUpDown, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import InsuranceTabs, { INSURANCE_FAMILIES, type InsuranceFamily } from '../components/InsuranceTabs';
-import { Badge, cn, Button, Card, FilterSelect, humanStatus, INPUT, TD_MONO, PageHeader, Pagination, SearchInput, StatCard, statusTone, TABLE_SHELL, TD, TH, TH_ROW, TR } from '../components/ui';
+import { Badge, cn, Button, Card, FilterSelect, INPUT, TD_MONO, PageHeader, Pagination, SearchInput, StatCard, statusTone, TABLE_SHELL, TD, TH, TH_ROW, TR } from '../components/ui';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 export default function InsuranceClaims({ family }: { family: InsuranceFamily }) {
   const familyMeta = INSURANCE_FAMILIES.find((f) => f.key === family) ?? INSURANCE_FAMILIES[0];
   const navigate = useNavigate(); const { success, error: toastError } = useToast(); const { hasRole } = useAuthStore();
   const canDeleteDraft = hasRole(['admin', 'accounts']);
-  const { nhisClaims, getNHISClaims, generateNHISClaim, privateClaims, getPrivateInsuranceClaims, generatePrivateInsuranceClaim, corporateClaims, getCorporateClaims, generateCorporateClaim, finalizeClaim, deleteClaimDraft, downloadClaimXml, printClaim, getClaimsSummary, summary, isLoading: claimsLoading } = useInsuranceStore();
+  const { nhisClaims, getNHISClaims, generateNHISClaim, privateClaims, getPrivateInsuranceClaims, generatePrivateInsuranceClaim, corporateClaims, getCorporateClaims, generateCorporateClaim, finalizeClaim, deleteClaimDraft, downloadClaimXml, printClaim, getClaimsSummary, isLoading: claimsLoading } = useInsuranceStore();
   const { attendances, getAttendances, isLoading: attendanceLoading } = useAttendanceStore();
   const [searchTerm, setSearchTerm] = useState(''); const [filterStatus, setFilterStatus] = useState('all');
   const activeTab: InsuranceFamily = family; const [showPendingAttendances, setShowPendingAttendances] = useState(false);
