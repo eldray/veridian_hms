@@ -229,7 +229,14 @@ export class InsuranceClaimService extends BaseService {
         where: { id: batchId },
         data: { totalAmount: toNumber(existing.totalAmount) - remAmount, claims: { disconnect: claimIds.map(id => ({ id })) } }
       });
-      await tx.insuranceClaim.updateMany({ where: { id: { in: claimIds } }, data: { batchId: null } });
+      // Clear the batch assignment only for claims that actually belong to this batch.
+      // A broad ID-only update could detach a claim from a different batch if a stale
+      // request supplied an unrelated claim ID.
+      const removedClaimIds = existing.claims.map((claim) => claim.id);
+      if (removedClaimIds.length !== new Set(claimIds).size) {
+        throw new ValidationError('One or more selected claims are not members of this batch.');
+      }
+      await tx.insuranceClaim.updateMany({ where: { id: { in: removedClaimIds }, batchId }, data: { batchId: null } });
 
       return await tx.claimBatch.findUnique({
         where: { id: batchId },
