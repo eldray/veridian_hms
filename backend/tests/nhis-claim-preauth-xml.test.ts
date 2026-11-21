@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { NHISClaimXMLBuilder } from '../src/modules/insuranceClaim/xml/NHISClaimXMLBuilder';
 
-describe('NHIS claim pre-authorisation XML', () => {\nconst validClaimFields = {
+describe('NHIS claim pre-authorisation XML', () => {
+const validClaimFields = {
   claimCheckCode: '12345',
   typeOfService: 'OPD',
   typeOfAttendance: 'EAE',
