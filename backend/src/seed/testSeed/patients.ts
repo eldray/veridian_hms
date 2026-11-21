@@ -3,7 +3,7 @@
 // Patients plus everything registered alongside them: allergies, the medical,
 // surgical and family history tabs, consents and the corporate enrolment that
 // makes the corporate payer mode real.
-import type { GeneratedPatient } from '../bulkGenerator.js';
+import { makeNhisNumber, type GeneratedPatient } from '../bulkGenerator.js';
 import type { Lookups } from './lookups.js';
 import { ENUMS } from './lookups.js';
 import { asCalendarDay, hashOf, pickEnum, prisma, writeMany, type SeedStats } from './shared.js';
@@ -79,7 +79,7 @@ export const seedPatients = async (
       insuranceProviderId: insuranceProviderId ?? undefined,
       // Demo NHIS members always carry a syntactically valid membership number. This is
       // synthetic test data, not a real member lookup or an NHIA-issued number.
-      nhisNumber: p.paymentMode === 'nhis' ? (p.nhisNumber || `00${String(index + 1).padStart(8, '0')}`) : undefined,
+      nhisNumber: p.paymentMode === 'nhis' ? (p.nhisNumber || makeNhisNumber(index)) : undefined,
       nhisActive: p.nhisActive,
       nhisExpiryDate: p.nhisExpiryDate ? asCalendarDay(p.nhisExpiryDate) : undefined,
       phoneNumber: p.phoneNumber,
