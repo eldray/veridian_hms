@@ -821,7 +821,8 @@ ${claimsXml}
   // NHIS SERVICES (Fully Restored)
   // ==========================================
   async generateNHISClaim(attendanceId: string, userId: string) {
-    return this.prisma.$transaction(async (tx) => {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
       if (!attendanceId) throw new ValidationError('attendanceId is required');
       const existing = await this.findExistingClaim(tx, attendanceId, 'nhis');
       if (existing) return { claim: existing, isExisting: true };
@@ -1238,11 +1239,26 @@ ${claimsXml}
         },
         include: { items: { orderBy: { itemNumber: 'asc' } } }
       });
-
       return { claim, gdrgDetails: tariff, isExisting: false };
-    });
+      });
+    } catch (error) {
+      // The unique attendanceId constraint is the final guard when requests race.
+      // Recover only that conflict as an idempotent retry; rethrow other unique errors.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        String(error.meta?.target ?? '').toLowerCase().includes('attendanceid')
+      ) {
+        const existing = await this.findExistingClaim(
+          this.prisma as unknown as Prisma.TransactionClient,
+          attendanceId,
+          'nhis',
+        );
+        if (existing) return { claim: existing, isExisting: true };
+      }
+      throw error;
+    }
   }
-
   async getNHISClaims(status?: string, patientId?: string, startDate?: Date, endDate?: Date, page = 1, limit = 50) {
     const where: any = { InsuranceProvider: { type: 'nhis' } };
     if (status) where.status = status;
