@@ -145,7 +145,7 @@ export class NHISClaimXMLBuilder {
     // ── Procedures ──
     // The submitted file pairs every procedure entry with the diagnosis it was done for, so the
     // payer can price the operation against a case rather than against nothing.
-    const fallbackIndicationText = this.esc(
+    const fallbackIndicationText = String(
       items.find((i) => i.itemCategory === 'diagnosis')?.description ?? ''
     );
     const procedureItems = items
