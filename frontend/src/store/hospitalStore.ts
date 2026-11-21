@@ -41,12 +41,12 @@ interface HospitalState {
 const DEFAULT_HOSPITAL: HospitalInfo = {
   id: 'default',
   name: 'Veridian Hospital',
-  type: 'General Hospital',
+  type: 'Primary Hospital',
   address: '123 Medical Center Drive, Healthcare City',
   phone: '+1 (555) 123-4567',
   email: 'info@veridianhms.com',
   nhisFacilityCode: 'VH001',
-  nhisFacilityType: 'General',
+  nhisFacilityType: 'Primary',
   isActive: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()

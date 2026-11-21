@@ -9,12 +9,13 @@
 import { useState, useEffect } from 'react';
 import { useSettingsStore } from '../../store/settingsStore';
 import { useToast } from '../../store/toastStore';
+import api from '../../api/api';
 import { Save, Building, MapPin, Phone, Mail, Globe, Loader, AlertCircle } from 'lucide-react';
 
 export default function CompanySettingsTab() {
   const { hospital, getHospitalDetails, updateHospitalDetails, isLoading, error, clearError } = useSettingsStore();
   const { success, error: toastError } = useToast();
-  const [formData, setFormData] = useState({ name: '', type: '', address: '', phone: '', email: '', website: '', description: '', emergencyPhone: '', imageUrl: '', logoUrl: '' });
+  const [formData, setFormData] = useState({ name: '', type: 'Primary', address: '', phone: '', email: '', website: '', description: '', emergencyPhone: '', imageUrl: '', logoUrl: '' });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
 
@@ -27,7 +28,7 @@ export default function CompanySettingsTab() {
 
   useEffect(() => {
     if (hospital) {
-      setFormData({ name: hospital.name || '', type: hospital.type || '', address: hospital.address || '', phone: hospital.phone || '', email: hospital.email || '', website: hospital.website || '', description: hospital.description || '', emergencyPhone: hospital.emergencyPhone || '', imageUrl: hospital.imageUrl || '', logoUrl: hospital.logoUrl || '' });
+      setFormData({ name: hospital.name || '', type: hospital.nhisFacilityType || 'Primary', address: hospital.address || '', phone: hospital.phone || '', email: hospital.email || '', website: hospital.website || '', description: hospital.description || '', emergencyPhone: hospital.emergencyPhone || '', imageUrl: hospital.imageUrl || '', logoUrl: hospital.logoUrl || '' });
       setImagePreview(hospital.imageUrl || hospital.logoUrl || '');
     }
   }, [hospital]);
@@ -58,6 +59,7 @@ export default function CompanySettingsTab() {
       form.append('email', formData.email.trim());
       if (formData.imageUrl && !formData.imageUrl.startsWith('data:')) { form.append('imageUrl', formData.imageUrl); }
       if (imageFile) form.append('image', imageFile);
+      await api.put('/settings/nhis/config', { nhisFacilityType: formData.type });
       const saved = await updateHospitalDetails(form);
       setImageFile(null);
       setImagePreview(saved?.imageUrl || '');
@@ -73,7 +75,15 @@ export default function CompanySettingsTab() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const hospitalTypes = ['General Hospital', 'Teaching Hospital', 'District Hospital', 'Regional Hospital', 'Specialist Hospital', 'Clinic', 'Health Center', 'Polyclinic', 'Maternity Home', 'Diagnostic Center'];
+  const hospitalTypes = [
+    { value: 'Tertiary', label: 'Tertiary Hospital (NHIS Level 1)' },
+    { value: 'Secondary', label: 'Secondary Hospital (NHIS Level 2)' },
+    { value: 'Primary', label: 'Primary Hospital (NHIS Level 3)' },
+    { value: 'Health_Center', label: 'Health Centre (NHIS Level 4)' },
+    { value: 'Maternity_Home', label: 'Maternity Home (NHIS Level 5)' },
+    { value: 'Clinic', label: 'Clinic (NHIS Level 6)' },
+    { value: 'CHPS', label: 'CHPS (NHIS Level 10)' },
+  ];
   const inputCls = "w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] focus:outline-none text-sm";
   const labelCls = "block text-sm font-medium text-[var(--text-primary)] mb-1";
 
@@ -101,7 +111,7 @@ export default function CompanySettingsTab() {
           <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2"><Building className="w-4 h-4 text-[var(--icon-cyan-text)]" /> Basic Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2"><label className={labelCls}>Hospital Name *</label><input type="text" name="name" value={formData.name} onChange={handleChange} className={inputCls} required placeholder="Enter hospital name" /></div>
-            <div><label className={labelCls}>Hospital Type</label><select name="type" value={formData.type} onChange={handleChange} className={inputCls}><option value="">Select hospital type</option>{hospitalTypes.map(type => (<option key={type} value={type}>{type}</option>))}</select></div>
+            <div><label className={labelCls}>Hospital Type</label><select name="type" value={formData.type} onChange={handleChange} className={inputCls}><option value="">Select hospital type</option>{hospitalTypes.map(type => (<option key={type.value} value={type.value}>{type.label}</option>))}</select></div>
             <div><label className={labelCls}><Phone className="w-3.5 h-3.5 inline mr-1 text-[var(--text-secondary)]" /> Phone Number *</label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={inputCls} required placeholder="Enter phone number" /></div>
             <div><label className={labelCls}><Mail className="w-3.5 h-3.5 inline mr-1 text-[var(--text-secondary)]" /> Email Address *</label><input type="email" name="email" value={formData.email} onChange={handleChange} className={inputCls} required placeholder="Enter email address" /></div>
             <div><label className={labelCls}><Phone className="w-3.5 h-3.5 inline mr-1 text-[var(--text-secondary)]" /> Emergency Phone</label><input type="tel" name="emergencyPhone" value={formData.emergencyPhone} onChange={handleChange} className={inputCls} placeholder="Enter emergency phone" /></div>
