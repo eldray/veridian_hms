@@ -740,12 +740,12 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         create: {
           name: p.name,
           type: p.type || InsuranceType.private,
-          coveragePercentage: p.coveragePercentage ?? 100,
+          coveragePercentage: p.type === InsuranceType.nhis ? 100 : (p.coveragePercentage ?? 100),
           contactInfo: p.contactInfo || { phone: '+233000000000', email: 'info@provider.com' },
           isActive: true,
           claimSubmissionMethod: 'portal',
         },
-        update: {},
+        update: p.type === InsuranceType.nhis ? { coveragePercentage: 100 } : {},
       });
     }
     console.log(`✅ ${providers.length} insurance providers configured`);
