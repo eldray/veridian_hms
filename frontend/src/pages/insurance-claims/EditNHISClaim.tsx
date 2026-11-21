@@ -116,6 +116,32 @@ const a = (claim: any): any => claim?.attendance ?? claim?.Attendance ?? {};
 
 const toNum = (v: any): number => (v === null || v === undefined ? 0 : parseFloat(v.toString()) || 0);
 
+/** Whole-year age at the date the service was provided (not today's age). */
+const ageOnDate = (dateOfBirth: unknown, serviceDate: unknown): number | null => {
+  if (!dateOfBirth || !serviceDate) return null;
+  const dob = new Date(String(dateOfBirth));
+  const asOf = new Date(String(serviceDate));
+  if (Number.isNaN(dob.getTime()) || Number.isNaN(asOf.getTime()) || asOf < dob) return null;
+  let years = asOf.getFullYear() - dob.getFullYear();
+  if (asOf.getMonth() < dob.getMonth() || (asOf.getMonth() === dob.getMonth() && asOf.getDate() < dob.getDate())) years -= 1;
+  return years;
+};
+
+/** Enforce tariff age limits, including A/C splits for MEDI/PAED and ASUR/PSUR. */
+const gdrgAgeEligible = (tariff: any, age: number): boolean => {
+  const min = tariff?.minAgeYears == null ? null : Number(tariff.minAgeYears);
+  const max = tariff?.maxAgeYears == null ? null : Number(tariff.maxAgeYears);
+  if (min != null && age < min) return false;
+  if (max != null && age > max) return false;
+  const family = String(tariff?.gdrgCode ?? '').toUpperCase().match(/^[A-Z]+/)?.[0] ?? '';
+  if (['MEDI', 'ASUR', 'PAED', 'PSUR'].includes(family)) {
+    const split = String(tariff?.ageSplit ?? '').toUpperCase();
+    if (split === 'A' && age < 12) return false;
+    if (split === 'C' && age >= 12) return false;
+  }
+  return true;
+};
+
 /** A line with no saved amount shows a dash, never a GHS 0.00 that reads as a priced line. */
 const moneyCell = (value: any): string => {
   const n = toNum(value);
@@ -994,7 +1020,20 @@ export default function EditNHISClaim() {
     navigate(0);
   };
   const isFinalized = currentClaim?.status === 'finalized';
-  const availableGDRGs = tariffs || [];
+  const attendanceForAge = a(currentClaim);
+  const encounterServiceDate = primaryServiceType === 'IPD'
+    ? (admissionDate || attendanceForAge?.Admission?.admissionDate || attendanceForAge?.admission?.admissionDate)
+    : (visitDates.find(Boolean) || attendanceForAge?.dateTime?.split('T')[0]);
+  const encounterAgeYears = ageOnDate(
+    memberFormData.dateOfBirth || p(currentClaim)?.dateOfBirth,
+    encounterServiceDate,
+  );
+  const availableGDRGs = encounterAgeYears == null
+    ? (tariffs || [])
+    : (tariffs || []).filter((tariff: any) => gdrgAgeEligible(tariff, encounterAgeYears));
+  const selectedPrincipalTariff = (tariffs || []).find((tariff: any) => tariff.gdrgCode === principalGDRG);
+  const principalGDRGAgeInvalid = !!principalGDRG && encounterAgeYears != null &&
+    !!selectedPrincipalTariff && !gdrgAgeEligible(selectedPrincipalTariff, encounterAgeYears);
 
   useEffect(() => {
     if (id) {
@@ -1481,6 +1520,7 @@ export default function EditNHISClaim() {
       errs.push('A primary diagnosis must be selected');
     }
     if (!principalGDRG) errs.push('Principal GDRG is required');
+    if (principalGDRGAgeInvalid) errs.push(`Principal G-DRG ${principalGDRG} is not eligible for this patient’s age (${encounterAgeYears} years) on the service date. Select an age-appropriate tariff.`);
     if (primaryServiceType === 'OPD' && !visitDates.some(d => d)) errs.push('At least one visit date is required');
     if (primaryServiceType === 'IPD') {
       if (!admissionDate) errs.push('Admission date is required');
@@ -1947,6 +1987,14 @@ export default function EditNHISClaim() {
             <div>
               <label className="block text-[11px] text-gray-500 mb-0.5">Select Principal GDRG</label>
               <SearchableGDRGSelect value={principalGDRG} onChange={handlePrincipalGDRGChange} options={availableGDRGs} disabled={locked} placeholder="Search GDRG by code or description..." />
+              {encounterAgeYears == null ? (
+                <p className="text-xs text-amber-700 mt-1">Enter the patient’s date of birth and service date to filter G-DRGs by age.</p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">Tariffs filtered for age {encounterAgeYears} on the service date.</p>
+              )}
+              {principalGDRGAgeInvalid && (
+                <p className="text-xs text-red-600 mt-1">The saved principal G-DRG is outside this patient’s age range. Choose an eligible tariff before saving.</p>
+              )}
               <p className="text-[15px] text-gray-700 mt-3">{principalGDRGDescription}</p>
               {principalGDRG ? (
                 <p className="mt-2 text-sm text-gray-700">
