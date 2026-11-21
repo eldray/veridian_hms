@@ -1,6 +1,6 @@
 import { Briefcase, Building, FileText, Layers, Shield, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { canAccessPage, type PageKey } from '../config/access';
 import { useAuthStore } from '../store/authStore';
 import { Tabs, Segmented } from './ui/Tabs';
@@ -102,13 +102,23 @@ export interface InsuranceTabsProps {
  */
 export default function InsuranceTabs({ family, section }: InsuranceTabsProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuthStore();
   const role = user?.role;
+
+  // The URL is the source of truth for the selected payer family. This prevents
+  // a page rendered with a stale/default family prop from sending Corporate or
+  // Private navigation back to NHIS when another section is selected.
+  const routeFamily = location.pathname.split('/')[3];
+  const activeFamily: InsuranceFamily =
+    routeFamily === 'nhis' || routeFamily === 'private' || routeFamily === 'corporate'
+      ? routeFamily
+      : safeFamily(family);
 
   // FIXED: normalise both props. A caller that passes section="corporate"
   // (the old CorporateAccounts value) used to leave no tab active; it now maps
   // to the corporate family's real first section, "accounts".
-  const safeFamilyValue = safeFamily(family);
+  const safeFamilyValue = activeFamily;
   const sections = visibleInsuranceSections(safeFamilyValue, role);
   const safeSection: InsuranceSection =
     sections.some((s) => s.key === section)
