@@ -404,6 +404,19 @@ export default function EditCorporateClaim() {
   const [creditWarning, setCreditWarning] = useState(false);
 
   const isDraft = currentClaim?.status === 'draft';
+
+  const handleRefreshClaim = async () => {
+    if (isDraft) {
+      const confirmed = await confirmDialog({
+        title: 'Refresh claim form?',
+        message: 'Any unsaved changes to this draft will be lost. Refresh the form and reload the saved claim?',
+        confirmText: 'Refresh',
+        type: 'warning',
+      });
+      if (!confirmed) return;
+    }
+    navigate(0);
+  };
   const isFinalized = currentClaim?.status === 'finalized';
 
   const availableCredit = corporateAccount
@@ -678,6 +691,7 @@ export default function EditCorporateClaim() {
         subtitle={`${currentClaim?.claimNumber ?? ''} · Corporate`}
         status={<span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{isDraft ? 'DRAFT' : 'FINALIZED'}</span>}
         onClose={goBack}
+        onRefresh={handleRefreshClaim}
         onCollapse={() => setTablesOpen(o => !o)}
         onFinalize={isDraft ? handleFinalize : undefined}
         finalizing={isSubmitting}
