@@ -20,6 +20,7 @@ import {
   TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR, type BadgeTone,
 } from '../components/ui';
 
+const getLocalDateString = (date = new Date()) => { const year = date.getFullYear(); const month = String(date.getMonth() + 1).padStart(2, '0'); const day = String(date.getDate()).padStart(2, '0'); return `${year}-${month}-${day}`; };
 const humanize = (s: any) => String(s ?? '').replace(/_/g, ' ').replace(/-/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).trim();
 const titleCase = (s: any) => String(s ?? '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).trim();
 
@@ -30,17 +31,17 @@ export default function StockTransactions() {
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({ transactionType: '', startDate: '', endDate: '', stockItemId: '' });
+  const [filters, setFilters] = useState(() => { const today = getLocalDateString(); return { transactionType: '', startDate: today, endDate: today, stockItemId: '' }; });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [itemSearch, setItemSearch] = useState('');
   const [itemPickerOpen, setItemPickerOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => { loadInitialData(); }, []);
   const loadInitialData = async () => {
-    try { await Promise.all([getStockTransactions(), getStockItems(), getAllUsers()]); }
+    try { await Promise.all([getStockTransactions(filters), getStockItems(), getAllUsers()]); }
     catch (err) { console.error('Failed to load data:', err); toastError('Load failed', 'Could not load transaction data'); }
   };
   const loadTransactions = async (queryFilters = filters) => {
@@ -49,7 +50,8 @@ export default function StockTransactions() {
   const handleFilterChange = (key: string, value: string) => setFilters(prev => ({ ...prev, [key]: value }));
   const applyFilters = () => { setCurrentPage(1); void loadTransactions(); success('Filters applied', 'Transactions filtered successfully'); };
   const clearFilters = () => {
-    const clearedFilters = { transactionType: '', startDate: '', endDate: '', stockItemId: '' };
+    const today = getLocalDateString();
+    const clearedFilters = { transactionType: '', startDate: today, endDate: today, stockItemId: '' };
     setFilters(clearedFilters); setItemSearch(''); setItemPickerOpen(false); setCurrentPage(1); void loadTransactions(clearedFilters);
     success('Filters cleared', 'Showing all transactions');
   };
