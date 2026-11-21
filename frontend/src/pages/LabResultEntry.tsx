@@ -18,10 +18,10 @@ import { pickVisit } from '../utils/visitSelection';
 import SendDocumentModal from '../components/SendDocumentModal';
 import {
   FlaskConical, Printer, RefreshCw, AlertCircle,
-  Plus, Clock, CheckCircle, Activity, Calendar, X, Edit,
+  Plus, Clock, CheckCircle, Activity, X, Edit,
   FileText, Microscope, ArrowUp, ArrowDown,
-  Save, MessageSquare, Hash, Phone, Info, TestTube,
-  BedDouble, Play,
+  Save, MessageSquare, Info, TestTube,
+  Play,
 } from 'lucide-react';
 import {
   Badge,
