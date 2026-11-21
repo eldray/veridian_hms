@@ -830,13 +830,13 @@ ${claimsXml}
       // counter ticket (no Patient row, cash only) can never be claimed. The NHIS form
       // reads the patient's date of birth below, so the relation itself is required here.
       if (!att.Patient || !att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
+      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'nhis') {
+        throw new ValidationError(`Attendance ${att.attendanceNumber} is not an NHIS visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Set the NHIS provider on the attendance first.`);
+      }
       if (!isValidNhisMemberNumber(att.Patient.nhisNumber)) {
         throw new ValidationError(
           `Attendance ${att.attendanceNumber} has no valid 8-digit NHIS number or 10-digit HIN. Update the patient's NHIS membership number before creating the claim.`,
         );
-      }
-      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'nhis') {
-        throw new ValidationError(`Attendance ${att.attendanceNumber} is not an NHIS visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Set the NHIS provider on the attendance first.`);
       }
       if (!att.nhisCCC) throw new ValidationError(`Attendance ${att.attendanceNumber} has no Claim Check Code (CCC). Generate or enter the NHIS CCC before creating the claim.`);
       const pd = att.AttendanceDiagnosis[0];
