@@ -134,7 +134,7 @@ export const seedEncounters = async (
       diagnosis.attendanceKey === claim.attendanceKey && diagnosis.diagnosisType === 'primary',
     );
     return !primary || !lookups.diagnosisByIcd.has(primary.icdCode);
-  }).map((claim) => claim.attendanceKey);
+  }).map((claim) => claim.attendanceKey));
   const inpatientWindows = bundle.admissions.filter((admission) => !admission.cancelled).map((admission) => ({
     attendanceKey: admission.attendanceKey,
     folderNumber: admission.folderNumber,
