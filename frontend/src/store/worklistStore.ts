@@ -36,12 +36,12 @@ export const supportsDateRange = (department: DepartmentType) =>
 const dateInput = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-/** Queues open on the current month so today's work is not buried under older visits. */
-const currentMonthRange = () => {
-  const today = new Date();
+/** Waiting lists open on today only; staff can widen the range when they need history. */
+const currentDayRange = () => {
+  const today = dateInput(new Date());
   return {
-    dateFrom: dateInput(new Date(today.getFullYear(), today.getMonth(), 1)),
-    dateTo: dateInput(today),
+    dateFrom: today,
+    dateTo: today,
   };
 };
 
@@ -53,7 +53,7 @@ const initialState: WorklistState = {
   error: null,
   stats: { total: 0, urgent: 0, critical: 0 },
   view: 'pending',
-  ...currentMonthRange(),
+  ...currentDayRange(),
   buckets: { today: 0, inpatients: 0, overdue: 0, closed: 0 }
 };
 
