@@ -481,7 +481,9 @@ ${claimsXml}
         unclaimable.push({
           code: stockItem?.drugCode,
           description: label,
-          reason: `was ${String(med.status)}, so there is no recorded supply or administration for this visit`,
+          reason: med.status === 'prescribed'
+            ? 'has been prescribed but not dispensed or administered. Please dispense it (or record its administration) before adding it to the NHIS claim.'
+            : `is marked ${String(med.status)}, so there is no recorded dispensing or administration for this visit`,
         });
         continue;
       }
