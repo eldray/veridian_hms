@@ -1,6 +1,7 @@
 // components/CreateEditModal.tsx - COMPLETE FIXED VERSION
 import React, { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, Search } from 'lucide-react';
+import { useGDRGTariffStore } from '../store/gdrgTariffStore';
 import { describeApiError } from '../utils/apiError';
 
 interface CreateEditModalProps {
@@ -202,6 +203,19 @@ export default function CreateEditModal({ type, item, onSave, onClose, metadata 
   const [formData, setFormData] = useState<Record<string, any>>(defaultFormData[type]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [gdrgSearch, setGdrgSearch] = useState('');
+  const [showGdrgOptions, setShowGdrgOptions] = useState(false);
+  const { tariffs: gdrgTariffs, fetchTariffs } = useGDRGTariffStore();
+
+  useEffect(() => {
+    if (type === 'diagnoses') void fetchTariffs();
+  }, [type, fetchTariffs]);
+
+  const filteredGdrgTariffs = gdrgTariffs.filter((tariff: any) => {
+    const query = gdrgSearch.trim().toLowerCase();
+    return !query || String(tariff.gdrgCode || '').toLowerCase().includes(query) || String(tariff.description || '').toLowerCase().includes(query);
+  });
+  const selectedGdrg = gdrgTariffs.find((tariff: any) => tariff.gdrgCode === formData.gdrgGroupCode);
 
   const morbidityGroups = metadata?.morbidityGroups?.length ? metadata.morbidityGroups : FULL_MORBIDITY_GROUPS;
   const labCategories = metadata?.labCategories?.length ? metadata.labCategories : DEFAULT_LAB_CATEGORIES;
@@ -290,10 +304,44 @@ export default function CreateEditModal({ type, item, onSave, onClose, metadata 
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
+        <div className="relative">
           <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">G-DRG Code</label>
-          <input type="text" value={formData.gdrgGroupCode || ''} onChange={(e) => handleChange('gdrgGroupCode', e.target.value.toUpperCase())}
-            className="w-full p-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] font-mono" />
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              value={gdrgSearch || (selectedGdrg ? `${selectedGdrg.gdrgCode} — ${selectedGdrg.description}` : formData.gdrgGroupCode || '')}
+              onFocus={() => { setShowGdrgOptions(true); setGdrgSearch(''); }}
+              onChange={(e) => { setGdrgSearch(e.target.value); setShowGdrgOptions(true); }}
+              className="w-full pl-9 pr-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]"
+              placeholder="Search G-DRG code or description..."
+              autoComplete="off"
+            />
+          </div>
+          {showGdrgOptions && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-[60] max-h-64 overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl">
+              {filteredGdrgTariffs.length ? filteredGdrgTariffs.slice(0, 100).map((tariff: any) => (
+                <button
+                  key={tariff.id || tariff.gdrgCode}
+                  type="button"
+                  onClick={() => {
+                    handleChange('gdrgGroupCode', tariff.gdrgCode);
+                    setGdrgSearch('');
+                    setShowGdrgOptions(false);
+                  }}
+                  className={`w-full px-3 py-2 text-left hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-0 ${formData.gdrgGroupCode === tariff.gdrgCode ? 'bg-[var(--icon-cyan-bg)]' : ''}`}
+                >
+                  <span className="block text-sm font-mono font-semibold text-[var(--text-primary)]">{tariff.gdrgCode}</span>
+                  <span className="block text-xs text-[var(--text-secondary)]">{tariff.description}</span>
+                </button>
+              )) : (
+                <p className="px-3 py-3 text-xs text-[var(--text-secondary)]">{gdrgTariffs.length ? 'No matching G-DRG tariffs' : 'Loading G-DRG tariffs...'}</p>
+              )}
+            </div>
+          )}
+          {formData.gdrgGroupCode && (
+            <button type="button" onClick={() => { handleChange('gdrgGroupCode', ''); setGdrgSearch(''); }} className="mt-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">Clear selected G-DRG</button>
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Morbidity Group *</label>
@@ -599,7 +647,7 @@ export default function CreateEditModal({ type, item, onSave, onClose, metadata 
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/45 backdrop-blur-md flex items-center justify-center p-4 z-50" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-[var(--border-color)]">
         <div className="flex items-center justify-between p-6 border-b border-[var(--border-color)] sticky top-0 bg-[var(--bg-card)]">
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">{getTitle()}</h2>
