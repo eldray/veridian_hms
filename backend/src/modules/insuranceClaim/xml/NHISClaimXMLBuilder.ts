@@ -91,7 +91,7 @@ export class NHISClaimXMLBuilder {
     const surname = this.esc(patient.surname ?? '');
     const otherNames = this.esc(patient.otherNames ?? '');
     const dob = this.isoDate(patient.dateOfBirth);
-    const gender = patient.gender === 'male' ? 'M' : patient.gender === 'female' ? 'F' : 'U';
+    const gender = ['male', 'M'].includes(String(patient.gender)) ? 'M' : ['female', 'F'].includes(String(patient.gender)) ? 'F' : 'U';
     const hospitalRecNo = this.esc(patient.folderNumber ?? '');
     const isDependant = this.isDependant(patient);
 
