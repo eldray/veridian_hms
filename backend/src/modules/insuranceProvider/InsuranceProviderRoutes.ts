@@ -1,4 +1,4 @@
-import { Router, Request } from 'express';
+import { Router } from 'express';
 import { UserRole, InsuranceType, PrismaClient } from '@prisma/client';
 import { InsuranceProviderController } from './InsuranceProviderController'; // ✅ Import class, not singleton
 import { body } from 'express-validator';
@@ -32,9 +32,17 @@ export function createInsuranceProviderRoutes(prisma: PrismaClient): Router { //
     [
       body('name').notEmpty().trim().isLength({ min: 2 }),
       body('type').isIn(Object.values(InsuranceType)),
-      body('coveragePercentage')
-        .if((_value: unknown, { req }: { req: Request }) => req.body.type !== InsuranceType.nhis)
-        .isFloat({ min: 0, max: 100 }),
+      body('coveragePercentage').custom((value, { req }) => {
+        if (req.body.type === InsuranceType.nhis) return true;
+        if (value === undefined || value === null || value === '') {
+          throw new Error('coveragePercentage is required for private and corporate providers');
+        }
+        const percentage = Number(value);
+        if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+          throw new Error('coveragePercentage must be between 0 and 100');
+        }
+        return true;
+      }),
       body('contactInfo').optional().isObject()
     ], 
     controller.createInsuranceProvider
