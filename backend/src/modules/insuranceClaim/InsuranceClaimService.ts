@@ -845,7 +845,7 @@ ${claimsXml}
           `Attendance ${att.attendanceNumber} has no valid 8-digit NHIS number or 10-digit HIN. Update the patient's NHIS membership number before creating the claim.`,
         );
       }
-      if (!/^\\d{5}$/.test(String(att.nhisCCC ?? '').trim())) {
+      if (!/^[0-9]{5}$/.test(String(att.nhisCCC ?? '').trim())) {
         throw new ValidationError(`Attendance ${att.attendanceNumber} has no valid five-digit Claim Check Code (CCC). Generate or enter a five-digit NHIS CCC before creating the claim.`);
       }
       const pd = att.AttendanceDiagnosis[0];
