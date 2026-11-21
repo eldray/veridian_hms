@@ -1152,7 +1152,12 @@ export default function EditNHISClaim() {
     setTypeOfAttendance(reResolved
       ? mapped.typeOfAttendance
       : (normalizeNHISAttendanceCode(currentClaim.typeOfAttendance) || mapped.typeOfAttendance));
-    setServiceOutcome(normalizeNHISOutcomeCode(currentClaim.serviceOutcome));
+    const referralRecord = attendance?.referral ?? attendance?.ReferralRecord ?? null;
+    const attendanceWasReferred = attendance?.status === 'referred' || referralRecord?.referralType === 'outgoing';
+    // A referred encounter is a transferred-out claim; keep this derived for editable drafts.
+    setServiceOutcome(currentClaim.status === 'draft' && attendanceWasReferred
+      ? 'TFOT'
+      : normalizeNHISOutcomeCode(currentClaim.serviceOutcome));
 
     const isoDay = (v: any) => (v ? String(v).split('T')[0] : '');
     const serviceDates: string[] = (currentClaim.datesOfService ?? []).map(isoDay).filter(Boolean);
@@ -1328,7 +1333,12 @@ export default function EditNHISClaim() {
       ? meta.specialties
       : (currentClaim.mdcCode ? [String(currentClaim.mdcCode)] : []);
     setSpecialties(Array.from(new Set([...savedSpecialties, ...derivedSpecialties])));
-    setReferringFacility(meta.referringFacility ?? attendance?.referringFacility ?? '');
+    setReferringFacility(
+      referralRecord?.referredToFacility ??
+      meta.referringFacility ??
+      attendance?.referringFacility ??
+      ''
+    );
     setReferralCode(meta.referralCode ?? '');
     setPhysicianId(meta.physicianId ?? '');
     // Trigger the payer medicine quote only after the fallback decision above is known.
@@ -1779,7 +1789,7 @@ export default function EditNHISClaim() {
 
             <ClaimCard title="Referral Info">
               <div className="space-y-4">
-                <UField label="Referring Facility Name" value={referringFacility} onChange={setReferringFacility} disabled={locked} />
+                <UField label="Referral Hospital Name" value={referringFacility} onChange={setReferringFacility} disabled={locked} />
                 <UField label="Referral Code / CCC" value={referralCode} onChange={setReferralCode} disabled={locked} />
               </div>
             </ClaimCard>
