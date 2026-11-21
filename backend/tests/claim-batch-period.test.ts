@@ -327,7 +327,7 @@ describe('monthly batch remittance tracking', () => {
       eventType: 'payment',
       amount: 60.01,
       paymentReference: 'REMIT-OCT-PART-2',
-    }, 'accounts-user')).rejects.toThrow(/Payment exceeds the ₵100.00 submitted/);
+    }, 'accounts-user')).rejects.toThrow(/Payment exceeds the ₵100.00 approved limit/);
     expect(tx.claimBatchTrackingEvent.create).not.toHaveBeenCalled();
   });
 });

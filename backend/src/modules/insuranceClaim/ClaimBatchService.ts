@@ -68,24 +68,21 @@ export class ClaimBatchService extends BaseService {
   private summarizeTracking(batch: any) {
     const events = batch.trackingEvents || [];
     const submitted = Number(batch.totalAmount || 0);
-    const paid = events
-      .filter((event: any) => event.eventType === 'payment')
+    const paid = events.filter((event: any) => event.eventType === 'payment')
       .reduce((sum: number, event: any) => sum + Number(event.amount || 0), 0);
-    const latestAdjudication = [...events].reverse().find((event: any) => event.eventType === 'adjudication')?.status;
+    const latestAdjudication = [...events].reverse().find((event: any) => event.eventType === 'adjudication');
+    const status = String(latestAdjudication?.status || '').toLowerCase();
+    const hasAmount = ['approved', 'partially_approved'].includes(status) && latestAdjudication?.amount != null;
+    const adjudicated = hasAmount ? Number(latestAdjudication.amount) : null;
+    const payable = status === 'rejected' ? (latestAdjudication?.amount != null ? Number(latestAdjudication.amount) : 0) : (hasAmount ? Number(adjudicated) : submitted);
+    const outstanding = Math.max(0, payable - paid);
+    const overpaid = Math.max(0, paid - payable);
     const submission = events.find((event: any) => event.eventType === 'submission');
-    return {
-      amountSubmitted: submitted,
-      totalPaid: paid,
-      outstanding: Math.max(0, submitted - paid),
-      latestStatus: paid >= submitted && paid > 0
-        ? 'paid'
-        : paid > 0
-          ? 'partially_paid'
-          : (latestAdjudication || (submission ? 'submitted' : 'not_submitted')),
+    return { amountSubmitted: submitted, amountAdjudicated: adjudicated, amountPayable: payable, totalPaid: paid, outstanding, overpaid,
+      latestStatus: overpaid > 0 ? 'overpaid' : paid >= payable && paid > 0 ? 'paid' : paid > 0 ? 'partially_paid' : (latestAdjudication?.status || (submission ? 'submitted' : 'not_submitted')),
       submittedAt: submission?.submissionDate || submission?.createdAt || batch.finalizedAt || null,
     };
   }
-
   async listBatchTracking(filters: any) {
     const result = await this.repo.findBatchesForTracking({
       ...filters,
@@ -140,9 +137,16 @@ export class ClaimBatchService extends BaseService {
             where: { batchId: batch.id, eventType: 'payment' }, select: { amount: true },
           });
           const paid = existing.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
-          if (paid + numericAmount > Number(batch.totalAmount) + 0.005) {
+          const adjudications = await tx.claimBatchTrackingEvent.findMany({
+            where: { batchId: batch.id, eventType: 'adjudication' },
+            orderBy: { createdAt: 'desc' }, take: 1, select: { status: true, amount: true },
+          });
+          const latest = adjudications[0];
+          const latestStatus = String(latest?.status || '').toLowerCase();
+          const paymentLimit = latestStatus === 'rejected' ? (latest?.amount != null ? Number(latest.amount) : 0) : (['approved', 'partially_approved'].includes(latestStatus) && latest?.amount != null ? Number(latest.amount) : Number(batch.totalAmount));
+          if (paid + numericAmount > paymentLimit + 0.005) {
             throw new ValidationError(
-              `Payment exceeds the ₵${Number(batch.totalAmount).toFixed(2)} submitted for ${batch.batchNumber}. Check the remittance and the payments already recorded.`,
+              `Payment exceeds the ₵${paymentLimit.toFixed(2)} approved limit for ${batch.batchNumber}. Check the remittance and the payments already recorded.`,
             );
           }
           return tx.claimBatchTrackingEvent.create({
@@ -188,22 +192,24 @@ export class ClaimBatchService extends BaseService {
       }
     }
 
-    return this.prisma.claimBatchTrackingEvent.create({
-      data: {
-        batchId: batch.id,
-        eventType: String(input.eventType),
-        status: input.status ? String(input.status).trim().toLowerCase() : null,
-        submissionDate: input.submissionDate
-          ? new Date(input.submissionDate)
-          : (input.eventType === 'submission' ? new Date() : null),
-        payerReference: input.payerReference ? String(input.payerReference).trim() : null,
-        amount: input.eventType === 'adjudication' && input.amount != null ? Number(input.amount) : null,
-        notes: input.notes ? String(input.notes).trim() : null,
-        recordedById: userId,
-      },
-    });
+    const eventData = {
+      batchId: batch.id,
+      eventType: String(input.eventType),
+      status: input.status ? String(input.status).trim().toLowerCase() : null,
+      submissionDate: input.submissionDate ? new Date(input.submissionDate) : (input.eventType === 'submission' ? new Date() : null),
+      payerReference: input.payerReference ? String(input.payerReference).trim() : null,
+      amount: input.eventType === 'adjudication' && input.amount != null ? Number(input.amount) : null,
+      notes: input.notes ? String(input.notes).trim() : null,
+      recordedById: userId,
+    };
+    if (input.eventType === 'adjudication') {
+      return this.prisma.$transaction(async (tx: any) => {
+        await tx.$queryRaw`SELECT "id" FROM "claim_batches" WHERE "id" = ${batch.id} FOR UPDATE`;
+        return tx.claimBatchTrackingEvent.create({ data: eventData });
+      });
+    }
+    return this.prisma.claimBatchTrackingEvent.create({ data: eventData });
   }
-
   // ==========================================
   // GENERATE
   // ==========================================
