@@ -292,7 +292,8 @@ const addSchemaDefaults = (data: any, type: string) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Pricing — single active row per service; overwrite when re-seeded
+// Pricing — single active row per service; overwrite when re-seeded.
+// Private and corporate rates use the facility cash selling price; NHIS stays separate.
 // ─────────────────────────────────────────────────────────────
 const createServicePricing = async (
   serviceCatalogId: string,
@@ -312,8 +313,9 @@ const createServicePricing = async (
     const payload = {
       cashPrice: pricing.cashPrice ?? 0,
       nhisPrice: pricing.nhisPrice ?? 0,
-      insurancePrice: pricing.insurancePrice ?? 0,
-      corporatePrice: pricing.corporatePrice ?? 0, // 0 = billed with the corporate fallback (account discount off cash, else cash)
+      // Store the actual facility cash amount for private and corporate payers.
+      insurancePrice: pricing.cashPrice ?? 0,
+      corporatePrice: pricing.cashPrice ?? 0,
       vatRate: 0,
       isTaxable: false,
       isActive: true,
