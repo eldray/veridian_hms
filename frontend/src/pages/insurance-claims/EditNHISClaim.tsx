@@ -127,18 +127,12 @@ const ageOnDate = (dateOfBirth: unknown, serviceDate: unknown): number | null =>
   return years;
 };
 
-/** Enforce tariff age limits, including A/C splits for MEDI/PAED and ASUR/PSUR. */
+/** The tariff's explicit age bounds are authoritative (some paediatric tariffs extend to 18). */
 const gdrgAgeEligible = (tariff: any, age: number): boolean => {
   const min = tariff?.minAgeYears == null ? null : Number(tariff.minAgeYears);
   const max = tariff?.maxAgeYears == null ? null : Number(tariff.maxAgeYears);
   if (min != null && age < min) return false;
   if (max != null && age > max) return false;
-  const family = String(tariff?.gdrgCode ?? '').toUpperCase().match(/^[A-Z]+/)?.[0] ?? '';
-  if (['MEDI', 'ASUR', 'PAED', 'PSUR'].includes(family)) {
-    const split = String(tariff?.ageSplit ?? '').toUpperCase();
-    if (split === 'A' && age < 12) return false;
-    if (split === 'C' && age >= 12) return false;
-  }
   return true;
 };
 
