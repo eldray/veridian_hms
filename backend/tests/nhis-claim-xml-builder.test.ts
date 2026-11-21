@@ -121,8 +121,8 @@ describe('NHIS claim XML itemization safeguards', () => {
       ],
     }), hospital);
 
-    expect(xml).toMatch(/<investigations>\\s*<entry>[\\s\\S]*?<serviceDate>2026-10-01<\\/serviceDate>[\\s\\S]*?<gdrgCode>INVE30E<\\/gdrgCode>[\\s\\S]*?<\\/entry>\\s*<\\/investigations>/);
-    expect(xml).toMatch(/<medicines>\\s*<entry>[\\s\\S]*?<medicineCode>MED-001<\\/medicineCode>[\\s\\S]*?<dispensedQty>2<\\/dispensedQty>[\\s\\S]*?<serviceDate>2026-10-01<\\/serviceDate>[\\s\\S]*?<prescription>[\\s\\S]*?<unparsed>500 mg, three times daily, 3 days<\\/unparsed>[\\s\\S]*?<\\/prescription>[\\s\\S]*?<\\/entry>\\s*<\\/medicines>/);
+    expect(xml).toMatch(/<investigations>\s*<entry>[\s\S]*?<serviceDate>2026-10-01<\/serviceDate>[\s\S]*?<gdrgCode>INVE30E<\/gdrgCode>[\s\S]*?<\/entry>\s*<\/investigations>/);
+    expect(xml).toMatch(/<medicines>\s*<entry>[\s\S]*?<medicineCode>MED-001<\/medicineCode>[\s\S]*?<dispensedQty>2<\/dispensedQty>[\s\S]*?<serviceDate>2026-10-01<\/serviceDate>[\s\S]*?<prescription>[\s\S]*?<unparsed>500 mg, three times daily, 3 days<\/unparsed>[\s\S]*?<\/prescription>[\s\S]*?<\/entry>\s*<\/medicines>/);
     expect(xml).toContain('<includesPharmacy>1</includesPharmacy>');
   });
 
