@@ -863,6 +863,19 @@ async function seedDiagnosisGDRGLinks() {
       continue;
     }
 
+    const desiredTariffIds = mapping.gdrgCodes
+      .map((code) => tariffMap.get(code)?.id)
+      .filter((id): id is string => Boolean(id));
+
+    // The mapping table is the source of truth for each diagnosis. Remove obsolete
+    // links left by earlier seeds before writing the current adult/child alternatives.
+    await prisma.gDRGTariffDiagnosis.deleteMany({
+      where: {
+        diagnosisId: diagnosis.id,
+        ...(desiredTariffIds.length ? { gdrgTariffId: { notIn: desiredTariffIds } } : {}),
+      },
+    });
+
     for (const gdrgCode of mapping.gdrgCodes) {
       const tariff = tariffMap.get(gdrgCode);
       if (!tariff) {
