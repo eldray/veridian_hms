@@ -863,9 +863,15 @@ async function seedDiagnosisGDRGLinks() {
       continue;
     }
 
+    const missingTariffs = mapping.gdrgCodes.filter((code) => !tariffMap.has(code));
+    if (missingTariffs.length) {
+      gdrgNotFound += missingTariffs.length;
+      missingTariffs.forEach((code) => errors.push(`⚠️  GDRG not found: ${code} (for ICD ${mapping.icdCode})`));
+      continue; // Never delete existing links when the replacement mapping is incomplete.
+    }
+
     const desiredTariffIds = mapping.gdrgCodes
-      .map((code) => tariffMap.get(code)?.id)
-      .filter((id): id is string => Boolean(id));
+      .map((code) => tariffMap.get(code)!.id);
 
     // The mapping table is the source of truth for each diagnosis. Remove obsolete
     // links left by earlier seeds before writing the current adult/child alternatives.
