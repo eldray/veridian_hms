@@ -95,7 +95,7 @@ export const seedPatients = async (
   for (const [folderNumber, nhisNumber] of nhisNumberByFolder) {
     await prisma.patient.updateMany({
       where: { id: `seedpat-${folderNumber}`, paymentMode: 'nhis' },
-      data: { nhisNumber, insuranceDetails: { memberId: nhisNumber } },
+      data: { nhisNumber },
     });
   }
 
