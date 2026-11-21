@@ -1166,6 +1166,7 @@ export interface BatchTrackingEventInput {
   eventType: 'submission' | 'payment' | 'note';
   status?: string;
   submissionDate?: string;
+  paymentDate?: string;
   payerReference?: string;
   amount?: number;
   paymentReference?: string;
