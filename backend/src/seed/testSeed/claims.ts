@@ -293,7 +293,7 @@ export const seedClaims = async (
     // configured diagnosis catalogue, so validate the actual encounter rows here.
     if (!attendanceWithPrimaryDiagnosis.has(encounter.attendanceId)) {
       skippedMissingPrimaryDiagnosis++;
-      if (skippedExamples.length < 5) skippedExamples.push(`${encounter.plan.attendanceNumber ?? encounter.attendanceId}: no persisted primary diagnosis`);
+      if (skippedExamples.length < 5) skippedExamples.push(`${encounter.attendanceId}: no persisted primary diagnosis`);
       continue;
     }
     // An outpatient claim cannot overlap another inpatient stay for the same patient.
@@ -309,7 +309,7 @@ export const seedClaims = async (
       );
       if (overlapsInpatientStay) {
         skippedOverlappingInpatientStay++;
-        if (skippedExamples.length < 5) skippedExamples.push(`${encounter.plan.attendanceNumber ?? encounter.attendanceId}: outpatient date overlaps another inpatient stay`);
+        if (skippedExamples.length < 5) skippedExamples.push(`${encounter.attendanceId}: outpatient date overlaps another inpatient stay`);
         continue;
       }
     }
