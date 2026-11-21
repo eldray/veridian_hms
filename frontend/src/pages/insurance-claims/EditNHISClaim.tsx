@@ -1888,7 +1888,7 @@ export default function EditNHISClaim() {
         {nhisUnclaimable.length > 0 && (
           <div className="px-4 pt-2 pb-3 bg-[var(--bg-card)]">
             <Hint>
-              {`${nhisUnclaimable.length} medicine${nhisUnclaimable.length > 1 ? 's' : ''} dispensed on this visit ${nhisUnclaimable.length > 1 ? 'are' : 'is'} not claimable under NHIS, so ${nhisUnclaimable.length > 1 ? 'they are' : 'it is'} not offered in the picker and the patient pays for ${nhisUnclaimable.length > 1 ? 'them' : 'it'} at the counter`}
+              {`${nhisUnclaimable.length} medicine${nhisUnclaimable.length > 1 ? 's' : ''} from this visit ${nhisUnclaimable.length > 1 ? 'are' : 'is'} not currently eligible for the NHIS claim and will not appear in the medicine picker`}
               {` (${nhisUnclaimable.slice(0, 3).map(u => `${u.description} — ${u.reason}`).join('; ')}${nhisUnclaimable.length > 3 ? '…' : ''}).`}
             </Hint>
           </div>
