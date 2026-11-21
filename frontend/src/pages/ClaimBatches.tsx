@@ -59,6 +59,9 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
   const previewProviderId = formProviderId || undefined;
   const providerLabel = (p: any) => { const own = providerEligibility.get(p.id); return `${p.name} — ${own ? `${own.count} claim${own.count === 1 ? '' : 's'} · ${money(own.amount)}` : 'nothing waiting this month'}`; };
   useEffect(() => { if (!showCreate) return; let cancelled = false; setEligibleLoading(true); setEligibleError(null); getEligibleClaimsForBatch({ periodYear: formYear, periodMonth: formMonth, insuranceProviderId: previewProviderId, corporateAccountId: formType === 'corporate' ? (formCorporateId || undefined) : undefined }).then((r) => { if (!cancelled) setEligible(r); }).catch((e: any) => { if (cancelled) return; setEligible(null); setEligibleError(e?.response?.data?.message || 'Could not load eligible claims'); }).finally(() => { if (!cancelled) setEligibleLoading(false); }); return () => { cancelled = true; }; }, [showCreate, formYear, formMonth, formType, previewProviderId, formCorporateId, getEligibleClaimsForBatch]);
+
+  const eligibleForFormType = eligible ? eligible[formType] : 0;
+  const needsPayerChoice = formType === 'corporate' ? !formCorporateId : !formProviderId;
   useEffect(() => {
     if (!showCreate || needsPayerChoice || !isPeriodClosed(formYear, formMonth)) { setBatchPreviewRows([]); setBatchPreviewError(null); return; }
     let cancelled = false; setBatchPreviewLoading(true); setBatchPreviewError(null);
@@ -73,8 +76,6 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
     })().catch((e: any) => { if (!cancelled) { setBatchPreviewRows([]); setBatchPreviewError(e?.response?.data?.message || 'Could not preload claims'); } }).finally(() => { if (!cancelled) setBatchPreviewLoading(false); });
     return () => { cancelled = true; };
   }, [showCreate, formYear, formMonth, formType, formProviderId, formCorporateId, needsPayerChoice, providerOptions, corporateAccounts]);
-  const eligibleForFormType = eligible ? eligible[formType] : 0;
-  const needsPayerChoice = formType === 'corporate' ? !formCorporateId : !formProviderId;
   const formPeriodIsClosed = isPeriodClosed(formYear, formMonth); const selectedProviderName = providerOptions.find((p: any) => p.id === formProviderId)?.name ?? '';
   const nothingCoded = formType === 'nhis' && !!eligible && eligible.nhis === 0 && (eligible.nhisUncoded ?? 0) > 0;
   const canGenerate = !eligibleLoading && !!eligible && formPeriodIsClosed && eligibleForFormType > 0 && !needsPayerChoice;
