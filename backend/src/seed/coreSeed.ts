@@ -136,7 +136,7 @@ const addSchemaDefaults = (data: any, type: string) => {
         ...baseDefaults,
         name: data.name || 'Unknown Scan',
         scanCode: data.scanCode,
-        investigationCode: data.investigationCode || data.scanCode,
+        investigationCode: data.investigationCode,
         description: data.description || 'Imaging study',
         category: data.category || 'xray',
         bodyPart: data.bodyPart || 'other',
@@ -150,7 +150,6 @@ const addSchemaDefaults = (data: any, type: string) => {
         privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         vatRate: data.vatRate ?? 0,
         isTaxable: data.isTaxable ?? true,
-        tariffCode: data.tariffCode || `SCAN-${data.scanCode}`,
         isActive: true,
         resultTemplate: data.resultTemplate || [],
       };
@@ -1437,7 +1436,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
       const pricing = pricingConfig.labTests?.[code] || { cashPrice: 80, nhisPrice: 60, insurancePrice: 75 };
       serviceCatalogEntries.push({
         name: template.name,
-        code: `LAB-${code}`,
+        code,
         serviceType: ServiceType.lab_test,
         serviceCategory: ServiceCategory.diagnostics,
         subType: template.category,
