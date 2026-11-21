@@ -3,7 +3,7 @@
 // Patients plus everything registered alongside them: allergies, the medical,
 // surgical and family history tabs, consents and the corporate enrolment that
 // makes the corporate payer mode real.
-import type { GeneratedPatient } from '../bulkGenerator.js';
+import { makeNhisNumber, type GeneratedPatient } from '../bulkGenerator.js';
 import type { Lookups } from './lookups.js';
 import { ENUMS } from './lookups.js';
 import { asCalendarDay, hashOf, pickEnum, prisma, writeMany, type SeedStats } from './shared.js';
@@ -13,6 +13,7 @@ export interface PatientRowRef {
   id: string;
   insuranceProviderId: string | null;
   paymentMode: string;
+  nhisNumber: string | null;
 }
 
 export interface PatientRecords {
@@ -29,6 +30,7 @@ export const seedPatients = async (
   planned: SeedStats,
 ): Promise<PatientRecords> => {
   const rows: any[] = [];
+  const nhisNumberByFolder = new Map<string, string>();
   const avatarByFolder = await seedAvatarImages('patients', patients.map((patient) => patient.folderNumber));
 
   patients.forEach((p, index) => {
@@ -48,7 +50,8 @@ export const seedPatients = async (
     const account = p.paymentMode === 'corporate'
       ? lookups.corporateAccounts[hashOf(`acct${p.folderNumber}`) % lookups.corporateAccounts.length]
       : null;
-
+    const nhisNumber = p.paymentMode === 'nhis' ? (p.nhisNumber || makeNhisNumber(index)) : null;
+    if (nhisNumber) nhisNumberByFolder.set(p.folderNumber, nhisNumber);
 
     rows.push({
       // The id carries the folder number and the seed marker. The folder band alone cannot tell
@@ -72,11 +75,13 @@ export const seedPatients = async (
       // A corporate patient is enrolled through a real account, so the employer on the
       // folder names that account instead of the generator's generic occupation list.
       employer: account ? { name: account.companyName } : (p.employer ? { name: p.employer } : undefined),
-      insuranceDetails: p.insuranceDetails ?? undefined,
       registeredAt: p.registeredAt,
       registeredBy: lookups.actorName({ role: 'records', salt: index }),
       insuranceProviderId: insuranceProviderId ?? undefined,
-      nhisNumber: p.nhisNumber ?? undefined,
+      // Demo NHIS members always carry a syntactically valid membership number. This is
+      // synthetic test data, not a real member lookup or an NHIA-issued number.
+      nhisNumber: nhisNumber ?? undefined,
+      insuranceDetails: nhisNumber ? { ...(p.insuranceDetails ?? {}), memberId: nhisNumber } : (p.insuranceDetails ?? undefined),
       nhisActive: p.nhisActive,
       nhisExpiryDate: p.nhisExpiryDate ? asCalendarDay(p.nhisExpiryDate) : undefined,
       phoneNumber: p.phoneNumber,
@@ -85,12 +90,21 @@ export const seedPatients = async (
 
   await writeMany('patients', (part) => prisma.patient.createMany({ data: part }), rows, stats, planned);
 
+  // Reconcile NHIS identity on earlier demo rows too. A forced re-seed must not leave
+  // an old synthetic NHIS patient without the membership number expected by its visits.
+  for (const [folderNumber, nhisNumber] of nhisNumberByFolder) {
+    await prisma.patient.updateMany({
+      where: { id: `seedpat-${folderNumber}`, paymentMode: 'nhis' },
+      data: { nhisNumber },
+    });
+  }
+
   // Read back by the marker, not the folder band: a folder the demo could not claim because a
   // real patient already holds it stays a real patient, and the encounters that wanted it are
   // dropped instead of being attached to the wrong person.
   const found = await prisma.patient.findMany({
     where: { id: { startsWith: 'seedpat-' } },
-    select: { id: true, folderNumber: true, paymentMode: true, insuranceProviderId: true },
+    select: { id: true, folderNumber: true, paymentMode: true, insuranceProviderId: true, nhisNumber: true },
   });
   const idByFolder = new Map<string, string>();
   const rowByFolder = new Map<string, PatientRowRef>();
@@ -100,6 +114,7 @@ export const seedPatients = async (
       id: patient.id,
       insuranceProviderId: patient.insuranceProviderId,
       paymentMode: String(patient.paymentMode ?? 'cash'),
+      nhisNumber: patient.nhisNumber ?? null,
     });
   }
 

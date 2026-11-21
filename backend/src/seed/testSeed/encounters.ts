@@ -49,6 +49,21 @@ export const nhisCCCFor = (attendanceNumber: string | number): string => {
   return String(10000 + (seed % 90000)).padStart(5, '0');
 };
 
+/**
+ * Synthetic CCC metadata for demo/test encounters only. This deterministic value lets
+ * seeded claim screens exercise CCC fields; it is NOT NHIA-issued and must never be
+ * used for a live claim submission.
+ */
+export const nhisSeedCCCFields = (attendanceNumber: string | number, visitDate: Date) => {
+  const code = nhisCCCFor(attendanceNumber);
+  return {
+    nhisCCC: code,
+    nhisCCCCode: code,
+    nhisCCCGeneratedAt: visitDate,
+    nhisCCCValidUntil: addDays(visitDate, 30),
+  };
+};
+
 const groupBy = <T extends { attendanceKey: string }>(rows: T[]): Map<string, T[]> => {
   const out = new Map<string, T[]>();
   for (const row of rows) {
@@ -111,9 +126,18 @@ export const seedEncounters = async (
 
   for (const att of bundle.attendances) {
     const patientId = att.folderNumber ? patients.idByFolder.get(att.folderNumber) ?? null : null;
+    const patientRow = att.folderNumber ? patients.rowByFolder.get(att.folderNumber) ?? null : null;
     const counterClientId = att.counterClientKey ? counterClientIds.get(att.counterClientKey) ?? null : null;
     // A ticket carries a counter client or a patient, never both and never neither.
     if (!patientId && !counterClientId) continue;
+    if (att.paymentMode === 'nhis') {
+      const memberNumber = patientRow?.nhisNumber ?? '';
+      if (!patientId || !/^(?:[1-9]\d{7}|00[1-9]\d{7})$/.test(memberNumber)) {
+        throw new Error(
+          `Cannot seed NHIS attendance ${att.attendanceNumber}: patient membership number is missing or invalid.`,
+        );
+      }
+    }
 
     const providerId = lookups.actorId(att.provider);
     const finalizerId = att.finalizedAt ? lookups.actorId(att.finalizer ?? att.provider) : null;
@@ -141,7 +165,7 @@ export const seedEncounters = async (
       dateTime: att.dateTime,
       paymentMode: att.paymentMode,
       // A claim is only generated from a covered visit, so the CCC has to be there.
-      nhisCCC: att.paymentMode === 'nhis' ? nhisCCCFor(att.attendanceNumber) : undefined,
+      ...(att.paymentMode === 'nhis' ? nhisSeedCCCFields(att.attendanceNumber, att.dateTime) : {}),
       status: att.status,
       encounterCategory: att.encounterCategory,
       visitCategory: att.visitCategory,
