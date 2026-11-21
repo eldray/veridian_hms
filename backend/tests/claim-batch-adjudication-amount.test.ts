@@ -10,6 +10,10 @@ describe('claim batch adjudication tracking', () => {
       claimBatchTrackingEvent: {
         create: vi.fn(async ({ data }: any) => { created.push(data); return { id: 'event-1', ...data }; }),
       },
+      $transaction: vi.fn(async (callback: any) => callback({
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        claimBatchTrackingEvent: { create: vi.fn(async ({ data }: any) => { created.push(data); return { id: 'event-1', ...data }; })
+      })),
     };
     return { service: new ClaimBatchService(prisma), prisma, created };
   }
