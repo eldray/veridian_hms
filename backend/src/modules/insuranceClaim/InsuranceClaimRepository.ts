@@ -227,6 +227,20 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       }),
     ]);
 
+    const payable = payableBatches.reduce((sum: number, batch: any) => {
+      const latest = batch.trackingEvents?.[0];
+      const status = String(latest?.status || '').toLowerCase();
+      const submitted = toNum(batch.totalAmount);
+      if (status === 'rejected') return sum + (latest?.amount != null ? toNum(latest.amount) : 0);
+      if (['approved', 'partially_approved'].includes(status) && latest?.amount != null) {
+        return sum + toNum(latest.amount);
+      }
+      return sum + submitted;
+    }, 0);
+    const paid = toNum(paidAcrossFilter._sum?.amount);
+    const outstanding = Math.max(0, payable - paid);
+    const overpaid = Math.max(0, paid - payable);
+
     return {
       data: batches,
       pagination: {
@@ -284,7 +298,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
     const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
     const skip = (safePage - 1) * safeLimit;
 
-    const [batches, total, totals, paidAcrossFilter] = await Promise.all([
+    const [batches, total, totals, paidAcrossFilter, payableBatches] = await Promise.all([
       this.prisma.claimBatch.findMany({
         where,
         include: {
@@ -312,6 +326,19 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         where: { eventType: 'payment', batch: where },
         _sum: { amount: true },
       }),
+      // Approved balance must include adjudication on every filtered batch, not just the current page.
+      this.prisma.claimBatch.findMany({
+        where,
+        select: {
+          totalAmount: true,
+          trackingEvents: {
+            where: { eventType: 'adjudication' },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: 1,
+            select: { status: true, amount: true },
+          },
+        },
+      }),
     ]);
 
     return {
@@ -326,7 +353,10 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         batches: totals._count._all,
         claims: toNum(totals._sum.totalClaims),
         amount: money(totals._sum.totalAmount),
-        paid: money(paidAcrossFilter._sum?.amount),
+        paid: money(paid),
+        payable: money(payable),
+        outstanding: money(outstanding),
+        overpaid: money(overpaid),
       },
     };
   }
