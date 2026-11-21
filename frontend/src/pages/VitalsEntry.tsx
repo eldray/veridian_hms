@@ -549,21 +549,25 @@ export default function VitalsEntry() {
             </div>
           </div>
 
-          <AllergyBanner
-            patientId={selectedPatientId}
-            allergies={selectedPatient?.allergies}
-            allergyReviewStatus={selectedAttendance.allergyReviewStatus}
-          />
+          <div className="flex flex-wrap items-stretch gap-2">
+            <div className="min-w-0 flex-1 basis-[320px]">
+              <AllergyBanner
+                patientId={selectedPatientId}
+                allergies={selectedPatient?.allergies}
+                allergyReviewStatus={selectedAttendance.allergyReviewStatus}
+              />
+            </div>
 
-          {/* Read-only warning */}
-          {!canRecord && (
-            <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-4 flex items-center gap-2">
+            {/* Read-only warning */}
+            {!canRecord && (
+              <div className="min-w-0 flex-1 basis-[320px] bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-lg px-3 py-2 flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-[var(--icon-yellow-text)]" />
               <p className="text-sm text-[var(--icon-yellow-text)]">
                 This visit is <strong>{selectedAttendance.status}</strong>. Vitals can be viewed but not recorded.
               </p>
-            </div>
-          )}
+                </div>
+            )}
+          </div>
 
           {/* Vitals Tracking Section */}
           <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
