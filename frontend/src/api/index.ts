@@ -1163,7 +1163,7 @@ export const getInsuranceClaimsTracking = (filters?: { page?: number; limit?: nu
  * answers it with one or more remittances, so the batch is the row the desk reconciles.
  */
 export interface BatchTrackingEventInput {
-  eventType: 'submission' | 'resubmission' | 'adjudication' | 'payment' | 'note';
+  eventType: 'submission' | 'payment' | 'note';
   status?: string;
   submissionDate?: string;
   payerReference?: string;
