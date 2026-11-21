@@ -2,7 +2,7 @@
 // Layout follows the NHIA "UPDATE CLAIM" form: teal section cards, underlined fields,
 // numbered teal bars for Diagnoses / Investigations / Medicines, Cancel / SAVE footer.
 import React from 'react';
-import { ChevronsDown, Lock, X, Check, Search, Calendar } from 'lucide-react';
+import { ChevronsDown, Lock, X, Check, Search, Calendar, RefreshCw } from 'lucide-react';
 
 export const TEAL = '#009688';
 
@@ -11,11 +11,12 @@ export const ClaimFrame: React.FC<{
   subtitle?: string;
   status?: React.ReactNode;
   onClose: () => void;
+  onRefresh?: () => void;
   onFinalize?: () => void;
   finalizing?: boolean;
   onCollapse?: () => void;
   children: React.ReactNode;
-}> = ({ title, subtitle, status, onClose, onFinalize, finalizing, onCollapse, children }) => (
+}> = ({ title, subtitle, status, onClose, onRefresh, onFinalize, finalizing, onCollapse, children }) => (
   <div className="min-h-screen bg-[var(--bg-main)] py-6 px-3 text-[var(--text-primary)]">
     <div className="max-w-[980px] mx-auto bg-[var(--bg-card)] border border-[var(--border-color)] shadow-sm">
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-card)] sticky top-0 z-20">
@@ -25,6 +26,11 @@ export const ClaimFrame: React.FC<{
         </div>
         <div className="flex items-center gap-2">
           {status}
+          {onRefresh && (
+            <button type="button" onClick={onRefresh} title="Refresh claim form" aria-label="Refresh claim form" className="w-12 h-9 border border-[var(--border-color)] rounded text-[var(--text-secondary)] hover:bg-[var(--bg-main)] flex items-center justify-center">
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          )}
           {onCollapse && (
             <button type="button" onClick={onCollapse} title="Collapse / expand tables" className="w-12 h-9 border border-[var(--border-color)] rounded text-[var(--text-secondary)] hover:bg-[var(--bg-main)] flex items-center justify-center">
               <ChevronsDown className="w-4 h-4" />
