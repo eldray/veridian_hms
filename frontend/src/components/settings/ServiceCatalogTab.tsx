@@ -165,15 +165,24 @@ export default function ServiceCatalogTab() {
 
   const getPriceDisplay = (service: any, priceType: 'cash' | 'insurance' | 'nhis' | 'corporate') => {
     const pricing = service.pricing;
-    if (pricing) { switch (priceType) { case 'cash': return Number(pricing.cashPrice) || 0; case 'insurance': return service.serviceType === 'medication' ? (Number(pricing.cashPrice) || 0) : (Number(pricing.insurancePrice) || 0); case 'nhis': return Number(pricing.nhisPrice) || 0; case 'corporate': return service.serviceType === 'medication' ? (Number(pricing.cashPrice) || 0) : (Number(pricing.corporatePrice) || 0); } }
-    return 0;
+    const cashPrice = Number(pricing?.cashPrice) || 0;
+    switch (priceType) {
+      case 'cash': return cashPrice;
+      // Private insurance and corporate accounts use the facility cash selling price.
+      // Display the actual amount instead of the text "Cash rate".
+      case 'insurance':
+      case 'corporate':
+        return cashPrice;
+      case 'nhis':
+        return Number(pricing?.nhisPrice) || 0;
+      default:
+        return 0;
+    }
   };
   const getPriceText = (service: any, priceType: 'cash' | 'insurance' | 'nhis' | 'corporate') => {
     const value = getPriceDisplay(service, priceType);
-    if (priceType === 'nhis' && service.isNHISCovered === false) return 'Cash rate';
-    if (priceType === 'insurance' && service.isPrivateInsuranceExempted) return 'Cash rate';
-    if (priceType !== 'cash' && value === 0) return 'Cash rate';
-    return `GHS ${value.toFixed(2)}`;
+    if (priceType === 'nhis' && (service.isNHISCovered === false || value === 0)) return 'Not configured';
+    return 'GHS ' + value.toFixed(2);
   };
   const getServiceIcon = (type: string) => {
     const icons: Record<string, React.ReactNode> = { consultation: <Stethoscope className="w-4 h-4" />, lab_test: <FlaskConical className="w-4 h-4" />, procedure: <ClipboardList className="w-4 h-4" />, medication: <Pill className="w-4 h-4" />, ward: <Building className="w-4 h-4" />, scan: <ClipboardList className="w-4 h-4" /> };
@@ -322,7 +331,7 @@ export default function ServiceCatalogTab() {
                 <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Status</label><p className="text-[var(--text-primary)] mt-1">{selectedService.isActive !== false ? <span className="text-[var(--icon-green-text)]">Active</span> : <span className="text-[var(--icon-red-text)]">Inactive</span>}</p></div>
               </div>
               {selectedService.description && (<div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Description</label><p className="text-[var(--text-primary)] mt-1 text-sm">{selectedService.description}</p></div>)}
-              <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase mb-2 block">Pricing</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><div className="bg-[var(--icon-green-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-green-text)]">Cash Price</p><p className="text-base font-bold text-[var(--icon-green-text)]">{getPriceText(selectedService, 'cash')}</p></div><div className="bg-[var(--icon-cyan-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-cyan-text)]">NHIS Price</p><p className="text-base font-bold text-[var(--icon-cyan-text)]">{getPriceText(selectedService, 'nhis')}</p></div><div className="bg-[var(--icon-purple-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-purple-text)]">Insurance Price</p><p className="text-base font-bold text-[var(--icon-purple-text)]">{getPriceText(selectedService, 'insurance')}</p></div><div className="bg-[var(--icon-orange-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-orange-text)]">Corporate Price</p><p className="text-base font-bold text-[var(--icon-orange-text)]">{getPriceText(selectedService, 'corporate')}</p></div></div><p className="text-xs text-[var(--text-tertiary)] mt-2">"Cash rate" = no separate price is set (or the service isn't covered), so the patient is billed the cash price. Corporate accounts with a discount % get that discount off cash instead.</p></div>
+              <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase mb-2 block">Pricing</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><div className="bg-[var(--icon-green-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-green-text)]">Cash Price</p><p className="text-base font-bold text-[var(--icon-green-text)]">{getPriceText(selectedService, 'cash')}</p></div><div className="bg-[var(--icon-cyan-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-cyan-text)]">NHIS Price</p><p className="text-base font-bold text-[var(--icon-cyan-text)]">{getPriceText(selectedService, 'nhis')}</p></div><div className="bg-[var(--icon-purple-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-purple-text)]">Insurance Price</p><p className="text-base font-bold text-[var(--icon-purple-text)]">{getPriceText(selectedService, 'insurance')}</p></div><div className="bg-[var(--icon-orange-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-orange-text)]">Corporate Price</p><p className="text-base font-bold text-[var(--icon-orange-text)]">{getPriceText(selectedService, 'corporate')}</p></div></div><p className="text-xs text-[var(--text-tertiary)] mt-2">Private insurance and corporate rates use the facility cash price. NHIS shows the configured NHIS tariff; services without one are marked Not configured.</p></div>
               <div className="flex gap-3 pt-2">{selectedService.nhisRequiresAuth && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded-lg text-xs"><AlertCircle className="w-3 h-3" /> Requires Authorization</span>)}{selectedService.isNHISCovered === false && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg text-xs"><EyeOff className="w-3 h-3" /> Not NHIS Covered</span>)}{selectedService.pricing?.isTaxable && selectedService.pricing?.vatRate > 0 && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg text-xs"><Tag className="w-3 h-3" /> VAT {selectedService.pricing.vatRate}%</span>)}</div>
               <div className="text-xs text-[var(--text-tertiary)] pt-3 border-t border-[var(--border-color)]"><p>Created: {new Date(selectedService.createdAt).toLocaleString()}</p><p>Updated: {new Date(selectedService.updatedAt).toLocaleString()}</p></div>
             </div>
