@@ -231,7 +231,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       const latest = batch.trackingEvents?.[0];
       const status = String(latest?.status || '').toLowerCase();
       const submitted = toNum(batch.totalAmount);
-      if (status === 'rejected') return sum + (latest?.amount != null ? toNum(latest.amount) : 0);
+      if (status === 'rejected') return sum;
       if (['approved', 'partially_approved'].includes(status) && latest?.amount != null) {
         return sum + toNum(latest.amount);
       }
