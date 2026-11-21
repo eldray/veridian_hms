@@ -113,12 +113,15 @@ describe('NHIS procedure catalogue coverage', () => {
     const source = await import('node:fs/promises').then(({ readFile }) =>
       readFile(new URL('../src/seed/diagnosisGdrgLink.ts', import.meta.url), 'utf8'),
     );
-    const rows = [...source.matchAll(/icdCode:\s*'([^']+)'[\s\S]*?gdrgCodes:\s*\[([^\]]*)\][\s\S]*?isPrimaryGdrg:\s*'([^']+)'/g)]
-      .map((match) => ({
+    const rows = source.split(/\r?\n/).flatMap((line) => {
+      if (!/^\s*\{\s*icdCode:/.test(line)) return [];
+      const match = line.match(/icdCode:\s*'([^']+)'\s*,\s*gdrgCodes:\s*\[([^\]]*)\]\s*,\s*isPrimaryGdrg:\s*'([^']+)'/);
+      return match ? [{
         icdCode: match[1],
         codes: [...match[2].matchAll(/'([^']+)'/g)].map((code) => code[1]),
         primary: match[3],
-      }));
+      }] : [];
+    });
     const codesByDiagnosis = new Map<string, string[]>();
     for (const row of rows) {
       expect(codesByDiagnosis.has(row.icdCode), 'duplicate diagnosis mapping row for ' + row.icdCode).toBe(false);
