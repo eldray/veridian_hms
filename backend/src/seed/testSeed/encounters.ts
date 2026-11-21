@@ -49,6 +49,21 @@ export const nhisCCCFor = (attendanceNumber: string | number): string => {
   return String(10000 + (seed % 90000)).padStart(5, '0');
 };
 
+/**
+ * Synthetic CCC metadata for demo/test encounters only. This deterministic value lets
+ * seeded claim screens exercise CCC fields; it is NOT NHIA-issued and must never be
+ * used for a live claim submission.
+ */
+export const nhisSeedCCCFields = (attendanceNumber: string | number, visitDate: Date) => {
+  const code = nhisCCCFor(attendanceNumber);
+  return {
+    nhisCCC: code,
+    nhisCCCCode: code,
+    nhisCCCGeneratedAt: visitDate,
+    nhisCCCValidUntil: addDays(visitDate, 30),
+  };
+};
+
 const groupBy = <T extends { attendanceKey: string }>(rows: T[]): Map<string, T[]> => {
   const out = new Map<string, T[]>();
   for (const row of rows) {
