@@ -24,10 +24,10 @@ describe('simple submitted-batch payment tracking', () => {
   it('allows a partial payment and locks the batch while checking the received total', async () => {
     const { service, tx, create } = setup([{ amount: '40.00' }]);
     const result = await service.recordBatchTrackingEvent('batch-1', {
-      eventType: 'payment', amount: 30, paymentReference: 'REMIT-001', paymentMethod: 'bank_transfer',
+      eventType: 'payment', amount: 30, paymentDate: '2026-11-05', paymentReference: 'REMIT-001', paymentMethod: 'bank_transfer',
     }, 'accounts-user');
 
-    expect(result).toMatchObject({ batchId: 'batch-1', eventType: 'payment', amount: 30, paymentReference: 'REMIT-001' });
+    expect(result).toMatchObject({ batchId: 'batch-1', eventType: 'payment', amount: 30, paymentDate: new Date('2026-11-05'), paymentReference: 'REMIT-001' });
     expect(tx.$queryRaw).toHaveBeenCalledOnce();
     expect(create).toHaveBeenCalledOnce();
   });
@@ -37,6 +37,14 @@ describe('simple submitted-batch payment tracking', () => {
     await expect(service.recordBatchTrackingEvent('batch-1', {
       eventType: 'payment', amount: 10.01, paymentReference: 'REMIT-002',
     }, 'accounts-user')).rejects.toThrow(/exceeds the ₵100.00 submitted amount/);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid payment date', async () => {
+    const { service, create } = setup();
+    await expect(service.recordBatchTrackingEvent('batch-1', {
+      eventType: 'payment', amount: 10, paymentDate: 'not-a-date', paymentReference: 'REMIT-BAD-DATE',
+    }, 'accounts-user')).rejects.toThrow(/Payment date is invalid/);
     expect(create).not.toHaveBeenCalled();
   });
 
