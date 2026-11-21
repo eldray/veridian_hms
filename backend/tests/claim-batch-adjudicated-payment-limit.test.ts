@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ClaimBatchService } from '../src/modules/insuranceClaim/ClaimBatchService';
 
-describe('adjudicated batch payment limits', () => {
+describe('facility batch payment receipts', () => {
   const batch = { id: 'batch-1', batchNumber: 'BATCH-001', status: 'finalized', totalAmount: 100 };
-  function setup(paymentRows: any[], adjudicationRows: any[]) {
+  function setup(paymentRows: any[]) {
     const eventCreate = vi.fn(async ({ data }: any) => ({ id: 'payment-new', ...data }));
     const tx: any = {
       $queryRaw: vi.fn().mockResolvedValue([]),
       claimBatchTrackingEvent: {
-        findMany: vi.fn().mockResolvedValueOnce(paymentRows).mockResolvedValueOnce(adjudicationRows),
+        findMany: vi.fn().mockResolvedValue(paymentRows),
         create: eventCreate,
       },
     };
@@ -19,32 +19,32 @@ describe('adjudicated batch payment limits', () => {
     return { service: new ClaimBatchService(prisma), tx, eventCreate };
   }
 
-  it('blocks remittances beyond the latest partial approval', async () => {
-    const { service, eventCreate } = setup([{ amount: 40 }], [{ status: 'partially_approved', amount: 60 }]);
+  it('rejects a receipt total above the submitted batch amount, without adjudication data', async () => {
+    const { service, eventCreate } = setup([{ amount: 40 }]);
     await expect(service.recordBatchTrackingEvent('batch-1', {
-      eventType: 'payment', amount: 25, paymentReference: 'REMIT-2',
-    }, 'accounts-user')).rejects.toThrow(/exceeds the ₵60.00 approved limit/);
+      eventType: 'payment', amount: 60.01, paymentReference: 'REMIT-2',
+    }, 'accounts-user')).rejects.toThrow(/exceeds the ₵100.00 submitted amount/);
     expect(eventCreate).not.toHaveBeenCalled();
   });
 
-  it('allows payment up to the adjudicated amount even when below the submission', async () => {
-    const { service, eventCreate } = setup([{ amount: 20 }], [{ status: 'approved', amount: 50 }]);
+  it('allows partial payments up to the submitted amount', async () => {
+    const { service, eventCreate } = setup([{ amount: 20 }]);
     await service.recordBatchTrackingEvent('batch-1', {
       eventType: 'payment', amount: 30, paymentReference: 'REMIT-2',
     }, 'accounts-user');
     expect(eventCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ amount: 30 }) }));
   });
 
-  it('blocks all payments after rejection even if a rejected event contains a mistaken positive amount', async () => {
-    const { service, eventCreate } = setup([], [{ status: 'rejected', amount: 100 }]);
+  it('does not accept payer adjudication or claim resubmission events in this facility workflow', async () => {
+    const { service, eventCreate } = setup([]);
     await expect(service.recordBatchTrackingEvent('batch-1', {
-      eventType: 'payment', amount: 1, paymentReference: 'REMIT-REJECTED',
-    }, 'accounts-user')).rejects.toThrow(/exceeds the ₵0.00 approved limit/);
+      eventType: 'adjudication', status: 'rejected',
+    }, 'accounts-user')).rejects.toThrow(/outside this facility workflow/);
     expect(eventCreate).not.toHaveBeenCalled();
   });
 
-  it('summarizes outstanding balance against the adjudicated amount and exposes overpayment', async () => {
-    const { service } = setup([], []);
+  it('calculates the outstanding balance from submitted amount less receipts only', async () => {
+    const { service } = setup([]);
     (service as any).repo.findBatchesForTracking = vi.fn().mockResolvedValue({
       data: [{ id: 'batch-1', totalAmount: 100, finalizedAt: null, trackingEvents: [
         { eventType: 'adjudication', status: 'partially_approved', amount: 60, createdAt: new Date('2026-11-01') },
@@ -53,7 +53,7 @@ describe('adjudicated batch payment limits', () => {
     });
     const result = await service.listBatchTracking({});
     expect(result.data[0].tracking).toMatchObject({
-      amountSubmitted: 100, amountAdjudicated: 60, amountPayable: 60, totalPaid: 70, outstanding: 0, overpaid: 10, latestStatus: 'overpaid',
+      amountSubmitted: 100, totalPaid: 70, outstanding: 30, overpaid: 0, latestStatus: 'partially_paid',
     });
   });
 });
