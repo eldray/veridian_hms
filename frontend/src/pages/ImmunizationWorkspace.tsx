@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLiveRefresh } from '../api/realtime';
+import { useToast } from '../store/toastStore';
 import api from '../api/api';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import {
@@ -42,13 +44,14 @@ const patientAge = (patient?: Patient) => {
 };
 const normalizedStatus = (status?: string) => (status || 'pending').toLowerCase();
 const isCompleted = (status?: string) =>
-  ['completed', 'complete', 'closed', 'discharged'].includes(normalizedStatus(status));
+  ['completed', 'complete', 'closed', 'discharged', 'done'].includes(normalizedStatus(status));
 const isInProgress = (status?: string) =>
   ['in_progress', 'attending', 'processing'].includes(normalizedStatus(status));
 type QueueTab = 'pending' | 'completed';
 
 export default function ImmunizationWorkspace() {
   const navigate = useNavigate();
+  const { error: toastError } = useToast();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<QueueTab>('pending');
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -59,14 +62,17 @@ export default function ImmunizationWorkspace() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const loadWaitingList = async () => {
+  const loadWaitingList = async (silent = false) => {
     setRefreshing(true);
+    if (!silent) setLoading(true);
     setError('');
     try {
       const response = await api.get('/immunization/attendances');
       setVisits(Array.isArray(response.data?.data) ? response.data.data : []);
     } catch (e: any) {
-      setError(e.response?.data?.message || e.message || 'Unable to load the immunization waiting list.');
+      const message = e.response?.data?.message || e.message || 'Unable to load the immunization waiting list.';
+      setError(message);
+      toastError('Load failed', message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -74,6 +80,7 @@ export default function ImmunizationWorkspace() {
   };
 
   useEffect(() => { void loadWaitingList(); }, []);
+  useLiveRefresh(['encounters'], () => loadWaitingList(true));
 
   const filteredVisits = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -99,7 +106,7 @@ export default function ImmunizationWorkspace() {
   const waitingCount = filteredVisits.filter(visit => !isCompleted(visit.status) && !isInProgress(visit.status)).length;
 
   const openEntries = (visit: Visit) => {
-    if (visit.Patient?.id) navigate('/dashboard/immunization/entries/' + visit.Patient.id);
+    if (visit.Patient?.id) navigate(`/dashboard/immunization/entries/${visit.Patient.id}?attendanceId=${encodeURIComponent(visit.id)}`);
   };
 
   const markCompleted = async (visit: Visit) => {

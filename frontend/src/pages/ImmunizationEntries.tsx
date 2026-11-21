@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import ImmunizationPanel from '../components/patients/ImmunizationPanel';
@@ -12,6 +12,8 @@ type Visit = { id: string; attendanceNumber?: string; attendanceType?: string; d
 export default function ImmunizationEntries() {
   const { patientId = '' } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const selectedAttendanceId = searchParams.get('attendanceId') || '';
   const { hasRole } = useAuthStore();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [attendances, setAttendances] = useState<Visit[]>([]);
@@ -56,7 +58,7 @@ export default function ImmunizationEntries() {
       </div>
     </header>
     <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
-      <ImmunizationPanel patientId={patientId} attendances={attendances} canRecord={hasRole(['admin','super_admin','doctor','nurse','midwife'])} canManageCatalogue={hasRole(['admin','super_admin'])} onCreateAttendance={() => setShowAttendanceModal(true)} />
+      <ImmunizationPanel patientId={patientId} attendances={attendances} initialAttendanceId={selectedAttendanceId} canRecord={hasRole(['admin','super_admin','doctor','nurse','midwife'])} canManageCatalogue={hasRole(['admin','super_admin'])} onCreateAttendance={() => setShowAttendanceModal(true)} />
     </section>
     {showAttendanceModal && <NewAttendanceModal patientId={patientId} initialAttendanceType="immunization" onClose={() => setShowAttendanceModal(false)} onSuccess={() => { setShowAttendanceModal(false); void loadPatientWorkspace(); }} />}
   </main>;
