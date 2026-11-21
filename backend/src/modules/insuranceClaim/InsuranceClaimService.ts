@@ -1005,7 +1005,7 @@ ${claimsXml}
         }
         const quantity = Number(med.quantity ?? 1);
         if (!Number.isFinite(quantity) || quantity <= 0) {
-          throw new ValidationError(`NHIS claim cannot price ${med.name ?? stockItem.name}: dispensed quantity is missing or invalid.`);
+          throw new ValidationError(`NHIS claim cannot price ${med.name ?? stockItem.name}: supplied quantity is missing or invalid.`);
         }
         const coveredUnitAmount = Math.round(allocation.nhisCoveredAmount * 100) / 100;
         const coveredLineAmount = Math.round(coveredUnitAmount * quantity * 100) / 100;
@@ -1851,7 +1851,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       };
       const matchingSuppliedMedicines = suppliedMedicines.filter(matchesDispensedStockItem);
       if (!matchingSuppliedMedicines.length) {
-        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine dispensed for this attendance. Select a valid dispensed medicine before saving the claim.`);
+        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine supplied or administered for this attendance. Select a valid supplied medicine before saving the claim.`);
       }
       // Claim edits must not increase the quantity beyond what was actually dispensed.
       // Track totals across rows too, so duplicating a line cannot inflate the claim.
@@ -1859,7 +1859,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       const rowQuantity = Number(row.quantity);
       const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem?.id ?? '') ?? 0;
       if (!Number.isFinite(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > suppliedQuantity) {
-        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity dispensed for this attendance (${suppliedQuantity - alreadyClaimedQuantity} remaining).`);
+        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity supplied or administered for this attendance (${suppliedQuantity - alreadyClaimedQuantity} remaining).`);
       }
       claimedQuantityByStockItem.set(catalog.StockItem?.id ?? '', alreadyClaimedQuantity + rowQuantity);
       // A null authorizationRequired is the imported NHIS list not stating the flag, so only an
