@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSmartBack } from '../../utils/useSmartBack';
+import { confirmDialog } from '../../context/ConfirmDialog';
 import { useInsuranceStore } from '../../store/insuranceStore';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { usePatientStore } from '../../store/patientStore';
@@ -540,6 +541,19 @@ export default function EditPrivateClaim() {
   const [editingMedicine, setEditingMedicine] = useState<any>(null);
 
   const isDraft = currentClaim?.status === 'draft';
+
+  const handleRefreshClaim = async () => {
+    if (isDraft) {
+      const confirmed = await confirmDialog({
+        title: 'Refresh claim form?',
+        message: 'Any unsaved changes to this draft will be lost. Refresh the form and reload the saved claim?',
+        confirmText: 'Refresh',
+        type: 'warning',
+      });
+      if (!confirmed) return;
+    }
+    navigate(0);
+  };
   const isFinalized = currentClaim?.status === 'finalized';
 
   useEffect(() => {
@@ -804,6 +818,7 @@ export default function EditPrivateClaim() {
         subtitle={`${currentClaim?.claimNumber ?? ''} · Private insurance`}
         status={<span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{isDraft ? 'DRAFT' : 'FINALIZED'}</span>}
         onClose={goBack}
+        onRefresh={handleRefreshClaim}
         onCollapse={() => setTablesOpen(o => !o)}
         onFinalize={isDraft ? handleFinalize : undefined}
         finalizing={isSubmitting}
