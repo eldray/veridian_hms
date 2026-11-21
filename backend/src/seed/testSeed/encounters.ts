@@ -154,7 +154,11 @@ export const seedEncounters = async (
       skippedClaimableWithoutPrimaryDiagnosis++;
       continue;
     }
-    if (patientId && att.folderNumber && (att.encounterCategory === 'opd' || att.encounterCategory === 'daycase')) {
+    // Claims must not be seeded for ANY attendance whose date falls within another
+    // admission for the same patient. The claim endpoint correctly rejects such visits,
+    // including ones the generated category incorrectly labels as something other than
+    // OPD/daycase; filter the claimable row here instead of creating invalid demo data.
+    if (patientId && att.folderNumber && claimsByAttendance.has(att.key)) {
       const date = att.dateTime.getTime();
       const overlapsAdmission = inpatientWindows.some((stay) =>
         stay.attendanceKey !== att.key
