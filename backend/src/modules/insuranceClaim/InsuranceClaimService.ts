@@ -1063,6 +1063,9 @@ ${claimsXml}
           .map((service: any) => familyPlanningZoomCode(service.method))
           .filter((code: string | null): code is string => Boolean(code))
       ));
+      if (familyPlanningZoomCodes.length && age < 12) {
+        throw new ValidationError('The configured NHIS family-planning ZOOM tariffs are adult-only; verify the patient age and the current NHIS tariff schedule before claiming this service.');
+      }
       const hasExplicitZoomProcedure = att.Procedure.some((procedure: any) => {
         const code = String(procedure.ProcedureTemplate?.procedureCode ?? procedure.ServiceCatalog?.nhisServiceCode ?? '').trim().toUpperCase();
         return code.startsWith('ZOOM');
