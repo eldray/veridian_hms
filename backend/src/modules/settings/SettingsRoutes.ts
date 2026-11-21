@@ -66,7 +66,7 @@ export const createSettingsRoutes = () => {
       body('nhisApiActive').optional().isBoolean(),
       body('nhisFacilityCode').optional().trim(),
       body('nhisFacilityType').optional().isIn([
-        'Tertiary', 'Secondary', 'Primary', 'Clinic', 'Health_Center', 'Maternity_Home',
+        'CHPS', 'Tertiary', 'Secondary', 'Primary', 'Clinic', 'Health_Center', 'Maternity_Home',
       ]).withMessage('Invalid facility type'),
       body('nhisAccreditationNumber').optional().trim(),
       body('nhisContactPerson').optional().trim(),
