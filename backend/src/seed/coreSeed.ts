@@ -935,8 +935,9 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             // The dataset stores the price as tariffGhC; the app column is nhiaTariff.
             nhiaTariff: parseFloat(tariff.nhiaTariff ?? tariff.tariffGhC) || 0,
             ageSplit: tariff.ageSplit || 'A',
-            minAgeYears: tariff.minAgeYears ? parseInt(tariff.minAgeYears) : null,
-            maxAgeYears: tariff.maxAgeYears ? parseInt(tariff.maxAgeYears) : null,
+            minAgeYears: tariff.minAgeYears == null ? null : Number.parseInt(String(tariff.minAgeYears), 10),
+            // Zero is a valid upper bound for neonatal G-DRGs; do not treat it as missing.
+            maxAgeYears: tariff.maxAgeYears == null ? null : Number.parseInt(String(tariff.maxAgeYears), 10),
             applicableLevels: tariff.applicableLevels || [1, 2, 3],
             nhisServiceCode: tariff.nhisServiceCode || null,
             isZoomCode: tariff.isZoomCode || false,
