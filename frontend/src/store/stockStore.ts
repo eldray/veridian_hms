@@ -633,23 +633,26 @@ getStockItems: async (filters = {}) => {
     }
   },
 
-  getStockItemTransactionHistory: async (stockItemId: string, page = 1, limit = 50) => {
+  getStockItemTransactionHistory: async (stockItemId: string, page = 1, limit = 200, dateRange: { startDate?: string; endDate?: string } = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetStockItemTransactionHistory(stockItemId, { page, limit });
-      const transactions = extractItems(response, 'transactions');
+      const firstPage = await apiGetStockItemTransactionHistory(stockItemId, { page, limit, ...dateRange });
+      const firstRows = extractItems(firstPage, 'transactions');
+      const meta = firstPage?.data?.pagination || firstPage?.pagination || firstPage?.meta || {};
+      const pageCount = Math.max(1, Number(meta.pages || meta.totalPages || 1));
+      const remaining = await Promise.all(Array.from({ length: Math.max(0, pageCount - page) }, (_, index) =>
+        apiGetStockItemTransactionHistory(stockItemId, { page: page + index + 1, limit, ...dateRange })
+      ));
+      const transactions = [...firstRows, ...remaining.flatMap(response => extractItems(response, 'transactions'))];
       set({
         transactions: transactions as StockTransaction[],
-        pagination: response?.pagination || response?.meta || null,
+        pagination: { page: 1, limit: transactions.length, total: transactions.length, pages: 1 },
         isLoading: false
       });
       return transactions as StockTransaction[];
     } catch (error: unknown) {
       console.error('Failed to fetch stock item transaction history:', error);
-      set({ 
-        isLoading: false, 
-        error: (error as any).response?.data?.message || 'Failed to fetch transaction history' 
-      });
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to fetch transaction history' });
       throw error;
     }
   },
