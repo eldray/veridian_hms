@@ -833,7 +833,7 @@ ${claimsXml}
 
       const att = await tx.attendance.findUnique({
         where: { id: attendanceId },
-        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } }, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } } }
+        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } }, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } }, referral: true, familyPlanningServices: true }
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
@@ -1037,12 +1037,39 @@ ${claimsXml}
         select: { nhisFacilityType: true },
       });
       const facilityLevel = facilityLevelFromType(hospital?.nhisFacilityType);
-      const caseType = nhisCaseType({
+      let caseType = nhisCaseType({
         attendanceType: att.attendanceType,
         encounterCategory: att.encounterCategory,
         admissionType: att.Admission?.admissionType,
         hasAdmission: !!att.Admission,
       });
+
+      // Use a ZOOM case for a recorded ZOOM day procedure or a family-planning method
+      // that has an explicit NHIS ZOOM tariff. Do not invent codes for methods without one.
+      const familyPlanningZoomCode = (method: unknown): string | null => {
+        switch (String(method ?? '').toLowerCase()) {
+          case 'female_sterilization': return 'ZOOM08A';
+          case 'male_sterilization': return 'ZOOM09A';
+          case 'iud_copper':
+          case 'iud_hormonal': return 'ZOOM10A';
+          case 'implant_implanon':
+          case 'implant_jadelle': return 'ZOOM11A';
+          case 'injectable_dmpa': return 'ZOOM12A';
+          default: return null;
+        }
+      };
+      const familyPlanningZoomCodes = Array.from(new Set(
+        (att.familyPlanningServices ?? [])
+          .map((service: any) => familyPlanningZoomCode(service.method))
+          .filter((code: string | null): code is string => Boolean(code))
+      ));
+      const hasExplicitZoomProcedure = att.Procedure.some((procedure: any) => {
+        const code = String(procedure.ProcedureTemplate?.procedureCode ?? procedure.ServiceCatalog?.nhisServiceCode ?? '').trim().toUpperCase();
+        return code.startsWith('ZOOM');
+      });
+      if ((caseType === 'opd' || caseType === 'anc') && (hasExplicitZoomProcedure || familyPlanningZoomCodes.length)) {
+        caseType = 'zoom';
+      }
       const tariffContext = { caseType, age, facilityLevel };
       const pricedOnServiceDate: Prisma.GDRGTariffWhereInput = {
         isActive: true,
@@ -1062,9 +1089,22 @@ ${claimsXml}
             include: { gdrgTariff: true },
           })
         : [];
-      const fallbackTariffs = await tx.gDRGTariff.findMany({
-        where: { gdrgCode: { in: [...NHIS_FALLBACK_GDRG_CODES] }, ...pricedOnServiceDate },
-      });
+      const referralZoomCode = att.status === 'referred' && att.Admission
+        ? (age >= 12 ? 'ZOOM03A' : 'ZOOM03C')
+        : null;
+      const additionalZoomCodes = Array.from(new Set([
+        ...familyPlanningZoomCodes,
+        ...(referralZoomCode ? [referralZoomCode] : []),
+      ]));
+      const [fallbackTariffs, additionalZoomTariffs] = await Promise.all([
+        tx.gDRGTariff.findMany({
+          where: { gdrgCode: { in: [...NHIS_FALLBACK_GDRG_CODES] }, ...pricedOnServiceDate },
+        }),
+        additionalZoomCodes.length
+          ? tx.gDRGTariff.findMany({ where: { gdrgCode: { in: additionalZoomCodes }, ...pricedOnServiceDate } })
+          : Promise.resolve([]),
+      ]);
+      const additionalZoomTariffByCode = new Map(additionalZoomTariffs.map((row: any) => [row.gdrgCode, row]));
 
       const principal = resolvePrincipalGdrg({
         ...tariffContext,
@@ -1080,6 +1120,15 @@ ${claimsXml}
             isPrimary: link.isPrimary,
             origin: 'procedure' as const,
           })),
+          ...familyPlanningZoomCodes.flatMap((code) => {
+            const linkedTariff = additionalZoomTariffByCode.get(code);
+            return linkedTariff ? [{
+              tariff: linkedTariff,
+              isPrimary: true,
+              origin: 'procedure' as const,
+              label: 'family-planning method',
+            }] : [];
+          }),
         ],
         fallbacks: fallbackTariffs,
       });
@@ -1201,13 +1250,39 @@ ${claimsXml}
           serviceDate: p.performedAt ?? p.scheduledDate ?? att.dateTime,
           procedureId: p.id,
           serviceCatalogId: p.serviceCatalogId ?? null,
-          // The claim must say which diagnosis the operation was done for; the case's own primary
-          // diagnosis is that indication, and the payer reads it off this line.
           diagnosisId: pd.diagnosisId,
           gdrgTariffId: p.serviceCatalogId
             ? billableGdrgId(procedureLinks.filter((link) => link.procedureId === p.serviceCatalogId))
             : tariff.id,
         })),
+        ...(att.familyPlanningServices ?? []).flatMap((service: any) => {
+          const code = familyPlanningZoomCode(service.method);
+          const linkedTariff: any = code ? additionalZoomTariffByCode.get(code) : null;
+          return linkedTariff ? [{
+            itemCategory: 'procedure',
+            itemType: 'P',
+            code,
+            description: String(service.method).replace(/_/g, ' '),
+            quantity: 1,
+            unitPrice: 0,
+            lineTotal: 0,
+            serviceDate: service.serviceDate ?? att.dateTime,
+            diagnosisId: pd.diagnosisId,
+            gdrgTariffId: linkedTariff.id,
+          }] : [];
+        }),
+        ...(referralZoomCode && additionalZoomTariffByCode.get(referralZoomCode) ? [{
+          itemCategory: 'procedure',
+          itemType: 'P',
+          code: referralZoomCode,
+          description: 'Inpatient transfer out/referral to ' + (att.referral?.referredToFacility ?? 'another facility'),
+          quantity: 1,
+          unitPrice: 0,
+          lineTotal: 0,
+          serviceDate: att.Admission?.dischargeDate ?? att.dateTime,
+          diagnosisId: pd.diagnosisId,
+          gdrgTariffId: (additionalZoomTariffByCode.get(referralZoomCode) as any).id,
+        }] : []),
       ];
 
       const claim = await tx.insuranceClaim.create({
@@ -1218,13 +1293,18 @@ ${claimsXml}
           diagnosisCodes: safeMap([pd.Diagnosis?.icdCode], c => c),
           labTestCodes: safeMap(att.LabTest, l => requiredNhisInvestigationCode(l.LabTestTemplate?.investigationCode ?? l.ServiceCatalog?.nhisServiceCode, l.ServiceCatalog?.name ?? l.LabTestTemplate?.name ?? 'laboratory investigation')),
           scanCodes: safeMap(att.Scan, s => requiredNhisInvestigationCode(s.ScanTemplate?.investigationCode ?? s.ServiceCatalog?.nhisServiceCode, s.ServiceCatalog?.name ?? s.ScanTemplate?.name ?? 'scan')),
-          procedureCodes: safeMap(att.Procedure, p => requiredNhisProcedureCode(p.ProcedureTemplate?.procedureCode ?? p.ServiceCatalog?.nhisServiceCode, p.ServiceCatalog?.name ?? p.ProcedureTemplate?.name ?? 'procedure')),
+          procedureCodes: [
+            ...safeMap(att.Procedure, p => requiredNhisProcedureCode(p.ProcedureTemplate?.procedureCode ?? p.ServiceCatalog?.nhisServiceCode, p.ServiceCatalog?.name ?? p.ProcedureTemplate?.name ?? 'procedure')),
+            ...(att.familyPlanningServices ?? []).map((service: any) => familyPlanningZoomCode(service.method)).filter(Boolean),
+            ...(referralZoomCode && additionalZoomTariffByCode.has(referralZoomCode) ? [referralZoomCode] : []),
+          ],
           medicationCodes: safeMap(att.Medication, m => m.StockItem?.isNHISCovered ? m.StockItem?.drugCode : null),
           serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.nhisServiceCode),
           gdrgCodes: [tariff.gdrgCode], nhisServiceCodes: tariff.nhisServiceCode ? [tariff.nhisServiceCode] : [],
           principalGDRG: tariff.gdrgCode, claimCheckCode: att.nhisCCC,
           typeOfService, serviceOutcome,
           mdcCode: specialty, typeOfAttendance: typeOfAtt, datesOfService,
+          metadata: att.referral?.referralType === 'outgoing' ? { referringFacility: att.referral.referredToFacility ?? '' } : undefined,
           notes: `NHIS CCC: ${att.nhisCCC}, GDRG: ${tariff.gdrgCode}`,
           items: {
             create: [
