@@ -178,6 +178,15 @@ export class ClaimBatchService extends BaseService {
       && !allowedStatuses.includes(String(input.status || '').trim().toLowerCase())) {
       throw new ValidationError('Choose a valid payer adjudication status');
     }
+    // Record the payer's adjudicated value when supplied (especially partial
+    // approvals); otherwise the event is still useful as a status-only update.
+    if (input.eventType === 'adjudication' && input.amount != null) {
+      const adjudicatedAmount = Number(input.amount);
+      if (!Number.isFinite(adjudicatedAmount) || adjudicatedAmount < 0
+        || adjudicatedAmount > Number(batch.totalAmount) + 0.005) {
+        throw new ValidationError('Adjudicated amount must be zero or more and cannot exceed the submitted batch amount');
+      }
+    }
 
     return this.prisma.claimBatchTrackingEvent.create({
       data: {
@@ -188,6 +197,7 @@ export class ClaimBatchService extends BaseService {
           ? new Date(input.submissionDate)
           : (input.eventType === 'submission' ? new Date() : null),
         payerReference: input.payerReference ? String(input.payerReference).trim() : null,
+        amount: input.eventType === 'adjudication' && input.amount != null ? Number(input.amount) : null,
         notes: input.notes ? String(input.notes).trim() : null,
         recordedById: userId,
       },
