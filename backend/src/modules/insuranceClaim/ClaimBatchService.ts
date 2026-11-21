@@ -148,7 +148,8 @@ export class ClaimBatchService extends BaseService {
             throw new ValidationError(
               `Payment exceeds the ₵${paymentLimit.toFixed(2)} approved limit for ${batch.batchNumber}. Check the remittance and the payments already recorded.`,
             );
-          }          return tx.claimBatchTrackingEvent.create({
+          }
+          return tx.claimBatchTrackingEvent.create({
             data: {
               batchId: batch.id,
               eventType: 'payment',
