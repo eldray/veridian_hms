@@ -13,13 +13,13 @@ import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVis
 import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getTheatreWorklist } from '../api';
 import { getPatientName } from '../utils/patient';
-import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { pickVisit } from '../utils/visitSelection';
 import {
   ChevronLeft, Scissors, ClipboardList, RefreshCw, AlertCircle,
   Syringe, FileText, CheckCircle, Clock, User, Calendar,
   Activity, Plus, X, Search, Edit, Trash2, Printer,
-  Droplet, Heart, Hash, Phone, Info, ChevronDown, ChevronRight,
+  Droplet, Heart, Info, ChevronDown, ChevronRight,
   Save, Maximize2, AlertTriangle, CircleDot, Stethoscope,
 } from 'lucide-react';
 
@@ -62,9 +62,6 @@ const getStatusDot = (status: string) => {
 
 const countWords = (text: string) =>
   text?.trim() ? text.trim().split(/\s+/).length : 0;
-
-const initials = (name: string) =>
-  name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 
 // ─────────────────────────────────────────────────────────────
 // Shared primitives (mirroring src/pages/Antenatal.tsx)
@@ -663,7 +660,6 @@ export default function TheatreProcedure() {
     );
   }
 
-  const patientFullName = getPatientName(patient);
   const scheduledProcedures = procedures.filter((p: any) => p.status === 'scheduled');
   const inProgressProcedures = procedures.filter((p: any) => p.status === 'in_progress');
   const completedProcedures = procedures.filter((p: any) => p.status === 'completed');
@@ -788,41 +784,8 @@ export default function TheatreProcedure() {
 
       {selectedAttendanceId && attendance && patient && (
         <>
-          {/* ── PATIENT BANNER ─────────────────────────────────── */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <PatientAvatar imageUrl={patient.imageUrl} name={patientFullName} size="md" className="rounded-xl border border-purple-200 bg-purple-100" fallbackClassName="text-purple-700" fallbackText={initials(patientFullName)} />
-                <div className="min-w-0">
-                  <p className="text-base font-bold text-[var(--text-primary)] truncate">{patientFullName}</p>
-                  <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] mt-0.5 flex-wrap">
-                    <span>{patient.gender === 'male' ? '♂' : patient.gender === 'female' ? '♀' : '·'}</span>
-                    <span>{calculateAge(patient.dateOfBirth)}y</span>
-                    <span className="opacity-40">·</span>
-                    <span className="font-mono text-[10px] bg-[var(--bg-main)] px-1.5 py-0.5 rounded border border-[var(--border-color)]">
-                      #{patient.folderNumber}
-                    </span>
-                    {patient.contact && (
-                      <>
-                        <span className="opacity-40">·</span>
-                        <span className="flex items-center gap-1"><Phone className="w-2.5 h-2.5" />{patient.contact}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-mono bg-[var(--bg-main)] px-2 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-secondary)]">
-                  #{attendance.attendanceNumber || 'New Visit'}
-                </span>
-                <span className="text-[10px] bg-[var(--bg-main)] px-2 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-secondary)] flex items-center gap-1">
-                  <Calendar className="w-2.5 h-2.5" />
-                  {new Date(attendance.dateTime || attendance.createdAt || '').toLocaleDateString()}
-                </span>
-                {getStatusBadge(attendance.status)}
-              </div>
-            </div>
-          </div>
+          {/* Shared patient and visit header — consistent across clinical entry pages. */}
+          <PatientVisitHeader patient={patient} attendance={attendance} icon={Scissors} accent="purple" />
 
           <div className="flex flex-wrap items-stretch gap-2">
             <div className="min-w-0 flex-1 basis-[320px]">

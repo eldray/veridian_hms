@@ -14,20 +14,20 @@ import { LabTestModal } from '../components/medical-entries/modals/LabTestModal'
 import { getLabWorklist } from '../api';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
-import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { pickVisit } from '../utils/visitSelection';
 import SendDocumentModal from '../components/SendDocumentModal';
 import {
   FlaskConical, Printer, RefreshCw, AlertCircle,
-  Plus, Clock, CheckCircle, Activity, Calendar, X, Edit,
+  Plus, Clock, CheckCircle, Activity, X, Edit,
   FileText, Microscope, ArrowUp, ArrowDown,
-  Save, MessageSquare, Hash, Phone, Info, TestTube,
-  BedDouble, Play,
+  Save, MessageSquare, Info, TestTube,
+  Play,
 } from 'lucide-react';
 import {
   Badge,
   Button,
   Card,
+  PatientVisitHeader,
   cn,
   Field,
   humanStatus,
@@ -847,56 +847,8 @@ export default function LabResultEntry() {
       {/* ── MAIN CONTENT ── */}
       {selectedAttendanceId && attendance && patient && (
         <>
-          {/* Patient info card */}
-          <Card>
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <PatientAvatar imageUrl={patient.imageUrl} name={patientFullName} size="md" className="rounded-xl border border-[var(--border-color)] bg-[var(--icon-purple-bg)]" fallbackClassName="text-[var(--icon-purple-text)]" />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-[var(--text-primary)] text-base">{patientFullName}</h3>
-                    <span className="text-xs text-[var(--text-secondary)]">
-                      {patient.gender === 'male' ? '♂' : patient.gender === 'female' ? '♀' : '·'} · {patientAge}y
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs mt-1">
-                    <span className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--bg-main)] px-1.5 py-0.5 rounded border border-[var(--border-color)]">
-                      <Hash className="w-2.5 h-2.5 text-[var(--text-tertiary)]" />
-                      {patient.folderNumber}
-                    </span>
-                    {patient.contact && (
-                      <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
-                        <Phone className="w-2.5 h-2.5" />
-                        {patient.contact}
-                      </span>
-                    )}
-                    {(attendance.ward?.wardName || attendance.bed?.bedNumber) && (
-                      <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
-                        <BedDouble className="w-2.5 h-2.5" />
-                        {attendance.ward?.wardName || '—'} / {attendance.bed?.bedNumber || '—'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
-                  <span className="text-xs font-mono text-[var(--text-secondary)]">
-                    #{attendance.attendanceNumber || 'New Visit'}
-                  </span>
-                </div>
-                <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
-                  <span className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(attendance.dateTime || attendance.createdAt || '').toLocaleDateString()}
-                  </span>
-                </div>
-                <Badge tone={statusTone(attendance.status)} dot size="sm">
-                  {humanStatus(attendance.status)}
-                </Badge>
-              </div>
-            </div>
-          </Card>
+          {/* Shared patient and visit header — consistent across clinical entry pages. */}
+          <PatientVisitHeader patient={patient} attendance={attendance} icon={Microscope} accent="purple" />
 
           {/* Read-only warning */}
           {!canUpdateLabTest && (
