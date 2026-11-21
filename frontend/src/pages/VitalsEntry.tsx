@@ -42,19 +42,6 @@ import {
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
   entity?.id || entity?._id;
 
-// Helper function to calculate age
-const calculateAge = (dateOfBirth: string | Date): number => {
-  if (!dateOfBirth) return 0;
-  const today = new Date();
-  const birthDate = new Date(dateOfBirth);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-};
-
 // Vital Card Component
 const VitalCard = ({ icon: Icon, label, value, unit, type, abnormal }: any) => {
   const getVitalStatus = (type: string, value: any): { color: string; bgColor: string; message?: string } => {
