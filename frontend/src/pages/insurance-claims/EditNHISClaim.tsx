@@ -896,6 +896,7 @@ export default function EditNHISClaim() {
   const goBack = useSmartBack('/dashboard/insurance/nhis/claims');
   const { success, error: toastError } = useToast();
   const isInitialized = useRef(false);
+  const [claimFormInitialized, setClaimFormInitialized] = useState(false);
 
   const {
     currentClaim,
@@ -992,7 +993,9 @@ export default function EditNHISClaim() {
   // The claim's own billable medicines. The server applies the payer rule, so what arrives here is
   // exactly what the save accepts, at the amount the save prices it at.
   useEffect(() => {
-    if (!id) return;
+    // Wait until the claim and its saved lines have been initialized. Otherwise the
+    // quote can resolve before fillMedicinesFromQuote is set, leaving a blank form.
+    if (!id || !claimFormInitialized) return;
     let cancelled = false;
     getNHISClaimMedicines(id)
       .then((res: any) => {
@@ -1027,7 +1030,7 @@ export default function EditNHISClaim() {
       })
       .catch(() => { if (!cancelled) { setNhisQuotes([]); setNhisUnclaimable([]); } });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, claimFormInitialized]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1257,6 +1260,8 @@ export default function EditNHISClaim() {
     setReferringFacility(meta.referringFacility ?? attendance?.referringFacility ?? '');
     setReferralCode(meta.referralCode ?? '');
     setPhysicianId(meta.physicianId ?? '');
+    // Trigger the payer medicine quote only after the fallback decision above is known.
+    setClaimFormInitialized(true);
   }, [currentClaim]);
 
   useEffect(() => {
