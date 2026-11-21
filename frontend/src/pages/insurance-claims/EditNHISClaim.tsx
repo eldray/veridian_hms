@@ -979,6 +979,19 @@ export default function EditNHISClaim() {
   const [claimitBusy, setClaimItBusy] = useState(false);
 
   const isDraft = currentClaim?.status === 'draft';
+
+  const handleRefreshClaim = async () => {
+    if (isDraft) {
+      const confirmed = await confirmDialog({
+        title: 'Refresh claim form?',
+        message: 'Any unsaved changes to this draft will be lost. Refresh the form and reload the saved claim?',
+        confirmText: 'Refresh',
+        type: 'warning',
+      });
+      if (!confirmed) return;
+    }
+    navigate(0);
+  };
   const isFinalized = currentClaim?.status === 'finalized';
   const availableGDRGs = tariffs || [];
 
@@ -1617,6 +1630,7 @@ export default function EditNHISClaim() {
           </span>
         }
         onClose={goBack}
+        onRefresh={handleRefreshClaim}
         onCollapse={() => setTablesOpen(o => !o)}
         onFinalize={isDraft ? handleFinalize : undefined}
         finalizing={isSubmitting}
