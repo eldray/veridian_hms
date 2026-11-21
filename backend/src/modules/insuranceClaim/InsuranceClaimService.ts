@@ -848,6 +848,27 @@ ${claimsXml}
       const pd = att.AttendanceDiagnosis[0];
       if (!pd) throw new ValidationError(`Attendance ${att.attendanceNumber} has no primary diagnosis. Record a primary diagnosis before creating the NHIS claim.`);
 
+      // Bill is optional for legacy or bill-less encounters, but when present its
+      // patient and payer identity must agree with the attendance before the claim
+      // links to it. The Bill relation is one-to-one on attendanceId in Prisma.
+      if (att.Bill) {
+        if (att.Bill.patientId && att.Bill.patientId !== att.patientId) {
+          throw new ValidationError(
+            `Attendance ${att.attendanceNumber} cannot generate an NHIS claim: its bill belongs to a different patient.`,
+          );
+        }
+        if (att.Bill.insuranceProviderId && att.Bill.insuranceProviderId !== att.insuranceProviderId) {
+          throw new ValidationError(
+            `Attendance ${att.attendanceNumber} cannot generate an NHIS claim: its bill uses a different insurance provider.`,
+          );
+        }
+        if (att.Bill.corporateAccountId && att.Bill.corporateAccountId !== att.corporateAccountId) {
+          throw new ValidationError(
+            `Attendance ${att.attendanceNumber} cannot generate an NHIS claim: its bill uses a different corporate account.`,
+          );
+        }
+      }
+
       // Revalidate dispensed NHIS medicines at claim-generation time so legacy or
       // imported prescriptions cannot bypass payer coverage/authorisation controls.
       const authorizationNumbers = new Set<string>();
