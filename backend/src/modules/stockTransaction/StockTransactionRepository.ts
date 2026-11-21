@@ -41,7 +41,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     // Older clinical stock movements store the attendance's internal ID in
     // reference as "Encounter <id>". Resolve it to the user-facing attendance number.
     const attendanceIds = [...new Set(result.data.map((tx: any) => {
-      const match = String(tx.reference || '').match(/^Encounter\\s+(.+)$/i);
+      const match = String(tx.reference || '').match(/^Encounter\s+(.+)$/i);
       return match?.[1]?.trim();
     }).filter(Boolean))];
     if (attendanceIds.length) {
@@ -51,7 +51,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       });
       const numberById = new Map(attendances.map((a: any) => [a.id, a.attendanceNumber]));
       result.data = result.data.map((tx: any) => {
-        const match = String(tx.reference || '').match(/^Encounter\\s+(.+)$/i);
+        const match = String(tx.reference || '').match(/^Encounter\s+(.+)$/i);
         const attendanceNumber = match ? numberById.get(match[1].trim()) : undefined;
         return attendanceNumber ? { ...tx, referenceDisplay: attendanceNumber } : tx;
       });
