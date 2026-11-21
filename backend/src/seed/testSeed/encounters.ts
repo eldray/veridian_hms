@@ -111,9 +111,18 @@ export const seedEncounters = async (
 
   for (const att of bundle.attendances) {
     const patientId = att.folderNumber ? patients.idByFolder.get(att.folderNumber) ?? null : null;
+    const patientRow = att.folderNumber ? patients.rowByFolder.get(att.folderNumber) ?? null : null;
     const counterClientId = att.counterClientKey ? counterClientIds.get(att.counterClientKey) ?? null : null;
     // A ticket carries a counter client or a patient, never both and never neither.
     if (!patientId && !counterClientId) continue;
+    if (att.paymentMode === 'nhis') {
+      const memberNumber = patientRow?.nhisNumber ?? '';
+      if (!patientId || !/^(?:[1-9]\\d{7}|00[1-9]\\d{7})$/.test(memberNumber)) {
+        throw new Error(
+          `Cannot seed NHIS attendance ${att.attendanceNumber}: patient membership number is missing or invalid.`,
+        );
+      }
+    }
 
     const providerId = lookups.actorId(att.provider);
     const finalizerId = att.finalizedAt ? lookups.actorId(att.finalizer ?? att.provider) : null;
