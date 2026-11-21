@@ -164,10 +164,10 @@ export class ClaimBatchService extends BaseService {
       }
     }
 
-    if (['submission', 'resubmission'].includes(input.eventType) && !String(input.payerReference || '').trim()) {
-      throw new ValidationError('Enter the payer submission/resubmission reference');
+    if (input.eventType === 'submission' && !String(input.payerReference || '').trim()) {
+      throw new ValidationError('Enter the payer submission reference');
     }
-    if (['submission', 'resubmission'].includes(input.eventType) && input.submissionDate
+    if (input.eventType === 'submission' && input.submissionDate
       && Number.isNaN(new Date(input.submissionDate).getTime())) {
       throw new ValidationError('Submission or resubmission date is invalid');
     }
@@ -175,7 +175,7 @@ export class ClaimBatchService extends BaseService {
       batchId: batch.id,
       eventType: String(input.eventType),
       status: input.status ? String(input.status).trim().toLowerCase() : null,
-      submissionDate: input.submissionDate ? new Date(input.submissionDate) : (['submission', 'resubmission'].includes(input.eventType) ? new Date() : null),
+      submissionDate: input.submissionDate ? new Date(input.submissionDate) : (input.eventType === 'submission' ? new Date() : null),
       payerReference: input.payerReference ? String(input.payerReference).trim() : null,
       amount: null,
       notes: input.notes ? String(input.notes).trim() : null,
