@@ -19,7 +19,7 @@ import {
   ChevronLeft, Scissors, ClipboardList, RefreshCw, AlertCircle,
   Syringe, FileText, CheckCircle, Clock, User, Calendar,
   Activity, Plus, X, Search, Edit, Trash2, Printer,
-  Droplet, Heart, Hash, Phone, Info, ChevronDown, ChevronRight,
+  Droplet, Heart, Info, ChevronDown, ChevronRight,
   Save, Maximize2, AlertTriangle, CircleDot, Stethoscope,
 } from 'lucide-react';
 
@@ -62,9 +62,6 @@ const getStatusDot = (status: string) => {
 
 const countWords = (text: string) =>
   text?.trim() ? text.trim().split(/\s+/).length : 0;
-
-const initials = (name: string) =>
-  name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 
 // ─────────────────────────────────────────────────────────────
 // Shared primitives (mirroring src/pages/Antenatal.tsx)
@@ -663,7 +660,6 @@ export default function TheatreProcedure() {
     );
   }
 
-  const patientFullName = getPatientName(patient);
   const scheduledProcedures = procedures.filter((p: any) => p.status === 'scheduled');
   const inProgressProcedures = procedures.filter((p: any) => p.status === 'in_progress');
   const completedProcedures = procedures.filter((p: any) => p.status === 'completed');
