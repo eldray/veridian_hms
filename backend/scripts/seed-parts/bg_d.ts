@@ -394,37 +394,10 @@ const emitEncounter = (
     };
     if (finalized) {
       claim.trackingEvents.push({
-        eventType: 'submitted', status: 'submitted', at: claim.finalizedAt!, amount: null,
+        eventType: 'submission', status: null, at: claim.finalizedAt!, amount: null,
         payerReference: `PAYREF-${attendanceNumber}`, paymentReference: null, paymentMethod: null,
-        notes: 'Batch file handed to the payer for adjudication.', recorder: actor('accounts'),
+        notes: 'Claim included in the facility submission batch.', recorder: actor('accounts'),
       });
-      const outcomeRoll = rand();
-      if (outcomeRoll < 0.45) {
-        claim.trackingEvents.push({
-          eventType: 'paid', status: 'paid', at: addDays(claim.finalizedAt!, intBetween(20, 120)),
-          amount: null, payerReference: null, paymentReference: `PMT-${attendanceNumber}`,
-          paymentMethod: 'bank_transfer', notes: 'Adjudicated at the published tariff and settled.',
-          recorder: actor('accounts'),
-        });
-      } else if (outcomeRoll < 0.65) {
-        claim.trackingEvents.push({
-          eventType: 'rejected', status: 'rejected', at: addDays(claim.finalizedAt!, intBetween(10, 60)),
-          amount: null, payerReference: null, paymentReference: null, paymentMethod: null,
-          notes: pick(CLAIM_REJECTION_NOTES), recorder: actor('accounts'),
-        });
-      } else if (outcomeRoll < 0.8) {
-        claim.trackingEvents.push({
-          eventType: 'partially_approved', status: 'partially approved', at: addDays(claim.finalizedAt!, intBetween(10, 60)),
-          amount: null, payerReference: null, paymentReference: null, paymentMethod: null,
-          notes: pick(CLAIM_REJECTION_NOTES), recorder: actor('accounts'),
-        });
-      } else {
-        claim.trackingEvents.push({
-          eventType: 'under_review', status: 'under review', at: addDays(claim.finalizedAt!, intBetween(2, 20)),
-          amount: null, payerReference: null, paymentReference: null, paymentMethod: null,
-          notes: 'Awaiting adjudication by the payer.', recorder: actor('accounts'),
-        });
-      }
     }
     b.claims.push(claim);
   }
