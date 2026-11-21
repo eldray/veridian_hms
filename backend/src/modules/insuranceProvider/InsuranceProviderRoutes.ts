@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request } from 'express';
 import { UserRole, InsuranceType, PrismaClient } from '@prisma/client';
 import { InsuranceProviderController } from './InsuranceProviderController'; // ✅ Import class, not singleton
 import { body } from 'express-validator';
@@ -33,7 +33,7 @@ export function createInsuranceProviderRoutes(prisma: PrismaClient): Router { //
       body('name').notEmpty().trim().isLength({ min: 2 }),
       body('type').isIn(Object.values(InsuranceType)),
       body('coveragePercentage')
-        .if((_value, { req }) => req.body.type !== InsuranceType.nhis)
+        .if((_value: unknown, { req }: { req: Request }) => req.body.type !== InsuranceType.nhis)
         .isFloat({ min: 0, max: 100 }),
       body('contactInfo').optional().isObject()
     ], 
