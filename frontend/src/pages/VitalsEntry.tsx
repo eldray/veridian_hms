@@ -12,7 +12,7 @@ import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
-import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getPatientName } from '../utils/patient';
 import {
@@ -501,53 +501,10 @@ export default function VitalsEntry() {
       )}
 
       {/* Main Content - When attendance is selected */}
-      {selectedAttendanceId && selectedAttendance && (
+      {selectedAttendanceId && selectedAttendance && selectedPatient && (
         <>
-          {/* Patient & Visit Overview Banner */}
-          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <PatientAvatar
-                  imageUrl={selectedPatient?.imageUrl}
-                  name={getPatientName(selectedPatient)}
-                  size="xl"
-                  className="rounded-xl bg-[var(--icon-cyan-bg)]"
-                  fallbackClassName="text-[var(--icon-cyan-text)]"
-                />
-                <div>
-                  <h3 className="text-lg font-bold text-[var(--text-primary)]">
-                    {getPatientName(selectedPatient)}
-                  </h3>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--text-secondary)] mt-1">
-                    <span>{calculateAge(selectedPatient?.dateOfBirth)} years • {selectedPatient?.gender}</span>
-                    <span>•</span>
-                    <span>ID: {selectedPatient?.folderNumber}</span>
-                    <span>•</span>
-                    <span>{selectedPatient?.contact}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="text-right">
-                <div className="text-md font-semibold text-[var(--text-primary)]">
-                  {selectedAttendance.attendanceNumber || 'Current Visit'}
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-[var(--text-secondary)] mt-1">
-                  <StatusBadge status={selectedAttendance.status} />
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {new Date(selectedAttendance.dateTime || selectedAttendance.createdAt).toLocaleDateString()}
-                  </span>
-                  {isAntenatal && (
-                    <span className="flex items-center gap-1 text-pink-600">
-                      <Baby className="w-3.5 h-3.5" />
-                      Antenatal Visit
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Shared patient and visit header — consistent across clinical entry pages. */}
+          <PatientVisitHeader patient={selectedPatient} attendance={selectedAttendance} icon={Activity} accent="cyan" />
 
           <div className="flex flex-wrap items-stretch gap-2">
             <div className="min-w-0 flex-1 basis-[320px]">
