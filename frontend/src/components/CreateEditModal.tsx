@@ -310,7 +310,7 @@ export default function CreateEditModal({ type, item, onSave, onClose, metadata 
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
               type="text"
-              value={gdrgSearch || (selectedGdrg ? `${selectedGdrg.gdrgCode} — ${selectedGdrg.description}` : formData.gdrgGroupCode || '')}
+              value={showGdrgOptions ? gdrgSearch : (selectedGdrg ? `${selectedGdrg.gdrgCode} — ${selectedGdrg.description}` : formData.gdrgGroupCode || '')}
               onFocus={() => { setShowGdrgOptions(true); setGdrgSearch(''); }}
               onChange={(e) => { setGdrgSearch(e.target.value); setShowGdrgOptions(true); }}
               className="w-full pl-9 pr-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]"
