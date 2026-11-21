@@ -45,8 +45,9 @@ describe('NHIS claim XML itemization safeguards', () => {
         { itemCategory: 'procedure', code: 'PRO01', description: 'Appendicectomy', serviceDate: new Date('2026-08-05T10:00:00Z'), gdrgTariff: { gdrgCode: 'ASUR01A' }, diagnosis: { icdCode: 'K35.8', name: 'Acute appendicitis' } },
       ],
     }, hospital);
-    expect(xml).toContain('<diagnosis>Acute appendicitis</diagnosis>');
-    expect(xml).not.toContain('<diagnosis>Pneumonia</diagnosis>');
+    const proceduresXml = xml.split('<procedures>')[1]?.split('</procedures>')[0] ?? '';
+    expect(proceduresXml).toContain('<diagnosis>Acute appendicitis</diagnosis>');
+    expect(proceduresXml).not.toContain('<diagnosis>Pneumonia</diagnosis>');
   });
 
   it('exports all claims when every claim has itemized lines', () => {
