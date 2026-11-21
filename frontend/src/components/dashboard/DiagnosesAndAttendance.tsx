@@ -11,6 +11,7 @@ interface AttendanceStats {
 }
 
 export function DiagnosesAndAttendance() {
+    const { dateRange } = useDashboardDate();
     const [attendance, setAttendance] = useState<AttendanceStats>({ byType: {}, byPaymentMode: {}, total: 0 });
     const [diagnoses, setDiagnoses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
