@@ -49,6 +49,24 @@
  * work because themeStore toggles the `dark` class on <html>.
  */
 
+/*
+ * Dark-theme contrast guard for legacy Tailwind gray text utilities.
+ * Many screens still use fixed light-theme gray classes; these shades become
+ * nearly invisible on dark cards. Keep semantic gray text readable in dark mode.
+ */
+.dark [class~="text-gray-400"],
+.dark [class~="text-gray-500"],
+.dark [class~="text-gray-600"] { color: #B2BFCE !important; }
+.dark [class~="text-gray-700"],
+.dark [class~="text-gray-800"] { color: #D0D9E4 !important; }
+.dark [class~="text-gray-900"] { color: #E6EDF5 !important; }
+.dark [class~="text-slate-400"],
+.dark [class~="text-slate-500"],
+.dark [class~="text-slate-600"] { color: #B2BFCE !important; }
+.dark [class~="text-slate-700"],
+.dark [class~="text-slate-800"] { color: #D0D9E4 !important; }
+.dark [class~="text-slate-900"] { color: #E6EDF5 !important; }
+
 /* Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
