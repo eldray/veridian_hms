@@ -39,6 +39,12 @@ type EncounterInput = {
   otherStay?: { admissionNumber: string; admissionDate: Date; dischargeDate: Date | null } | null;
   nhisNumber?: string | null;
   nhisCCC?: string | null;
+  attendanceStatus?: string;
+  referral?: { referralType: string; referredToFacility: string } | null;
+  familyPlanningServices?: Array<{ method: string; serviceDate?: Date }>;
+  dateOfBirth?: Date;
+  procedureCode?: string;
+  zoomTariffs?: Array<ReturnType<typeof tariff>>;
 };
 
 /** Runs generateNHISClaim against one encounter and returns the claim row it would write. */
@@ -52,6 +58,12 @@ function generate(input: EncounterInput) {
     otherStay = null,
     nhisNumber = '12345678',
     nhisCCC = '12345',
+    attendanceStatus,
+    referral = null,
+    familyPlanningServices = [],
+    dateOfBirth = new Date('1985-04-02'),
+    procedureCode = 'ORTH05A',
+    zoomTariffs = [],
   } = input;
 
   const attendance = {
@@ -63,18 +75,20 @@ function generate(input: EncounterInput) {
     attendanceType,
     encounterCategory,
     dateTime: serviceDate,
-    status: admission ? 'discharged' : 'completed',
-    Patient: { id: 'patient-1', nhisNumber, dateOfBirth: new Date('1985-04-02'), surname: 'Mensah', otherNames: 'Kofi' },
+    status: attendanceStatus ?? (admission ? 'discharged' : 'completed'),
+    Patient: { id: 'patient-1', nhisNumber, dateOfBirth, surname: 'Mensah', otherNames: 'Kofi' },
     InsuranceProvider: { id: 'nhis-1', type: 'nhis', name: 'NHIS' },
     User_Attendance_providerIdToUser: { fullName: 'Dr Test', licenseNumber: 'LIC-001' },
     Bill: { id: 'bill-1' },
-    Admission: admission ? { ...admission, dischargeStatus: 'discharged' } : null,
+    Admission: admission ? { ...admission, dischargeStatus: attendanceStatus === 'referred' ? 'transfer' : 'discharged' } : null,
+    referral,
+    familyPlanningServices,
     AttendanceDiagnosis: [{ id: 'dx-1', diagnosisId: 'diag-1', diagnosisType: 'primary', date: serviceDate, Diagnosis: { icdCode: 'B54', name: 'Malaria' } }],
     ServiceRendered: [],
     Medication: [],
     LabTest: [],
     Scan: [],
-    Procedure: [{ id: 'proc-1', serviceCatalogId: 'service-proc-1', performedAt: serviceDate, ServiceCatalog: { id: 'service-proc-1', code: 'PROC-ORTH05A', nhisServiceCode: 'ORTH05A', name: 'Wound dressing under anaesthesia' } }],
+    Procedure: [{ id: 'proc-1', serviceCatalogId: 'service-proc-1', performedAt: serviceDate, ProcedureTemplate: { procedureCode, name: procedureCode }, ServiceCatalog: { id: 'service-proc-1', code: 'PROC-' + procedureCode, nhisServiceCode: procedureCode, name: procedureCode } }],
   };
 
   const tx: any = {
@@ -86,7 +100,7 @@ function generate(input: EncounterInput) {
     hospital: { findFirst: vi.fn().mockResolvedValue({ nhisFacilityType: 'Secondary' }) },
     gDRGTariffDiagnosis: { findMany: vi.fn().mockResolvedValue(diagnosisTariffs.map((link) => ({ diagnosisId: "diag-1", gdrgTariff: link.tariff, isPrimary: link.isPrimary }))) },
     gDRGTariffProcedure: { findMany: vi.fn().mockResolvedValue(procedureTariffs.map((link) => ({ procedureId: "service-proc-1", gdrgTariff: link.tariff, isPrimary: link.isPrimary }))) },
-    gDRGTariff: { findMany: vi.fn().mockResolvedValue([]) },
+    gDRGTariff: { findMany: vi.fn(async ({ where }: any) => zoomTariffs.filter((row) => where.gdrgCode.in.includes(row.gdrgCode))) },
     attendanceDiagnosis: { findMany: vi.fn().mockResolvedValue([]) },
     admission: { findFirst: vi.fn().mockResolvedValue(otherStay) },
   };
@@ -98,7 +112,7 @@ function generate(input: EncounterInput) {
 
 const lines = (claim: any) => claim.items.create;
 const gdrgLine = (claim: any) => lines(claim).find((item: any) => item.itemCategory === 'gdrg');
-const procedureLine = (claim: any) => lines(claim).find((item: any) => item.itemCategory === 'procedure');
+const procedureLine = (claim: any, code?: string) => lines(claim).find((item: any) => item.itemCategory === 'procedure' && (!code || item.code === code));
 
 /** A draft as the claim table holds it, with the lines the desk saved onto it. */
 const draft = (items: any[], overrides: Record<string, unknown> = {}) => ({
@@ -180,6 +194,68 @@ describe('NHIS claim generation follows the case the encounter is', () => {
     expect(gdrgLine(claim).prescriberNo).toBe('LIC-001');
     expect(claim.typeOfService).toBe('OPD');
     expect(procedureLine(claim).gdrgTariffId).toBe('t-ZOOM07A');
+  });
+
+  it('uses ZOOM02 for a detention-observation admission and sends the claim as OPD', async () => {
+    const { run } = generate({
+      attendanceType: 'emergency_acute',
+      encounterCategory: 'ipd',
+      admission: { admissionType: 'detention_observation', admissionDate: serviceDate, dischargeDate: serviceDate },
+      zoomTariffs: [tariff('ZOOM02A')],
+    });
+
+    const { claim } = await run();
+    expect(claim.principalGDRG).toBe('ZOOM02A');
+    expect(claim.typeOfService).toBe('OPD');
+    expect(claim.serviceOutcome).toBe('DISC');
+  });
+
+  it('uses the age-appropriate inpatient referral ZOOM code and marks the claim transferred out', async () => {
+    const { run } = generate({
+      attendanceType: 'general_consultation',
+      encounterCategory: 'ipd',
+      admission: { admissionType: 'emergency', admissionDate: serviceDate, dischargeDate: serviceDate },
+      attendanceStatus: 'referred',
+      referral: { referralType: 'outgoing', referredToFacility: 'Tamale Teaching Hospital' },
+      diagnosisTariffs: [{ tariff: tariff('MEDI28A'), isPrimary: true }],
+      zoomTariffs: [tariff('ZOOM03A')],
+    });
+
+    const { claim } = await run();
+    expect(claim.principalGDRG).toBe('MEDI28A');
+    expect(claim.serviceOutcome).toBe('TFOT');
+    expect(claim.metadata.referringFacility).toBe('Tamale Teaching Hospital');
+    expect(procedureLine(claim, 'ZOOM03A').code).toBe('ZOOM03A');
+    expect(procedureLine(claim, 'ZOOM03A').gdrgTariffId).toBe('t-ZOOM03A');
+  });
+
+  it('uses the ZOOM family-planning code for a recorded DMPA service', async () => {
+    const { run } = generate({
+      attendanceType: 'general_consultation',
+      encounterCategory: 'opd',
+      familyPlanningServices: [{ method: 'injectable_dmpa', serviceDate }],
+      zoomTariffs: [tariff('ZOOM12A')],
+    });
+
+    const { claim } = await run();
+    expect(claim.principalGDRG).toBe('ZOOM12A');
+    expect(claim.typeOfService).toBe('OPD');
+    expect(procedureLine(claim, 'ZOOM12A').code).toBe('ZOOM12A');
+    expect(claim.procedureCodes).toContain('ZOOM12A');
+  });
+
+  it('recognises a direct ZOOM05 dressing procedure even when attendance category is OPD', async () => {
+    const { run } = generate({
+      attendanceType: 'general_consultation',
+      encounterCategory: 'opd',
+      procedureCode: 'ZOOM05A',
+      procedureTariffs: [{ tariff: tariff('ZOOM05A'), isPrimary: true }],
+    });
+
+    const { claim } = await run();
+    expect(claim.principalGDRG).toBe('ZOOM05A');
+    expect(claim.typeOfService).toBe('OPD');
+    expect(procedureLine(claim).code).toBe('ZOOM05A');
   });
 
   it('keeps a theatre G-DRG off an outpatient claim whose diagnosis only links OPDC', async () => {
