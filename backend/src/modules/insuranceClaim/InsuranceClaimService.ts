@@ -1105,6 +1105,13 @@ ${claimsXml}
           : Promise.resolve([]),
       ]);
       const additionalZoomTariffByCode = new Map(additionalZoomTariffs.map((row: any) => [row.gdrgCode, row]));
+      const missingFamilyPlanningTariffs = familyPlanningZoomCodes.filter((code) => !additionalZoomTariffByCode.has(code));
+      if (missingFamilyPlanningTariffs.length) {
+        throw new ValidationError(`NHIS family-planning service is missing its configured ZOOM tariff: ${missingFamilyPlanningTariffs.join(', ')}.`);
+      }
+      if (referralZoomCode && !additionalZoomTariffByCode.has(referralZoomCode)) {
+        throw new ValidationError(`NHIS referral cannot be claimed because tariff ${referralZoomCode} is not configured and active for the service date.`);
+      }
 
       const principal = resolvePrincipalGdrg({
         ...tariffContext,
@@ -1295,7 +1302,7 @@ ${claimsXml}
           scanCodes: safeMap(att.Scan, s => requiredNhisInvestigationCode(s.ScanTemplate?.investigationCode ?? s.ServiceCatalog?.nhisServiceCode, s.ServiceCatalog?.name ?? s.ScanTemplate?.name ?? 'scan')),
           procedureCodes: [
             ...safeMap(att.Procedure, p => requiredNhisProcedureCode(p.ProcedureTemplate?.procedureCode ?? p.ServiceCatalog?.nhisServiceCode, p.ServiceCatalog?.name ?? p.ProcedureTemplate?.name ?? 'procedure')),
-            ...(att.familyPlanningServices ?? []).map((service: any) => familyPlanningZoomCode(service.method)).filter(Boolean),
+            ...familyPlanningZoomCodes,
             ...(referralZoomCode && additionalZoomTariffByCode.has(referralZoomCode) ? [referralZoomCode] : []),
           ],
           medicationCodes: safeMap(att.Medication, m => m.StockItem?.isNHISCovered ? m.StockItem?.drugCode : null),
