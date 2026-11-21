@@ -200,7 +200,7 @@ interface StockState {
   // Reports
   getStockMovementReport: (filters?: { startDate?: string; endDate?: string; stockItemId?: string; category?: string }) => Promise<any>;
   getLowStockAlerts: () => Promise<StockItem[]>;
-  getStockItemTransactionHistory: (stockItemId: string, page?: number, limit?: number) => Promise<StockTransaction[]>;
+  getStockItemTransactionHistory: (stockItemId: string, page?: number, limit?: number, dateRange?: { startDate?: string; endDate?: string }) => Promise<StockTransaction[]>;
   
   // ==================== REQUISITIONS ====================
   getRequisitions: (filters?: { departmentId?: string; status?: string; urgency?: string; page?: number; limit?: number }) => Promise<void>;
@@ -633,10 +633,10 @@ getStockItems: async (filters = {}) => {
     }
   },
 
-  getStockItemTransactionHistory: async (stockItemId: string, page = 1, limit = 50) => {
+  getStockItemTransactionHistory: async (stockItemId: string, page = 1, limit = 200, dateRange = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetStockItemTransactionHistory(stockItemId, { page, limit });
+      const response = await apiGetStockItemTransactionHistory(stockItemId, { page, limit, ...dateRange });
       const transactions = extractItems(response, 'transactions');
       set({
         transactions: transactions as StockTransaction[],

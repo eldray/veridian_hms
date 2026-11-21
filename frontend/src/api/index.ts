@@ -2635,8 +2635,11 @@ export const updateStockLevel = (id: string, data: { quantity: number; transacti
 export const allocateStockToDepartment = (id: string, data: { quantity: number; departmentId: string }) =>
   api.post(`/stock-items/${id}/allocate-stock`, data).then(r => r.data);
 
-export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number }) =>
+export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number; startDate?: string; endDate?: string }) =>
   api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => r.data);
+
+export const getStockItemMedicationHistory = (stockItemId: string) =>
+  api.get(`/stock-items/${stockItemId}/medications`).then(r => r.data?.data || r.data);
 
 // Stock Reports
 export const getStockValueSummary = () =>

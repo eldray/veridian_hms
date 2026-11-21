@@ -12,6 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { Plus, Package, AlertTriangle, Edit, Trash2, RefreshCw, FileText, ClipboardList, History, TrendingUp, Grid, List, X, Warehouse } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getStockItemMedicationHistory } from '../api';
 import { Badge, Button, Card, cn, FilterSelect, INPUT, LinkButton, PageHeader, Pagination, SearchInput, SELECT, StatCard, TABLE_SHELL, TD, TD_MONO, TD_MUTED, TH, TH_ROW, TR } from '../components/ui';
 import type { BadgeTone } from '../components/ui';
 
@@ -21,7 +22,7 @@ const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString() : '�
 
 export default function StockManagement() {
   const goBack = useSmartBack('/dashboard');
-  const { stockItems, getStockItems, createStockItem, updateStockItem, deleteStockItem, createStockTransaction, allocateStockToDepartment, getLowStockItems, isLoading } = useStockStore();
+  const { stockItems, transactions, getStockItems, createStockItem, updateStockItem, deleteStockItem, createStockTransaction, allocateStockToDepartment, getLowStockItems, getStockItemTransactionHistory, isLoading } = useStockStore();
   const { user, hasRole } = useAuthStore();
   const { departments, getDepartments } = useDepartmentStore();
   const { success, error: toastError } = useToast();
@@ -32,6 +33,10 @@ export default function StockManagement() {
   const [showForm, setShowForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showAllocationForm, setShowAllocationForm] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyDates, setHistoryDates] = useState({ startDate: '', endDate: '' });
+  const [medicationHistory, setMedicationHistory] = useState<any[]>([]);
   const [allocationData, setAllocationData] = useState({ quantity: 0, departmentId: '' });
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
@@ -83,6 +88,14 @@ export default function StockManagement() {
       else { await createStockItem(submitData); success('Created', 'Stock item added successfully'); }
       setShowForm(false); setEditingItem(null); resetForm(); await loadAllData();
     } catch (err: any) { toastError('Save failed', apiError(err, 'Could not save stock item')); }
+  };
+  const openStockHistory = async (item: StockItem, dates = historyDates) => {
+    setSelectedItem(item); setShowHistory(true); setHistoryLoading(true);
+    try {
+      const [ledger, clinical] = await Promise.all([getStockItemTransactionHistory(item.id, 1, 200, dates), getStockItemMedicationHistory(item.id)]);
+      setMedicationHistory(Array.isArray(clinical?.medications) ? clinical.medications : []);
+    } catch (err: any) { toastError('History unavailable', apiError(err, "Could not load this item's stock history")); }
+    finally { setHistoryLoading(false); }
   };
   const handleTransactionSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); if (!selectedItem) return;
@@ -262,6 +275,7 @@ export default function StockManagement() {
               
               
               <td className={cn(TD, 'text-center')}>{isAdmin && (<div className="flex items-center justify-center gap-2">
+                <Button variant="ghost" size="sm" iconOnly icon={History} aria-label={`View stock history for ${item.name}`} title={`View stock history for ${item.name}`} onClick={() => { setHistoryDates({ startDate: '', endDate: '' }); void openStockHistory(item, { startDate: '', endDate: '' }); }} />
                 <Button variant="ghost" size="sm" iconOnly icon={TrendingUp} aria-label={`Stock in/out for ${item.name}`} className="text-[var(--icon-cyan-text)]" onClick={() => { setSelectedItem(item); setShowTransactionForm(true); }} />
                 {canAllocateStock && (<Button variant="soft" accent="green" size="sm" iconOnly icon={Package} aria-label={`Allocate unassigned stock for ${item.name}`} onClick={() => { setSelectedItem(item); setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' }); setShowAllocationForm(true); }} />)}
                 <Button variant="ghost" size="sm" iconOnly icon={Edit} aria-label={`Edit ${item.name}`} className="text-[var(--icon-green-text)]" onClick={() => handleEdit(item)} />
@@ -273,6 +287,24 @@ export default function StockManagement() {
       )}
       <Pagination page={safePage} totalPages={totalPages} itemsPerPage={itemsPerPage} totalItems={filteredItems.length} noun="items" onChange={handlePageChange} />
 
+
+      {showHistory && selectedItem && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3 sm:p-6" onClick={() => setShowHistory(false)}>
+          <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[var(--border-color)] px-5 py-4"><div><h2 className="text-lg font-bold text-[var(--text-primary)]">Stock History · {selectedItem.name}</h2><p className="text-xs text-[var(--text-secondary)]">{selectedItem.drugCode || 'No item code'} · Current balance: {selectedItem.currentStock} {selectedItem.unitOfMeasure}</p></div><Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close stock history" onClick={() => setShowHistory(false)} /></div>
+            <div className="flex flex-wrap items-end gap-3 border-b border-[var(--border-color)] p-4"><div><label className="mb-1 block text-xs text-[var(--text-secondary)]">From</label><input type="date" value={historyDates.startDate} onChange={e => setHistoryDates(v => ({ ...v, startDate: e.target.value }))} className={cn(INPUT, 'w-full')} /></div><div><label className="mb-1 block text-xs text-[var(--text-secondary)]">To</label><input type="date" value={historyDates.endDate} min={historyDates.startDate || undefined} onChange={e => setHistoryDates(v => ({ ...v, endDate: e.target.value }))} className={cn(INPUT, 'w-full')} /></div><Button variant="soft" accent="cyan" loading={historyLoading} onClick={() => void openStockHistory(selectedItem, historyDates)}>Apply dates</Button><Button variant="secondary" onClick={() => { const empty = { startDate: '', endDate: '' }; setHistoryDates(empty); void openStockHistory(selectedItem, empty); }}>All dates</Button><span className="ml-auto text-xs text-[var(--text-secondary)]">{transactions.length} stock movements (maximum 200 shown)</span></div>
+            <div className="min-h-0 flex-1 overflow-auto p-4">
+              {historyLoading ? <p className="py-12 text-center text-sm text-[var(--text-secondary)]">Loading item history…</p> : <>
+                <h3 className="mb-2 font-semibold text-[var(--text-primary)]">Stock movements</h3>
+                {transactions.length === 0 ? <p className="py-6 text-center text-sm text-[var(--text-secondary)]">No stock movements found for this item and date range.</p> : <div className={TABLE_SHELL}><table className="w-full min-w-[1050px]"><thead><tr><th className={TH}>Date &amp; time</th><th className={TH}>Movement</th><th className={TH}>Supplier / reference</th><th className={TH}>Batch / invoice</th><th className={cn(TH, 'text-right')}>Quantity</th><th className={cn(TH, 'text-right')}>Balance after</th><th className={TH}>Department</th><th className={TH}>Recorded by</th><th className={TH}>Notes</th></tr></thead><tbody>{transactions.map((t: any) => { const incoming = ['purchase', 'transfer_in'].includes(t.transactionType) || (t.transactionType === 'adjustment' && t.adjustmentDirection !== 'decrease'); const signed = t.transactionType === 'adjustment' ? (t.adjustmentDirection === 'decrease' ? -1 : 1) * Math.abs(Number(t.quantity) || 0) : (incoming ? 1 : -1) * Math.abs(Number(t.quantity) || 0); return <tr key={t.id} className={TR}><td className={TD}>{new Date(t.transactionDate).toLocaleString()}</td><td className={TD}><Badge tone={incoming ? 'green' : 'red'}>{titleCase(t.transactionType)}</Badge></td><td className={TD}>{t.Invoice ? <><span className="font-medium">{t.Invoice.supplierName}</span><span className="block text-xs text-[var(--text-tertiary)]">Invoice {t.Invoice.invoiceNumber}</span></> : <span>{t.Requisition?.requisitionNumber || t.reference || '—'}</span>}</td><td className={TD_MONO}>{t.reference || '—'}</td><td className={cn(TD, 'text-right font-semibold', signed >= 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]')}>{signed > 0 ? '+' : ''}{signed}</td><td className={cn(TD, 'text-right')}>{t.balanceAfter ?? '—'}</td><td className={TD}>{t.Department?.name || '—'}</td><td className={TD}>{t.User?.fullName || 'System'}</td><td className={TD}>{t.notes || '—'}</td></tr>; })}</tbody></table></div>}
+                <h3 className="mb-2 mt-6 font-semibold text-[var(--text-primary)]">Dispensing &amp; administration records</h3>
+                {medicationHistory.length === 0 ? <p className="py-4 text-sm text-[var(--text-secondary)]">No linked prescription records found for this medicine.</p> : <div className={TABLE_SHELL}><table className="w-full min-w-[900px]"><thead><tr><th className={TH}>Prescribed</th><th className={TH}>Patient / folder</th><th className={TH}>Prescription</th><th className={TH}>Dispensed</th><th className={TH}>Administration</th><th className={TH}>Staff</th></tr></thead><tbody>{medicationHistory.filter((m: any) => (!historyDates.startDate || new Date(m.prescribedAt) >= new Date(historyDates.startDate)) && (!historyDates.endDate || new Date(m.prescribedAt) < new Date(historyDates.endDate + 'T23:59:59.999'))).map((m: any) => <tr key={m.id} className={TR}><td className={TD}>{new Date(m.prescribedAt).toLocaleString()}</td><td className={TD}>{m.Attendance?.Patient ? <>{m.Attendance.Patient.surname} {m.Attendance.Patient.otherNames}<span className="block text-xs text-[var(--text-tertiary)]">{m.Attendance.Patient.folderNumber || ''}</span></> : '—'}</td><td className={TD}>{m.quantity} · {m.dosage || 'Dose not recorded'} · {m.frequency || ''}</td><td className={TD}>{m.dispensedAt ? new Date(m.dispensedAt).toLocaleString() : m.status === 'dispensed' ? 'Dispensed (date not recorded)' : 'Not dispensed'}<span className="block text-xs text-[var(--text-tertiary)]">{m.dispensedById || ''}</span></td><td className={TD}>{m.doses?.length ? m.doses.filter((d: any) => d.status === 'administered').map((d: any) => new Date(d.administeredAt || d.scheduledAt).toLocaleString()).join(', ') : m.administeredAt ? new Date(m.administeredAt).toLocaleString() : 'No administration record'}</td><td className={TD}>{m.administeredById || m.dispensedById || '—'}</td></tr>)}</tbody></table></div>}
+              </>}
+              <p className="mt-3 text-xs text-[var(--text-tertiary)]">Administration entries are clinical records and do not create a second stock deduction. Existing legacy transactions may have incomplete links or staff details.</p>
+            </div>
+          </div>
+        </div>
+      )}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleCancel}>
           <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>

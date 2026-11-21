@@ -372,10 +372,17 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     id: string,
     page: number = 1,
     limit: number = 50,
-    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
+    filters: { departmentId?: string; includeAllStockLocations?: boolean; startDate?: string; endDate?: string } = {},
   ) {
     const where: any = { stockItemId: id };
     if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId ?? null;
+    if (filters.startDate || filters.endDate) {
+      const range: any = {};
+      if (filters.startDate) { const start = new Date(`${filters.startDate}T00:00:00`); if (!Number.isFinite(start.getTime())) throw new ValidationError('Invalid history start date'); range.gte = start; }
+      if (filters.endDate) { const end = new Date(`${filters.endDate}T23:59:59.999`); if (!Number.isFinite(end.getTime())) throw new ValidationError('Invalid history end date'); range.lte = end; }
+      if (range.gte && range.lte && range.gte > range.lte) throw new ValidationError('History start date must be on or before end date');
+      where.transactionDate = range;
+    }
     const safePage = Math.max(1, Math.floor(page));
     const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)));
     const [transactions, total] = await Promise.all([
