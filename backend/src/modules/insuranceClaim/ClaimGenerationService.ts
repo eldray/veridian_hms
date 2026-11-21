@@ -50,7 +50,9 @@ export async function buildNHISClaimItems(
         include: { ProcedureTemplate: true, ServiceCatalog: { include: { pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } } },
       },
       Medication: {
-        where: { status: { in: ['dispensed', 'administered'] } },
+        // NHIS claims may include only medicines physically dispensed to the patient.
+        // An administered dose (e.g. an injection given in the facility) is not a dispensed item.
+        where: { status: 'dispensed' },
         include: {
           StockItem: { include: { payerRules: true } },
           ServiceCatalog: { include: { pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } },

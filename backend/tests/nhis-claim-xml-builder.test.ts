@@ -112,6 +112,20 @@ describe('NHIS claim XML itemization safeguards', () => {
     expect(xml).toContain('<physicianID>LIC-ATT-001</physicianID>');
   });
 
+  it('exports investigations and dispensed medicines in the facility download XML containers', () => {
+    const xml = builder.buildSingleClaimXml(exportableClaim({
+      items: [
+        ...exportableClaim().items,
+        { itemCategory: 'investigation', code: 'INVE30E', description: 'Ultrasound', quantity: 1, serviceDate: new Date('2026-10-01T11:00:00Z'), gdrgTariff: { gdrgCode: 'INVE30E' } },
+        { itemCategory: 'medicine', code: 'MED-001', description: 'Paracetamol', quantity: 2, serviceDate: new Date('2026-10-01T12:00:00Z'), prescriptionText: '500 mg, three times daily, 3 days' },
+      ],
+    }), hospital);
+
+    expect(xml).toMatch(/<investigations>\s*<entry>[\s\S]*?<serviceDate>2026-10-01<\/serviceDate>[\s\S]*?<gdrgCode>INVE30E<\/gdrgCode>[\s\S]*?<\/entry>\s*<\/investigations>/);
+    expect(xml).toMatch(/<medicines>\s*<entry>[\s\S]*?<medicineCode>MED-001<\/medicineCode>[\s\S]*?<dispensedQty>2<\/dispensedQty>[\s\S]*?<serviceDate>2026-10-01<\/serviceDate>[\s\S]*?<prescription>[\s\S]*?<unparsed>500 mg, three times daily, 3 days<\/unparsed>[\s\S]*?<\/prescription>[\s\S]*?<\/entry>\s*<\/medicines>/);
+    expect(xml).toContain('<includesPharmacy>1</includesPharmacy>');
+  });
+
   it('blocks an investigation without its own service date instead of using claim creation date', () => {
     const claim = exportableClaim({ items: [
       ...exportableClaim().items,
