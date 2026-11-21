@@ -1290,9 +1290,8 @@ model InsuranceClaimTrackingEvent {
   @@map("insurance_claim_tracking_events")
 }
 
-/// The payer's side of a batch: what was submitted for the month, the payer's decision and
-/// the remittances received against it. Money is tracked on the batch, not on its claims —
-/// the payer pays one submitted period, so that is the row the accounts desk reconciles.
+/// Facility-side record of a monthly batch submission and payments received against it.
+/// Money is tracked on the batch, not on individual claims. Payer adjudication happens outside HMS.
 model ClaimBatchTrackingEvent {
   id               String   @id @default(cuid())
   batchId          String
