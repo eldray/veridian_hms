@@ -1256,20 +1256,37 @@ export default function EditNHISClaim() {
     setNotes(currentClaim.notes || '');
 
     const unbundled = isNHISClaimUnbundled(currentClaim) || meta.serviceFlags?.unbundled === true;
+    const attendanceLabs: any[] = attendance?.labTest ?? attendance?.LabTest ?? [];
+    const attendanceMedicines: any[] = attendance?.medication ?? attendance?.Medication ?? [];
+    const attendanceTypeCode = String(attendance?.attendanceType ?? '').toLowerCase();
+    const attendanceServices: any[] = attendance?.services ?? attendance?.Service ?? attendance?.serviceItems ?? attendance?.ServiceItem ?? [];
+    const hasConsultation =
+      !!(attendance?.consultation ?? attendance?.Consultation) ||
+      (Array.isArray(attendance?.consultations ?? attendance?.Consultations) &&
+        (attendance.consultations ?? attendance.Consultations).length > 0) ||
+      attendanceTypeCode.includes('consultation') ||
+      attendanceServices.some((service: any) =>
+        String(service?.serviceType ?? service?.category ?? service?.serviceCategory ?? '').toLowerCase().includes('consultation')
+      );
+    const hasMedication = attendanceMedicines.length > 0 || medFromServer.length > 0;
     setServiceFlags({
-      diagnostic: meta.serviceFlags?.diagnostic ?? (attendance?.labTest ?? attendance?.LabTest ?? []).length > 0,
-      pharmacy: meta.serviceFlags?.pharmacy ?? (attendance?.medication ?? attendance?.Medication ?? []).length > 0,
+      // Diagnostic is only for a laboratory-only attendance: labs, but no consultation or medicines.
+      diagnostic: meta.serviceFlags?.diagnostic ?? (attendanceLabs.length > 0 && !hasConsultation && !hasMedication),
+      pharmacy: meta.serviceFlags?.pharmacy ?? attendanceMedicines.length > 0,
       unbundled,
       allInclusive: meta.serviceFlags?.allInclusive ?? !unbundled,
     });
-    // Every specialty is shown and ticked by the desk; what a claim may report is decided when it
-    // is saved. Only a draft that carries nothing yet is filled from its own codes.
+    // Derive specialties from the G-DRG families on the claim as well as any saved manual ticks.
+    // MEDI32 -> MEDI; OBGY0... -> OBGY; PSUR... -> PSUR; ASUR... -> ASUR.
+    const diagnosisGDRGs = [
+      ...diagFromServer.map((d: any) => d.gdrgTariff?.gdrgCode || d.gdrgCode || ''),
+      ...(Array.isArray(meta.diagnoses) ? meta.diagnoses.map((d: any) => d.gdrgCode || '') : []),
+    ];
+    const derivedSpecialties = nhisSpecialtiesFor(serviceType, [currentClaim.principalGDRG, ...diagnosisGDRGs]);
     const savedSpecialties: string[] = Array.isArray(meta.specialties)
       ? meta.specialties
       : (currentClaim.mdcCode ? [String(currentClaim.mdcCode)] : []);
-    setSpecialties(savedSpecialties.length
-      ? savedSpecialties
-      : nhisSpecialtiesFor(serviceType, [currentClaim.principalGDRG]));
+    setSpecialties(Array.from(new Set([...savedSpecialties, ...derivedSpecialties])));
     setReferringFacility(meta.referringFacility ?? attendance?.referringFacility ?? '');
     setReferralCode(meta.referralCode ?? '');
     setPhysicianId(meta.physicianId ?? '');
@@ -1384,7 +1401,15 @@ export default function EditNHISClaim() {
   const upsert = <T,>(list: T[], item: T, kind: string): T[] =>
     editing?.kind === kind ? list.map((x, i) => (i === editing.index ? item : x)) : [...list, item];
 
-  const addDiagnosis = (d: DiagnosisItem) => setDiagnoses(upsert(diagnoses, d, 'diagnosis'));
+  const addDiagnosis = (d: DiagnosisItem) => {
+    setDiagnoses(upsert(diagnoses, d, 'diagnosis'));
+    // On an admission, every G-DRG family represented by a diagnosis should be ticked.
+    // OPD remains under the OPDC scheme, as required by the submitted NHIS claim format.
+    if (primaryServiceType === 'IPD') {
+      const specialty = gdrgSpecialty(d.gdrgCode);
+      if (specialty) setSpecialties((prev) => Array.from(new Set([...prev, specialty])));
+    }
+  };
   const removeDiagnosis = (i: number) => setDiagnoses(diagnoses.filter((_, idx) => idx !== i));
   const setPrimaryDiagnosis = (i: number) =>
     setDiagnoses(diagnoses.map((d, idx) => ({ ...d, diagnosisType: idx === i ? 'primary' : 'additional' })));
