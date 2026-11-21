@@ -690,14 +690,15 @@ export class ClaimBatchService extends BaseService {
       throw new ValidationError('Only NHIS batches produce XML');
     }
 
-    // Prefer the file on disk (it was written at generation time and is stable)
-    if (batch.xmlFilePath && fs.existsSync(batch.xmlFilePath)) {
-      const xml = await fs.promises.readFile(batch.xmlFilePath, 'utf-8');
-      return { xml, filename: `${batch.batchNumber}.xml` };
-    }
-
-    // Fall back to regenerating on the fly
+    // Always rebuild from the persisted claim-item rows. Returning the XML file written
+    // when the batch was first generated can serve a stale document after a claim's supporting
+    // lines have been corrected. The repository reloads diagnoses, INVE investigations,
+    // procedures and dispensed medicines before serialization.
     const xml = await this.buildNHISBatchXml(batchId);
+    if (batch.xmlFilePath) {
+      await fs.promises.mkdir(path.dirname(batch.xmlFilePath), { recursive: true });
+      await fs.promises.writeFile(batch.xmlFilePath, xml, 'utf-8');
+    }
     return { xml, filename: `${batch.batchNumber}.xml` };
   }
   
