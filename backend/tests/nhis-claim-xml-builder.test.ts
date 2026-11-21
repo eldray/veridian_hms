@@ -100,6 +100,18 @@ describe('NHIS claim XML itemization safeguards', () => {
     expect(() => builder.buildSingleClaimXml(claim, hospital)).toThrow(/missing physician or prescriber licence/);
   });
 
+  it('uses the assigned attendance provider licence for older claim lines without a copied licence', () => {
+    const claim = exportableClaim({
+      Attendance: {
+        ...exportableClaim().Attendance,
+        User_Attendance_providerIdToUser: { licenseNumber: 'LIC-ATT-001' },
+      },
+      items: exportableClaim().items.map((item: any) => ({ ...item, clinician: '', prescriberNo: '' })),
+    });
+    const xml = builder.buildSingleClaimXml(claim, hospital);
+    expect(xml).toContain('<physicianID>LIC-ATT-001</physicianID>');
+  });
+
   it('blocks an investigation without its own service date instead of using claim creation date', () => {
     const claim = exportableClaim({ items: [
       ...exportableClaim().items,
