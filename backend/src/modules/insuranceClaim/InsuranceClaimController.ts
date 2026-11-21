@@ -233,8 +233,7 @@ export class InsuranceClaimController extends BaseController {
           ? 'paid'
           : paid > 0
             ? 'partially_paid'
-            : ([...claim.trackingEvents].reverse().find((event: any) => event.eventType === 'adjudication')?.status
-              || (claim.trackingEvents.some((event: any) => event.eventType === 'submission') ? 'submitted' : 'not_submitted')),
+            : (claim.trackingEvents.some((event: any) => event.eventType === 'submission') ? 'submitted' : 'not_submitted'),
       }};
     });
     return this.paginated(res, data, { page, limit, total }, 'Finalized claims tracking retrieved');
@@ -249,23 +248,17 @@ export class InsuranceClaimController extends BaseController {
         'Individual claim payments are disabled. Record the remittance against the relevant monthly batch in Tracking & payments.',
       );
     }
-    const allowedTypes = ['submission', 'adjudication', 'note'];
+    const allowedTypes = ['submission', 'note'];
     if (!allowedTypes.includes(eventType)) return this.badRequest(res, 'Invalid tracking event type');
     const claim = await prisma.insuranceClaim.findUnique({
       where: { id: req.params.claimId },
       select: { id: true, claimNumber: true, status: true },
     });
     if (!claim) return this.notFound(res, 'Insurance claim');
-    if (claim.status !== 'finalized') return this.badRequest(res, 'Only finalized claims can be tracked for submission or adjudication');
+    if (claim.status !== 'finalized') return this.badRequest(res, 'Only finalized claims can be tracked for submission');
 
     if (eventType === 'submission' && !String(payerReference || '').trim()) {
       return this.badRequest(res, 'Enter the payer submission/reference number where available');
-    }
-    if (eventType === 'adjudication') {
-      const allowedStatuses = ['acknowledged', 'under_review', 'queried', 'approved', 'partially_approved', 'rejected'];
-      if (!allowedStatuses.includes(String(status || '').trim().toLowerCase())) {
-        return this.badRequest(res, 'Choose a valid payer adjudication status');
-      }
     }
     if (eventType === 'submission' && submissionDate && Number.isNaN(new Date(submissionDate).getTime())) {
       return this.badRequest(res, 'Submission date is invalid');
