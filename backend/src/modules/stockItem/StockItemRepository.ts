@@ -372,17 +372,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     id: string,
     page: number = 1,
     limit: number = 50,
-    filters: { departmentId?: string; includeAllStockLocations?: boolean; startDate?: string; endDate?: string } = {},
+    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
   ) {
     const where: any = { stockItemId: id };
     if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId ?? null;
-    if (filters.startDate || filters.endDate) {
-      const range: any = {};
-      if (filters.startDate) { const start = new Date(`${filters.startDate}T00:00:00`); if (!Number.isFinite(start.getTime())) throw new ValidationError('Invalid history start date'); range.gte = start; }
-      if (filters.endDate) { const end = new Date(`${filters.endDate}T23:59:59.999`); if (!Number.isFinite(end.getTime())) throw new ValidationError('Invalid history end date'); range.lte = end; }
-      if (range.gte && range.lte && range.gte > range.lte) throw new ValidationError('History start date must be on or before end date');
-      where.transactionDate = range;
-    }
     const safePage = Math.max(1, Math.floor(page));
     const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)));
     const [transactions, total] = await Promise.all([
@@ -570,13 +563,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   async getMedicationsByStockItem(id: string) {
     return this.prisma.medication.findMany({
       where: { stockItemId: id },
-      include: {
-        Attendance: { include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true } } } },
-        ServiceCatalog: { include: { pricing: { where: { isActive: true }, take: 1 } } },
-        doses: { include: { administeredBy: { select: { id: true, fullName: true } } }, orderBy: { scheduledAt: 'asc' } },
-        User_Medication_dispensedByIdToUser: { select: { id: true, fullName: true } },
-        User_Medication_administeredByIdToUser: { select: { id: true, fullName: true } },
-      },
+      include: { Attendance: { include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true } } } }, ServiceCatalog: { include: { pricing: { where: { isActive: true }, take: 1 } } } }, // ✅ Fixed 1-to-N pricing
       orderBy: { prescribedAt: 'desc' }
     });
   }
