@@ -1200,13 +1200,14 @@ const downloadAuthenticatedFile = async (path: string, fallbackFilename: string)
     if (payload instanceof Blob) {
       const raw = await payload.text().catch(() => '');
       if (raw) {
+        let message = raw;
         try {
           const parsed = JSON.parse(raw);
-          throw new Error(parsed?.message || parsed?.error || raw);
-        } catch (parseError: any) {
-          if (parseError instanceof Error && parseError.message !== raw) throw parseError;
+          message = parsed?.message || parsed?.error || raw;
+        } catch {
+          // Plain-text server errors are also useful to show directly.
         }
-        throw new Error(raw.slice(0, 500));
+        throw new Error(String(message).slice(0, 500));
       }
     }
     throw error;
