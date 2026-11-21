@@ -19,6 +19,7 @@ import type { BadgeTone } from '../components/ui';
 type StockItem = ReturnType<typeof useStockStore.getState>['stockItems'][number];
 const titleCase = (s: any) => String(s ?? '').replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (x) => x.toUpperCase()).trim();
 const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString() : '—';
+const currentMonthHistoryRange = () => { const now = new Date(); const year = now.getFullYear(); const month = String(now.getMonth() + 1).padStart(2, '0'); const day = String(now.getDate()).padStart(2, '0'); return { startDate: `${year}-${month}-01`, endDate: `${year}-${month}-${day}` }; };
 
 export default function StockManagement() {
   const goBack = useSmartBack('/dashboard');
@@ -35,7 +36,7 @@ export default function StockManagement() {
   const [showAllocationForm, setShowAllocationForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyDates, setHistoryDates] = useState({ startDate: '', endDate: '' });
+  const [historyDates, setHistoryDates] = useState(currentMonthHistoryRange);
   const [medicationHistory, setMedicationHistory] = useState<any[]>([]);
   const [allocationData, setAllocationData] = useState({ quantity: 0, departmentId: '' });
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
@@ -273,7 +274,7 @@ export default function StockManagement() {
               
               
               <td className={cn(TD, 'text-center')}>{isAdmin && (<div className="flex items-center justify-center gap-2">
-                <Button variant="ghost" size="sm" iconOnly icon={History} aria-label={`View stock history for ${item.name}`} title={`View stock history for ${item.name}`} onClick={() => { setHistoryDates({ startDate: '', endDate: '' }); void openStockHistory(item, { startDate: '', endDate: '' }); }} />
+                <Button variant="ghost" size="sm" iconOnly icon={History} aria-label={`View stock history for ${item.name}`} title={`View stock history for ${item.name}`} onClick={() => { const dates = currentMonthHistoryRange(); setHistoryDates(dates); void openStockHistory(item, dates); }} />
                 <Button variant="ghost" size="sm" iconOnly icon={TrendingUp} aria-label={`Stock in/out for ${item.name}`} className="text-[var(--icon-cyan-text)]" onClick={() => { setSelectedItem(item); setShowTransactionForm(true); }} />
                 {canAllocateStock && (<Button variant="soft" accent="green" size="sm" iconOnly icon={Package} aria-label={`Allocate unassigned stock for ${item.name}`} onClick={() => { setSelectedItem(item); setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' }); setShowAllocationForm(true); }} />)}
                 <Button variant="ghost" size="sm" iconOnly icon={Edit} aria-label={`Edit ${item.name}`} className="text-[var(--icon-green-text)]" onClick={() => handleEdit(item)} />
