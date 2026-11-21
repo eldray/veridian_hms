@@ -232,15 +232,12 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       const status = String(latest?.status || '').toLowerCase();
       const submitted = toNum(batch.totalAmount);
       if (status === 'rejected') return sum;
-      if (['approved', 'partially_approved'].includes(status) && latest?.amount != null) {
-        return sum + toNum(latest.amount);
-      }
+      if (['approved', 'partially_approved'].includes(status) && latest?.amount != null) return sum + toNum(latest.amount);
       return sum + submitted;
     }, 0);
     const paid = toNum(paidAcrossFilter._sum?.amount);
     const outstanding = Math.max(0, payable - paid);
     const overpaid = Math.max(0, paid - payable);
-
     return {
       data: batches,
       pagination: {
@@ -353,10 +350,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         batches: totals._count._all,
         claims: toNum(totals._sum.totalClaims),
         amount: money(totals._sum.totalAmount),
-        paid: money(paid),
-        payable: money(payable),
-        outstanding: money(outstanding),
-        overpaid: money(overpaid),
+        paid: money(paid), payable: money(payable), outstanding: money(outstanding), overpaid: money(overpaid),
       },
     };
   }
