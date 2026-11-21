@@ -124,12 +124,49 @@ export const seedEncounters = async (
   const rows: Prisma.AttendanceCreateManyInput[] = [];
   const rowContext: Array<{ att: GeneratedAttendance; patientId: string | null; consultationCode: string | null }> = [];
 
+  // Do not seed an OPD/daycase that falls within another seeded inpatient admission:
+  // the payer already includes those days in the admission claim. Also, when a
+  // generated claim plan has no catalogue-resolvable primary diagnosis, omit that
+  // attendance entirely so the seed never exposes a claimable visit the claim API rejects.
+  const claimsByAttendance = new Set(bundle.claims.map((claim) => claim.attendanceKey));
+  const missingPrimaryDiagnosisClaimKeys = new Set(bundle.claims.filter((claim) => {
+    const primary = bundle.diagnoses.find((diagnosis) =>
+      diagnosis.attendanceKey === claim.attendanceKey && diagnosis.diagnosisType === 'primary',
+    );
+    return !primary || !lookups.diagnosisByIcd.has(primary.icdCode);
+  }).map((claim) => claim.attendanceKey);
+  const inpatientWindows = bundle.admissions.filter((admission) => !admission.cancelled).map((admission) => ({
+    attendanceKey: admission.attendanceKey,
+    folderNumber: admission.folderNumber,
+    start: admission.admissionDate.getTime(),
+    end: admission.dischargeDate?.getTime() ?? Number.POSITIVE_INFINITY,
+  }));
+  let skippedClaimableWithoutPrimaryDiagnosis = 0;
+  let skippedOutpatientInpatientOverlap = 0;
+
   for (const att of bundle.attendances) {
     const patientId = att.folderNumber ? patients.idByFolder.get(att.folderNumber) ?? null : null;
     const patientRow = att.folderNumber ? patients.rowByFolder.get(att.folderNumber) ?? null : null;
     const counterClientId = att.counterClientKey ? counterClientIds.get(att.counterClientKey) ?? null : null;
     // A ticket carries a counter client or a patient, never both and never neither.
     if (!patientId && !counterClientId) continue;
+    if (claimsByAttendance.has(att.key) && missingPrimaryDiagnosisClaimKeys.has(att.key)) {
+      skippedClaimableWithoutPrimaryDiagnosis++;
+      continue;
+    }
+    if (patientId && att.folderNumber && (att.encounterCategory === 'opd' || att.encounterCategory === 'daycase')) {
+      const date = att.dateTime.getTime();
+      const overlapsAdmission = inpatientWindows.some((stay) =>
+        stay.attendanceKey !== att.key
+        && stay.folderNumber === att.folderNumber
+        && stay.start <= date
+        && stay.end >= date,
+      );
+      if (overlapsAdmission) {
+        skippedOutpatientInpatientOverlap++;
+        continue;
+      }
+    }
     if (att.paymentMode === 'nhis') {
       const memberNumber = patientRow?.nhisNumber ?? '';
       if (!patientId || !/^(?:[1-9]\d{7}|00[1-9]\d{7})$/.test(memberNumber)) {
@@ -231,6 +268,9 @@ export const seedEncounters = async (
     });
   }
   console.log(`✅ ${byKey.size}/${bundle.attendances.length} encounters`);
+  if (skippedClaimableWithoutPrimaryDiagnosis || skippedOutpatientInpatientOverlap) {
+    console.warn(`   Seed excluded ${skippedClaimableWithoutPrimaryDiagnosis + skippedOutpatientInpatientOverlap} invalid claimable encounters (${skippedClaimableWithoutPrimaryDiagnosis} without a catalogue primary diagnosis; ${skippedOutpatientInpatientOverlap} outpatient/daycase dates overlapping an inpatient stay).`);
+  }
 
   // ── Vitals ──────────────────────────────────────────────
   const vitalsRows: Prisma.VitalsCreateManyInput[] = [];
