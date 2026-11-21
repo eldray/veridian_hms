@@ -55,17 +55,17 @@ describe('NHIS claim XML itemization safeguards', () => {
 
 
   it('uses the diagnosis linked to each procedure rather than repeating the first claim diagnosis', () => {
-    const xml = builder.buildSingleClaimXml({
+    const xml = builder.buildSingleClaimXml(exportableClaim({
       claimNumber: 'NHIS-LINKED-DIAG',
       principalGDRG: 'MEDI31A',
-      createdAt: new Date('2026-08-05T10:00:00Z'),
+      typeOfService: 'IPD',
       items: [
         { itemCategory: 'gdrg', code: 'MEDI31A', description: 'Pneumonia', quantity: 1, clinician: 'LIC-001', gdrgTariff: { gdrgCode: 'MEDI31A' } },
         { itemCategory: 'diagnosis', code: 'J18.9', description: 'Pneumonia', gdrgTariff: { gdrgCode: 'MEDI31A' } },
         { itemCategory: 'diagnosis', code: 'K35.8', description: 'Acute appendicitis', gdrgTariff: { gdrgCode: 'ASUR01A' } },
         { itemCategory: 'procedure', code: 'PRO01', description: 'Appendicectomy', serviceDate: new Date('2026-08-05T10:00:00Z'), gdrgTariff: { gdrgCode: 'ASUR01A' }, diagnosis: { icdCode: 'K35.8', name: 'Acute appendicitis' } },
       ],
-    }, hospital);
+    }), hospital);
     const proceduresXml = xml.split('<procedures>')[1]?.split('</procedures>')[0] ?? '';
     expect(proceduresXml).toContain('<diagnosis>Acute appendicitis</diagnosis>');
     expect(proceduresXml).not.toContain('<diagnosis>Pneumonia</diagnosis>');
@@ -127,6 +127,8 @@ describe('NHIS claim XML follows the batch the facility actually submitted', () 
     claimNumber: 'NHIS-2001',
     claimCheckCode: '12345',
     typeOfService: 'IPD',
+    typeOfAttendance: 'EAE',
+    serviceOutcome: 'DISC',
     mdcCode: 'MEDI',
     principalGDRG: 'MEDI31A',
     createdAt: new Date('2026-08-05T10:00:00Z'),
@@ -163,6 +165,7 @@ describe('NHIS claim XML follows the batch the facility actually submitted', () 
       typeOfService: 'OPD',
       mdcCode: null as any,
       principalGDRG: 'ZOOM02A',
+      items: admissionClaim.items.map((item: any) => item.itemCategory === 'gdrg' ? { ...item, code: 'ZOOM02A', gdrgTariff: { gdrgCode: 'ZOOM02A' } } : item),
       Attendance: { ...admissionClaim.Attendance, Admission: null },
     }, hospital);
     expect(outpatient).toContain('<mdcCode>OPDC</mdcCode>');
