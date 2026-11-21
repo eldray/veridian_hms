@@ -295,6 +295,14 @@ export class ClaimBatchService extends BaseService {
       periodMonth,
     ].join(':');
     const batchNumber = getCounterService().nextBatchNumber();
+
+    // Validate the complete NHIS submission document before the database batch is created.
+    // Otherwise a failed XML preflight leaves finalized claims attached to a generated batch,
+    // where the claim editor cannot repair them.
+    if (insuranceType === 'nhis') {
+      await this.validateNHISBatchBeforePersist(batchNumber, periodYear, periodMonth, batchClaims);
+    }
+
     const batch = await this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${payerMonthLock}))`;
       const existing = await tx.claimBatch.findFirst({
@@ -630,6 +638,29 @@ export class ClaimBatchService extends BaseService {
   // ==========================================
   // XML (NHIS only)
   // ==========================================
+  private async validateNHISBatchBeforePersist(
+    batchNumber: string,
+    periodYear: number,
+    periodMonth: number,
+    batchClaims: Array<{ id: string }>,
+  ): Promise<void> {
+    const [claims, hospital] = await Promise.all([
+      this.repo.findClaimsForSubmission(batchClaims.map((claim) => claim.id)),
+      this.prisma.hospital.findFirst(),
+    ]);
+    if (claims.length !== batchClaims.length) {
+      throw new ValidationError('NHIS batch preflight could not reload every selected claim. No batch was created; refresh the claims list and retry.');
+    }
+    if (!hospital) throw new ValidationError('Hospital record not found. No NHIS batch was created.');
+
+    this.xmlBuilder.buildBatchXml({
+      batchNumber,
+      periodYear,
+      periodMonth,
+      claims,
+    }, hospital);
+  }
+
   async buildNHISBatchXml(batchId: string): Promise<string> {
     const batch = await this.repo.findBatchById(batchId);
     if (!batch) throw new NotFoundError('Claim batch', batchId);
