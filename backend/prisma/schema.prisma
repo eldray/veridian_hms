@@ -1298,6 +1298,7 @@ model ClaimBatchTrackingEvent {
   eventType        String
   status           String?
   submissionDate   DateTime?
+  paymentDate      DateTime?
   payerReference   String?
   amount           Decimal? @db.Decimal(15, 2)
   paymentReference String?
