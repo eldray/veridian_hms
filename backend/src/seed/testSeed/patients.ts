@@ -13,6 +13,7 @@ export interface PatientRowRef {
   id: string;
   insuranceProviderId: string | null;
   paymentMode: string;
+  nhisNumber: string | null;
 }
 
 export interface PatientRecords {
@@ -76,7 +77,9 @@ export const seedPatients = async (
       registeredAt: p.registeredAt,
       registeredBy: lookups.actorName({ role: 'records', salt: index }),
       insuranceProviderId: insuranceProviderId ?? undefined,
-      nhisNumber: p.nhisNumber ?? undefined,
+      // Demo NHIS members always carry a syntactically valid membership number. This is
+      // synthetic test data, not a real member lookup or an NHIA-issued number.
+      nhisNumber: p.paymentMode === 'nhis' ? (p.nhisNumber || `00${String(index + 1).padStart(8, '0')}`) : undefined,
       nhisActive: p.nhisActive,
       nhisExpiryDate: p.nhisExpiryDate ? asCalendarDay(p.nhisExpiryDate) : undefined,
       phoneNumber: p.phoneNumber,
@@ -90,7 +93,7 @@ export const seedPatients = async (
   // dropped instead of being attached to the wrong person.
   const found = await prisma.patient.findMany({
     where: { id: { startsWith: 'seedpat-' } },
-    select: { id: true, folderNumber: true, paymentMode: true, insuranceProviderId: true },
+    select: { id: true, folderNumber: true, paymentMode: true, insuranceProviderId: true, nhisNumber: true },
   });
   const idByFolder = new Map<string, string>();
   const rowByFolder = new Map<string, PatientRowRef>();
@@ -100,6 +103,7 @@ export const seedPatients = async (
       id: patient.id,
       insuranceProviderId: patient.insuranceProviderId,
       paymentMode: String(patient.paymentMode ?? 'cash'),
+      nhisNumber: patient.nhisNumber ?? null,
     });
   }
 
