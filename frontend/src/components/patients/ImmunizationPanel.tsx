@@ -6,7 +6,7 @@ import { Button, INPUT, cn } from '../../components/ui';
 type Vaccine = { id: string; code: string; name: string; isActive?: boolean; description?: string | null; defaultDoseVolume?: string | null; defaultRoute?: string | null; diseaseTargets?: string[]; recommendedAge?: string | null; StockItem?: { id: string; name: string; drugCode: string; currentStock: number } | null };
 type VaccineStockItem = { id: string; name: string; drugCode: string; currentStock: number; unitOfMeasure: string };
 type RecordRow = { id: string; doseNumber: string; administeredAt: string; doseVolume?: string | null; route?: string | null; administrationSite?: string | null; batchNumber?: string | null; expiryDate?: string | null; nextDoseDue?: string | null; adverseReaction?: string | null; notes?: string | null; stockTransactionId?: string | null; StockTransaction?: { id: string; transactionType: string; quantity: number } | null; Vaccine?: Vaccine; Attendance?: { attendanceNumber?: string; dateTime?: string }; AdministeredBy?: { fullName?: string } };
-type Visit = { id: string; attendanceType?: string; attendanceNumber?: string; dateTime?: string; createdAt?: string };
+type Visit = { id: string; attendanceType?: string; attendanceNumber?: string; dateTime?: string; createdAt?: string; status?: string };
 const localToday = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const dateLabel = (v?: string | null) => v ? new Date(v).toLocaleDateString() : '—';
 
