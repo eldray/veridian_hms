@@ -1,6 +1,6 @@
 {
-  "source": "NHIA Tariffs Operation Manual V2022 (April 2022)",
-  "effectiveFrom": "2022-04-01",
+  "source": "NHIA G-DRG Revised Tariffs 2022 Version 2.0 — Private Primary Care (Catering Exclusive)",
+  "effectiveFrom": "2022-10-01",
   "gdrgTariffs": [
     {
       "gdrgCode": "ASUR01A",
@@ -9,7 +9,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 748.79
     },
     {
@@ -19,7 +23,10 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": 1116.24
     },
     {
@@ -29,7 +36,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 516.97
     },
     {
@@ -39,7 +50,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1100.54
     },
     {
@@ -49,7 +64,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 539.27
     },
     {
@@ -59,7 +78,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 987.47
     },
     {
@@ -69,7 +92,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 786.14
     },
     {
@@ -79,7 +106,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 734.77
     },
     {
@@ -89,7 +120,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 311.02
     },
     {
@@ -99,7 +134,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 741.48
     },
     {
@@ -109,7 +148,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1143.91
     },
     {
@@ -119,7 +162,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 985.48
     },
     {
@@ -129,8 +176,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 1209.20
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 1209.2
     },
     {
       "gdrgCode": "ASUR14A",
@@ -139,7 +190,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 425.66
     },
     {
@@ -149,7 +204,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 486.66
     },
     {
@@ -159,7 +218,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 757.64
     },
     {
@@ -169,7 +232,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 876.41
     },
     {
@@ -179,7 +246,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1203.95
     },
     {
@@ -191,7 +262,11 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 573.48
     },
     {
@@ -201,7 +276,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 402.84
     },
     {
@@ -211,7 +290,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 740.16
     },
     {
@@ -221,7 +304,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 406.32
     },
     {
@@ -231,7 +318,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 878.25
     },
     {
@@ -241,7 +332,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1111.36
     },
     {
@@ -251,7 +346,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 517.27
     },
     {
@@ -261,7 +360,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 266.81
     },
     {
@@ -271,8 +374,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 788.30
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 788.3
     },
     {
       "gdrgCode": "ASUR29A",
@@ -281,7 +388,10 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": null
     },
     {
@@ -291,7 +401,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 298.88
     },
     {
@@ -301,7 +415,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 332.72
     },
     {
@@ -311,7 +429,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 674.93
     },
     {
@@ -321,7 +443,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 918.23
     },
     {
@@ -331,7 +457,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 266.81
     },
     {
@@ -341,7 +471,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 383.53
     },
     {
@@ -351,7 +485,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 532.57
     },
     {
@@ -361,8 +499,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 727.40
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 727.4
     },
     {
       "gdrgCode": "PSUR01C",
@@ -371,7 +513,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 743.09
     },
     {
@@ -381,7 +527,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 859.27
     },
     {
@@ -391,7 +541,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 910.37
     },
     {
@@ -401,8 +555,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 766.00
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 766
     },
     {
       "gdrgCode": "PSUR05C",
@@ -411,7 +569,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 319.54
     },
     {
@@ -421,7 +583,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 350.89
     },
     {
@@ -431,7 +597,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 417.94
     },
     {
@@ -441,7 +611,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 731.46
     },
     {
@@ -451,7 +625,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 757.26
     },
     {
@@ -461,7 +639,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 665.38
     },
     {
@@ -471,7 +653,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 775.03
     },
     {
@@ -481,8 +667,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 631.40
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 631.4
     },
     {
       "gdrgCode": "PSUR14C",
@@ -491,7 +681,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 932.44
     },
     {
@@ -501,8 +695,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 603.60
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 603.6
     },
     {
       "gdrgCode": "PSUR16C",
@@ -511,7 +709,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1438.86
     },
     {
@@ -521,7 +723,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 502.27
     },
     {
@@ -531,7 +737,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 830.77
     },
     {
@@ -541,7 +751,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1108.14
     },
     {
@@ -551,7 +765,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 2112.31
     },
     {
@@ -561,7 +779,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 341.16
     },
     {
@@ -571,7 +793,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 813.55
     },
     {
@@ -581,7 +807,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 803.28
     },
     {
@@ -591,7 +821,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 856.49
     },
     {
@@ -601,7 +835,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 429.88
     },
     {
@@ -611,7 +849,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1197.91
     },
     {
@@ -621,7 +863,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1262.66
     },
     {
@@ -631,7 +877,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 420.91
     },
     {
@@ -641,7 +891,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 795.55
     },
     {
@@ -651,7 +905,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 763.49
     },
     {
@@ -661,7 +919,10 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": null
     },
     {
@@ -671,7 +932,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 461.84
     },
     {
@@ -681,7 +946,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 429.65
     },
     {
@@ -691,7 +960,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 998.47
     },
     {
@@ -701,7 +974,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 252.38
     },
     {
@@ -711,7 +988,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 346.92
     },
     {
@@ -721,7 +1002,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 573.24
     },
     {
@@ -731,7 +1016,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 723.56
     },
     {
@@ -741,7 +1030,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 381.14
     },
     {
@@ -751,7 +1044,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 284.25
     },
     {
@@ -761,7 +1058,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 540.25
     },
     {
@@ -771,7 +1072,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 327.52
     },
     {
@@ -781,7 +1086,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 289.63
     },
     {
@@ -791,7 +1100,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 337.79
     },
     {
@@ -801,7 +1114,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 473.86
     },
     {
@@ -811,7 +1128,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 216.22
     },
     {
@@ -821,8 +1142,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 431.00
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 431
     },
     {
       "gdrgCode": "MEDI11A",
@@ -831,8 +1156,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 581.80
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 581.8
     },
     {
       "gdrgCode": "MEDI12A",
@@ -841,7 +1170,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 285.91
     },
     {
@@ -851,7 +1184,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 249.55
     },
     {
@@ -861,7 +1198,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 266.33
     },
     {
@@ -871,8 +1212,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 491.00
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 491
     },
     {
       "gdrgCode": "MEDI16A",
@@ -881,7 +1226,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 311.98
     },
     {
@@ -891,7 +1240,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 311.79
     },
     {
@@ -901,7 +1254,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 371.58
     },
     {
@@ -911,7 +1268,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 349.42
     },
     {
@@ -921,7 +1282,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 508.24
     },
     {
@@ -931,7 +1296,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1189.81
     },
     {
@@ -941,7 +1310,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 138.67
     },
     {
@@ -951,7 +1324,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 167.69
     },
     {
@@ -961,7 +1338,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 330.82
     },
     {
@@ -971,7 +1352,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 296.22
     },
     {
@@ -981,8 +1366,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 154.10
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 154.1
     },
     {
       "gdrgCode": "MEDI27A",
@@ -991,7 +1380,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 542.75
     },
     {
@@ -1001,7 +1394,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 91.82
     },
     {
@@ -1011,7 +1408,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 332.77
     },
     {
@@ -1021,7 +1422,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 417.16
     },
     {
@@ -1031,7 +1436,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 222.44
     },
     {
@@ -1041,7 +1450,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 252.28
     },
     {
@@ -1051,7 +1464,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 221.92
     },
     {
@@ -1061,8 +1478,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 352.90
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 352.9
     },
     {
       "gdrgCode": "MEDI35A",
@@ -1071,7 +1492,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 346.18
     },
     {
@@ -1081,7 +1506,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 288.52
     },
     {
@@ -1091,7 +1520,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 58.68
     },
     {
@@ -1101,7 +1534,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 284.77
     },
     {
@@ -1111,7 +1548,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": null
     },
     {
@@ -1121,7 +1562,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": null
     },
     {
@@ -1131,7 +1576,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 448.46
     },
     {
@@ -1141,7 +1590,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 253.01
     },
     {
@@ -1151,7 +1604,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 258.77
     },
     {
@@ -1161,7 +1618,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 490.56
     },
     {
@@ -1171,7 +1632,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 344.02
     },
     {
@@ -1181,7 +1646,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 396.23
     },
     {
@@ -1191,7 +1660,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 308.77
     },
     {
@@ -1201,7 +1674,11 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 247.26
     },
     {
@@ -1211,7 +1688,11 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 286.19
     },
     {
@@ -1221,8 +1702,12 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 242.40
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 242.4
     },
     {
       "gdrgCode": "PAED10C",
@@ -1231,7 +1716,11 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 581.98
     },
     {
@@ -1241,7 +1730,11 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 268.42
     },
     {
@@ -1251,7 +1744,11 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 356.16
     },
     {
@@ -1261,7 +1758,11 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 481.22
     },
     {
@@ -1271,7 +1772,11 @@
       "ageSplit": "C",
       "maxAgeYears": 0,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 367.85
     },
     {
@@ -1281,7 +1786,10 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": 413.59
     },
     {
@@ -1291,7 +1799,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 280.08
     },
     {
@@ -1301,7 +1813,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 584.32
     },
     {
@@ -1311,7 +1827,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 609.49
     },
     {
@@ -1321,7 +1841,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 366.12
     },
     {
@@ -1331,7 +1855,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 178.58
     },
     {
@@ -1341,7 +1869,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 273.31
     },
     {
@@ -1351,7 +1883,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 449.95
     },
     {
@@ -1361,7 +1897,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 375.02
     },
     {
@@ -1371,7 +1911,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 357.94
     },
     {
@@ -1381,7 +1925,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 513.24
     },
     {
@@ -1391,7 +1939,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 394.27
     },
     {
@@ -1401,7 +1953,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 395.57
     },
     {
@@ -1411,7 +1967,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1019.75
     },
     {
@@ -1421,7 +1981,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 232.28
     },
     {
@@ -1431,7 +1995,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 163.36
     },
     {
@@ -1441,7 +2009,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 267.17
     },
     {
@@ -1451,7 +2023,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 284.35
     },
     {
@@ -1461,7 +2037,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 112.38
     },
     {
@@ -1471,7 +2051,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 417.61
     },
     {
@@ -1481,7 +2065,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 92.47
     },
     {
@@ -1491,7 +2079,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 514.68
     },
     {
@@ -1501,7 +2093,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 414.35
     },
     {
@@ -1511,7 +2107,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 172.92
     },
     {
@@ -1521,7 +2121,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 302.28
     },
     {
@@ -1531,7 +2135,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 372.59
     },
     {
@@ -1541,7 +2149,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 469.22
     },
     {
@@ -1551,7 +2163,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 336.58
     },
     {
@@ -1561,7 +2177,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 63.45
     },
     {
@@ -1571,7 +2191,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 347.27
     },
     {
@@ -1581,8 +2205,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 561.60
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 561.6
     },
     {
       "gdrgCode": "PAED47C",
@@ -1592,7 +2220,10 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": null
     },
     {
@@ -1603,7 +2234,10 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": null
     },
     {
@@ -1614,7 +2248,10 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": null
     },
     {
@@ -1625,7 +2262,10 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": null
     },
     {
@@ -1636,7 +2276,10 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": null
     },
     {
@@ -1647,7 +2290,10 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": null
     },
     {
@@ -1658,7 +2304,10 @@
       "maxAgeYears": 18,
       "isChildhoodCancer": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2],
+      "applicableLevels": [
+        1,
+        2
+      ],
       "tariffGhC": null
     },
     {
@@ -1668,7 +2317,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 366.31
     },
     {
@@ -1678,7 +2331,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 365.36
     },
     {
@@ -1688,7 +2345,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 427.84
     },
     {
@@ -1698,7 +2359,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 396.83
     },
     {
@@ -1708,7 +2373,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 639.86
     },
     {
@@ -1718,7 +2387,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 621.31
     },
     {
@@ -1728,7 +2401,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 637.12
     },
     {
@@ -1738,7 +2415,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 574.43
     },
     {
@@ -1748,8 +2429,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 707.40
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 707.4
     },
     {
       "gdrgCode": "ENTH07C",
@@ -1758,7 +2443,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 626.89
     },
     {
@@ -1768,7 +2457,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 441.61
     },
     {
@@ -1778,7 +2471,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 475.29
     },
     {
@@ -1788,7 +2485,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 669.23
     },
     {
@@ -1798,7 +2499,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 611.51
     },
     {
@@ -1808,7 +2513,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1286.52
     },
     {
@@ -1818,7 +2527,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1128.18
     },
     {
@@ -1828,7 +2541,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 774.97
     },
     {
@@ -1838,7 +2555,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 682.13
     },
     {
@@ -1848,7 +2569,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 306.46
     },
     {
@@ -1858,7 +2583,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 306.15
     },
     {
@@ -1868,7 +2597,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 401.73
     },
     {
@@ -1878,7 +2611,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 332.15
     },
     {
@@ -1888,7 +2625,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 520.09
     },
     {
@@ -1898,7 +2639,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 435.16
     },
     {
@@ -1908,7 +2653,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 456.31
     },
     {
@@ -1918,7 +2667,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 409.99
     },
     {
@@ -1928,7 +2681,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 452.06
     },
     {
@@ -1938,7 +2695,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 428.02
     },
     {
@@ -1948,7 +2709,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 557.55
     },
     {
@@ -1958,7 +2723,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 533.12
     },
     {
@@ -1968,7 +2737,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 433.07
     },
     {
@@ -1978,8 +2751,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 358.80
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 358.8
     },
     {
       "gdrgCode": "ENTH20A",
@@ -1988,8 +2765,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 26.70
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 26.7
     },
     {
       "gdrgCode": "ENTH20C",
@@ -1998,7 +2779,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 29.64
     },
     {
@@ -2008,7 +2793,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 37.59
     },
     {
@@ -2018,8 +2807,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 35.10
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 35.1
     },
     {
       "gdrgCode": "ENTH22A",
@@ -2028,7 +2821,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 201.75
     },
     {
@@ -2038,7 +2835,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 196.54
     },
     {
@@ -2048,7 +2849,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 228.38
     },
     {
@@ -2058,7 +2863,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 223.51
     },
     {
@@ -2068,7 +2877,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 493.34
     },
     {
@@ -2078,7 +2891,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 471.74
     },
     {
@@ -2088,7 +2905,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 480.67
     },
     {
@@ -2098,7 +2919,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 333.17
     },
     {
@@ -2108,7 +2933,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 419.05
     },
     {
@@ -2118,7 +2947,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 213.07
     },
     {
@@ -2128,7 +2961,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 194.25
     },
     {
@@ -2138,7 +2975,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 191.66
     },
     {
@@ -2148,7 +2989,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 244.85
     },
     {
@@ -2158,7 +3003,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 5],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        5
+      ],
       "tariffGhC": 197.14
     },
     {
@@ -2168,7 +3018,14 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
       "tariffGhC": 147.97
     },
     {
@@ -2178,7 +3035,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 294.98
     },
     {
@@ -2188,7 +3049,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 265.45
     },
     {
@@ -2198,7 +3063,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 189.36
     },
     {
@@ -2208,7 +3077,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 509.36
     },
     {
@@ -2218,7 +3091,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 581.58
     },
     {
@@ -2228,7 +3105,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 511.25
     },
     {
@@ -2238,7 +3119,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 39.14
     },
     {
@@ -2248,7 +3133,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 447.68
     },
     {
@@ -2258,7 +3147,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 546.35
     },
     {
@@ -2268,7 +3161,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 848.09
     },
     {
@@ -2278,8 +3175,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 568.60
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 568.6
     },
     {
       "gdrgCode": "OBGY21A",
@@ -2288,7 +3189,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 463.93
     },
     {
@@ -2298,7 +3203,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 671.21
     },
     {
@@ -2308,7 +3217,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 133.37
     },
     {
@@ -2318,7 +3231,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 501.67
     },
     {
@@ -2328,7 +3245,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 289.96
     },
     {
@@ -2338,7 +3259,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 239.88
     },
     {
@@ -2348,7 +3273,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 424.79
     },
     {
@@ -2358,7 +3287,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 480.71
     },
     {
@@ -2369,7 +3302,13 @@
       "minAgeYears": 12,
       "isSurgical": true,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3, 4, 5],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
       "tariffGhC": 255.31
     },
     {
@@ -2380,7 +3319,11 @@
       "minAgeYears": 12,
       "isSurgical": true,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 224.71
     },
     {
@@ -2391,7 +3334,11 @@
       "minAgeYears": 12,
       "isSurgical": true,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 278.39
     },
     {
@@ -2402,7 +3349,13 @@
       "minAgeYears": 12,
       "isSurgical": true,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3, 4, 5],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
       "tariffGhC": 548.23
     },
     {
@@ -2413,7 +3366,14 @@
       "minAgeYears": 12,
       "isSurgical": false,
       "isDelivery": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        10
+      ],
       "tariffGhC": 165.24
     },
     {
@@ -2423,8 +3383,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 275.10
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 275.1
     },
     {
       "gdrgCode": "OBGY36A",
@@ -2433,8 +3397,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 562.90
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 562.9
     },
     {
       "gdrgCode": "OBGY38A",
@@ -2443,7 +3411,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 220.31
     },
     {
@@ -2453,7 +3425,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 868.42
     },
     {
@@ -2463,7 +3439,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 317.14
     },
     {
@@ -2475,7 +3455,12 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 51.93
     },
     {
@@ -2487,8 +3472,13 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7],
-      "tariffGhC": 40.90
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
+      "tariffGhC": 40.9
     },
     {
       "gdrgCode": "DENT02A",
@@ -2497,7 +3487,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 85.92
     },
     {
@@ -2507,7 +3502,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 59.83
     },
     {
@@ -2517,7 +3517,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 60.54
     },
     {
@@ -2529,7 +3534,12 @@
       "isSurgical": false,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 72.66
     },
     {
@@ -2541,8 +3551,13 @@
       "isSurgical": false,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7],
-      "tariffGhC": 77.80
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
+      "tariffGhC": 77.8
     },
     {
       "gdrgCode": "DENT05A",
@@ -2553,7 +3568,12 @@
       "isSurgical": false,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 70.78
     },
     {
@@ -2565,7 +3585,12 @@
       "isSurgical": false,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 55.31
     },
     {
@@ -2575,7 +3600,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 34.26
     },
     {
@@ -2585,7 +3615,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 39.06
     },
     {
@@ -2595,7 +3630,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 90.53
     },
     {
@@ -2605,7 +3645,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 88.07
     },
     {
@@ -2617,8 +3662,13 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7],
-      "tariffGhC": 100.40
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
+      "tariffGhC": 100.4
     },
     {
       "gdrgCode": "DENT08C",
@@ -2629,7 +3679,12 @@
       "isSurgical": true,
       "allowsAddOn": true,
       "addOnPercentage": 20,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 96.01
     },
     {
@@ -2639,7 +3694,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 209.32
     },
     {
@@ -2649,8 +3709,13 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
-      "tariffGhC": 178.80
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
+      "tariffGhC": 178.8
     },
     {
       "gdrgCode": "DENT10A",
@@ -2659,7 +3724,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 51.03
     },
     {
@@ -2669,7 +3739,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 48.21
     },
     {
@@ -2679,7 +3754,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 119.95
     },
     {
@@ -2689,7 +3769,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 103.25
     },
     {
@@ -2699,7 +3784,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 215.76
     },
     {
@@ -2709,8 +3799,13 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
-      "tariffGhC": 197.00
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
+      "tariffGhC": 197
     },
     {
       "gdrgCode": "DENT13A",
@@ -2719,7 +3814,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 237.12
     },
     {
@@ -2729,8 +3829,13 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
-      "tariffGhC": 210.50
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
+      "tariffGhC": 210.5
     },
     {
       "gdrgCode": "DENT14A",
@@ -2739,7 +3844,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 517.67
     },
     {
@@ -2749,7 +3859,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 463.93
     },
     {
@@ -2759,7 +3874,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 102.84
     },
     {
@@ -2769,7 +3889,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 85.48
     },
     {
@@ -2779,7 +3904,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 78.35
     },
     {
@@ -2789,7 +3919,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 68.05
     },
     {
@@ -2799,7 +3934,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 64.72
     },
     {
@@ -2809,7 +3949,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 49.38
     },
     {
@@ -2819,7 +3964,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 497.32
     },
     {
@@ -2829,7 +3979,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 456.62
     },
     {
@@ -2839,7 +3994,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 643.78
     },
     {
@@ -2849,7 +4009,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 539.95
     },
     {
@@ -2859,7 +4024,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 205.54
     },
     {
@@ -2869,7 +4039,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 185.34
     },
     {
@@ -2879,7 +4054,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 503.98
     },
     {
@@ -2889,7 +4069,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 429.54
     },
     {
@@ -2899,7 +4084,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 101.18
     },
     {
@@ -2909,7 +4099,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 73.14
     },
     {
@@ -2919,7 +4114,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 33.32
     },
     {
@@ -2929,7 +4129,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 29.74
     },
     {
@@ -2939,7 +4144,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 22.87
     },
     {
@@ -2949,8 +4159,13 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
-      "tariffGhC": 22.70
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
+      "tariffGhC": 22.7
     },
     {
       "gdrgCode": "OPHT01A",
@@ -2959,7 +4174,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 478.79
     },
     {
@@ -2969,7 +4189,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 452.66
     },
     {
@@ -2979,7 +4204,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 490.56
     },
     {
@@ -2989,7 +4219,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 454.16
     },
     {
@@ -2999,8 +4234,13 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8],
-      "tariffGhC": 36.90
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
+      "tariffGhC": 36.9
     },
     {
       "gdrgCode": "OPHT03C",
@@ -3009,7 +4249,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 31.93
     },
     {
@@ -3019,7 +4264,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 241.67
     },
     {
@@ -3029,7 +4279,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 237.76
     },
     {
@@ -3039,7 +4294,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 317.59
     },
     {
@@ -3049,7 +4309,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 291.37
     },
     {
@@ -3059,7 +4324,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 186.74
     },
     {
@@ -3069,7 +4339,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 191.75
     },
     {
@@ -3079,7 +4354,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 166.35
     },
     {
@@ -3089,7 +4369,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 163.36
     },
     {
@@ -3099,7 +4384,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 175.86
     },
     {
@@ -3109,7 +4399,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 171.84
     },
     {
@@ -3119,7 +4414,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 183.83
     },
     {
@@ -3129,7 +4429,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 197.39
     },
     {
@@ -3139,7 +4444,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 222.44
     },
     {
@@ -3149,7 +4459,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 216.54
     },
     {
@@ -3159,7 +4474,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 322.75
     },
     {
@@ -3169,7 +4489,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 287.84
     },
     {
@@ -3179,7 +4504,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 122.14
     },
     {
@@ -3189,7 +4519,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 119.58
     },
     {
@@ -3199,7 +4534,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 162.91
     },
     {
@@ -3209,7 +4549,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 170.74
     },
     {
@@ -3219,7 +4564,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 211.36
     },
     {
@@ -3229,7 +4579,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 189.76
     },
     {
@@ -3239,7 +4594,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 179.58
     },
     {
@@ -3249,7 +4609,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 200.44
     },
     {
@@ -3259,7 +4624,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 46.81
     },
     {
@@ -3269,7 +4639,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 44.65
     },
     {
@@ -3279,7 +4654,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 23.71
     },
     {
@@ -3289,7 +4669,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 276.53
     },
     {
@@ -3299,7 +4684,15 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 86.99
     },
     {
@@ -3309,7 +4702,15 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 84.74
     },
     {
@@ -3319,7 +4720,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 416.16
     },
     {
@@ -3329,7 +4734,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 416.16
     },
     {
@@ -3339,7 +4748,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 650.21
     },
     {
@@ -3349,7 +4762,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 606.92
     },
     {
@@ -3359,7 +4776,14 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
       "tariffGhC": 407.39
     },
     {
@@ -3369,7 +4793,14 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
       "tariffGhC": 393.18
     },
     {
@@ -3379,7 +4810,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 379.98
     },
     {
@@ -3389,8 +4824,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 381.10
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 381.1
     },
     {
       "gdrgCode": "ORTH07A",
@@ -3399,7 +4838,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 281.69
     },
     {
@@ -3409,7 +4852,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 279.11
     },
     {
@@ -3419,7 +4866,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 713.54
     },
     {
@@ -3429,7 +4880,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 708.36
     },
     {
@@ -3439,7 +4894,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 503.35
     },
     {
@@ -3449,7 +4908,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 493.74
     },
     {
@@ -3459,7 +4922,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1173.77
     },
     {
@@ -3469,8 +4936,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 1078.60
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 1078.6
     },
     {
       "gdrgCode": "ORTH11A",
@@ -3479,7 +4950,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 220.67
     },
     {
@@ -3489,7 +4964,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 211.07
     },
     {
@@ -3499,7 +4978,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 799.72
     },
     {
@@ -3509,7 +4992,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 728.11
     },
     {
@@ -3519,7 +5006,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 892.84
     },
     {
@@ -3529,7 +5020,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 787.79
     },
     {
@@ -3539,7 +5034,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 181.98
     },
     {
@@ -3549,8 +5048,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 167.60
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 167.6
     },
     {
       "gdrgCode": "ORTH16A",
@@ -3559,7 +5062,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 117.64
     },
     {
@@ -3569,7 +5076,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 113.21
     },
     {
@@ -3579,7 +5090,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 808.13
     },
     {
@@ -3589,7 +5104,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 837.97
     },
     {
@@ -3599,7 +5118,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 941.71
     },
     {
@@ -3609,7 +5132,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 882.85
     },
     {
@@ -3619,7 +5146,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 392.69
     },
     {
@@ -3629,8 +5160,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 366.20
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 366.2
     },
     {
       "gdrgCode": "ORTH20A",
@@ -3639,7 +5174,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 696.47
     },
     {
@@ -3649,7 +5188,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 735.52
     },
     {
@@ -3659,7 +5202,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 558.84
     },
     {
@@ -3669,7 +5216,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 558.79
     },
     {
@@ -3679,7 +5230,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 568.02
     },
     {
@@ -3689,7 +5244,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 607.79
     },
     {
@@ -3699,7 +5258,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 137.61
     },
     {
@@ -3709,7 +5272,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 177.83
     },
     {
@@ -3719,7 +5286,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 334.78
     },
     {
@@ -3729,7 +5300,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 346.92
     },
     {
@@ -3739,7 +5314,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 532.57
     },
     {
@@ -3749,7 +5328,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 587.28
     },
     {
@@ -3759,8 +5342,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 727.40
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 727.4
     },
     {
       "gdrgCode": "ORTH27C",
@@ -3769,7 +5356,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 723.56
     },
     {
@@ -3779,7 +5370,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 711.92
     },
     {
@@ -3789,7 +5384,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 668.42
     },
     {
@@ -3799,7 +5398,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1002.79
     },
     {
@@ -3809,7 +5412,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 970.08
     },
     {
@@ -3819,7 +5426,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 783.07
     },
     {
@@ -3829,8 +5440,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 739.40
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 739.4
     },
     {
       "gdrgCode": "RSUR04A",
@@ -3839,7 +5454,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 486.77
     },
     {
@@ -3849,7 +5468,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 431.06
     },
     {
@@ -3859,7 +5482,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 746.24
     },
     {
@@ -3869,7 +5496,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 705.05
     },
     {
@@ -3879,7 +5510,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 877.37
     },
     {
@@ -3889,7 +5524,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 798.82
     },
     {
@@ -3899,7 +5538,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 310.13
     },
     {
@@ -3909,7 +5552,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 291.66
     },
     {
@@ -3919,7 +5566,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 852.61
     },
     {
@@ -3929,7 +5580,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 816.42
     },
     {
@@ -3939,7 +5594,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 596.84
     },
     {
@@ -3949,7 +5608,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 560.23
     },
     {
@@ -3959,7 +5622,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1119.95
     },
     {
@@ -3969,8 +5636,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 1013.40
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 1013.4
     },
     {
       "gdrgCode": "RSUR11A",
@@ -3979,7 +5650,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 637.25
     },
     {
@@ -3989,8 +5664,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 586.80
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 586.8
     },
     {
       "gdrgCode": "RSUR12A",
@@ -3999,7 +5678,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 756.58
     },
     {
@@ -4009,7 +5692,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 674.81
     },
     {
@@ -4019,7 +5706,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 806.95
     },
     {
@@ -4029,7 +5720,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 754.92
     },
     {
@@ -4039,7 +5734,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1065.58
     },
     {
@@ -4049,7 +5748,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 1003.42
     },
     {
@@ -4059,7 +5762,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 492.43
     },
     {
@@ -4069,7 +5776,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 462.54
     },
     {
@@ -4080,7 +5791,11 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 158.64
     },
     {
@@ -4091,7 +5806,11 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 149.37
     },
     {
@@ -4102,7 +5821,15 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 46.32
     },
     {
@@ -4113,7 +5840,15 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 34.97
     },
     {
@@ -4124,7 +5859,11 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 108.54
     },
     {
@@ -4135,7 +5874,11 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 101.03
     },
     {
@@ -4146,7 +5889,15 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 21.05
     },
     {
@@ -4157,7 +5908,15 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 21.05
     },
     {
@@ -4168,7 +5927,15 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 32.55
     },
     {
@@ -4179,7 +5946,15 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 32.55
     },
     {
@@ -4190,8 +5965,15 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [2, 3, 4, 5, 6, 10],
-      "tariffGhC": 57.60
+      "applicableLevels": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
+      "tariffGhC": 57.6
     },
     {
       "gdrgCode": "ZOOM06C",
@@ -4201,8 +5983,15 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [2, 3, 4, 5, 6, 10],
-      "tariffGhC": 57.60
+      "applicableLevels": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
+      "tariffGhC": 57.6
     },
     {
       "gdrgCode": "ZOOM07A",
@@ -4212,7 +6001,15 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 81.59
     },
     {
@@ -4223,7 +6020,15 @@
       "maxAgeYears": 11,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 78.97
     },
     {
@@ -4234,8 +6039,12 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 110.00
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 110
     },
     {
       "gdrgCode": "ZOOM09A",
@@ -4245,8 +6054,12 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": true,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 110.00
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 110
     },
     {
       "gdrgCode": "ZOOM10A",
@@ -4256,8 +6069,16 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
-      "tariffGhC": 12.00
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
+      "tariffGhC": 12
     },
     {
       "gdrgCode": "ZOOM11A",
@@ -4267,8 +6088,16 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
-      "tariffGhC": 12.00
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
+      "tariffGhC": 12
     },
     {
       "gdrgCode": "ZOOM12A",
@@ -4278,8 +6107,16 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
-      "tariffGhC": 6.00
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
+      "tariffGhC": 6
     },
     {
       "gdrgCode": "ZOOM13A",
@@ -4289,8 +6126,16 @@
       "minAgeYears": 12,
       "isZoomCode": true,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
-      "tariffGhC": 2.00
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
+      "tariffGhC": 2
     },
     {
       "gdrgCode": "OPDC01A",
@@ -4299,7 +6144,9 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1],
+      "applicableLevels": [
+        1
+      ],
       "tariffGhC": null
     },
     {
@@ -4309,7 +6156,9 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1],
+      "applicableLevels": [
+        1
+      ],
       "tariffGhC": null
     },
     {
@@ -4320,7 +6169,15 @@
       "minAgeYears": 12,
       "isSurgical": false,
       "isAntenatal": true,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 37.08
     },
     {
@@ -4330,7 +6187,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 25.21
     },
     {
@@ -4340,7 +6202,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 7],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        7
+      ],
       "tariffGhC": 25.71
     },
     {
@@ -4350,7 +6217,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 30.16
     },
     {
@@ -4360,7 +6231,11 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 28.84
     },
     {
@@ -4370,7 +6245,12 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 28.55
     },
     {
@@ -4380,7 +6260,12 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 8],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        8
+      ],
       "tariffGhC": 28.02
     },
     {
@@ -4390,8 +6275,16 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
-      "tariffGhC": 28.70
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
+      "tariffGhC": 28.7
     },
     {
       "gdrgCode": "OPDC06C",
@@ -4400,7 +6293,15 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 29.06
     },
     {
@@ -4410,7 +6311,9 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1],
+      "applicableLevels": [
+        1
+      ],
       "tariffGhC": null
     },
     {
@@ -4420,7 +6323,9 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1],
+      "applicableLevels": [
+        1
+      ],
       "tariffGhC": null
     },
     {
@@ -4430,7 +6335,9 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": true,
-      "applicableLevels": [1],
+      "applicableLevels": [
+        1
+      ],
       "tariffGhC": null
     },
     {
@@ -4440,7 +6347,9 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1],
+      "applicableLevels": [
+        1
+      ],
       "tariffGhC": null
     },
     {
@@ -4450,7 +6359,15 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
       "tariffGhC": 23.56
     },
     {
@@ -4460,8 +6377,16 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3, 4, 5, 6, 10],
-      "tariffGhC": 23.10
+      "applicableLevels": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        10
+      ],
+      "tariffGhC": 23.1
     },
     {
       "gdrgCode": "OPDC12A",
@@ -4470,7 +6395,9 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": true,
-      "applicableLevels": [1],
+      "applicableLevels": [
+        1
+      ],
       "tariffGhC": null
     },
     {
@@ -4480,7 +6407,11 @@
       "ageSplit": "A",
       "minAgeYears": 12,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
       "tariffGhC": 27.96
     },
     {
@@ -4490,8 +6421,18 @@
       "ageSplit": "C",
       "maxAgeYears": 11,
       "isSurgical": false,
-      "applicableLevels": [1, 2, 3],
-      "tariffGhC": 27.60
+      "applicableLevels": [
+        1,
+        2,
+        3
+      ],
+      "tariffGhC": 27.6
     }
-  ]
+  ],
+  "facilityProfile": {
+    "facilityType": "private_primary_care",
+    "catering": "exclusive",
+    "country": "GH",
+    "scheduleVersion": "2022-2"
+  }
 }
