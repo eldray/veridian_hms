@@ -5,11 +5,14 @@ describe('insurance claim batch removal integrity', () => {
   function setup(batchClaims: Array<{ id: string; totalClaimAmount: number }>) {
     const tx: any = {
       claimBatch: {
-        findUnique: vi.fn().mockResolvedValue({
-          id: 'batch-1',
-          status: 'generated',
-          totalAmount: 200,
-          claims: batchClaims,
+        findUnique: vi.fn(async (args: any) => {
+          const requestedIds = args?.include?.claims?.where?.id?.in;
+          return {
+            id: 'batch-1',
+            status: 'generated',
+            totalAmount: 200,
+            claims: requestedIds ? batchClaims.filter((claim) => requestedIds.includes(claim.id)) : batchClaims,
+          };
         }),
         update: vi.fn().mockResolvedValue({ id: 'batch-1' }),
       },
@@ -46,7 +49,7 @@ describe('insurance claim batch removal integrity', () => {
       }),
     }));
     expect(tx.insuranceClaim.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ['claim-1'], batchId: 'batch-1' } },
+      where: { id: { in: ['claim-1'] }, batchId: 'batch-1' },
       data: { batchId: null },
     });
   });
