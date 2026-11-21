@@ -4,6 +4,26 @@ import { NHISClaimXMLBuilder } from '../src/modules/insuranceClaim/xml/NHISClaim
 const builder = new NHISClaimXMLBuilder();
 const hospital = { nhisFacilityCode: 'FAC-TEST' };
 
+const exportableClaim = (overrides: any = {}) => ({
+  claimNumber: 'NHIS-TEST-1001',
+  claimCheckCode: '12345',
+  typeOfService: 'OPD',
+  typeOfAttendance: 'EAE',
+  serviceOutcome: 'DISC',
+  principalGDRG: 'OPDC06A',
+  createdAt: new Date('2026-10-01T10:00:00Z'),
+  Patient: {
+    nhisNumber: '12345678', surname: 'TEST', otherNames: 'PATIENT',
+    dateOfBirth: new Date('1990-01-01T00:00:00Z'), gender: 'male', folderNumber: 'F-001',
+  },
+  Attendance: { nhisCCC: '12345', dateTime: new Date('2026-10-01T10:00:00Z'), Admission: null },
+  items: [
+    { itemCategory: 'gdrg', code: 'OPDC06A', description: 'OPD consultation', quantity: 1, clinician: 'LIC-001', gdrgTariff: { gdrgCode: 'OPDC06A' } },
+    { itemCategory: 'diagnosis', code: 'J06.9', description: 'Acute upper respiratory infection', quantity: 1, gdrgTariff: { gdrgCode: 'OPDC06A' } },
+  ],
+  ...overrides,
+});
+
 describe('NHIS claim XML itemization safeguards', () => {
   it('rejects a batch when a claim has no items instead of silently exporting an incomplete batch', () => {
     expect(() => builder.buildBatchXml({
@@ -40,6 +60,7 @@ describe('NHIS claim XML itemization safeguards', () => {
       principalGDRG: 'MEDI31A',
       createdAt: new Date('2026-08-05T10:00:00Z'),
       items: [
+        { itemCategory: 'gdrg', code: 'MEDI31A', description: 'Pneumonia', quantity: 1, clinician: 'LIC-001', gdrgTariff: { gdrgCode: 'MEDI31A' } },
         { itemCategory: 'diagnosis', code: 'J18.9', description: 'Pneumonia', gdrgTariff: { gdrgCode: 'MEDI31A' } },
         { itemCategory: 'diagnosis', code: 'K35.8', description: 'Acute appendicitis', gdrgTariff: { gdrgCode: 'ASUR01A' } },
         { itemCategory: 'procedure', code: 'PRO01', description: 'Appendicectomy', serviceDate: new Date('2026-08-05T10:00:00Z'), gdrgTariff: { gdrgCode: 'ASUR01A' }, diagnosis: { icdCode: 'K35.8', name: 'Acute appendicitis' } },
@@ -56,14 +77,45 @@ describe('NHIS claim XML itemization safeguards', () => {
       periodYear: 2026,
       periodMonth: 10,
       claims: [
-        { claimNumber: 'NHIS-1001', items: [{ itemCategory: 'gdrg', code: 'OPD01', description: 'OPD', quantity: 1, lineTotal: 100 }] },
-        { claimNumber: 'NHIS-1002', items: [{ itemCategory: 'medicine', code: 'MED01', description: 'Medicine', quantity: 1, lineTotal: 10 }] },
+        exportableClaim({ claimNumber: 'NHIS-1001' }),
+        exportableClaim({ claimNumber: 'NHIS-1002' }),
       ],
     }, hospital);
     expect(xml).toContain('<claimid>NHIS-1001</claimid>');
     expect(xml).toContain('<claimid>NHIS-1002</claimid>');
     expect(xml).toContain('Claims 2');
   });
+  it('blocks export when the NHIS number is invalid', () => {
+    const claim = exportableClaim({ Patient: { ...exportableClaim().Patient, nhisNumber: '1234' } });
+    expect(() => builder.buildSingleClaimXml(claim, hospital)).toThrow(/NHIS membership number must contain 8 or 10 digits/);
+  });
+
+  it('blocks export when the CCC is not exactly five digits', () => {
+    expect(() => builder.buildSingleClaimXml(exportableClaim({ claimCheckCode: '1234' }), hospital))
+      .toThrow(/Claim Check Code must contain exactly five digits/);
+  });
+
+  it('blocks export when a required clinician licence is missing', () => {
+    const claim = exportableClaim({ items: exportableClaim().items.map((item: any) => ({ ...item, clinician: '' })) });
+    expect(() => builder.buildSingleClaimXml(claim, hospital)).toThrow(/missing physician or prescriber licence/);
+  });
+
+  it('blocks an investigation without its own service date instead of using claim creation date', () => {
+    const claim = exportableClaim({ items: [
+      ...exportableClaim().items,
+      { itemCategory: 'investigation', code: 'INVE01', gdrgTariff: { gdrgCode: 'INVE01' } },
+    ] });
+    expect(() => builder.buildSingleClaimXml(claim, hospital)).toThrow(/investigation line 1 has no valid service date/);
+  });
+
+  it('blocks a medicine without a dispensing date instead of using claim creation date', () => {
+    const claim = exportableClaim({ items: [
+      ...exportableClaim().items,
+      { itemCategory: 'medicine', code: 'PARACETA01', quantity: 2, prescriptionText: '500mg bd' },
+    ] });
+    expect(() => builder.buildSingleClaimXml(claim, hospital)).toThrow(/medicine line 1 has no valid dispensing date/);
+  });
+
 });
 
 // The shape below is copied from the August 2026 batch this facility submitted, not from the
@@ -85,7 +137,7 @@ describe('NHIS claim XML follows the batch the facility actually submitted', () 
       Admission: { admissionDate: new Date('2026-08-01T10:00:00Z'), dischargeDate: new Date('2026-08-05T10:00:00Z') },
     },
     items: [
-      { itemCategory: 'gdrg', code: 'MEDI31A', description: 'Pneumonia', quantity: 1, lineTotal: 100, serviceDate: new Date('2026-08-01T10:00:00Z'), gdrgTariff: { gdrgCode: 'MEDI31A' } },
+      { itemCategory: 'gdrg', code: 'MEDI31A', description: 'Pneumonia', quantity: 1, lineTotal: 100, clinician: 'LIC-001', serviceDate: new Date('2026-08-01T10:00:00Z'), gdrgTariff: { gdrgCode: 'MEDI31A' } },
       { itemCategory: 'diagnosis', code: 'J18.9', description: 'PNEUMONIA', quantity: 1, lineTotal: 0, gdrgTariff: { gdrgCode: 'MEDI31A' } },
       { itemCategory: 'procedure', code: 'ZOOM05A', description: 'Dressing', quantity: 1, lineTotal: 0, serviceDate: new Date('2026-08-02T10:00:00Z'), gdrgTariff: { gdrgCode: 'ZOOM05A' } },
     ],
