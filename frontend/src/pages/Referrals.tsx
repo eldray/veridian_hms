@@ -199,6 +199,7 @@ export default function Referrals() {
     return saved ? parseInt(saved, 10) : 20;
   });
   const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [selectedPatientRecord, setSelectedPatientRecord] = useState<any>(null);
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
   const [prefilledAttendance, setPrefilledAttendance] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -255,6 +256,8 @@ export default function Referrals() {
     const prefillKey = searchParams.toString();
     if (prefillKeyApplied.current === prefillKey) return;
     prefillKeyApplied.current = prefillKey;
+    lastAutoPatientId.current = '';
+    setSelectedPatientRecord(null);
     setSelectedPatientId(patientId);
     setSelectedAttendanceId(attendanceId);
     setReferralType('outgoing');
@@ -320,8 +323,9 @@ export default function Referrals() {
   // Runs whenever the picked patient changes (including prefill). Identity keys
   // are overwritten with the NEW patient; clinical keys are left alone.
   const selectedPatient: any = useMemo(
-    () => patients.find((item: any) => String(item.id || item._id || '') === String(selectedPatientId)) ?? null,
-    [patients, selectedPatientId],
+    () => patients.find((item: any) => String(item.id || item._id || '') === String(selectedPatientId))
+      ?? (String(selectedPatientRecord?.id || selectedPatientRecord?._id || '') === String(selectedPatientId) ? selectedPatientRecord : null),
+    [patients, selectedPatientId, selectedPatientRecord],
   );
   useEffect(() => {
     if (!selectedPatientId || !selectedPatient) { lastAutoPatientId.current = ''; return; }
@@ -340,7 +344,8 @@ export default function Referrals() {
         clientName: getPatientName(p), patientName: getPatientName(p), fullName: getPatientName(p),
         folderNumber: p.folderNumber || p.folderNo || '', folderNo: p.folderNumber || '',
         age: age !== '' && age != null ? `${age} years` : '',
-        sex: p.gender || p.sex || '', gender: p.gender || p.sex || '',
+        sex: (() => { const value = String(p.gender || p.sex || '').trim().toLowerCase(); return value ? value.charAt(0).toUpperCase() + value.slice(1) : ''; })(),
+        gender: (() => { const value = String(p.gender || p.sex || '').trim().toLowerCase(); return value ? value.charAt(0).toUpperCase() + value.slice(1) : ''; })(),
         dateOfBirth: fmtDate(dob), dob: fmtDate(dob),
         contact, phone: contact, phoneNumber: contact, telephone: contact,
         address, residentialAddress: address, homeAddress: address,
@@ -381,6 +386,7 @@ export default function Referrals() {
     lastAutoPatientId.current = '';
     lastAutoAttendanceId.current = '';
     setSelectedPatientId('');
+    setSelectedPatientRecord(null);
     setSelectedAttendanceId('');
     setFormData({
       referralReason: '', referralNotes: '',
@@ -809,8 +815,9 @@ export default function Referrals() {
                       selectedPatientId={selectedPatientId}
                       selectedAttendanceId={selectedAttendanceId}
                       onPatientSelect={setSelectedPatientId}
+                      onPatientRecordSelect={setSelectedPatientRecord}
                       onAttendanceSelect={setSelectedAttendanceId}
-                      onClearSelection={() => { setSelectedPatientId(''); setSelectedAttendanceId(''); }}
+                      onClearSelection={() => { setSelectedPatientId(''); setSelectedPatientRecord(null); setSelectedAttendanceId(''); }}
                       autoSelectMostRecent={!searchParams.get('attendanceId')}
                     />
                   </div>

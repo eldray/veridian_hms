@@ -185,6 +185,7 @@ export default function DispensePatient() {
   const [showSendRx, setShowSendRx] = useState(false);
   const [isPrescribeModalOpen, setIsPrescribeModalOpen] = useState(false);
   const [isConsumableModalOpen, setIsConsumableModalOpen] = useState(false);
+  const [medicationSectionTab, setMedicationSectionTab] = useState<'medications' | 'consumables'>('medications');
   const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
   const [consumableUses, setConsumableUses] = useState<any[]>([]);
   const [bulkDispensing, setBulkDispensing] = useState(false);
@@ -744,6 +745,17 @@ export default function DispensePatient() {
           {/* ═══════════════════════════════════════════════════════════
               PRESCRIBED MEDICATIONS — column-card grid
               ═══════════════════════════════════════════════════════════ */}
+          <div className="mb-3 flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-1 w-fit">
+            <button type="button" onClick={() => setMedicationSectionTab('medications')}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'medications' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
+              Prescribed Medications <span className="ml-1 opacity-75">({prescriptions.length})</span>
+            </button>
+            <button type="button" onClick={() => setMedicationSectionTab('consumables')}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'consumables' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
+              Consumables Issued <span className="ml-1 opacity-75">({consumableUses.length})</span>
+            </button>
+          </div>
+          {medicationSectionTab === 'medications' && (
           <Card
             padded={false}
             icon={Package}
@@ -1046,6 +1058,8 @@ export default function DispensePatient() {
             )}
           </Card>
 
+          )}
+          {medicationSectionTab === 'consumables' && (
           <Card
             padded={false}
             icon={Package}
@@ -1072,6 +1086,8 @@ export default function DispensePatient() {
               onEdit={canDispense ? use => { setEditingConsumable(use); setIsConsumableModalOpen(true); } : undefined}
               onDelete={canDispense ? handleDeleteConsumable : undefined} />
           </Card>
+
+          )}
 
           {/* ═══════════════════════════════════════════════════════════
               DISPENSED THIS VISIT — SAME column-card grid
