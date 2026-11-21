@@ -829,7 +829,7 @@ ${claimsXml}
 
       const att = await tx.attendance.findUnique({
         where: { id: attendanceId },
-        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: 'dispensed' }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } } }
+        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } }, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: 'dispensed' }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } } }
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
@@ -1134,6 +1134,7 @@ ${claimsXml}
         return code;
       };
 
+      const physicianLicense = String(att.User_Attendance_providerIdToUser?.licenseNumber ?? '').trim();
       const supportingItems: any[] = [
         {
           itemCategory: 'diagnosis',
@@ -1234,7 +1235,12 @@ ${claimsXml}
               },
               ...supportingItems,
               ...nhisMedicineItems,
-            ].map((item, index) => ({ ...item, itemNumber: index + 1 }))
+            ] .map((item, index) => ({
+               ...item,
+               itemNumber: index + 1,
+               clinician: physicianLicense || undefined,
+               prescriberNo: physicianLicense || undefined,
+             }))
           }
         },
         include: { items: { orderBy: { itemNumber: 'asc' } } }
