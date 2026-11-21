@@ -71,6 +71,7 @@ export class NHISClaimXMLBuilder {
     const attendance = claim.Attendance ?? claim.attendance ?? {};
     const admission = attendance?.Admission ?? null;
     const items: any[] = claim.items ?? [];
+    this.validateClaimForExport(claim, patient, attendance, items);
 
     // ── Header ──
     const claimId = this.esc(claim.claimNumber ?? '');
@@ -130,7 +131,7 @@ export class NHISClaimXMLBuilder {
     const investigationItems = items
       .filter((i) => i.itemCategory === 'investigation')
       .map((i) => {
-        const serviceDate = this.isoDate(i.serviceDate ?? claim.createdAt);
+        const serviceDate = this.isoDate(i.serviceDate);
         const gdrgCode = this.esc(i.gdrgTariff?.gdrgCode ?? i.code ?? '');
         return `      <entry>
         <serviceDate>${this.esc(serviceDate)}</serviceDate>
@@ -151,7 +152,7 @@ export class NHISClaimXMLBuilder {
     const procedureItems = items
       .filter((i) => i.itemCategory === 'procedure')
       .map((i) => {
-        const serviceDate = this.isoDate(i.serviceDate ?? claim.createdAt);
+        const serviceDate = this.isoDate(i.serviceDate);
         const gdrgCode = this.esc(i.gdrgTariff?.gdrgCode ?? i.code ?? '');
         return `      <entry>
         <serviceDate>${this.esc(serviceDate)}</serviceDate>
@@ -170,7 +171,7 @@ export class NHISClaimXMLBuilder {
       .map((i) => {
         const code = this.esc(i.code ?? '');
         const qty = String(i.quantity ?? 1);
-        const serviceDate = this.isoDate(i.serviceDate ?? claim.createdAt);
+        const serviceDate = this.isoDate(i.serviceDate);
         const prescription = this.esc(i.prescriptionText ?? '');
         return `      <entry>
         <medicineCode>${code}</medicineCode>
@@ -223,6 +224,61 @@ export class NHISClaimXMLBuilder {
     ]
       .filter((line) => line !== '')
       .join('\n');
+  }
+
+  private validateClaimForExport(claim: any, patient: any, attendance: any, items: any[]): void {
+    const label = String(claim?.claimNumber ?? claim?.id ?? 'unknown');
+    const fail = (message: string): never => {
+      throw new Error(`Claim ${label} cannot be exported: ${message}.`);
+    };
+    const required = (value: unknown, field: string) => {
+      if (value === null || value === undefined || String(value).trim() === '') fail(`missing ${field}`);
+    };
+
+    required(claim?.claimNumber, 'claim number');
+    const ccc = String(claim?.claimCheckCode ?? attendance?.nhisCCC ?? '').trim();
+    if (!/^\d{5}$/.test(ccc)) fail('Claim Check Code must contain exactly five digits');
+    const memberNo = String(patient?.nhisNumber ?? '').replace(/\s/g, '');
+    if (!/^(\d{8}|\d{10})$/.test(memberNo)) fail('NHIS membership number must contain 8 or 10 digits');
+    required(patient?.surname, 'patient surname');
+    required(patient?.otherNames, 'patient other names');
+    if (!this.isoDate(patient?.dateOfBirth)) fail('patient date of birth is missing or invalid');
+    if (!['male', 'female', 'M', 'F'].includes(String(patient?.gender ?? ''))) fail('patient gender must be male or female');
+    required(patient?.folderNumber, 'hospital folder number');
+    required(this.resolvePhysicianLicense(items), 'physician or prescriber licence');
+    required(claim?.principalGDRG, 'principal G-DRG');
+    const gdrgLines = items.filter((item) => item?.itemCategory === 'gdrg');
+    if (!gdrgLines.some((item) => String(item?.gdrgTariff?.gdrgCode ?? item?.code ?? '') === String(claim.principalGDRG))) {
+      fail('principal G-DRG is not present on a G-DRG claim line');
+    }
+    if (!['OPD', 'IPD', 'DIA', 'PHC'].includes(String(claim?.typeOfService ?? ''))) fail('type of service must be OPD, IPD, DIA or PHC');
+    if (!['EAE', 'CFU', 'ANC', 'PNC'].includes(String(claim?.typeOfAttendance ?? ''))) fail('type of attendance must be EAE, CFU, ANC or PNC');
+    if (!['DISC', 'DIED', 'TFOT', 'ABSC'].includes(String(claim?.serviceOutcome ?? ''))) fail('service outcome must be DISC, DIED, TFOT or ABSC');
+    if (!this.resolveDatesOfService(claim, attendance, attendance?.Admission ?? null).length) fail('service dates are missing or invalid');
+
+    const diagnoses = items.filter((item) => item?.itemCategory === 'diagnosis');
+    if (!diagnoses.length) fail('at least one diagnosis line is required');
+    diagnoses.forEach((item, index) => {
+      required(item?.code, `diagnosis line ${index + 1} ICD-10 code`);
+      required(item?.description, `diagnosis line ${index + 1} description`);
+      required(item?.gdrgTariff?.gdrgCode ?? claim?.principalGDRG, `diagnosis line ${index + 1} G-DRG code`);
+    });
+    items.filter((item) => item?.itemCategory === 'investigation').forEach((item, index) => {
+      required(item?.gdrgTariff?.gdrgCode ?? item?.code, `investigation line ${index + 1} code`);
+      if (!this.isoDate(item?.serviceDate)) fail(`investigation line ${index + 1} has no valid service date`);
+    });
+    items.filter((item) => item?.itemCategory === 'procedure').forEach((item, index) => {
+      required(item?.gdrgTariff?.gdrgCode ?? item?.code, `procedure line ${index + 1} code`);
+      if (!this.isoDate(item?.serviceDate)) fail(`procedure line ${index + 1} has no valid service date`);
+      required(item?.diagnosis?.name ?? diagnoses[0]?.description, `procedure line ${index + 1} diagnosis`);
+    });
+    items.filter((item) => item?.itemCategory === 'medicine').forEach((item, index) => {
+      required(item?.code, `medicine line ${index + 1} NHIS medicine code`);
+      const quantity = Number(item?.quantity);
+      if (!Number.isFinite(quantity) || quantity <= 0) fail(`medicine line ${index + 1} quantity must be greater than zero`);
+      if (!this.isoDate(item?.serviceDate)) fail(`medicine line ${index + 1} has no valid dispensing date`);
+      required(item?.prescriptionText, `medicine line ${index + 1} prescription`);
+    });
   }
 
   // ==========================================
