@@ -1190,21 +1190,44 @@ export const getClaimsSummary = (insuranceType?: 'nhis' | 'private' | 'corporate
 // ──────────────────────────────────────────────
 
 const downloadAuthenticatedFile = async (path: string, fallbackFilename: string): Promise<void> => {
-  const response = await api.get(path, { responseType: 'blob' });
+  let response;
+  try {
+    response = await api.get(path, { responseType: 'blob' });
+  } catch (error: any) {
+    // Axios returns error responses as Blob too when responseType is blob. Decode them so
+    // the user sees the actual NHIS validation/API message instead of a generic download error.
+    const payload = error?.response?.data;
+    if (payload instanceof Blob) {
+      const raw = await payload.text().catch(() => '');
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          throw new Error(parsed?.message || parsed?.error || raw);
+        } catch (parseError: any) {
+          if (parseError instanceof Error && parseError.message !== raw) throw parseError;
+        }
+        throw new Error(raw.slice(0, 500));
+      }
+    }
+    throw error;
+  }
   const disposition = String(response.headers?.['content-disposition'] ?? '');
   const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || fallbackFilename;
   const blob = response.data instanceof Blob
     ? response.data
     : new Blob([response.data], { type: String(response.headers?.['content-type'] || 'application/octet-stream') });
+  if (!blob.size) throw new Error('The server returned an empty file. Refresh the claims page and try again.');
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = objectUrl;
   anchor.download = filename;
+  anchor.rel = 'noopener';
   anchor.style.display = 'none';
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  // Keep the object URL alive long enough for Chromium/Electron to start the download.
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
 };
 
 const openAuthenticatedPrintView = async (path: string): Promise<void> => {
