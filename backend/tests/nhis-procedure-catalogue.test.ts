@@ -113,7 +113,7 @@ describe('NHIS procedure catalogue coverage', () => {
     const source = await import('node:fs/promises').then(({ readFile }) =>
       readFile(new URL('../src/seed/diagnosisGdrgLink.ts', import.meta.url), 'utf8'),
     );
-    const rows = [...source.matchAll(/icdCode:\s*'([^']+)'[\\s\\S]*?gdrgCodes:\s*\\[([^\\]]*)\\][\\s\\S]*?isPrimaryGdrg:\s*'([^']+)'/g)]
+    const rows = [...source.matchAll(/icdCode:\s*'([^']+)'[\s\S]*?gdrgCodes:\s*\[([^\]]*)\][\s\S]*?isPrimaryGdrg:\s*'([^']+)'/g)]
       .map((match) => ({
         icdCode: match[1],
         codes: [...match[2].matchAll(/'([^']+)'/g)].map((code) => code[1]),
@@ -121,15 +121,13 @@ describe('NHIS procedure catalogue coverage', () => {
       }));
     const codesByDiagnosis = new Map<string, string[]>();
     for (const row of rows) {
+      expect(codesByDiagnosis.has(row.icdCode), \`duplicate diagnosis mapping row for \${row.icdCode}\`).toBe(false);
       expect(row.codes, row.icdCode).toContain(row.primary);
       for (const code of row.codes) {
-        expect(tariffByCode.has(code), `missing tariff ${code} linked to ${row.icdCode}`).toBe(true);
+        expect(tariffByCode.has(code), \`missing tariff \${code} linked to \${row.icdCode}\`).toBe(true);
       }
-      codesByDiagnosis.set(row.icdCode, [...(codesByDiagnosis.get(row.icdCode) ?? []), ...row.codes]);
-    }
-    for (const [icdCode, codes] of codesByDiagnosis) {
-      expect(codes.length, `duplicate diagnosis mapping row for ${icdCode}`).toBe(codes.length);
-      expect(new Set(codes).size, `duplicate G-DRG links for ${icdCode}`).toBe(codes.length);
+      expect(new Set(row.codes).size, \`duplicate G-DRG links for \${row.icdCode}\`).toBe(row.codes.length);
+      codesByDiagnosis.set(row.icdCode, row.codes);
     }
     expect(rows.length).toBeGreaterThan(400);
   });
