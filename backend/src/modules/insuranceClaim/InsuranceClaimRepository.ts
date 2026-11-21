@@ -255,7 +255,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
             Bill: true,
             // The printed batch report splits the money by what the lines actually were, and the
             // XML builder walks the same lines.
-            items: { orderBy: { itemNumber: 'asc' } },
+            items: { orderBy: { itemNumber: 'asc' }, include: { diagnosis: true } },
           }
         },
         createdBy: { select: { id: true, fullName: true, username: true } }
