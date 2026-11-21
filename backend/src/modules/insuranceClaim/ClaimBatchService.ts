@@ -74,7 +74,7 @@ export class ClaimBatchService extends BaseService {
     const status = String(latestAdjudication?.status || '').toLowerCase();
     const hasAmount = ['approved', 'partially_approved'].includes(status) && latestAdjudication?.amount != null;
     const adjudicated = hasAmount ? Number(latestAdjudication.amount) : null;
-    const payable = status === 'rejected' ? (latestAdjudication?.amount != null ? Number(latestAdjudication.amount) : 0) : (hasAmount ? Number(adjudicated) : submitted);
+    const payable = status === 'rejected' ? 0 : (hasAmount ? Number(adjudicated) : submitted);
     const outstanding = Math.max(0, payable - paid);
     const overpaid = Math.max(0, paid - payable);
     const submission = events.find((event: any) => event.eventType === 'submission');
