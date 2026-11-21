@@ -70,21 +70,17 @@ export class ClaimBatchService extends BaseService {
     const submitted = Number(batch.totalAmount || 0);
     const paid = events.filter((event: any) => event.eventType === 'payment')
       .reduce((sum: number, event: any) => sum + Number(event.amount || 0), 0);
-    const latestAdjudication = [...events].reverse().find((event: any) => event.eventType === 'adjudication');
-    const status = String(latestAdjudication?.status || '').toLowerCase();
-    const hasAmount = ['approved', 'partially_approved'].includes(status) && latestAdjudication?.amount != null;
-    const adjudicated = hasAmount ? Number(latestAdjudication.amount) : null;
-    const payable = status === 'rejected' ? (latestAdjudication?.amount != null ? Number(latestAdjudication.amount) : 0) : (hasAmount ? Number(adjudicated) : submitted);
-    const outstanding = Math.max(0, payable - paid);
-    const overpaid = Math.max(0, paid - payable);
+    const outstanding = Math.max(0, submitted - paid);
+    const overpaid = Math.max(0, paid - submitted);
     const submission = events.find((event: any) => event.eventType === 'submission');
-    const resubmissions = events.filter((event: any) => event.eventType === 'resubmission');
-    const latestResubmission = resubmissions[resubmissions.length - 1] || null;
-    return { amountSubmitted: submitted, amountAdjudicated: adjudicated, amountPayable: payable, totalPaid: paid, outstanding, overpaid,
-      latestStatus: overpaid > 0 ? 'overpaid' : paid >= payable && paid > 0 ? 'paid' : paid > 0 ? 'partially_paid' : (latestAdjudication?.status || (submission ? 'submitted' : 'not_submitted')),
+    return {
+      amountSubmitted: submitted,
+      totalPaid: paid,
+      outstanding,
+      overpaid,
+      latestStatus: overpaid > 0 ? 'overpaid' : paid >= submitted && paid > 0
+        ? 'paid' : paid > 0 ? 'partially_paid' : (submission ? 'submitted' : 'finalized'),
       submittedAt: submission?.submissionDate || submission?.createdAt || batch.finalizedAt || null,
-      resubmissionCount: resubmissions.length,
-      latestResubmissionAt: latestResubmission?.submissionDate || latestResubmission?.createdAt || null,
     };
   }
   async listBatchTracking(filters: any) {
@@ -112,9 +108,8 @@ export class ClaimBatchService extends BaseService {
     },
     userId: string,
   ) {
-    const allowedTypes = ['submission', 'resubmission', 'adjudication', 'payment', 'note'];
-    if (!allowedTypes.includes(String(input.eventType))) {
-      throw new ValidationError('Invalid tracking event type');
+    if (String(input.eventType) !== 'payment') {
+      throw new ValidationError('Only batch payment receipts are recorded here. Payer adjudication and claim resubmission are outside this facility workflow.');
     }
     const batch = await this.prisma.claimBatch.findUnique({
       where: { id: batchId },
@@ -125,14 +120,14 @@ export class ClaimBatchService extends BaseService {
       throw new ValidationError('Only finalized batches can be tracked for submission or remittance');
     }
 
-    if (input.eventType === 'payment') {
+    {
       const numericAmount = Number(input.amount);
       if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
         throw new ValidationError('Payment amount must be greater than zero');
       }
       const paymentReference = String(input.paymentReference || '').trim();
       if (!paymentReference) {
-        throw new ValidationError('A payer remittance/payment reference is required to prevent duplicate entries');
+        throw new ValidationError('A payment reference is required to prevent duplicate entries');
       }
       try {
         return await this.prisma.$transaction(async (tx: any) => {
@@ -141,16 +136,10 @@ export class ClaimBatchService extends BaseService {
             where: { batchId: batch.id, eventType: 'payment' }, select: { amount: true },
           });
           const paid = existing.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
-          const adjudications = await tx.claimBatchTrackingEvent.findMany({
-            where: { batchId: batch.id, eventType: 'adjudication' },
-            orderBy: { createdAt: 'desc' }, take: 1, select: { status: true, amount: true },
-          });
-          const latest = adjudications[0];
-          const latestStatus = String(latest?.status || '').toLowerCase();
-          const paymentLimit = latestStatus === 'rejected' ? 0 : (['approved', 'partially_approved'].includes(latestStatus) && latest?.amount != null ? Number(latest.amount) : Number(batch.totalAmount));
-          if (paid + numericAmount > paymentLimit + 0.005) {
+          const submittedAmount = Number(batch.totalAmount);
+          if (paid + numericAmount > submittedAmount + 0.005) {
             throw new ValidationError(
-              `Payment exceeds the ₵${paymentLimit.toFixed(2)} approved limit for ${batch.batchNumber}. Check the remittance and the payments already recorded.`,
+              `Payment exceeds the ₵${submittedAmount.toFixed(2)} submitted amount for ${batch.batchNumber}. Check the receipt and payments already recorded.`,
             );
           }
           return tx.claimBatchTrackingEvent.create({
@@ -173,46 +162,6 @@ export class ClaimBatchService extends BaseService {
         throw error;
       }
     }
-
-    if (['submission', 'resubmission'].includes(input.eventType) && !String(input.payerReference || '').trim()) {
-      throw new ValidationError('Enter the payer submission/resubmission reference');
-    }
-    if (['submission', 'resubmission'].includes(input.eventType) && input.submissionDate
-      && Number.isNaN(new Date(input.submissionDate).getTime())) {
-      throw new ValidationError('Submission or resubmission date is invalid');
-    }
-    const allowedStatuses = ['acknowledged', 'under_review', 'queried', 'approved', 'partially_approved', 'rejected'];
-    if (input.eventType === 'adjudication'
-      && !allowedStatuses.includes(String(input.status || '').trim().toLowerCase())) {
-      throw new ValidationError('Choose a valid payer adjudication status');
-    }
-    // Record the payer's adjudicated value when supplied (especially partial
-    // approvals); otherwise the event is still useful as a status-only update.
-    if (input.eventType === 'adjudication' && input.amount != null) {
-      const adjudicatedAmount = Number(input.amount);
-      if (!Number.isFinite(adjudicatedAmount) || adjudicatedAmount < 0
-        || adjudicatedAmount > Number(batch.totalAmount) + 0.005) {
-        throw new ValidationError('Adjudicated amount must be zero or more and cannot exceed the submitted batch amount');
-      }
-    }
-
-    const eventData = {
-      batchId: batch.id,
-      eventType: String(input.eventType),
-      status: input.status ? String(input.status).trim().toLowerCase() : null,
-      submissionDate: input.submissionDate ? new Date(input.submissionDate) : (['submission', 'resubmission'].includes(input.eventType) ? new Date() : null),
-      payerReference: input.payerReference ? String(input.payerReference).trim() : null,
-      amount: input.eventType === 'adjudication' && input.amount != null ? Number(input.amount) : null,
-      notes: input.notes ? String(input.notes).trim() : null,
-      recordedById: userId,
-    };
-    if (input.eventType === 'adjudication') {
-      return this.prisma.$transaction(async (tx: any) => {
-        await tx.$queryRaw`SELECT "id" FROM "claim_batches" WHERE "id" = ${batch.id} FOR UPDATE`;
-        return tx.claimBatchTrackingEvent.create({ data: eventData });
-      });
-    }
-    return this.prisma.claimBatchTrackingEvent.create({ data: eventData });
   }
   // ==========================================
   // GENERATE
