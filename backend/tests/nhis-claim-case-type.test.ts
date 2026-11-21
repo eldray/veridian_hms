@@ -37,6 +37,7 @@ type EncounterInput = {
   procedureTariffs?: Array<{ tariff: ReturnType<typeof tariff>; isPrimary: boolean }>;
   /** Another of this patient's stays the claim's service date falls inside. */
   otherStay?: { admissionNumber: string; admissionDate: Date; dischargeDate: Date | null } | null;
+  nhisNumber?: string | null;
 };
 
 /** Runs generateNHISClaim against one encounter and returns the claim row it would write. */
@@ -48,6 +49,7 @@ function generate(input: EncounterInput) {
     diagnosisTariffs = [],
     procedureTariffs = [],
     otherStay = null,
+    nhisNumber = '12345678',
   } = input;
 
   const attendance = {
@@ -60,7 +62,7 @@ function generate(input: EncounterInput) {
     encounterCategory,
     dateTime: serviceDate,
     status: admission ? 'discharged' : 'completed',
-    Patient: { id: 'patient-1', dateOfBirth: new Date('1985-04-02'), surname: 'Mensah', otherNames: 'Kofi' },
+    Patient: { id: 'patient-1', nhisNumber, dateOfBirth: new Date('1985-04-02'), surname: 'Mensah', otherNames: 'Kofi' },
     InsuranceProvider: { id: 'nhis-1', type: 'nhis', name: 'NHIS' },
     Bill: { id: 'bill-1' },
     Admission: admission ? { ...admission, dischargeStatus: 'discharged' } : null,
@@ -132,6 +134,18 @@ function setupFinalize(claim: any, otherStay: any = null) {
 }
 
 describe('NHIS claim generation follows the case the encounter is', () => {
+  it('refuses to create a claim when the patient has no valid NHIS membership number', async () => {
+    const { tx, run } = generate({
+      attendanceType: 'general_consultation',
+      encounterCategory: 'opd',
+      nhisNumber: '',
+      diagnosisTariffs: [{ tariff: tariff('OPDC06A'), isPrimary: true }],
+    });
+
+    await expect(run()).rejects.toThrow(/no valid 8-digit NHIS number or 10-digit HIN/);
+    expect(tx.insuranceClaim.create).not.toHaveBeenCalled();
+  });
+
   it('bills a day-case dressing under its ZOOM code, not the theatre code it also links', async () => {
     const { run } = generate({
       attendanceType: 'general_consultation',
