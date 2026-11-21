@@ -1,6 +1,6 @@
 {
-  "source": "NHIA G-DRG Revised Tariffs 2022 Version 2.0 — Private Primary Care (Catering Exclusive)",
-  "effectiveFrom": "2022-10-01",
+  "source": "August 2026 NHIS Service Tariffs — Private Primary Hospital (Level C), Catering Exclusive",
+  "effectiveFrom": "2026-08-01",
   "gdrgTariffs": [
     {
       "gdrgCode": "ASUR01A",
@@ -14,7 +14,7 @@
         2,
         3
       ],
-      "tariffGhC": 748.79
+      "tariffGhC": 1566.83
     },
     {
       "gdrgCode": "ASUR02A",
@@ -27,7 +27,7 @@
         1,
         2
       ],
-      "tariffGhC": 1116.24
+      "tariffGhC": 3222.45
     },
     {
       "gdrgCode": "ASUR03A",
@@ -41,7 +41,7 @@
         2,
         3
       ],
-      "tariffGhC": 516.97
+      "tariffGhC": 887.25
     },
     {
       "gdrgCode": "ASUR04A",
@@ -55,7 +55,7 @@
         2,
         3
       ],
-      "tariffGhC": 1100.54
+      "tariffGhC": 2387.81
     },
     {
       "gdrgCode": "ASUR05A",
@@ -69,7 +69,7 @@
         2,
         3
       ],
-      "tariffGhC": 539.27
+      "tariffGhC": 1006.99
     },
     {
       "gdrgCode": "ASUR06A",
@@ -83,7 +83,7 @@
         2,
         3
       ],
-      "tariffGhC": 987.47
+      "tariffGhC": 2027.88
     },
     {
       "gdrgCode": "ASUR07A",
@@ -97,7 +97,7 @@
         2,
         3
       ],
-      "tariffGhC": 786.14
+      "tariffGhC": 1969.37
     },
     {
       "gdrgCode": "ASUR08A",
@@ -111,7 +111,7 @@
         2,
         3
       ],
-      "tariffGhC": 734.77
+      "tariffGhC": 1595.43
     },
     {
       "gdrgCode": "ASUR09A",
@@ -125,7 +125,7 @@
         2,
         3
       ],
-      "tariffGhC": 311.02
+      "tariffGhC": 779.88
     },
     {
       "gdrgCode": "ASUR10A",
@@ -139,7 +139,7 @@
         2,
         3
       ],
-      "tariffGhC": 741.48
+      "tariffGhC": 1597.81
     },
     {
       "gdrgCode": "ASUR11A",
@@ -153,7 +153,7 @@
         2,
         3
       ],
-      "tariffGhC": 1143.91
+      "tariffGhC": 2016.07
     },
     {
       "gdrgCode": "ASUR12A",
@@ -167,7 +167,7 @@
         2,
         3
       ],
-      "tariffGhC": 985.48
+      "tariffGhC": 1774.59
     },
     {
       "gdrgCode": "ASUR13A",
@@ -181,7 +181,7 @@
         2,
         3
       ],
-      "tariffGhC": 1209.2
+      "tariffGhC": 2218.73
     },
     {
       "gdrgCode": "ASUR14A",
@@ -195,7 +195,7 @@
         2,
         3
       ],
-      "tariffGhC": 425.66
+      "tariffGhC": 614.37
     },
     {
       "gdrgCode": "ASUR15A",
@@ -209,7 +209,7 @@
         2,
         3
       ],
-      "tariffGhC": 486.66
+      "tariffGhC": 1181.52
     },
     {
       "gdrgCode": "ASUR16A",
@@ -223,7 +223,7 @@
         2,
         3
       ],
-      "tariffGhC": 757.64
+      "tariffGhC": 1759.01
     },
     {
       "gdrgCode": "ASUR17A",
@@ -237,7 +237,7 @@
         2,
         3
       ],
-      "tariffGhC": 876.41
+      "tariffGhC": 1888.28
     },
     {
       "gdrgCode": "ASUR18A",
@@ -251,7 +251,7 @@
         2,
         3
       ],
-      "tariffGhC": 1203.95
+      "tariffGhC": 2563.87
     },
     {
       "gdrgCode": "ASUR19A",
@@ -267,7 +267,7 @@
         2,
         3
       ],
-      "tariffGhC": 573.48
+      "tariffGhC": 1287.47
     },
     {
       "gdrgCode": "ASUR20A",
@@ -281,7 +281,7 @@
         2,
         3
       ],
-      "tariffGhC": 402.84
+      "tariffGhC": 841.18
     },
     {
       "gdrgCode": "ASUR21A",
@@ -295,7 +295,7 @@
         2,
         3
       ],
-      "tariffGhC": 740.16
+      "tariffGhC": 1834.09
     },
     {
       "gdrgCode": "ASUR22A",
@@ -309,7 +309,7 @@
         2,
         3
       ],
-      "tariffGhC": 406.32
+      "tariffGhC": 1083.79
     },
     {
       "gdrgCode": "ASUR23A",
@@ -323,7 +323,7 @@
         2,
         3
       ],
-      "tariffGhC": 878.25
+      "tariffGhC": 1962.73
     },
     {
       "gdrgCode": "ASUR24A",
@@ -337,7 +337,7 @@
         2,
         3
       ],
-      "tariffGhC": 1111.36
+      "tariffGhC": 2567.14
     },
     {
       "gdrgCode": "ASUR25A",
@@ -351,7 +351,7 @@
         2,
         3
       ],
-      "tariffGhC": 517.27
+      "tariffGhC": 1026.43
     },
     {
       "gdrgCode": "ASUR27A",
@@ -365,7 +365,7 @@
         2,
         3
       ],
-      "tariffGhC": 266.81
+      "tariffGhC": 405.48
     },
     {
       "gdrgCode": "ASUR28A",
@@ -379,7 +379,7 @@
         2,
         3
       ],
-      "tariffGhC": 788.3
+      "tariffGhC": 2020.86
     },
     {
       "gdrgCode": "ASUR29A",
@@ -406,7 +406,7 @@
         2,
         3
       ],
-      "tariffGhC": 298.88
+      "tariffGhC": 517.91
     },
     {
       "gdrgCode": "ASUR31A",
@@ -420,7 +420,7 @@
         2,
         3
       ],
-      "tariffGhC": 332.72
+      "tariffGhC": 710.37
     },
     {
       "gdrgCode": "ASUR32A",
@@ -434,7 +434,7 @@
         2,
         3
       ],
-      "tariffGhC": 674.93
+      "tariffGhC": 1455.88
     },
     {
       "gdrgCode": "ASUR33A",
@@ -448,7 +448,7 @@
         2,
         3
       ],
-      "tariffGhC": 918.23
+      "tariffGhC": 1794.55
     },
     {
       "gdrgCode": "ASUR34A",
@@ -462,7 +462,7 @@
         2,
         3
       ],
-      "tariffGhC": 266.81
+      "tariffGhC": 561.13
     },
     {
       "gdrgCode": "ASUR35A",
@@ -476,7 +476,7 @@
         2,
         3
       ],
-      "tariffGhC": 383.53
+      "tariffGhC": 1014.28
     },
     {
       "gdrgCode": "ASUR36A",
@@ -490,7 +490,7 @@
         2,
         3
       ],
-      "tariffGhC": 532.57
+      "tariffGhC": 1596.16
     },
     {
       "gdrgCode": "ASUR37A",
@@ -504,7 +504,7 @@
         2,
         3
       ],
-      "tariffGhC": 727.4
+      "tariffGhC": 1791.17
     },
     {
       "gdrgCode": "PSUR01C",
@@ -518,7 +518,7 @@
         2,
         3
       ],
-      "tariffGhC": 743.09
+      "tariffGhC": 1718.93
     },
     {
       "gdrgCode": "PSUR02C",
@@ -532,7 +532,7 @@
         2,
         3
       ],
-      "tariffGhC": 859.27
+      "tariffGhC": 1931.51
     },
     {
       "gdrgCode": "PSUR03C",
@@ -546,7 +546,7 @@
         2,
         3
       ],
-      "tariffGhC": 910.37
+      "tariffGhC": 2028.54
     },
     {
       "gdrgCode": "PSUR04C",
@@ -560,7 +560,7 @@
         2,
         3
       ],
-      "tariffGhC": 766
+      "tariffGhC": 2079.88
     },
     {
       "gdrgCode": "PSUR05C",
@@ -574,7 +574,7 @@
         2,
         3
       ],
-      "tariffGhC": 319.54
+      "tariffGhC": 1030
     },
     {
       "gdrgCode": "PSUR06C",
@@ -588,7 +588,7 @@
         2,
         3
       ],
-      "tariffGhC": 350.89
+      "tariffGhC": 988.13
     },
     {
       "gdrgCode": "PSUR07C",
@@ -602,7 +602,7 @@
         2,
         3
       ],
-      "tariffGhC": 417.94
+      "tariffGhC": 857.67
     },
     {
       "gdrgCode": "PSUR08C",
@@ -616,7 +616,7 @@
         2,
         3
       ],
-      "tariffGhC": 731.46
+      "tariffGhC": 1261.23
     },
     {
       "gdrgCode": "PSUR09C",
@@ -630,7 +630,7 @@
         2,
         3
       ],
-      "tariffGhC": 757.26
+      "tariffGhC": 1829.76
     },
     {
       "gdrgCode": "PSUR10C",
@@ -644,7 +644,7 @@
         2,
         3
       ],
-      "tariffGhC": 665.38
+      "tariffGhC": 1571
     },
     {
       "gdrgCode": "PSUR11C",
@@ -658,7 +658,7 @@
         2,
         3
       ],
-      "tariffGhC": 775.03
+      "tariffGhC": 1869.01
     },
     {
       "gdrgCode": "PSUR12C",
@@ -672,7 +672,7 @@
         2,
         3
       ],
-      "tariffGhC": 631.4
+      "tariffGhC": 1652.42
     },
     {
       "gdrgCode": "PSUR14C",
@@ -686,7 +686,7 @@
         2,
         3
       ],
-      "tariffGhC": 932.44
+      "tariffGhC": 2297.68
     },
     {
       "gdrgCode": "PSUR15C",
@@ -700,7 +700,7 @@
         2,
         3
       ],
-      "tariffGhC": 603.6
+      "tariffGhC": 1788.47
     },
     {
       "gdrgCode": "PSUR16C",
@@ -714,7 +714,7 @@
         2,
         3
       ],
-      "tariffGhC": 1438.86
+      "tariffGhC": 3449.58
     },
     {
       "gdrgCode": "PSUR17C",
@@ -728,7 +728,7 @@
         2,
         3
       ],
-      "tariffGhC": 502.27
+      "tariffGhC": 1423.84
     },
     {
       "gdrgCode": "PSUR18C",
@@ -742,7 +742,7 @@
         2,
         3
       ],
-      "tariffGhC": 830.77
+      "tariffGhC": 1623
     },
     {
       "gdrgCode": "PSUR19C",
@@ -756,7 +756,7 @@
         2,
         3
       ],
-      "tariffGhC": 1108.14
+      "tariffGhC": 2740.43
     },
     {
       "gdrgCode": "PSUR20C",
@@ -770,7 +770,7 @@
         2,
         3
       ],
-      "tariffGhC": 2112.31
+      "tariffGhC": 5686.37
     },
     {
       "gdrgCode": "PSUR21C",
@@ -784,7 +784,7 @@
         2,
         3
       ],
-      "tariffGhC": 341.16
+      "tariffGhC": 890.2
     },
     {
       "gdrgCode": "PSUR23C",
@@ -798,7 +798,7 @@
         2,
         3
       ],
-      "tariffGhC": 813.55
+      "tariffGhC": 2006.56
     },
     {
       "gdrgCode": "PSUR24C",
@@ -812,7 +812,7 @@
         2,
         3
       ],
-      "tariffGhC": 803.28
+      "tariffGhC": 1956.71
     },
     {
       "gdrgCode": "PSUR25C",
@@ -826,7 +826,7 @@
         2,
         3
       ],
-      "tariffGhC": 856.49
+      "tariffGhC": 1642.58
     },
     {
       "gdrgCode": "PSUR26C",
@@ -840,7 +840,7 @@
         2,
         3
       ],
-      "tariffGhC": 429.88
+      "tariffGhC": 715.29
     },
     {
       "gdrgCode": "PSUR27C",
@@ -854,7 +854,7 @@
         2,
         3
       ],
-      "tariffGhC": 1197.91
+      "tariffGhC": 1880.02
     },
     {
       "gdrgCode": "PSUR28C",
@@ -868,7 +868,7 @@
         2,
         3
       ],
-      "tariffGhC": 1262.66
+      "tariffGhC": 1661.84
     },
     {
       "gdrgCode": "PSUR29C",
@@ -882,7 +882,7 @@
         2,
         3
       ],
-      "tariffGhC": 420.91
+      "tariffGhC": 1069.31
     },
     {
       "gdrgCode": "PSUR30C",
@@ -896,7 +896,7 @@
         2,
         3
       ],
-      "tariffGhC": 795.55
+      "tariffGhC": 1704.96
     },
     {
       "gdrgCode": "PSUR31C",
@@ -910,7 +910,7 @@
         2,
         3
       ],
-      "tariffGhC": 763.49
+      "tariffGhC": 1811.64
     },
     {
       "gdrgCode": "PSUR32C",
@@ -937,7 +937,7 @@
         2,
         3
       ],
-      "tariffGhC": 461.84
+      "tariffGhC": 1228.55
     },
     {
       "gdrgCode": "PSUR34C",
@@ -951,7 +951,7 @@
         2,
         3
       ],
-      "tariffGhC": 429.65
+      "tariffGhC": 693.12
     },
     {
       "gdrgCode": "PSUR35C",
@@ -965,7 +965,7 @@
         2,
         3
       ],
-      "tariffGhC": 998.47
+      "tariffGhC": 2087.04
     },
     {
       "gdrgCode": "PSUR36C",
@@ -979,7 +979,7 @@
         2,
         3
       ],
-      "tariffGhC": 252.38
+      "tariffGhC": 668.3
     },
     {
       "gdrgCode": "PSUR37C",
@@ -993,7 +993,7 @@
         2,
         3
       ],
-      "tariffGhC": 346.92
+      "tariffGhC": 1063.67
     },
     {
       "gdrgCode": "PSUR38C",
@@ -1007,7 +1007,7 @@
         2,
         3
       ],
-      "tariffGhC": 573.24
+      "tariffGhC": 1778.26
     },
     {
       "gdrgCode": "PSUR39C",
@@ -1021,7 +1021,7 @@
         2,
         3
       ],
-      "tariffGhC": 723.56
+      "tariffGhC": 1848.17
     },
     {
       "gdrgCode": "MEDI01A",
@@ -1035,7 +1035,7 @@
         2,
         3
       ],
-      "tariffGhC": 381.14
+      "tariffGhC": 574.04
     },
     {
       "gdrgCode": "MEDI02A",
@@ -1049,7 +1049,7 @@
         2,
         3
       ],
-      "tariffGhC": 284.25
+      "tariffGhC": 534.36
     },
     {
       "gdrgCode": "MEDI03A",
@@ -1063,7 +1063,7 @@
         2,
         3
       ],
-      "tariffGhC": 540.25
+      "tariffGhC": 858.65
     },
     {
       "gdrgCode": "MEDI04A",
@@ -1077,7 +1077,7 @@
         2,
         3
       ],
-      "tariffGhC": 327.52
+      "tariffGhC": 481.54
     },
     {
       "gdrgCode": "MEDI05A",
@@ -1091,7 +1091,7 @@
         2,
         3
       ],
-      "tariffGhC": 289.63
+      "tariffGhC": 479.3
     },
     {
       "gdrgCode": "MEDI06A",
@@ -1105,7 +1105,7 @@
         2,
         3
       ],
-      "tariffGhC": 337.79
+      "tariffGhC": 515.74
     },
     {
       "gdrgCode": "MEDI07A",
@@ -1119,7 +1119,7 @@
         2,
         3
       ],
-      "tariffGhC": 473.86
+      "tariffGhC": 611.49
     },
     {
       "gdrgCode": "MEDI08A",
@@ -1133,7 +1133,7 @@
         2,
         3
       ],
-      "tariffGhC": 216.22
+      "tariffGhC": 356.99
     },
     {
       "gdrgCode": "MEDI10A",
@@ -1147,7 +1147,7 @@
         2,
         3
       ],
-      "tariffGhC": 431
+      "tariffGhC": 562.95
     },
     {
       "gdrgCode": "MEDI11A",
@@ -1161,7 +1161,7 @@
         2,
         3
       ],
-      "tariffGhC": 581.8
+      "tariffGhC": 826.46
     },
     {
       "gdrgCode": "MEDI12A",
@@ -1175,7 +1175,7 @@
         2,
         3
       ],
-      "tariffGhC": 285.91
+      "tariffGhC": 458.96
     },
     {
       "gdrgCode": "MEDI13A",
@@ -1189,7 +1189,7 @@
         2,
         3
       ],
-      "tariffGhC": 249.55
+      "tariffGhC": 390.96
     },
     {
       "gdrgCode": "MEDI14A",
@@ -1203,7 +1203,7 @@
         2,
         3
       ],
-      "tariffGhC": 266.33
+      "tariffGhC": 445.25
     },
     {
       "gdrgCode": "MEDI15A",
@@ -1217,7 +1217,7 @@
         2,
         3
       ],
-      "tariffGhC": 491
+      "tariffGhC": 711.86
     },
     {
       "gdrgCode": "MEDI16A",
@@ -1231,7 +1231,7 @@
         2,
         3
       ],
-      "tariffGhC": 311.98
+      "tariffGhC": 665.2
     },
     {
       "gdrgCode": "MEDI17A",
@@ -1245,7 +1245,7 @@
         2,
         3
       ],
-      "tariffGhC": 311.79
+      "tariffGhC": 565.33
     },
     {
       "gdrgCode": "MEDI18A",
@@ -1259,7 +1259,7 @@
         2,
         3
       ],
-      "tariffGhC": 371.58
+      "tariffGhC": 571.44
     },
     {
       "gdrgCode": "MEDI19A",
@@ -1273,7 +1273,7 @@
         2,
         3
       ],
-      "tariffGhC": 349.42
+      "tariffGhC": 556.47
     },
     {
       "gdrgCode": "MEDI20A",
@@ -1287,7 +1287,7 @@
         2,
         3
       ],
-      "tariffGhC": 508.24
+      "tariffGhC": 702.21
     },
     {
       "gdrgCode": "MEDI21A",
@@ -1301,7 +1301,7 @@
         2,
         3
       ],
-      "tariffGhC": 1189.81
+      "tariffGhC": 3931.04
     },
     {
       "gdrgCode": "MEDI22A",
@@ -1315,7 +1315,7 @@
         2,
         3
       ],
-      "tariffGhC": 138.67
+      "tariffGhC": 317.66
     },
     {
       "gdrgCode": "MEDI23A",
@@ -1329,7 +1329,7 @@
         2,
         3
       ],
-      "tariffGhC": 167.69
+      "tariffGhC": 246.45
     },
     {
       "gdrgCode": "MEDI24A",
@@ -1343,7 +1343,7 @@
         2,
         3
       ],
-      "tariffGhC": 330.82
+      "tariffGhC": 635.49
     },
     {
       "gdrgCode": "MEDI25A",
@@ -1357,7 +1357,7 @@
         2,
         3
       ],
-      "tariffGhC": 296.22
+      "tariffGhC": 486.51
     },
     {
       "gdrgCode": "MEDI26A",
@@ -1371,7 +1371,7 @@
         2,
         3
       ],
-      "tariffGhC": 154.1
+      "tariffGhC": 253.29
     },
     {
       "gdrgCode": "MEDI27A",
@@ -1385,7 +1385,7 @@
         2,
         3
       ],
-      "tariffGhC": 542.75
+      "tariffGhC": 697.13
     },
     {
       "gdrgCode": "MEDI28A",
@@ -1399,7 +1399,7 @@
         2,
         3
       ],
-      "tariffGhC": 91.82
+      "tariffGhC": 166.7
     },
     {
       "gdrgCode": "MEDI29A",
@@ -1413,7 +1413,7 @@
         2,
         3
       ],
-      "tariffGhC": 332.77
+      "tariffGhC": 621.2
     },
     {
       "gdrgCode": "MEDI30A",
@@ -1427,7 +1427,7 @@
         2,
         3
       ],
-      "tariffGhC": 417.16
+      "tariffGhC": 550.98
     },
     {
       "gdrgCode": "MEDI31A",
@@ -1438,10 +1438,9 @@
       "isSurgical": false,
       "applicableLevels": [
         1,
-        2,
-        3
+        2
       ],
-      "tariffGhC": 222.44
+      "tariffGhC": null
     },
     {
       "gdrgCode": "MEDI32A",
@@ -1455,7 +1454,7 @@
         2,
         3
       ],
-      "tariffGhC": 252.28
+      "tariffGhC": 477.94
     },
     {
       "gdrgCode": "MEDI33A",
@@ -1469,7 +1468,7 @@
         2,
         3
       ],
-      "tariffGhC": 221.92
+      "tariffGhC": 433.77
     },
     {
       "gdrgCode": "MEDI34A",
@@ -1483,7 +1482,7 @@
         2,
         3
       ],
-      "tariffGhC": 352.9
+      "tariffGhC": 585.74
     },
     {
       "gdrgCode": "MEDI35A",
@@ -1497,7 +1496,7 @@
         2,
         3
       ],
-      "tariffGhC": 346.18
+      "tariffGhC": 687.57
     },
     {
       "gdrgCode": "MEDI36A",
@@ -1511,7 +1510,7 @@
         2,
         3
       ],
-      "tariffGhC": 288.52
+      "tariffGhC": 511.92
     },
     {
       "gdrgCode": "MEDI37A",
@@ -1525,7 +1524,7 @@
         2,
         3
       ],
-      "tariffGhC": 58.68
+      "tariffGhC": 146.94
     },
     {
       "gdrgCode": "MEDI38A",
@@ -1539,7 +1538,7 @@
         2,
         3
       ],
-      "tariffGhC": 284.77
+      "tariffGhC": 635
     },
     {
       "gdrgCode": "MEDI39A",
@@ -1581,7 +1580,7 @@
         2,
         3
       ],
-      "tariffGhC": 448.46
+      "tariffGhC": 703.63
     },
     {
       "gdrgCode": "PAED01C",
@@ -1595,7 +1594,7 @@
         2,
         3
       ],
-      "tariffGhC": 253.01
+      "tariffGhC": 373.99
     },
     {
       "gdrgCode": "PAED02C",
@@ -1609,7 +1608,7 @@
         2,
         3
       ],
-      "tariffGhC": 258.77
+      "tariffGhC": 630
     },
     {
       "gdrgCode": "PAED03C",
@@ -1623,7 +1622,7 @@
         2,
         3
       ],
-      "tariffGhC": 490.56
+      "tariffGhC": 949.45
     },
     {
       "gdrgCode": "PAED04C",
@@ -1637,7 +1636,7 @@
         2,
         3
       ],
-      "tariffGhC": 344.02
+      "tariffGhC": 585.18
     },
     {
       "gdrgCode": "PAED05C",
@@ -1651,7 +1650,7 @@
         2,
         3
       ],
-      "tariffGhC": 396.23
+      "tariffGhC": 557.01
     },
     {
       "gdrgCode": "PAED06C",
@@ -1665,7 +1664,7 @@
         2,
         3
       ],
-      "tariffGhC": 308.77
+      "tariffGhC": 539.39
     },
     {
       "gdrgCode": "PAED07C",
@@ -1679,7 +1678,7 @@
         2,
         3
       ],
-      "tariffGhC": 247.26
+      "tariffGhC": 387.12
     },
     {
       "gdrgCode": "PAED08C",
@@ -1693,7 +1692,7 @@
         2,
         3
       ],
-      "tariffGhC": 286.19
+      "tariffGhC": 574.08
     },
     {
       "gdrgCode": "PAED09C",
@@ -1707,7 +1706,7 @@
         2,
         3
       ],
-      "tariffGhC": 242.4
+      "tariffGhC": 359.51
     },
     {
       "gdrgCode": "PAED10C",
@@ -1721,7 +1720,7 @@
         2,
         3
       ],
-      "tariffGhC": 581.98
+      "tariffGhC": 792.07
     },
     {
       "gdrgCode": "PAED11C",
@@ -1735,7 +1734,7 @@
         2,
         3
       ],
-      "tariffGhC": 268.42
+      "tariffGhC": 440.67
     },
     {
       "gdrgCode": "PAED12C",
@@ -1749,7 +1748,7 @@
         2,
         3
       ],
-      "tariffGhC": 356.16
+      "tariffGhC": 489.87
     },
     {
       "gdrgCode": "PAED13C",
@@ -1763,7 +1762,7 @@
         2,
         3
       ],
-      "tariffGhC": 481.22
+      "tariffGhC": 1101.71
     },
     {
       "gdrgCode": "PAED14C",
@@ -1777,7 +1776,7 @@
         2,
         3
       ],
-      "tariffGhC": 367.85
+      "tariffGhC": 751.49
     },
     {
       "gdrgCode": "PAED15C",
@@ -1790,7 +1789,7 @@
         1,
         2
       ],
-      "tariffGhC": 413.59
+      "tariffGhC": 824.85
     },
     {
       "gdrgCode": "PAED16C",
@@ -1804,7 +1803,7 @@
         2,
         3
       ],
-      "tariffGhC": 280.08
+      "tariffGhC": 593.63
     },
     {
       "gdrgCode": "PAED18C",
@@ -1818,7 +1817,7 @@
         2,
         3
       ],
-      "tariffGhC": 584.32
+      "tariffGhC": 838.81
     },
     {
       "gdrgCode": "PAED19C",
@@ -1832,7 +1831,7 @@
         2,
         3
       ],
-      "tariffGhC": 609.49
+      "tariffGhC": 1023.94
     },
     {
       "gdrgCode": "PAED20C",
@@ -1846,7 +1845,7 @@
         2,
         3
       ],
-      "tariffGhC": 366.12
+      "tariffGhC": 512.81
     },
     {
       "gdrgCode": "PAED21C",
@@ -1860,7 +1859,7 @@
         2,
         3
       ],
-      "tariffGhC": 178.58
+      "tariffGhC": 285.09
     },
     {
       "gdrgCode": "PAED22C",
@@ -1874,7 +1873,7 @@
         2,
         3
       ],
-      "tariffGhC": 273.31
+      "tariffGhC": 587.68
     },
     {
       "gdrgCode": "PAED23C",
@@ -1888,7 +1887,7 @@
         2,
         3
       ],
-      "tariffGhC": 449.95
+      "tariffGhC": 673.95
     },
     {
       "gdrgCode": "PAED24C",
@@ -1902,7 +1901,7 @@
         2,
         3
       ],
-      "tariffGhC": 375.02
+      "tariffGhC": 629.19
     },
     {
       "gdrgCode": "PAED25C",
@@ -1916,7 +1915,7 @@
         2,
         3
       ],
-      "tariffGhC": 357.94
+      "tariffGhC": 587.72
     },
     {
       "gdrgCode": "PAED26C",
@@ -1930,7 +1929,7 @@
         2,
         3
       ],
-      "tariffGhC": 513.24
+      "tariffGhC": 672.59
     },
     {
       "gdrgCode": "PAED27C",
@@ -1944,7 +1943,7 @@
         2,
         3
       ],
-      "tariffGhC": 394.27
+      "tariffGhC": 926.84
     },
     {
       "gdrgCode": "PAED28C",
@@ -1958,7 +1957,7 @@
         2,
         3
       ],
-      "tariffGhC": 395.57
+      "tariffGhC": 758.08
     },
     {
       "gdrgCode": "PAED29C",
@@ -1972,7 +1971,7 @@
         2,
         3
       ],
-      "tariffGhC": 1019.75
+      "tariffGhC": 2713.35
     },
     {
       "gdrgCode": "PAED30C",
@@ -1986,7 +1985,7 @@
         2,
         3
       ],
-      "tariffGhC": 232.28
+      "tariffGhC": 338.37
     },
     {
       "gdrgCode": "PAED31C",
@@ -2000,7 +1999,7 @@
         2,
         3
       ],
-      "tariffGhC": 163.36
+      "tariffGhC": 237.01
     },
     {
       "gdrgCode": "PAED32C",
@@ -2014,7 +2013,7 @@
         2,
         3
       ],
-      "tariffGhC": 267.17
+      "tariffGhC": 659.43
     },
     {
       "gdrgCode": "PAED33C",
@@ -2028,7 +2027,7 @@
         2,
         3
       ],
-      "tariffGhC": 284.35
+      "tariffGhC": 581.18
     },
     {
       "gdrgCode": "PAED34C",
@@ -2042,7 +2041,7 @@
         2,
         3
       ],
-      "tariffGhC": 112.38
+      "tariffGhC": 301.59
     },
     {
       "gdrgCode": "PAED35C",
@@ -2056,7 +2055,7 @@
         2,
         3
       ],
-      "tariffGhC": 417.61
+      "tariffGhC": 547.1
     },
     {
       "gdrgCode": "PAED36C",
@@ -2070,7 +2069,7 @@
         2,
         3
       ],
-      "tariffGhC": 92.47
+      "tariffGhC": 183.79
     },
     {
       "gdrgCode": "PAED37C",
@@ -2084,7 +2083,7 @@
         2,
         3
       ],
-      "tariffGhC": 514.68
+      "tariffGhC": 770.44
     },
     {
       "gdrgCode": "PAED38C",
@@ -2098,7 +2097,7 @@
         2,
         3
       ],
-      "tariffGhC": 414.35
+      "tariffGhC": 555.92
     },
     {
       "gdrgCode": "PAED39C",
@@ -2112,7 +2111,7 @@
         2,
         3
       ],
-      "tariffGhC": 172.92
+      "tariffGhC": 385.62
     },
     {
       "gdrgCode": "PAED40C",
@@ -2126,7 +2125,7 @@
         2,
         3
       ],
-      "tariffGhC": 302.28
+      "tariffGhC": 470.15
     },
     {
       "gdrgCode": "PAED41C",
@@ -2140,7 +2139,7 @@
         2,
         3
       ],
-      "tariffGhC": 372.59
+      "tariffGhC": 538.62
     },
     {
       "gdrgCode": "PAED42C",
@@ -2154,7 +2153,7 @@
         2,
         3
       ],
-      "tariffGhC": 469.22
+      "tariffGhC": 606.01
     },
     {
       "gdrgCode": "PAED43C",
@@ -2168,7 +2167,7 @@
         2,
         3
       ],
-      "tariffGhC": 336.58
+      "tariffGhC": 695.46
     },
     {
       "gdrgCode": "PAED44C",
@@ -2182,7 +2181,7 @@
         2,
         3
       ],
-      "tariffGhC": 63.45
+      "tariffGhC": 201.28
     },
     {
       "gdrgCode": "PAED45C",
@@ -2196,7 +2195,7 @@
         2,
         3
       ],
-      "tariffGhC": 347.27
+      "tariffGhC": 852.71
     },
     {
       "gdrgCode": "PAED46C",
@@ -2210,7 +2209,7 @@
         2,
         3
       ],
-      "tariffGhC": 561.6
+      "tariffGhC": 768.74
     },
     {
       "gdrgCode": "PAED47C",
@@ -2322,7 +2321,7 @@
         2,
         3
       ],
-      "tariffGhC": 366.31
+      "tariffGhC": 856.47
     },
     {
       "gdrgCode": "ENTH01C",
@@ -2336,7 +2335,7 @@
         2,
         3
       ],
-      "tariffGhC": 365.36
+      "tariffGhC": 812.06
     },
     {
       "gdrgCode": "ENTH02A",
@@ -2350,7 +2349,7 @@
         2,
         3
       ],
-      "tariffGhC": 427.84
+      "tariffGhC": 1095.62
     },
     {
       "gdrgCode": "ENTH02C",
@@ -2364,7 +2363,7 @@
         2,
         3
       ],
-      "tariffGhC": 396.83
+      "tariffGhC": 1250.43
     },
     {
       "gdrgCode": "ENTH05A",
@@ -2378,7 +2377,7 @@
         2,
         3
       ],
-      "tariffGhC": 639.86
+      "tariffGhC": 1141.35
     },
     {
       "gdrgCode": "ENTH05C",
@@ -2392,7 +2391,7 @@
         2,
         3
       ],
-      "tariffGhC": 621.31
+      "tariffGhC": 1135.08
     },
     {
       "gdrgCode": "ENTH06A",
@@ -2406,7 +2405,7 @@
         2,
         3
       ],
-      "tariffGhC": 637.12
+      "tariffGhC": 1394.74
     },
     {
       "gdrgCode": "ENTH06C",
@@ -2420,7 +2419,7 @@
         2,
         3
       ],
-      "tariffGhC": 574.43
+      "tariffGhC": 1338.3
     },
     {
       "gdrgCode": "ENTH07A",
@@ -2434,7 +2433,7 @@
         2,
         3
       ],
-      "tariffGhC": 707.4
+      "tariffGhC": 1245.26
     },
     {
       "gdrgCode": "ENTH07C",
@@ -2448,7 +2447,7 @@
         2,
         3
       ],
-      "tariffGhC": 626.89
+      "tariffGhC": 1235.41
     },
     {
       "gdrgCode": "ENTH08A",
@@ -2462,7 +2461,7 @@
         2,
         3
       ],
-      "tariffGhC": 441.61
+      "tariffGhC": 989.26
     },
     {
       "gdrgCode": "ENTH08C",
@@ -2476,7 +2475,7 @@
         2,
         3
       ],
-      "tariffGhC": 475.29
+      "tariffGhC": 1409.22
     },
     {
       "gdrgCode": "ENTH09A",
@@ -2490,7 +2489,7 @@
         2,
         3
       ],
-      "tariffGhC": 669.23
+      "tariffGhC": 1561.7
     },
     {
       "gdrgCode": "ENTH09C",
@@ -2504,7 +2503,7 @@
         2,
         3
       ],
-      "tariffGhC": 611.51
+      "tariffGhC": 1490.53
     },
     {
       "gdrgCode": "ENTH10A",
@@ -2518,7 +2517,7 @@
         2,
         3
       ],
-      "tariffGhC": 1286.52
+      "tariffGhC": 3159.46
     },
     {
       "gdrgCode": "ENTH10C",
@@ -2532,7 +2531,7 @@
         2,
         3
       ],
-      "tariffGhC": 1128.18
+      "tariffGhC": 3041.93
     },
     {
       "gdrgCode": "ENTH12A",
@@ -2546,7 +2545,7 @@
         2,
         3
       ],
-      "tariffGhC": 774.97
+      "tariffGhC": 1476.53
     },
     {
       "gdrgCode": "ENTH12C",
@@ -2560,7 +2559,7 @@
         2,
         3
       ],
-      "tariffGhC": 682.13
+      "tariffGhC": 1369.4
     },
     {
       "gdrgCode": "ENTH13A",
@@ -2574,7 +2573,7 @@
         2,
         3
       ],
-      "tariffGhC": 306.46
+      "tariffGhC": 478
     },
     {
       "gdrgCode": "ENTH13C",
@@ -2588,7 +2587,7 @@
         2,
         3
       ],
-      "tariffGhC": 306.15
+      "tariffGhC": 475.9
     },
     {
       "gdrgCode": "ENTH14A",
@@ -2602,7 +2601,7 @@
         2,
         3
       ],
-      "tariffGhC": 401.73
+      "tariffGhC": 1043.09
     },
     {
       "gdrgCode": "ENTH14C",
@@ -2616,7 +2615,7 @@
         2,
         3
       ],
-      "tariffGhC": 332.15
+      "tariffGhC": 1007.57
     },
     {
       "gdrgCode": "ENTH15A",
@@ -2630,7 +2629,7 @@
         2,
         3
       ],
-      "tariffGhC": 520.09
+      "tariffGhC": 916.39
     },
     {
       "gdrgCode": "ENTH15C",
@@ -2644,7 +2643,7 @@
         2,
         3
       ],
-      "tariffGhC": 435.16
+      "tariffGhC": 869.46
     },
     {
       "gdrgCode": "ENTH16A",
@@ -2658,7 +2657,7 @@
         2,
         3
       ],
-      "tariffGhC": 456.31
+      "tariffGhC": 985.89
     },
     {
       "gdrgCode": "ENTH16C",
@@ -2672,7 +2671,7 @@
         2,
         3
       ],
-      "tariffGhC": 409.99
+      "tariffGhC": 1081.42
     },
     {
       "gdrgCode": "ENTH17A",
@@ -2686,7 +2685,7 @@
         2,
         3
       ],
-      "tariffGhC": 452.06
+      "tariffGhC": 1295.25
     },
     {
       "gdrgCode": "ENTH17C",
@@ -2700,7 +2699,7 @@
         2,
         3
       ],
-      "tariffGhC": 428.02
+      "tariffGhC": 1267.26
     },
     {
       "gdrgCode": "ENTH18A",
@@ -2714,7 +2713,7 @@
         2,
         3
       ],
-      "tariffGhC": 557.55
+      "tariffGhC": 1904.05
     },
     {
       "gdrgCode": "ENTH18C",
@@ -2728,7 +2727,7 @@
         2,
         3
       ],
-      "tariffGhC": 533.12
+      "tariffGhC": 1890.04
     },
     {
       "gdrgCode": "ENTH19A",
@@ -2742,7 +2741,7 @@
         2,
         3
       ],
-      "tariffGhC": 433.07
+      "tariffGhC": 2016.65
     },
     {
       "gdrgCode": "ENTH19C",
@@ -2756,7 +2755,7 @@
         2,
         3
       ],
-      "tariffGhC": 358.8
+      "tariffGhC": 2291.21
     },
     {
       "gdrgCode": "ENTH20A",
@@ -2770,7 +2769,7 @@
         2,
         3
       ],
-      "tariffGhC": 26.7
+      "tariffGhC": 225.14
     },
     {
       "gdrgCode": "ENTH20C",
@@ -2784,7 +2783,7 @@
         2,
         3
       ],
-      "tariffGhC": 29.64
+      "tariffGhC": 225.08
     },
     {
       "gdrgCode": "ENTH21A",
@@ -2798,7 +2797,7 @@
         2,
         3
       ],
-      "tariffGhC": 37.59
+      "tariffGhC": 125.67
     },
     {
       "gdrgCode": "ENTH21C",
@@ -2812,7 +2811,7 @@
         2,
         3
       ],
-      "tariffGhC": 35.1
+      "tariffGhC": 147.31
     },
     {
       "gdrgCode": "ENTH22A",
@@ -2826,7 +2825,7 @@
         2,
         3
       ],
-      "tariffGhC": 201.75
+      "tariffGhC": 294.61
     },
     {
       "gdrgCode": "ENTH22C",
@@ -2840,7 +2839,7 @@
         2,
         3
       ],
-      "tariffGhC": 196.54
+      "tariffGhC": 301.29
     },
     {
       "gdrgCode": "ENTH23A",
@@ -2854,7 +2853,7 @@
         2,
         3
       ],
-      "tariffGhC": 228.38
+      "tariffGhC": 362.72
     },
     {
       "gdrgCode": "ENTH23C",
@@ -2868,7 +2867,7 @@
         2,
         3
       ],
-      "tariffGhC": 223.51
+      "tariffGhC": 359.97
     },
     {
       "gdrgCode": "ENTH24A",
@@ -2882,7 +2881,7 @@
         2,
         3
       ],
-      "tariffGhC": 493.34
+      "tariffGhC": 1619.17
     },
     {
       "gdrgCode": "ENTH24C",
@@ -2896,7 +2895,7 @@
         2,
         3
       ],
-      "tariffGhC": 471.74
+      "tariffGhC": 1607.29
     },
     {
       "gdrgCode": "OBGY01A",
@@ -2910,7 +2909,7 @@
         2,
         3
       ],
-      "tariffGhC": 480.67
+      "tariffGhC": 1489.36
     },
     {
       "gdrgCode": "OBGY02A",
@@ -2924,7 +2923,7 @@
         2,
         3
       ],
-      "tariffGhC": 333.17
+      "tariffGhC": 742.98
     },
     {
       "gdrgCode": "OBGY03A",
@@ -2938,7 +2937,7 @@
         2,
         3
       ],
-      "tariffGhC": 419.05
+      "tariffGhC": 1101.15
     },
     {
       "gdrgCode": "OBGY04A",
@@ -2952,7 +2951,7 @@
         2,
         3
       ],
-      "tariffGhC": 213.07
+      "tariffGhC": 472.16
     },
     {
       "gdrgCode": "OBGY05A",
@@ -2966,7 +2965,7 @@
         2,
         3
       ],
-      "tariffGhC": 194.25
+      "tariffGhC": 504.3
     },
     {
       "gdrgCode": "OBGY06A",
@@ -2980,7 +2979,7 @@
         2,
         3
       ],
-      "tariffGhC": 191.66
+      "tariffGhC": 303.94
     },
     {
       "gdrgCode": "OBGY07A",
@@ -2994,7 +2993,7 @@
         2,
         3
       ],
-      "tariffGhC": 244.85
+      "tariffGhC": 680.76
     },
     {
       "gdrgCode": "OBGY08A",
@@ -3009,7 +3008,7 @@
         3,
         5
       ],
-      "tariffGhC": 197.14
+      "tariffGhC": 543.68
     },
     {
       "gdrgCode": "OBGY09A",
@@ -3026,7 +3025,7 @@
         5,
         6
       ],
-      "tariffGhC": 147.97
+      "tariffGhC": 348.36
     },
     {
       "gdrgCode": "OBGY10A",
@@ -3040,7 +3039,7 @@
         2,
         3
       ],
-      "tariffGhC": 294.98
+      "tariffGhC": 703.72
     },
     {
       "gdrgCode": "OBGY11A",
@@ -3054,7 +3053,7 @@
         2,
         3
       ],
-      "tariffGhC": 265.45
+      "tariffGhC": 583.16
     },
     {
       "gdrgCode": "OBGY12A",
@@ -3068,7 +3067,7 @@
         2,
         3
       ],
-      "tariffGhC": 189.36
+      "tariffGhC": 543.84
     },
     {
       "gdrgCode": "OBGY13A",
@@ -3082,7 +3081,7 @@
         2,
         3
       ],
-      "tariffGhC": 509.36
+      "tariffGhC": 1199.33
     },
     {
       "gdrgCode": "OBGY14A",
@@ -3096,7 +3095,7 @@
         2,
         3
       ],
-      "tariffGhC": 581.58
+      "tariffGhC": 1140.42
     },
     {
       "gdrgCode": "OBGY15A",
@@ -3107,10 +3106,9 @@
       "isSurgical": true,
       "applicableLevels": [
         1,
-        2,
-        3
+        2
       ],
-      "tariffGhC": 511.25
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OBGY16A",
@@ -3124,7 +3122,7 @@
         2,
         3
       ],
-      "tariffGhC": 39.14
+      "tariffGhC": 190.52
     },
     {
       "gdrgCode": "OBGY17A",
@@ -3138,7 +3136,7 @@
         2,
         3
       ],
-      "tariffGhC": 447.68
+      "tariffGhC": 1271.87
     },
     {
       "gdrgCode": "OBGY18A",
@@ -3152,7 +3150,7 @@
         2,
         3
       ],
-      "tariffGhC": 546.35
+      "tariffGhC": 1309.12
     },
     {
       "gdrgCode": "OBGY19A",
@@ -3166,7 +3164,7 @@
         2,
         3
       ],
-      "tariffGhC": 848.09
+      "tariffGhC": 1862.39
     },
     {
       "gdrgCode": "OBGY20A",
@@ -3180,7 +3178,7 @@
         2,
         3
       ],
-      "tariffGhC": 568.6
+      "tariffGhC": 1333.48
     },
     {
       "gdrgCode": "OBGY21A",
@@ -3194,7 +3192,7 @@
         2,
         3
       ],
-      "tariffGhC": 463.93
+      "tariffGhC": 1410
     },
     {
       "gdrgCode": "OBGY22A",
@@ -3208,7 +3206,7 @@
         2,
         3
       ],
-      "tariffGhC": 671.21
+      "tariffGhC": 1517.53
     },
     {
       "gdrgCode": "OBGY23A",
@@ -3222,7 +3220,7 @@
         2,
         3
       ],
-      "tariffGhC": 133.37
+      "tariffGhC": 394.99
     },
     {
       "gdrgCode": "OBGY24A",
@@ -3236,7 +3234,7 @@
         2,
         3
       ],
-      "tariffGhC": 501.67
+      "tariffGhC": 1270.61
     },
     {
       "gdrgCode": "OBGY25A",
@@ -3250,7 +3248,7 @@
         2,
         3
       ],
-      "tariffGhC": 289.96
+      "tariffGhC": 780.27
     },
     {
       "gdrgCode": "OBGY26A",
@@ -3264,7 +3262,7 @@
         2,
         3
       ],
-      "tariffGhC": 239.88
+      "tariffGhC": 613.4
     },
     {
       "gdrgCode": "OBGY27A",
@@ -3278,7 +3276,7 @@
         2,
         3
       ],
-      "tariffGhC": 424.79
+      "tariffGhC": 1276.56
     },
     {
       "gdrgCode": "OBGY28A",
@@ -3292,7 +3290,7 @@
         2,
         3
       ],
-      "tariffGhC": 480.71
+      "tariffGhC": 1501.55
     },
     {
       "gdrgCode": "OBGY29A",
@@ -3309,7 +3307,7 @@
         4,
         5
       ],
-      "tariffGhC": 255.31
+      "tariffGhC": 758.63
     },
     {
       "gdrgCode": "OBGY30A",
@@ -3324,7 +3322,7 @@
         2,
         3
       ],
-      "tariffGhC": 224.71
+      "tariffGhC": 770.9
     },
     {
       "gdrgCode": "OBGY31A",
@@ -3339,7 +3337,7 @@
         2,
         3
       ],
-      "tariffGhC": 278.39
+      "tariffGhC": 715.34
     },
     {
       "gdrgCode": "OBGY32A",
@@ -3356,7 +3354,7 @@
         4,
         5
       ],
-      "tariffGhC": 548.23
+      "tariffGhC": 1116.71
     },
     {
       "gdrgCode": "OBGY34A",
@@ -3374,7 +3372,7 @@
         5,
         10
       ],
-      "tariffGhC": 165.24
+      "tariffGhC": 429.79
     },
     {
       "gdrgCode": "OBGY35A",
@@ -3388,7 +3386,7 @@
         2,
         3
       ],
-      "tariffGhC": 275.1
+      "tariffGhC": 610.04
     },
     {
       "gdrgCode": "OBGY36A",
@@ -3402,7 +3400,7 @@
         2,
         3
       ],
-      "tariffGhC": 562.9
+      "tariffGhC": 1615.35
     },
     {
       "gdrgCode": "OBGY38A",
@@ -3416,7 +3414,7 @@
         2,
         3
       ],
-      "tariffGhC": 220.31
+      "tariffGhC": 1332.82
     },
     {
       "gdrgCode": "OBGY39A",
@@ -3430,7 +3428,7 @@
         2,
         3
       ],
-      "tariffGhC": 868.42
+      "tariffGhC": 2055.1
     },
     {
       "gdrgCode": "OBGY40A",
@@ -3441,10 +3439,9 @@
       "isSurgical": false,
       "applicableLevels": [
         1,
-        2,
-        3
+        2
       ],
-      "tariffGhC": 317.14
+      "tariffGhC": null
     },
     {
       "gdrgCode": "DENT01A",
@@ -3461,7 +3458,7 @@
         3,
         7
       ],
-      "tariffGhC": 51.93
+      "tariffGhC": 127.67
     },
     {
       "gdrgCode": "DENT01C",
@@ -3478,7 +3475,7 @@
         3,
         7
       ],
-      "tariffGhC": 40.9
+      "tariffGhC": 160.46
     },
     {
       "gdrgCode": "DENT02A",
@@ -3493,7 +3490,7 @@
         3,
         7
       ],
-      "tariffGhC": 85.92
+      "tariffGhC": 222.19
     },
     {
       "gdrgCode": "DENT03A",
@@ -3508,7 +3505,7 @@
         3,
         7
       ],
-      "tariffGhC": 59.83
+      "tariffGhC": 129.09
     },
     {
       "gdrgCode": "DENT03C",
@@ -3523,7 +3520,7 @@
         3,
         7
       ],
-      "tariffGhC": 60.54
+      "tariffGhC": 130.24
     },
     {
       "gdrgCode": "DENT04A",
@@ -3537,10 +3534,9 @@
       "applicableLevels": [
         1,
         2,
-        3,
         7
       ],
-      "tariffGhC": 72.66
+      "tariffGhC": null
     },
     {
       "gdrgCode": "DENT04C",
@@ -3554,10 +3550,9 @@
       "applicableLevels": [
         1,
         2,
-        3,
         7
       ],
-      "tariffGhC": 77.8
+      "tariffGhC": null
     },
     {
       "gdrgCode": "DENT05A",
@@ -3574,7 +3569,7 @@
         3,
         7
       ],
-      "tariffGhC": 70.78
+      "tariffGhC": 161.39
     },
     {
       "gdrgCode": "DENT05C",
@@ -3588,10 +3583,9 @@
       "applicableLevels": [
         1,
         2,
-        3,
         7
       ],
-      "tariffGhC": 55.31
+      "tariffGhC": null
     },
     {
       "gdrgCode": "DENT06A",
@@ -3606,7 +3600,7 @@
         3,
         7
       ],
-      "tariffGhC": 34.26
+      "tariffGhC": 120.78
     },
     {
       "gdrgCode": "DENT06C",
@@ -3621,7 +3615,7 @@
         3,
         7
       ],
-      "tariffGhC": 39.06
+      "tariffGhC": 114.33
     },
     {
       "gdrgCode": "DENT07A",
@@ -3633,10 +3627,9 @@
       "applicableLevels": [
         1,
         2,
-        3,
         7
       ],
-      "tariffGhC": 90.53
+      "tariffGhC": null
     },
     {
       "gdrgCode": "DENT07C",
@@ -3651,7 +3644,7 @@
         3,
         7
       ],
-      "tariffGhC": 88.07
+      "tariffGhC": 159.76
     },
     {
       "gdrgCode": "DENT08A",
@@ -3668,7 +3661,7 @@
         3,
         7
       ],
-      "tariffGhC": 100.4
+      "tariffGhC": 245.39
     },
     {
       "gdrgCode": "DENT08C",
@@ -3685,7 +3678,7 @@
         3,
         7
       ],
-      "tariffGhC": 96.01
+      "tariffGhC": 243.49
     },
     {
       "gdrgCode": "DENT09A",
@@ -3700,7 +3693,7 @@
         3,
         7
       ],
-      "tariffGhC": 209.32
+      "tariffGhC": 430.22
     },
     {
       "gdrgCode": "DENT09C",
@@ -3715,7 +3708,7 @@
         3,
         7
       ],
-      "tariffGhC": 178.8
+      "tariffGhC": 408.6
     },
     {
       "gdrgCode": "DENT10A",
@@ -3730,7 +3723,7 @@
         3,
         7
       ],
-      "tariffGhC": 51.03
+      "tariffGhC": 123.12
     },
     {
       "gdrgCode": "DENT10C",
@@ -3745,7 +3738,7 @@
         3,
         7
       ],
-      "tariffGhC": 48.21
+      "tariffGhC": 119.89
     },
     {
       "gdrgCode": "DENT11A",
@@ -3760,7 +3753,7 @@
         3,
         7
       ],
-      "tariffGhC": 119.95
+      "tariffGhC": 404.91
     },
     {
       "gdrgCode": "DENT11C",
@@ -3775,7 +3768,7 @@
         3,
         7
       ],
-      "tariffGhC": 103.25
+      "tariffGhC": 396.93
     },
     {
       "gdrgCode": "DENT12A",
@@ -3790,7 +3783,7 @@
         3,
         7
       ],
-      "tariffGhC": 215.76
+      "tariffGhC": 348.29
     },
     {
       "gdrgCode": "DENT12C",
@@ -3805,7 +3798,7 @@
         3,
         7
       ],
-      "tariffGhC": 197
+      "tariffGhC": 286.2
     },
     {
       "gdrgCode": "DENT13A",
@@ -3820,7 +3813,7 @@
         3,
         7
       ],
-      "tariffGhC": 237.12
+      "tariffGhC": 390.53
     },
     {
       "gdrgCode": "DENT13C",
@@ -3835,7 +3828,7 @@
         3,
         7
       ],
-      "tariffGhC": 210.5
+      "tariffGhC": 368.86
     },
     {
       "gdrgCode": "DENT14A",
@@ -3850,7 +3843,7 @@
         3,
         7
       ],
-      "tariffGhC": 517.67
+      "tariffGhC": 859.34
     },
     {
       "gdrgCode": "DENT14C",
@@ -3865,7 +3858,7 @@
         3,
         7
       ],
-      "tariffGhC": 463.93
+      "tariffGhC": 842.35
     },
     {
       "gdrgCode": "DENT15A",
@@ -3880,7 +3873,7 @@
         3,
         7
       ],
-      "tariffGhC": 102.84
+      "tariffGhC": 274.4
     },
     {
       "gdrgCode": "DENT15C",
@@ -3895,7 +3888,7 @@
         3,
         7
       ],
-      "tariffGhC": 85.48
+      "tariffGhC": 258.02
     },
     {
       "gdrgCode": "DENT16A",
@@ -3910,7 +3903,7 @@
         3,
         7
       ],
-      "tariffGhC": 78.35
+      "tariffGhC": 168.91
     },
     {
       "gdrgCode": "DENT16C",
@@ -3925,7 +3918,7 @@
         3,
         7
       ],
-      "tariffGhC": 68.05
+      "tariffGhC": 142.31
     },
     {
       "gdrgCode": "DENT17A",
@@ -3940,7 +3933,7 @@
         3,
         7
       ],
-      "tariffGhC": 64.72
+      "tariffGhC": 144.72
     },
     {
       "gdrgCode": "DENT17C",
@@ -3955,7 +3948,7 @@
         3,
         7
       ],
-      "tariffGhC": 49.38
+      "tariffGhC": 140.79
     },
     {
       "gdrgCode": "DENT18A",
@@ -3970,7 +3963,7 @@
         3,
         7
       ],
-      "tariffGhC": 497.32
+      "tariffGhC": 1444.31
     },
     {
       "gdrgCode": "DENT18C",
@@ -3985,7 +3978,7 @@
         3,
         7
       ],
-      "tariffGhC": 456.62
+      "tariffGhC": 1415.37
     },
     {
       "gdrgCode": "DENT19A",
@@ -4000,7 +3993,7 @@
         3,
         7
       ],
-      "tariffGhC": 643.78
+      "tariffGhC": 1440.57
     },
     {
       "gdrgCode": "DENT19C",
@@ -4015,7 +4008,7 @@
         3,
         7
       ],
-      "tariffGhC": 539.95
+      "tariffGhC": 1395.85
     },
     {
       "gdrgCode": "DENT20A",
@@ -4030,7 +4023,7 @@
         3,
         7
       ],
-      "tariffGhC": 205.54
+      "tariffGhC": 497.97
     },
     {
       "gdrgCode": "DENT20C",
@@ -4045,7 +4038,7 @@
         3,
         7
       ],
-      "tariffGhC": 185.34
+      "tariffGhC": 474.57
     },
     {
       "gdrgCode": "DENT21A",
@@ -4060,7 +4053,7 @@
         3,
         7
       ],
-      "tariffGhC": 503.98
+      "tariffGhC": 1192.1
     },
     {
       "gdrgCode": "DENT21C",
@@ -4075,7 +4068,7 @@
         3,
         7
       ],
-      "tariffGhC": 429.54
+      "tariffGhC": 1108.07
     },
     {
       "gdrgCode": "DENT22A",
@@ -4090,7 +4083,7 @@
         3,
         7
       ],
-      "tariffGhC": 101.18
+      "tariffGhC": 251.14
     },
     {
       "gdrgCode": "DENT22C",
@@ -4105,7 +4098,7 @@
         3,
         7
       ],
-      "tariffGhC": 73.14
+      "tariffGhC": 238.37
     },
     {
       "gdrgCode": "DENT23A",
@@ -4120,7 +4113,7 @@
         3,
         7
       ],
-      "tariffGhC": 33.32
+      "tariffGhC": 54.48
     },
     {
       "gdrgCode": "DENT23C",
@@ -4135,7 +4128,7 @@
         3,
         7
       ],
-      "tariffGhC": 29.74
+      "tariffGhC": 53.48
     },
     {
       "gdrgCode": "DENT24A",
@@ -4147,10 +4140,9 @@
       "applicableLevels": [
         1,
         2,
-        3,
         7
       ],
-      "tariffGhC": 22.87
+      "tariffGhC": null
     },
     {
       "gdrgCode": "DENT24C",
@@ -4162,10 +4154,9 @@
       "applicableLevels": [
         1,
         2,
-        3,
         7
       ],
-      "tariffGhC": 22.7
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPHT01A",
@@ -4180,7 +4171,7 @@
         3,
         8
       ],
-      "tariffGhC": 478.79
+      "tariffGhC": 1150.75
     },
     {
       "gdrgCode": "OPHT01C",
@@ -4195,7 +4186,7 @@
         3,
         8
       ],
-      "tariffGhC": 452.66
+      "tariffGhC": 1007.6
     },
     {
       "gdrgCode": "OPHT02A",
@@ -4210,7 +4201,7 @@
         3,
         8
       ],
-      "tariffGhC": 490.56
+      "tariffGhC": 1272.53
     },
     {
       "gdrgCode": "OPHT02C",
@@ -4225,7 +4216,7 @@
         3,
         8
       ],
-      "tariffGhC": 454.16
+      "tariffGhC": 1236.85
     },
     {
       "gdrgCode": "OPHT03A",
@@ -4240,7 +4231,7 @@
         3,
         8
       ],
-      "tariffGhC": 36.9
+      "tariffGhC": 100.95
     },
     {
       "gdrgCode": "OPHT03C",
@@ -4255,7 +4246,7 @@
         3,
         8
       ],
-      "tariffGhC": 31.93
+      "tariffGhC": 101.15
     },
     {
       "gdrgCode": "OPHT04A",
@@ -4270,7 +4261,7 @@
         3,
         8
       ],
-      "tariffGhC": 241.67
+      "tariffGhC": 511.2
     },
     {
       "gdrgCode": "OPHT04C",
@@ -4285,7 +4276,7 @@
         3,
         8
       ],
-      "tariffGhC": 237.76
+      "tariffGhC": 513.59
     },
     {
       "gdrgCode": "OPHT05A",
@@ -4300,7 +4291,7 @@
         3,
         8
       ],
-      "tariffGhC": 317.59
+      "tariffGhC": 829.22
     },
     {
       "gdrgCode": "OPHT05C",
@@ -4315,7 +4306,7 @@
         3,
         8
       ],
-      "tariffGhC": 291.37
+      "tariffGhC": 776.7
     },
     {
       "gdrgCode": "OPHT06A",
@@ -4330,7 +4321,7 @@
         3,
         8
       ],
-      "tariffGhC": 186.74
+      "tariffGhC": 435.2
     },
     {
       "gdrgCode": "OPHT06C",
@@ -4345,7 +4336,7 @@
         3,
         8
       ],
-      "tariffGhC": 191.75
+      "tariffGhC": 437.69
     },
     {
       "gdrgCode": "OPHT07A",
@@ -4360,7 +4351,7 @@
         3,
         8
       ],
-      "tariffGhC": 166.35
+      "tariffGhC": 429.83
     },
     {
       "gdrgCode": "OPHT07C",
@@ -4375,7 +4366,7 @@
         3,
         8
       ],
-      "tariffGhC": 163.36
+      "tariffGhC": 428.4
     },
     {
       "gdrgCode": "OPHT08A",
@@ -4390,7 +4381,7 @@
         3,
         8
       ],
-      "tariffGhC": 175.86
+      "tariffGhC": 389.97
     },
     {
       "gdrgCode": "OPHT08C",
@@ -4405,7 +4396,7 @@
         3,
         8
       ],
-      "tariffGhC": 171.84
+      "tariffGhC": 387.91
     },
     {
       "gdrgCode": "OPHT09A",
@@ -4420,7 +4411,7 @@
         3,
         8
       ],
-      "tariffGhC": 183.83
+      "tariffGhC": 439.05
     },
     {
       "gdrgCode": "OPHT09C",
@@ -4435,7 +4426,7 @@
         3,
         8
       ],
-      "tariffGhC": 197.39
+      "tariffGhC": 434.81
     },
     {
       "gdrgCode": "OPHT10A",
@@ -4447,10 +4438,9 @@
       "applicableLevels": [
         1,
         2,
-        3,
         8
       ],
-      "tariffGhC": 222.44
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPHT10C",
@@ -4462,10 +4452,9 @@
       "applicableLevels": [
         1,
         2,
-        3,
         8
       ],
-      "tariffGhC": 216.54
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPHT11A",
@@ -4480,7 +4469,7 @@
         3,
         8
       ],
-      "tariffGhC": 322.75
+      "tariffGhC": 826.1
     },
     {
       "gdrgCode": "OPHT11C",
@@ -4495,7 +4484,7 @@
         3,
         8
       ],
-      "tariffGhC": 287.84
+      "tariffGhC": 784.45
     },
     {
       "gdrgCode": "OPHT12A",
@@ -4510,7 +4499,7 @@
         3,
         8
       ],
-      "tariffGhC": 122.14
+      "tariffGhC": 220
     },
     {
       "gdrgCode": "OPHT12C",
@@ -4525,7 +4514,7 @@
         3,
         8
       ],
-      "tariffGhC": 119.58
+      "tariffGhC": 191.92
     },
     {
       "gdrgCode": "OPHT13A",
@@ -4540,7 +4529,7 @@
         3,
         8
       ],
-      "tariffGhC": 162.91
+      "tariffGhC": 382.71
     },
     {
       "gdrgCode": "OPHT13C",
@@ -4555,7 +4544,7 @@
         3,
         8
       ],
-      "tariffGhC": 170.74
+      "tariffGhC": 393.79
     },
     {
       "gdrgCode": "OPHT14A",
@@ -4570,7 +4559,7 @@
         3,
         8
       ],
-      "tariffGhC": 211.36
+      "tariffGhC": 602.48
     },
     {
       "gdrgCode": "OPHT14C",
@@ -4585,7 +4574,7 @@
         3,
         8
       ],
-      "tariffGhC": 189.76
+      "tariffGhC": 574.3
     },
     {
       "gdrgCode": "OPHT15A",
@@ -4600,7 +4589,7 @@
         3,
         8
       ],
-      "tariffGhC": 179.58
+      "tariffGhC": 278.15
     },
     {
       "gdrgCode": "OPHT15C",
@@ -4615,7 +4604,7 @@
         3,
         8
       ],
-      "tariffGhC": 200.44
+      "tariffGhC": 276.61
     },
     {
       "gdrgCode": "OPHT16A",
@@ -4630,7 +4619,7 @@
         3,
         8
       ],
-      "tariffGhC": 46.81
+      "tariffGhC": 144.59
     },
     {
       "gdrgCode": "OPHT16C",
@@ -4645,7 +4634,7 @@
         3,
         8
       ],
-      "tariffGhC": 44.65
+      "tariffGhC": 143.83
     },
     {
       "gdrgCode": "OPHT17A",
@@ -4660,7 +4649,7 @@
         3,
         8
       ],
-      "tariffGhC": 23.71
+      "tariffGhC": 106.31
     },
     {
       "gdrgCode": "OPHT18A",
@@ -4675,7 +4664,7 @@
         3,
         8
       ],
-      "tariffGhC": 276.53
+      "tariffGhC": 585.16
     },
     {
       "gdrgCode": "ORTH01A",
@@ -4693,7 +4682,7 @@
         6,
         10
       ],
-      "tariffGhC": 86.99
+      "tariffGhC": 182.46
     },
     {
       "gdrgCode": "ORTH01C",
@@ -4711,7 +4700,7 @@
         6,
         10
       ],
-      "tariffGhC": 84.74
+      "tariffGhC": 200.97
     },
     {
       "gdrgCode": "ORTH02A",
@@ -4725,7 +4714,7 @@
         2,
         3
       ],
-      "tariffGhC": 416.16
+      "tariffGhC": 1010.59
     },
     {
       "gdrgCode": "ORTH02C",
@@ -4739,7 +4728,7 @@
         2,
         3
       ],
-      "tariffGhC": 416.16
+      "tariffGhC": 1010.59
     },
     {
       "gdrgCode": "ORTH03A",
@@ -4753,7 +4742,7 @@
         2,
         3
       ],
-      "tariffGhC": 650.21
+      "tariffGhC": 1938.67
     },
     {
       "gdrgCode": "ORTH03C",
@@ -4767,7 +4756,7 @@
         2,
         3
       ],
-      "tariffGhC": 606.92
+      "tariffGhC": 1206.26
     },
     {
       "gdrgCode": "ORTH04A",
@@ -4784,7 +4773,7 @@
         5,
         6
       ],
-      "tariffGhC": 407.39
+      "tariffGhC": 931.45
     },
     {
       "gdrgCode": "ORTH04C",
@@ -4801,7 +4790,7 @@
         5,
         6
       ],
-      "tariffGhC": 393.18
+      "tariffGhC": 915.36
     },
     {
       "gdrgCode": "ORTH05A",
@@ -4815,7 +4804,7 @@
         2,
         3
       ],
-      "tariffGhC": 379.98
+      "tariffGhC": 917.24
     },
     {
       "gdrgCode": "ORTH05C",
@@ -4829,7 +4818,7 @@
         2,
         3
       ],
-      "tariffGhC": 381.1
+      "tariffGhC": 915.67
     },
     {
       "gdrgCode": "ORTH07A",
@@ -4843,7 +4832,7 @@
         2,
         3
       ],
-      "tariffGhC": 281.69
+      "tariffGhC": 608.04
     },
     {
       "gdrgCode": "ORTH07C",
@@ -4857,7 +4846,7 @@
         2,
         3
       ],
-      "tariffGhC": 279.11
+      "tariffGhC": 610.02
     },
     {
       "gdrgCode": "ORTH08A",
@@ -4871,7 +4860,7 @@
         2,
         3
       ],
-      "tariffGhC": 713.54
+      "tariffGhC": 1964.13
     },
     {
       "gdrgCode": "ORTH08C",
@@ -4885,7 +4874,7 @@
         2,
         3
       ],
-      "tariffGhC": 708.36
+      "tariffGhC": 1956.86
     },
     {
       "gdrgCode": "ORTH09A",
@@ -4899,7 +4888,7 @@
         2,
         3
       ],
-      "tariffGhC": 503.35
+      "tariffGhC": 1080.06
     },
     {
       "gdrgCode": "ORTH09C",
@@ -4913,7 +4902,7 @@
         2,
         3
       ],
-      "tariffGhC": 493.74
+      "tariffGhC": 1102.13
     },
     {
       "gdrgCode": "ORTH10A",
@@ -4927,7 +4916,7 @@
         2,
         3
       ],
-      "tariffGhC": 1173.77
+      "tariffGhC": 2258.39
     },
     {
       "gdrgCode": "ORTH10C",
@@ -4941,7 +4930,7 @@
         2,
         3
       ],
-      "tariffGhC": 1078.6
+      "tariffGhC": 2175.11
     },
     {
       "gdrgCode": "ORTH11A",
@@ -4955,7 +4944,7 @@
         2,
         3
       ],
-      "tariffGhC": 220.67
+      "tariffGhC": 811.68
     },
     {
       "gdrgCode": "ORTH11C",
@@ -4969,7 +4958,7 @@
         2,
         3
       ],
-      "tariffGhC": 211.07
+      "tariffGhC": 518.04
     },
     {
       "gdrgCode": "ORTH12A",
@@ -4983,7 +4972,7 @@
         2,
         3
       ],
-      "tariffGhC": 799.72
+      "tariffGhC": 1602.81
     },
     {
       "gdrgCode": "ORTH12C",
@@ -4997,7 +4986,7 @@
         2,
         3
       ],
-      "tariffGhC": 728.11
+      "tariffGhC": 1578.53
     },
     {
       "gdrgCode": "ORTH14A",
@@ -5011,7 +5000,7 @@
         2,
         3
       ],
-      "tariffGhC": 892.84
+      "tariffGhC": 1925.65
     },
     {
       "gdrgCode": "ORTH14C",
@@ -5025,7 +5014,7 @@
         2,
         3
       ],
-      "tariffGhC": 787.79
+      "tariffGhC": 1895.73
     },
     {
       "gdrgCode": "ORTH15A",
@@ -5039,7 +5028,7 @@
         2,
         3
       ],
-      "tariffGhC": 181.98
+      "tariffGhC": 483.39
     },
     {
       "gdrgCode": "ORTH15C",
@@ -5053,7 +5042,7 @@
         2,
         3
       ],
-      "tariffGhC": 167.6
+      "tariffGhC": 476.36
     },
     {
       "gdrgCode": "ORTH16A",
@@ -5067,7 +5056,7 @@
         2,
         3
       ],
-      "tariffGhC": 117.64
+      "tariffGhC": 294.01
     },
     {
       "gdrgCode": "ORTH16C",
@@ -5081,7 +5070,7 @@
         2,
         3
       ],
-      "tariffGhC": 113.21
+      "tariffGhC": 427.61
     },
     {
       "gdrgCode": "ORTH17A",
@@ -5095,7 +5084,7 @@
         2,
         3
       ],
-      "tariffGhC": 808.13
+      "tariffGhC": 1733.1
     },
     {
       "gdrgCode": "ORTH17C",
@@ -5109,7 +5098,7 @@
         2,
         3
       ],
-      "tariffGhC": 837.97
+      "tariffGhC": 1719.19
     },
     {
       "gdrgCode": "ORTH18A",
@@ -5123,7 +5112,7 @@
         2,
         3
       ],
-      "tariffGhC": 941.71
+      "tariffGhC": 2457.32
     },
     {
       "gdrgCode": "ORTH18C",
@@ -5137,7 +5126,7 @@
         2,
         3
       ],
-      "tariffGhC": 882.85
+      "tariffGhC": 2418.04
     },
     {
       "gdrgCode": "ORTH19A",
@@ -5151,7 +5140,7 @@
         2,
         3
       ],
-      "tariffGhC": 392.69
+      "tariffGhC": 1043.64
     },
     {
       "gdrgCode": "ORTH19C",
@@ -5165,7 +5154,7 @@
         2,
         3
       ],
-      "tariffGhC": 366.2
+      "tariffGhC": 1025.72
     },
     {
       "gdrgCode": "ORTH20A",
@@ -5179,7 +5168,7 @@
         2,
         3
       ],
-      "tariffGhC": 696.47
+      "tariffGhC": 1622.3
     },
     {
       "gdrgCode": "ORTH20C",
@@ -5193,7 +5182,7 @@
         2,
         3
       ],
-      "tariffGhC": 735.52
+      "tariffGhC": 1664.75
     },
     {
       "gdrgCode": "ORTH22A",
@@ -5207,7 +5196,7 @@
         2,
         3
       ],
-      "tariffGhC": 558.84
+      "tariffGhC": 1515.02
     },
     {
       "gdrgCode": "ORTH22C",
@@ -5221,7 +5210,7 @@
         2,
         3
       ],
-      "tariffGhC": 558.79
+      "tariffGhC": 1521.59
     },
     {
       "gdrgCode": "ORTH23A",
@@ -5235,7 +5224,7 @@
         2,
         3
       ],
-      "tariffGhC": 568.02
+      "tariffGhC": 1515.18
     },
     {
       "gdrgCode": "ORTH23C",
@@ -5249,7 +5238,7 @@
         2,
         3
       ],
-      "tariffGhC": 607.79
+      "tariffGhC": 1530.14
     },
     {
       "gdrgCode": "ORTH24A",
@@ -5263,7 +5252,7 @@
         2,
         3
       ],
-      "tariffGhC": 137.61
+      "tariffGhC": 281.86
     },
     {
       "gdrgCode": "ORTH24C",
@@ -5277,7 +5266,7 @@
         2,
         3
       ],
-      "tariffGhC": 177.83
+      "tariffGhC": 303.82
     },
     {
       "gdrgCode": "ORTH25A",
@@ -5291,7 +5280,7 @@
         2,
         3
       ],
-      "tariffGhC": 334.78
+      "tariffGhC": 573.36
     },
     {
       "gdrgCode": "ORTH25C",
@@ -5305,7 +5294,7 @@
         2,
         3
       ],
-      "tariffGhC": 346.92
+      "tariffGhC": 580.72
     },
     {
       "gdrgCode": "ORTH26A",
@@ -5319,7 +5308,7 @@
         2,
         3
       ],
-      "tariffGhC": 532.57
+      "tariffGhC": 1352.18
     },
     {
       "gdrgCode": "ORTH26C",
@@ -5333,7 +5322,7 @@
         2,
         3
       ],
-      "tariffGhC": 587.28
+      "tariffGhC": 1372.67
     },
     {
       "gdrgCode": "ORTH27A",
@@ -5347,7 +5336,7 @@
         2,
         3
       ],
-      "tariffGhC": 727.4
+      "tariffGhC": 1589.32
     },
     {
       "gdrgCode": "ORTH27C",
@@ -5361,7 +5350,7 @@
         2,
         3
       ],
-      "tariffGhC": 723.56
+      "tariffGhC": 1574.08
     },
     {
       "gdrgCode": "RSUR01A",
@@ -5375,7 +5364,7 @@
         2,
         3
       ],
-      "tariffGhC": 711.92
+      "tariffGhC": 1292.86
     },
     {
       "gdrgCode": "RSUR01C",
@@ -5389,7 +5378,7 @@
         2,
         3
       ],
-      "tariffGhC": 668.42
+      "tariffGhC": 1271.05
     },
     {
       "gdrgCode": "RSUR02A",
@@ -5403,7 +5392,7 @@
         2,
         3
       ],
-      "tariffGhC": 1002.79
+      "tariffGhC": 1687.33
     },
     {
       "gdrgCode": "RSUR02C",
@@ -5417,7 +5406,7 @@
         2,
         3
       ],
-      "tariffGhC": 970.08
+      "tariffGhC": 1667.14
     },
     {
       "gdrgCode": "RSUR03A",
@@ -5431,7 +5420,7 @@
         2,
         3
       ],
-      "tariffGhC": 783.07
+      "tariffGhC": 1988.42
     },
     {
       "gdrgCode": "RSUR03C",
@@ -5445,7 +5434,7 @@
         2,
         3
       ],
-      "tariffGhC": 739.4
+      "tariffGhC": 1962.98
     },
     {
       "gdrgCode": "RSUR04A",
@@ -5459,7 +5448,7 @@
         2,
         3
       ],
-      "tariffGhC": 486.77
+      "tariffGhC": 1252.01
     },
     {
       "gdrgCode": "RSUR04C",
@@ -5473,7 +5462,7 @@
         2,
         3
       ],
-      "tariffGhC": 431.06
+      "tariffGhC": 1206.02
     },
     {
       "gdrgCode": "RSUR05A",
@@ -5484,10 +5473,9 @@
       "isSurgical": true,
       "applicableLevels": [
         1,
-        2,
-        3
+        2
       ],
-      "tariffGhC": 746.24
+      "tariffGhC": null
     },
     {
       "gdrgCode": "RSUR05C",
@@ -5498,10 +5486,9 @@
       "isSurgical": true,
       "applicableLevels": [
         1,
-        2,
-        3
+        2
       ],
-      "tariffGhC": 705.05
+      "tariffGhC": null
     },
     {
       "gdrgCode": "RSUR06A",
@@ -5515,7 +5502,7 @@
         2,
         3
       ],
-      "tariffGhC": 877.37
+      "tariffGhC": 1966.89
     },
     {
       "gdrgCode": "RSUR06C",
@@ -5529,7 +5516,7 @@
         2,
         3
       ],
-      "tariffGhC": 798.82
+      "tariffGhC": 3311.18
     },
     {
       "gdrgCode": "RSUR07A",
@@ -5543,7 +5530,7 @@
         2,
         3
       ],
-      "tariffGhC": 310.13
+      "tariffGhC": 695.84
     },
     {
       "gdrgCode": "RSUR07C",
@@ -5557,7 +5544,7 @@
         2,
         3
       ],
-      "tariffGhC": 291.66
+      "tariffGhC": 687.89
     },
     {
       "gdrgCode": "RSUR08A",
@@ -5571,7 +5558,7 @@
         2,
         3
       ],
-      "tariffGhC": 852.61
+      "tariffGhC": 2092.37
     },
     {
       "gdrgCode": "RSUR08C",
@@ -5585,7 +5572,7 @@
         2,
         3
       ],
-      "tariffGhC": 816.42
+      "tariffGhC": 2072.01
     },
     {
       "gdrgCode": "RSUR09A",
@@ -5599,7 +5586,7 @@
         2,
         3
       ],
-      "tariffGhC": 596.84
+      "tariffGhC": 1748.13
     },
     {
       "gdrgCode": "RSUR09C",
@@ -5613,7 +5600,7 @@
         2,
         3
       ],
-      "tariffGhC": 560.23
+      "tariffGhC": 1728.3
     },
     {
       "gdrgCode": "RSUR10A",
@@ -5627,7 +5614,7 @@
         2,
         3
       ],
-      "tariffGhC": 1119.95
+      "tariffGhC": 2924.9
     },
     {
       "gdrgCode": "RSUR10C",
@@ -5641,7 +5628,7 @@
         2,
         3
       ],
-      "tariffGhC": 1013.4
+      "tariffGhC": 2820.26
     },
     {
       "gdrgCode": "RSUR11A",
@@ -5655,7 +5642,7 @@
         2,
         3
       ],
-      "tariffGhC": 637.25
+      "tariffGhC": 1933.68
     },
     {
       "gdrgCode": "RSUR11C",
@@ -5669,7 +5656,7 @@
         2,
         3
       ],
-      "tariffGhC": 586.8
+      "tariffGhC": 1920.23
     },
     {
       "gdrgCode": "RSUR12A",
@@ -5680,10 +5667,9 @@
       "isSurgical": true,
       "applicableLevels": [
         1,
-        2,
-        3
+        2
       ],
-      "tariffGhC": 756.58
+      "tariffGhC": null
     },
     {
       "gdrgCode": "RSUR12C",
@@ -5694,10 +5680,9 @@
       "isSurgical": true,
       "applicableLevels": [
         1,
-        2,
-        3
+        2
       ],
-      "tariffGhC": 674.81
+      "tariffGhC": null
     },
     {
       "gdrgCode": "RSUR13A",
@@ -5711,7 +5696,7 @@
         2,
         3
       ],
-      "tariffGhC": 806.95
+      "tariffGhC": 2088.94
     },
     {
       "gdrgCode": "RSUR13C",
@@ -5725,7 +5710,7 @@
         2,
         3
       ],
-      "tariffGhC": 754.92
+      "tariffGhC": 2059.4
     },
     {
       "gdrgCode": "RSUR14A",
@@ -5739,7 +5724,7 @@
         2,
         3
       ],
-      "tariffGhC": 1065.58
+      "tariffGhC": 2554.5
     },
     {
       "gdrgCode": "RSUR14C",
@@ -5753,7 +5738,7 @@
         2,
         3
       ],
-      "tariffGhC": 1003.42
+      "tariffGhC": 2518.28
     },
     {
       "gdrgCode": "RSUR15A",
@@ -5767,7 +5752,7 @@
         2,
         3
       ],
-      "tariffGhC": 492.43
+      "tariffGhC": 1103.15
     },
     {
       "gdrgCode": "RSUR15C",
@@ -5781,7 +5766,7 @@
         2,
         3
       ],
-      "tariffGhC": 462.54
+      "tariffGhC": 1036.12
     },
     {
       "gdrgCode": "ZOOM01A",
@@ -5796,7 +5781,7 @@
         2,
         3
       ],
-      "tariffGhC": 158.64
+      "tariffGhC": 322.33
     },
     {
       "gdrgCode": "ZOOM01C",
@@ -5811,7 +5796,7 @@
         2,
         3
       ],
-      "tariffGhC": 149.37
+      "tariffGhC": 316.97
     },
     {
       "gdrgCode": "ZOOM02A",
@@ -5830,7 +5815,7 @@
         6,
         10
       ],
-      "tariffGhC": 46.32
+      "tariffGhC": 98.7
     },
     {
       "gdrgCode": "ZOOM02C",
@@ -5849,7 +5834,7 @@
         6,
         10
       ],
-      "tariffGhC": 34.97
+      "tariffGhC": 93.09
     },
     {
       "gdrgCode": "ZOOM03A",
@@ -5864,7 +5849,7 @@
         2,
         3
       ],
-      "tariffGhC": 108.54
+      "tariffGhC": 185.66
     },
     {
       "gdrgCode": "ZOOM03C",
@@ -5879,7 +5864,7 @@
         2,
         3
       ],
-      "tariffGhC": 101.03
+      "tariffGhC": 181.32
     },
     {
       "gdrgCode": "ZOOM04A",
@@ -5898,7 +5883,7 @@
         6,
         10
       ],
-      "tariffGhC": 21.05
+      "tariffGhC": 83.29
     },
     {
       "gdrgCode": "ZOOM04C",
@@ -5917,7 +5902,7 @@
         6,
         10
       ],
-      "tariffGhC": 21.05
+      "tariffGhC": 87.01
     },
     {
       "gdrgCode": "ZOOM05A",
@@ -5936,7 +5921,7 @@
         6,
         10
       ],
-      "tariffGhC": 32.55
+      "tariffGhC": 119.31
     },
     {
       "gdrgCode": "ZOOM05C",
@@ -5955,7 +5940,7 @@
         6,
         10
       ],
-      "tariffGhC": 32.55
+      "tariffGhC": 113.44
     },
     {
       "gdrgCode": "ZOOM06A",
@@ -5973,7 +5958,7 @@
         6,
         10
       ],
-      "tariffGhC": 57.6
+      "tariffGhC": 291.94
     },
     {
       "gdrgCode": "ZOOM06C",
@@ -5991,7 +5976,7 @@
         6,
         10
       ],
-      "tariffGhC": 57.6
+      "tariffGhC": 225.07
     },
     {
       "gdrgCode": "ZOOM07A",
@@ -6010,7 +5995,7 @@
         6,
         10
       ],
-      "tariffGhC": 81.59
+      "tariffGhC": 200.16
     },
     {
       "gdrgCode": "ZOOM07C",
@@ -6029,7 +6014,7 @@
         6,
         10
       ],
-      "tariffGhC": 78.97
+      "tariffGhC": 136.04
     },
     {
       "gdrgCode": "ZOOM08A",
@@ -6044,7 +6029,7 @@
         2,
         3
       ],
-      "tariffGhC": 110
+      "tariffGhC": 136
     },
     {
       "gdrgCode": "ZOOM09A",
@@ -6059,7 +6044,7 @@
         2,
         3
       ],
-      "tariffGhC": 110
+      "tariffGhC": 210.75
     },
     {
       "gdrgCode": "ZOOM10A",
@@ -6078,7 +6063,7 @@
         6,
         10
       ],
-      "tariffGhC": 12
+      "tariffGhC": 26.8
     },
     {
       "gdrgCode": "ZOOM11A",
@@ -6097,7 +6082,7 @@
         6,
         10
       ],
-      "tariffGhC": 12
+      "tariffGhC": 26.8
     },
     {
       "gdrgCode": "ZOOM12A",
@@ -6116,7 +6101,7 @@
         6,
         10
       ],
-      "tariffGhC": 6
+      "tariffGhC": 8.73
     },
     {
       "gdrgCode": "ZOOM13A",
@@ -6135,7 +6120,7 @@
         6,
         10
       ],
-      "tariffGhC": 2
+      "tariffGhC": 3
     },
     {
       "gdrgCode": "OPDC01A",
@@ -6172,13 +6157,12 @@
       "applicableLevels": [
         1,
         2,
-        3,
         4,
         5,
         6,
         10
       ],
-      "tariffGhC": 37.08
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC03A",
@@ -6193,7 +6177,7 @@
         3,
         7
       ],
-      "tariffGhC": 25.21
+      "tariffGhC": 89.31
     },
     {
       "gdrgCode": "OPDC03C",
@@ -6208,7 +6192,7 @@
         3,
         7
       ],
-      "tariffGhC": 25.71
+      "tariffGhC": 90.42
     },
     {
       "gdrgCode": "OPDC04A",
@@ -6222,7 +6206,7 @@
         2,
         3
       ],
-      "tariffGhC": 30.16
+      "tariffGhC": 93.79
     },
     {
       "gdrgCode": "OPDC04C",
@@ -6236,7 +6220,7 @@
         2,
         3
       ],
-      "tariffGhC": 28.84
+      "tariffGhC": 94.44
     },
     {
       "gdrgCode": "OPDC05A",
@@ -6251,7 +6235,7 @@
         3,
         8
       ],
-      "tariffGhC": 28.55
+      "tariffGhC": 88.2
     },
     {
       "gdrgCode": "OPDC05C",
@@ -6266,7 +6250,7 @@
         3,
         8
       ],
-      "tariffGhC": 28.02
+      "tariffGhC": 88.01
     },
     {
       "gdrgCode": "OPDC06A",
@@ -6284,7 +6268,7 @@
         6,
         10
       ],
-      "tariffGhC": 28.7
+      "tariffGhC": 58.94
     },
     {
       "gdrgCode": "OPDC06C",
@@ -6302,7 +6286,7 @@
         6,
         10
       ],
-      "tariffGhC": 29.06
+      "tariffGhC": 60.65
     },
     {
       "gdrgCode": "OPDC07A",
@@ -6362,13 +6346,12 @@
       "applicableLevels": [
         1,
         2,
-        3,
         4,
         5,
         6,
         10
       ],
-      "tariffGhC": 23.56
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC11C",
@@ -6380,13 +6363,12 @@
       "applicableLevels": [
         1,
         2,
-        3,
         4,
         5,
         6,
         10
       ],
-      "tariffGhC": 23.1
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC12A",
@@ -6409,10 +6391,9 @@
       "isSurgical": false,
       "applicableLevels": [
         1,
-        2,
-        3
+        2
       ],
-      "tariffGhC": 27.96
+      "tariffGhC": null
     },
     {
       "gdrgCode": "OPDC13C",
@@ -6423,16 +6404,16 @@
       "isSurgical": false,
       "applicableLevels": [
         1,
-        2,
-        3
+        2
       ],
-      "tariffGhC": 27.6
+      "tariffGhC": null
     }
   ],
   "facilityProfile": {
-    "facilityType": "private_primary_care",
+    "facilityType": "private_primary_hospital",
+    "facilityLevel": "C",
     "catering": "exclusive",
     "country": "GH",
-    "scheduleVersion": "2022-2"
+    "scheduleMonth": "2026-08"
   }
 }
