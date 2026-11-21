@@ -78,9 +78,13 @@ export class ClaimBatchService extends BaseService {
     const outstanding = Math.max(0, payable - paid);
     const overpaid = Math.max(0, paid - payable);
     const submission = events.find((event: any) => event.eventType === 'submission');
+    const resubmissions = events.filter((event: any) => event.eventType === 'resubmission');
+    const latestResubmission = resubmissions[resubmissions.length - 1] || null;
     return { amountSubmitted: submitted, amountAdjudicated: adjudicated, amountPayable: payable, totalPaid: paid, outstanding, overpaid,
       latestStatus: overpaid > 0 ? 'overpaid' : paid >= payable && paid > 0 ? 'paid' : paid > 0 ? 'partially_paid' : (latestAdjudication?.status || (submission ? 'submitted' : 'not_submitted')),
       submittedAt: submission?.submissionDate || submission?.createdAt || batch.finalizedAt || null,
+      resubmissionCount: resubmissions.length,
+      latestResubmissionAt: latestResubmission?.submissionDate || latestResubmission?.createdAt || null,
     };
   }
   async listBatchTracking(filters: any) {
@@ -108,7 +112,7 @@ export class ClaimBatchService extends BaseService {
     },
     userId: string,
   ) {
-    const allowedTypes = ['submission', 'adjudication', 'payment', 'note'];
+    const allowedTypes = ['submission', 'resubmission', 'adjudication', 'payment', 'note'];
     if (!allowedTypes.includes(String(input.eventType))) {
       throw new ValidationError('Invalid tracking event type');
     }
@@ -170,12 +174,12 @@ export class ClaimBatchService extends BaseService {
       }
     }
 
-    if (input.eventType === 'submission' && !String(input.payerReference || '').trim()) {
-      throw new ValidationError('Enter the payer submission/batch reference where available');
+    if (['submission', 'resubmission'].includes(input.eventType) && !String(input.payerReference || '').trim()) {
+      throw new ValidationError('Enter the payer submission/resubmission reference');
     }
-    if (input.eventType === 'submission' && input.submissionDate
+    if (['submission', 'resubmission'].includes(input.eventType) && input.submissionDate
       && Number.isNaN(new Date(input.submissionDate).getTime())) {
-      throw new ValidationError('Submission date is invalid');
+      throw new ValidationError('Submission or resubmission date is invalid');
     }
     const allowedStatuses = ['acknowledged', 'under_review', 'queried', 'approved', 'partially_approved', 'rejected'];
     if (input.eventType === 'adjudication'
@@ -196,7 +200,7 @@ export class ClaimBatchService extends BaseService {
       batchId: batch.id,
       eventType: String(input.eventType),
       status: input.status ? String(input.status).trim().toLowerCase() : null,
-      submissionDate: input.submissionDate ? new Date(input.submissionDate) : (input.eventType === 'submission' ? new Date() : null),
+      submissionDate: input.submissionDate ? new Date(input.submissionDate) : (['submission', 'resubmission'].includes(input.eventType) ? new Date() : null),
       payerReference: input.payerReference ? String(input.payerReference).trim() : null,
       amount: input.eventType === 'adjudication' && input.amount != null ? Number(input.amount) : null,
       notes: input.notes ? String(input.notes).trim() : null,
