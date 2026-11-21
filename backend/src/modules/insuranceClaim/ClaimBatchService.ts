@@ -100,6 +100,7 @@ export class ClaimBatchService extends BaseService {
       eventType: string;
       status?: string;
       submissionDate?: string;
+      paymentDate?: string;
       payerReference?: string;
       amount?: number | string;
       paymentReference?: string;
@@ -127,6 +128,10 @@ export class ClaimBatchService extends BaseService {
         throw new ValidationError('Payment amount must be greater than zero');
       }
       const paymentReference = String(input.paymentReference || '').trim();
+      const paymentDate = input.paymentDate ? new Date(input.paymentDate) : new Date();
+      if (Number.isNaN(paymentDate.getTime())) {
+        throw new ValidationError('Payment date is invalid');
+      }
       if (!paymentReference) {
         throw new ValidationError('A payer remittance/payment reference is required to prevent duplicate entries');
       }
@@ -148,6 +153,7 @@ export class ClaimBatchService extends BaseService {
               batchId: batch.id,
               eventType: 'payment',
               amount: numericAmount,
+              paymentDate,
               paymentReference,
               paymentMethod: input.paymentMethod ? String(input.paymentMethod).trim() : null,
               payerReference: input.payerReference ? String(input.payerReference).trim() : null,
