@@ -143,7 +143,7 @@ export class ClaimBatchService extends BaseService {
           });
           const latest = adjudications[0];
           const latestStatus = String(latest?.status || '').toLowerCase();
-          const paymentLimit = latestStatus === 'rejected' ? (latest?.amount != null ? Number(latest.amount) : 0) : (['approved', 'partially_approved'].includes(latestStatus) && latest?.amount != null ? Number(latest.amount) : Number(batch.totalAmount));
+          const paymentLimit = latestStatus === 'rejected' ? 0 : (['approved', 'partially_approved'].includes(latestStatus) && latest?.amount != null ? Number(latest.amount) : Number(batch.totalAmount));
           if (paid + numericAmount > paymentLimit + 0.005) {
             throw new ValidationError(
               `Payment exceeds the ₵${paymentLimit.toFixed(2)} approved limit for ${batch.batchNumber}. Check the remittance and the payments already recorded.`,
