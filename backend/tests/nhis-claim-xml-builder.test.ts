@@ -33,6 +33,22 @@ describe('NHIS claim XML itemization safeguards', () => {
     }, hospital)).toThrow(/NHIS-LEGACY.*no itemized lines/i);
   });
 
+
+  it('uses the diagnosis linked to each procedure rather than repeating the first claim diagnosis', () => {
+    const xml = builder.buildSingleClaimXml({
+      claimNumber: 'NHIS-LINKED-DIAG',
+      principalGDRG: 'MEDI31A',
+      createdAt: new Date('2026-08-05T10:00:00Z'),
+      items: [
+        { itemCategory: 'diagnosis', code: 'J18.9', description: 'Pneumonia', gdrgTariff: { gdrgCode: 'MEDI31A' } },
+        { itemCategory: 'diagnosis', code: 'K35.8', description: 'Acute appendicitis', gdrgTariff: { gdrgCode: 'ASUR01A' } },
+        { itemCategory: 'procedure', code: 'PRO01', description: 'Appendicectomy', serviceDate: new Date('2026-08-05T10:00:00Z'), gdrgTariff: { gdrgCode: 'ASUR01A' }, diagnosis: { icdCode: 'K35.8', name: 'Acute appendicitis' } },
+      ],
+    }, hospital);
+    expect(xml).toContain('<diagnosis>Acute appendicitis</diagnosis>');
+    expect(xml).not.toContain('<diagnosis>Pneumonia</diagnosis>');
+  });
+
   it('exports all claims when every claim has itemized lines', () => {
     const xml = builder.buildBatchXml({
       batchNumber: 'BATCH-TEST',
