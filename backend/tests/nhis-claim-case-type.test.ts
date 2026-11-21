@@ -38,6 +38,7 @@ type EncounterInput = {
   /** Another of this patient's stays the claim's service date falls inside. */
   otherStay?: { admissionNumber: string; admissionDate: Date; dischargeDate: Date | null } | null;
   nhisNumber?: string | null;
+  nhisCCC?: string | null;
 };
 
 /** Runs generateNHISClaim against one encounter and returns the claim row it would write. */
@@ -50,6 +51,7 @@ function generate(input: EncounterInput) {
     procedureTariffs = [],
     otherStay = null,
     nhisNumber = '12345678',
+    nhisCCC = '12345',
   } = input;
 
   const attendance = {
@@ -57,7 +59,7 @@ function generate(input: EncounterInput) {
     attendanceNumber: 'ATT-1',
     patientId: 'patient-1',
     insuranceProviderId: 'nhis-1',
-    nhisCCC: '12345',
+    nhisCCC,
     attendanceType,
     encounterCategory,
     dateTime: serviceDate,
@@ -144,6 +146,18 @@ describe('NHIS claim generation follows the case the encounter is', () => {
     });
 
     await expect(run()).rejects.toThrow(/no valid 8-digit NHIS number or 10-digit HIN/);
+    expect(tx.insuranceClaim.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses to create a claim when the attendance CCC is not exactly five digits', async () => {
+    const { tx, run } = generate({
+      attendanceType: 'general_consultation',
+      encounterCategory: 'opd',
+      nhisCCC: '1234',
+      diagnosisTariffs: [{ tariff: tariff('OPDC06A'), isPrimary: true }],
+    });
+
+    await expect(run()).rejects.toThrow(/valid five-digit Claim Check Code/);
     expect(tx.insuranceClaim.create).not.toHaveBeenCalled();
   });
 
