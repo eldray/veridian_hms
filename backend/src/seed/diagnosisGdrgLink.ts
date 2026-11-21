@@ -499,7 +499,7 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'B08.1', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'A46', gdrgCodes: ['MEDI31A', 'PAED39C'], isPrimaryGdrg: 'MEDI31A' },
   { icdCode: 'D23.9', gdrgCodes: ['ASUR30A', 'MEDI18A', 'OPDC06A'], isPrimaryGdrg: 'ASUR30A' },
-  { icdCode: 'E70.3', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
+  { icdCode: 'E70.3', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC05A' },
 
   // Ulcer → MEDI35A adult; PAED43C child
   { icdCode: 'L89.90', gdrgCodes: ['MEDI35A', 'PAED43C'], isPrimaryGdrg: 'MEDI35A' },
@@ -789,16 +789,14 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'I80.209', gdrgCodes: ['MEDI34A', 'PAED42C', 'OPDC06A'], isPrimaryGdrg: 'MEDI34A' },
 
   // ENT procedures for tonsillitis etc.
-  { icdCode: 'J03.90', gdrgCodes: ['ENTH08A', 'ENTH08C', 'OPDC04A', 'OPDC04C'], isPrimaryGdrg: 'OPDC04A' },
-
+  
   // Refractive error / eye OPD
   { icdCode: 'H52.7', gdrgCodes: ['OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC05A' },
   { icdCode: 'H52.1', gdrgCodes: ['OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC05A' },
   { icdCode: 'H52.4', gdrgCodes: ['OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC05A' },
 
   // Albinism (skin/eye)
-  { icdCode: 'E70.3', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC05A' },
-
+  
   // Multiple sclerosis / GBS / Myasthenia
   { icdCode: 'G35', gdrgCodes: ['MEDI11A', 'OPDC06A'], isPrimaryGdrg: 'MEDI11A' },
   { icdCode: 'G61.0', gdrgCodes: ['MEDI11A', 'PAED19C'], isPrimaryGdrg: 'MEDI11A' },
