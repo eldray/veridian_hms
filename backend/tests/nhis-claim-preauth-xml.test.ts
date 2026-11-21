@@ -24,11 +24,10 @@ const validClaimFields = {
 
   it('emits each distinct pre-authorisation number as a separate XML code', () => {
     const xml = builder.buildSingleClaimXml({
+      ...validClaimFields,
       claimNumber: 'NHIS-TEST-1',
       preAuthNumber: 'AUTH-001,AUTH-002,AUTH-001',
-      items: [{ itemCategory: 'service', code: 'TEST', description: 'Test service', quantity: 1, unitPrice: 1, lineTotal: 1 }],
-      Patient: {},
-      Attendance: {},
+      items: [...validClaimFields.items, { itemCategory: 'service', code: 'TEST', description: 'Test service', quantity: 1, unitPrice: 1, lineTotal: 1 }],
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
     }, { nhisFacilityCode: 'FAC-001' });
 
@@ -38,6 +37,7 @@ const validClaimFields = {
 
   it('escapes authorisation numbers before writing XML', () => {
     const xml = builder.buildSingleClaimXml({
+      ...validClaimFields,
       claimNumber: 'NHIS-TEST-2',
       preAuthNumber: 'AUTH<&001',
       items: [{ itemCategory: 'service', code: 'TEST', description: 'Test service', quantity: 1, unitPrice: 1, lineTotal: 1 }],
@@ -51,6 +51,7 @@ const validClaimFields = {
 
   it('keeps the empty XML element when no authorisation is recorded', () => {
     const xml = builder.buildSingleClaimXml({
+      ...validClaimFields,
       claimNumber: 'NHIS-TEST-3',
       preAuthNumber: null,
       items: [{ itemCategory: 'service', code: 'TEST', description: 'Test service', quantity: 1, unitPrice: 1, lineTotal: 1 }],
