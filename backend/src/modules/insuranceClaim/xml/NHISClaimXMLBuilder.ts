@@ -84,7 +84,7 @@ export class NHISClaimXMLBuilder {
     const preAuthXml = preAuthNumbers.length
       ? `<preAuthorizationCodes>${preAuthNumbers.map((number) => `<code>${this.esc(String(number))}</code>`).join('')}</preAuthorizationCodes>`
       : `<preAuthorizationCodes />`;
-    const physicianId = this.esc(this.resolvePhysicianLicense(items));
+    const physicianId = this.esc(this.resolvePhysicianLicense(items, attendance));
 
     // ── Member info ──
     const memberNo = this.esc(patient.nhisNumber ?? '');
@@ -245,7 +245,7 @@ export class NHISClaimXMLBuilder {
     if (!this.isoDate(patient?.dateOfBirth)) fail('patient date of birth is missing or invalid');
     if (!['male', 'female', 'M', 'F'].includes(String(patient?.gender ?? ''))) fail('patient gender must be male or female');
     required(patient?.folderNumber, 'hospital folder number');
-    required(this.resolvePhysicianLicense(items), 'physician or prescriber licence');
+    required(this.resolvePhysicianLicense(items, attendance), 'physician or prescriber licence');
     required(claim?.principalGDRG, 'principal G-DRG');
     const gdrgLines = items.filter((item) => item?.itemCategory === 'gdrg');
     if (!gdrgLines.some((item) => String(item?.gdrgTariff?.gdrgCode ?? item?.code ?? '') === String(claim.principalGDRG))) {
@@ -285,12 +285,14 @@ export class NHISClaimXMLBuilder {
   // HELPERS
   // ==========================================
 
-  private resolvePhysicianLicense(items: any[]): string {
+  private resolvePhysicianLicense(items: any[], attendance?: any): string {
     for (const item of items) {
       if (item?.clinician) return String(item.clinician);
       if (item?.prescriberNo) return String(item.prescriberNo);
     }
-    return '';
+    // Older generated claims may not have copied the licence onto each line. The encounter's
+    // assigned provider is the authoritative fallback, not the user who happened to create it.
+    return String(attendance?.User_Attendance_providerIdToUser?.licenseNumber ?? '').trim();
   }
 
   private isDependant(patient: any): string {
