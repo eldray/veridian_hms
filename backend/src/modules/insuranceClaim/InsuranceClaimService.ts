@@ -473,13 +473,15 @@ ${claimsXml}
     for (const med of medicines) {
       const stockItem = med.StockItem;
       const label = med.name || stockItem?.name || 'this medicine';
-      // The payer is billed for what the pharmacy handed over, so a prescription the patient never
-      // collected is reported as unclaimable rather than silently dropped from the list.
-      if (med.status !== 'dispensed') {
+      // Include medicines recorded as dispensed OR administered. Inpatient medication workflows
+      // may advance the status to administered after pharmacy supply; that must not erase the
+      // auditable evidence that the medicine was supplied for this attendance. Prescribed-only
+      // rows remain excluded because there is no recorded supply or administration.
+      if (!['dispensed', 'administered'].includes(med.status)) {
         unclaimable.push({
           code: stockItem?.drugCode,
           description: label,
-          reason: `was ${String(med.status)}, not dispensed to the patient`,
+          reason: `was ${String(med.status)}, so there is no recorded supply or administration for this visit`,
         });
         continue;
       }
@@ -829,7 +831,7 @@ ${claimsXml}
 
       const att = await tx.attendance.findUnique({
         where: { id: attendanceId },
-        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } }, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: 'dispensed' }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } } }
+        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } }, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } } }
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
@@ -1003,7 +1005,7 @@ ${claimsXml}
         }
         const quantity = Number(med.quantity ?? 1);
         if (!Number.isFinite(quantity) || quantity <= 0) {
-          throw new ValidationError(`NHIS claim cannot price ${med.name ?? stockItem.name}: dispensed quantity is missing or invalid.`);
+          throw new ValidationError(`NHIS claim cannot price ${med.name ?? stockItem.name}: supplied quantity is missing or invalid.`);
         }
         const coveredUnitAmount = Math.round(allocation.nhisCoveredAmount * 100) / 100;
         const coveredLineAmount = Math.round(coveredUnitAmount * quantity * 100) / 100;
@@ -1408,7 +1410,7 @@ ${claimsXml}
     for (const row of att.LabTest || []) if (row.status === 'completed') await addCatalogLine(row, row.ServiceCatalog, 1, 'investigation', 'lab', row.id);
     for (const row of att.Scan || []) if (row.status === 'completed') await addCatalogLine(row, row.ServiceCatalog, 1, 'investigation', 'scan', row.id);
     for (const row of att.Procedure || []) if (row.status === 'completed') await addCatalogLine(row, row.ServiceCatalog, 1, 'procedure', 'procedure', row.id);
-    for (const row of att.Medication || []) if (row.status === 'dispensed') await addCatalogLine(row, row.ServiceCatalog, row.quantity, 'medicine', 'medication', row.id);
+    for (const row of att.Medication || []) if (['dispensed', 'administered'].includes(row.status)) await addCatalogLine(row, row.ServiceCatalog, row.quantity, 'medicine', 'medication', row.id);
 
     if (!lines.length) throw new ValidationError(`Attendance ${att.attendanceNumber} has no completed, priced services or dispensed medicines eligible for this claim.`);
     return lines.map((line, index) => ({ ...line, itemNumber: index + 1 }));
@@ -1441,7 +1443,7 @@ ${claimsXml}
         labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? (l.LabTestTemplate?.investigationCode ?? l.ServiceCatalog?.nhisServiceCode) : null),
         scanCodes: safeMap(att.Scan, (s: any) => s.status === 'completed' ? (s.ScanTemplate?.investigationCode ?? s.ServiceCatalog?.nhisServiceCode) : null),
         serviceCodes: safeMap(att.ServiceRendered, (s: any) => s.ServiceCatalog?.code),
-        medicationCodes: safeMap(att.Medication, (m: any) => m.status === 'dispensed' ? (m.StockItem?.drugCode || m.ServiceCatalog?.code) : null),
+        medicationCodes: safeMap(att.Medication, (m: any) => ['dispensed', 'administered'].includes(m.status) ? (m.StockItem?.drugCode || m.ServiceCatalog?.code) : null),
         notes: 'Private insurance claim - generated directly from attendance services; no bill created.',
         items: { create: items },
       }, include: { items: { orderBy: { itemNumber: 'asc' } } }});
@@ -1606,7 +1608,7 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { where: { status: 'dispensed' }, include: { StockItem: { select: { id: true, drugCode: true, name: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { StockItem: { select: { id: true, drugCode: true, name: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
 
@@ -1760,7 +1762,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     const medRows = rows.filter(r => r.itemCategory === 'medicine');
     let medicinesTotal = 0;
     const attendance = claim.Attendance;
-    const dispensedMedicines = attendance?.Medication ?? [];
+    const suppliedMedicines = attendance?.Medication ?? [];
     const authorisations = attendance && claim.insuranceProviderId
       ? await this.prisma.preAuthorisationRequest.findMany({
           where: {
@@ -1847,17 +1849,17 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           med.ServiceCatalog?.code === row.code
         );
       };
-      const matchingDispensedMedicines = dispensedMedicines.filter(matchesDispensedStockItem);
-      if (!matchingDispensedMedicines.length) {
-        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine dispensed for this attendance. Select a valid dispensed medicine before saving the claim.`);
+      const matchingSuppliedMedicines = suppliedMedicines.filter(matchesDispensedStockItem);
+      if (!matchingSuppliedMedicines.length) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine supplied or administered for this attendance. Select a valid supplied medicine before saving the claim.`);
       }
       // Claim edits must not increase the quantity beyond what was actually dispensed.
       // Track totals across rows too, so duplicating a line cannot inflate the claim.
-      const dispensedQuantity = matchingDispensedMedicines.reduce((sum: number, med: any) => sum + Number(med.quantity ?? 0), 0);
+      const suppliedQuantity = matchingSuppliedMedicines.reduce((sum: number, med: any) => sum + Number(med.quantity ?? 0), 0);
       const rowQuantity = Number(row.quantity);
       const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem?.id ?? '') ?? 0;
-      if (!Number.isFinite(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > dispensedQuantity) {
-        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity dispensed for this attendance (${dispensedQuantity - alreadyClaimedQuantity} remaining).`);
+      if (!Number.isFinite(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > suppliedQuantity) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity supplied or administered for this attendance (${suppliedQuantity - alreadyClaimedQuantity} remaining).`);
       }
       claimedQuantityByStockItem.set(catalog.StockItem?.id ?? '', alreadyClaimedQuantity + rowQuantity);
       // A null authorizationRequired is the imported NHIS list not stating the flag, so only an
@@ -1868,7 +1870,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         // identity attached to those matching dispensed rows, never an unrelated
         // row that merely shares a drug code.
         const matchingServiceCatalogIds = new Set<string>(
-          matchingDispensedMedicines
+          matchingSuppliedMedicines
             .map((med: any) => med.serviceCatalogId)
             .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0),
         );
