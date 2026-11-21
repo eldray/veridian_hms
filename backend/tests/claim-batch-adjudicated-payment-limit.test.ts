@@ -35,6 +35,14 @@ describe('adjudicated batch payment limits', () => {
     expect(eventCreate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ amount: 30 }) }));
   });
 
+  it('blocks all payments after rejection even if a rejected event contains a mistaken positive amount', async () => {
+    const { service, eventCreate } = setup([], [{ status: 'rejected', amount: 100 }]);
+    await expect(service.recordBatchTrackingEvent('batch-1', {
+      eventType: 'payment', amount: 1, paymentReference: 'REMIT-REJECTED',
+    }, 'accounts-user')).rejects.toThrow(/exceeds the ₵0.00 approved limit/);
+    expect(eventCreate).not.toHaveBeenCalled();
+  });
+
   it('summarizes outstanding balance against the adjudicated amount and exposes overpayment', async () => {
     const { service } = setup([], []);
     (service as any).repo.findBatchesForTracking = vi.fn().mockResolvedValue({
