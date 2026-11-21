@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import {
   Badge, Button, Card, humanStatus, PageHeader, Pagination, SearchInput,
-  StatCard, statusTone, TD, TD_MONO, TH, TH_ROW, TR, cn,
+  StatCard, statusTone, Tabs, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR, cn,
 } from '../components/ui';
 
 type Patient = {
@@ -99,7 +99,7 @@ export default function ImmunizationWorkspace() {
   const queue = activeTab === 'pending' ? pendingVisits : completedVisits;
 
   useEffect(() => { setCurrentPage(1); }, [search]);
-  const totalPages = Math.ceil(queue.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(queue.length / itemsPerPage));
   const paginatedVisits = queue.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const completedCount = filteredVisits.filter(visit => isCompleted(visit.status)).length;
   const inProgressCount = filteredVisits.filter(visit => isInProgress(visit.status)).length;
@@ -131,12 +131,24 @@ export default function ImmunizationWorkspace() {
       accent="cyan"
       backTo="/dashboard"
       actions={<Button icon={RefreshCw} loading={refreshing} onClick={() => void loadWaitingList()}>Refresh</Button>}
+      tabs={(
+        <Tabs
+          tabs={[
+            { key: 'pending', label: 'Pending', count: pendingVisits.length },
+            { key: 'completed', label: 'Completed', count: completedVisits.length },
+          ]}
+          active={activeTab}
+          onChange={(key) => { setActiveTab(key as QueueTab); setCurrentPage(1); }}
+          accent="cyan"
+          aria-label="Immunization visit status"
+        />
+      )}
     />
   );
 
   if (loading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-6 p-4 sm:p-6">
         {pageHeader}
         <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
           <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -147,7 +159,7 @@ export default function ImmunizationWorkspace() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {pageHeader}
 
       {error && (
@@ -166,22 +178,12 @@ export default function ImmunizationWorkspace() {
 
       <Card>
         <SearchInput
+          className="w-full"
           value={search}
           onChange={setSearch}
           placeholder="Search by patient name, folder number, phone, or attendance number…"
         />
       </Card>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant={activeTab === 'pending' ? 'primary' : 'outline'} accent="orange"
-          onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}>
-          Pending ({pendingVisits.length})
-        </Button>
-        <Button size="sm" variant={activeTab === 'completed' ? 'primary' : 'outline'} accent="green"
-          onClick={() => { setActiveTab('completed'); setCurrentPage(1); }}>
-          Completed ({completedVisits.length})
-        </Button>
-      </div>
 
       <Card
         title={`${activeTab === 'pending' ? 'Pending' : 'Completed'} Immunization Visits (${queue.length})`}
@@ -207,7 +209,8 @@ export default function ImmunizationWorkspace() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className={TABLE_SHELL}>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className={TH_ROW}>
                 <tr>
@@ -269,6 +272,7 @@ export default function ImmunizationWorkspace() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </Card>
