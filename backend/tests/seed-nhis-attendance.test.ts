@@ -7,7 +7,7 @@ describe('NHIS demo attendance identity', () => {
     setSeed(12345);
     for (let index = 0; index < 100; index += 1) {
       const memberNumber = makeNhisNumber(index);
-      expect(memberNumber).toMatch(/^(?:[1-9]\\d{7}|00[1-9]\\d{7})$/);
+      expect(memberNumber).toMatch(/^(?:[1-9]\d{7}|00[1-9]\d{7})$/);
     }
   });
 
