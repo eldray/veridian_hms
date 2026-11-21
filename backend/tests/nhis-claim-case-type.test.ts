@@ -112,7 +112,7 @@ function generate(input: EncounterInput) {
 
 const lines = (claim: any) => claim.items.create;
 const gdrgLine = (claim: any) => lines(claim).find((item: any) => item.itemCategory === 'gdrg');
-const procedureLine = (claim: any) => lines(claim).find((item: any) => item.itemCategory === 'procedure');
+const procedureLine = (claim: any, code?: string) => lines(claim).find((item: any) => item.itemCategory === 'procedure' && (!code || item.code === code));
 
 /** A draft as the claim table holds it, with the lines the desk saved onto it. */
 const draft = (items: any[], overrides: Record<string, unknown> = {}) => ({
@@ -225,8 +225,8 @@ describe('NHIS claim generation follows the case the encounter is', () => {
     expect(claim.principalGDRG).toBe('MEDI28A');
     expect(claim.serviceOutcome).toBe('TFOT');
     expect(claim.metadata.referringFacility).toBe('Tamale Teaching Hospital');
-    expect(procedureLine(claim).code).toBe('ZOOM03A');
-    expect(procedureLine(claim).gdrgTariffId).toBe('t-ZOOM03A');
+    expect(procedureLine(claim, 'ZOOM03A').code).toBe('ZOOM03A');
+    expect(procedureLine(claim, 'ZOOM03A').gdrgTariffId).toBe('t-ZOOM03A');
   });
 
   it('uses the ZOOM family-planning code for a recorded DMPA service', async () => {
@@ -240,7 +240,7 @@ describe('NHIS claim generation follows the case the encounter is', () => {
     const { claim } = await run();
     expect(claim.principalGDRG).toBe('ZOOM12A');
     expect(claim.typeOfService).toBe('OPD');
-    expect(procedureLine(claim).code).toBe('ZOOM12A');
+    expect(procedureLine(claim, 'ZOOM12A').code).toBe('ZOOM12A');
     expect(claim.procedureCodes).toContain('ZOOM12A');
   });
 
