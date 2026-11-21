@@ -1715,7 +1715,7 @@ export default function EditNHISClaim() {
         <ClaimCard
           title="Member Details"
           action={isDraft && !isEditingMember && canEditMember ? (
-            <button type="button" onClick={handleMemberEdit} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10">Edit</button>
+            <button type="button" onClick={handleMemberEdit} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10">Edit</button>
           ) : undefined}
         >
           {isEditingMember ? (
@@ -1726,8 +1726,8 @@ export default function EditNHISClaim() {
                 <UField label="Other Names" value={memberFormData.otherNames} onChange={v => setMemberFormData({ ...memberFormData, otherNames: v })} />
                 <UField label="Folder No." value={memberFormData.folderNumber} onChange={v => setMemberFormData({ ...memberFormData, folderNumber: v })} />
                 <div>
-                  <label className="block text-[11px] text-gray-500 mb-0.5">Gender</label>
-                  <select value={memberFormData.gender} onChange={e => setMemberFormData({ ...memberFormData, gender: e.target.value })} className="w-full border-b border-dotted border-gray-400 bg-transparent py-1.5 text-[15px] text-gray-600 focus:outline-none">
+                  <label className="block text-[11px] text-[var(--text-tertiary)] mb-0.5">Gender</label>
+                  <select value={memberFormData.gender} onChange={e => setMemberFormData({ ...memberFormData, gender: e.target.value })} className="w-full border-b border-dotted border-gray-400 bg-transparent py-1.5 text-[15px] text-[var(--text-secondary)] focus:outline-none">
                     <option value="">Select</option>
                     <option value="male">MALE</option>
                     <option value="female">FEMALE</option>
@@ -1738,7 +1738,7 @@ export default function EditNHISClaim() {
                 <UField label="CCC No." value={memberFormData.cccCode} onChange={v => setMemberFormData({ ...memberFormData, cccCode: v })} />
               </div>
               <div className="flex justify-end gap-2 mt-4">
-                <button type="button" onClick={() => setIsEditingMember(false)} className="px-4 py-1.5 border border-gray-300 rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+                <button type="button" onClick={() => setIsEditingMember(false)} className="px-4 py-1.5 border border-[var(--border-color)] rounded text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)]">Cancel</button>
                 <button type="button" onClick={handleMemberSave} disabled={isSavingMember} className="px-4 py-1.5 border rounded text-sm disabled:opacity-50" style={{ borderColor: '#4a7ca8', color: '#3a6a96' }}>
                   {isSavingMember ? 'Saving…' : 'Save member'}
                 </button>
@@ -1835,7 +1835,7 @@ export default function EditNHISClaim() {
           emptyText={procedures.length === 0 ? 'No procedures added...' : undefined}
           open={tablesOpen}
           action={isDraft ? (
-            <button type="button" onClick={() => setActiveModal('procedure')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 normal-case flex items-center gap-1">
+            <button type="button" onClick={() => setActiveModal('procedure')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 normal-case flex items-center gap-1">
               <Plus className="w-3 h-3" /> Add
             </button>
           ) : undefined}
@@ -1844,12 +1844,12 @@ export default function EditNHISClaim() {
             <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {procedures.map((pr, idx) => (
-                <tr key={idx} className="border-t border-gray-100">
-                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-gray-700">{pr.code || '—'}</td>
-                  <td className="px-3 py-3 text-gray-700">{pr.description}</td>
-                  <td className="px-3 py-3 text-gray-700">{fmtDate(pr.date)}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{moneyCell(pr.lineTotal)}</td>
+                <tr key={idx} className="border-t border-[var(--border-color)]">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{pr.code || '—'}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{pr.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{fmtDate(pr.date)}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(pr.lineTotal)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'procedure', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
@@ -1870,7 +1870,7 @@ export default function EditNHISClaim() {
           open={tablesOpen}
           emptyText={diagnoses.length === 0 ? 'No diagnoses added...' : undefined}
           action={isDraft ? (
-            <button type="button" onClick={() => setActiveModal('diagnosis')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 normal-case flex items-center gap-1">
+            <button type="button" onClick={() => setActiveModal('diagnosis')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 normal-case flex items-center gap-1">
               <Plus className="w-3 h-3" /> Add
             </button>
           ) : undefined}
@@ -1879,17 +1879,17 @@ export default function EditNHISClaim() {
             <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Diagnosis</TH><TH>ICD10</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {diagnoses.map((d, idx) => (
-                <tr key={idx} className="border-t border-gray-100">
-                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-gray-700">{d.gdrgCode}</td>
-                  <td className="px-3 py-3 text-gray-700">{d.description}</td>
-                  <td className="px-3 py-3 text-gray-700">
+                <tr key={idx} className="border-t border-[var(--border-color)]">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{d.gdrgCode}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{d.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">
                     {d.diagnosis}
                     {d.diagnosisType === 'primary'
                       ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 align-middle">PRIMARY</span>
                       : isDraft && <button type="button" onClick={() => setPrimaryDiagnosis(idx)} className="ml-2 text-[11px] text-blue-600 hover:underline">set primary</button>}
                   </td>
-                  <td className="px-3 py-3 text-gray-700">{d.icd10}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{d.icd10}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'diagnosis', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
@@ -1909,8 +1909,8 @@ export default function EditNHISClaim() {
           emptyText={investigations.length === 0 ? 'No investigations added...' : undefined}
           action={isDraft ? (
             <span className="flex gap-2 normal-case">
-              <button type="button" onClick={() => setActiveModal('lab')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Lab</button>
-              <button type="button" onClick={() => setActiveModal('scan')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Scan</button>
+              <button type="button" onClick={() => setActiveModal('lab')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Lab</button>
+              <button type="button" onClick={() => setActiveModal('scan')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Scan</button>
             </span>
           ) : undefined}
         >
@@ -1918,12 +1918,12 @@ export default function EditNHISClaim() {
             <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {investigations.map((inv, idx) => (
-                <tr key={idx} className="border-t border-gray-100">
-                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-gray-700">{inv.gdrgCode}</td>
-                  <td className="px-3 py-3 text-gray-700">{inv.description}</td>
-                  <td className="px-3 py-3 text-gray-700">{fmtDate(inv.date)}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{moneyCell(inv.lineTotal)}</td>
+                <tr key={idx} className="border-t border-[var(--border-color)]">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{inv.gdrgCode}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{inv.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{fmtDate(inv.date)}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(inv.lineTotal)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'investigation', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
@@ -1942,7 +1942,7 @@ export default function EditNHISClaim() {
           open={tablesOpen}
           emptyText={medicines.length === 0 ? 'No medicines added...' : undefined}
           action={isDraft ? (
-            <button type="button" onClick={() => setActiveModal('medicine')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 normal-case flex items-center gap-1">
+            <button type="button" onClick={() => setActiveModal('medicine')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 normal-case flex items-center gap-1">
               <Plus className="w-3 h-3" /> Add
             </button>
           ) : undefined}
@@ -1951,20 +1951,20 @@ export default function EditNHISClaim() {
             <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Qty</TH><TH>Date</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {medicines.map((m, idx) => (
-                <tr key={idx} className="border-t border-gray-100 align-top">
-                  <td className="px-3 py-3 text-gray-500">{idx + 1}</td>
-                  <td className="px-3 py-3 text-gray-700">{m.code}</td>
-                  <td className="px-3 py-3 text-gray-700">
+                <tr key={idx} className="border-t border-[var(--border-color)] align-top">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{m.code}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">
                     {m.description}
-                    {m.prescription && <div className="text-[10px] italic text-gray-500 mt-0.5">Rx: {m.prescription}</div>}
+                    {m.prescription && <div className="text-[10px] italic text-[var(--text-tertiary)] mt-0.5">Rx: {m.prescription}</div>}
                     {nhisQuotes.length > 0 && !claimableCodes.has(String(m.code)) && (
                       <div className="text-[10px] text-red-600 mt-0.5">Not on this visit&apos;s NHIS medicine list — remove the line or the save refuses it.</div>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-gray-700">{m.quantity}</td>
-                  <td className="px-3 py-3 text-gray-700">{fmtDate(m.date)}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{moneyCell(m.unitPrice)}</td>
-                  <td className="px-3 py-3 text-right text-gray-800 font-medium">{moneyCell(m.lineTotal)}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{m.quantity}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{fmtDate(m.date)}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(m.unitPrice)}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{moneyCell(m.lineTotal)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'medicine', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
@@ -1989,21 +1989,21 @@ export default function EditNHISClaim() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
             <Hint>If you are not certain of the Principal GDRG, leave this section blank and the system will automatically identify the most appropriate Principal GDRG for the claim.</Hint>
             <div>
-              <label className="block text-[11px] text-gray-500 mb-0.5">Select Principal GDRG</label>
+              <label className="block text-[11px] text-[var(--text-tertiary)] mb-0.5">Select Principal GDRG</label>
               <SearchableGDRGSelect value={principalGDRG} onChange={handlePrincipalGDRGChange} options={availableGDRGs} disabled={locked} placeholder="Search GDRG by code or description..." />
               {encounterAgeYears == null ? (
                 <p className="text-xs text-amber-700 mt-1">Enter the patient’s date of birth and service date to filter G-DRGs by age.</p>
               ) : (
-                <p className="text-xs text-gray-500 mt-1">Tariffs filtered for age {encounterAgeYears} on the service date.</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">Tariffs filtered for age {encounterAgeYears} on the service date.</p>
               )}
               {principalGDRGAgeInvalid && (
                 <p className="text-xs text-red-600 mt-1">The saved principal G-DRG is outside this patient’s age range. Choose an eligible tariff before saving.</p>
               )}
-              <p className="text-[15px] text-gray-700 mt-3">{principalGDRGDescription}</p>
+              <p className="text-[15px] text-[var(--text-primary)] mt-3">{principalGDRGDescription}</p>
               {principalGDRG ? (
-                <p className="mt-2 text-sm text-gray-700">
+                <p className="mt-2 text-sm text-[var(--text-primary)]">
                   G-DRG amount <span className="font-semibold">{money(gdrgAmount)}</span>
-                  {!gdrgLine && principalGDRG ? <span className="text-xs text-gray-500 ml-1">· current tariff, saved with the claim</span> : null}
+                  {!gdrgLine && principalGDRG ? <span className="text-xs text-[var(--text-tertiary)] ml-1">· current tariff, saved with the claim</span> : null}
                 </p>
               ) : null}
             </div>
@@ -2012,19 +2012,19 @@ export default function EditNHISClaim() {
 
         <ClaimCard title="Claim amounts">
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between border-b border-gray-100 pb-1">
-              <span className="text-gray-600">G-DRG {principalGDRG ? `(${principalGDRG})` : ''}</span>
-              <span className="font-medium text-gray-800">{principalGDRG ? money(gdrgAmount) : '—'}</span>
+            <div className="flex justify-between border-b border-[var(--border-color)] pb-1">
+              <span className="text-[var(--text-secondary)]">G-DRG {principalGDRG ? `(${principalGDRG})` : ''}</span>
+              <span className="font-medium text-[var(--text-primary)]">{principalGDRG ? money(gdrgAmount) : '—'}</span>
             </div>
-            <div className="flex justify-between border-b border-gray-100 pb-1">
-              <span className="text-gray-600">Medicines ({medicines.length})</span>
-              <span className="font-medium text-gray-800">
+            <div className="flex justify-between border-b border-[var(--border-color)] pb-1">
+              <span className="text-[var(--text-secondary)]">Medicines ({medicines.length})</span>
+              <span className="font-medium text-[var(--text-primary)]">
                 {medicines.length === 0 ? '—' : pricedMedicines.length === medicines.length ? money(medicinesAmount) : `${money(medicinesAmount)} · ${medicines.length - pricedMedicines.length} not priced yet`}
               </span>
             </div>
             <div className="flex justify-between pt-1">
-              <span className="font-semibold text-gray-800">Claim total</span>
-              <span className="font-bold text-gray-900">{money(claimTotal)}</span>
+              <span className="font-semibold text-[var(--text-primary)]">Claim total</span>
+              <span className="font-bold text-[var(--text-primary)]">{money(claimTotal)}</span>
             </div>
             <Hint>
               NHIS pays the G-DRG pack plus covered medicines. The investigations and procedures listed above are
@@ -2052,7 +2052,7 @@ export default function EditNHISClaim() {
                   type="button"
                   onClick={handleSendToClaimIt}
                   disabled={claimitBusy}
-                  className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 disabled:opacity-50 flex items-center gap-1"
+                  className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 disabled:opacity-50 flex items-center gap-1"
                 >
                   <Send className="w-3 h-3" /> {claimitBusy ? 'Sending…' : 'Send to CLAIM-it'}
                 </button>
@@ -2061,7 +2061,7 @@ export default function EditNHISClaim() {
                     type="button"
                     onClick={handleWithdrawFromClaimIt}
                     disabled={claimitBusy}
-                    className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 disabled:opacity-50"
+                    className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 disabled:opacity-50"
                   >
                     Withdraw
                   </button>
@@ -2078,9 +2078,9 @@ export default function EditNHISClaim() {
         )}
 
         {isFinalized ? (
-          <div className="flex justify-end gap-3 bg-white px-5 py-4 border-t border-gray-200">
-            <button type="button" onClick={handleDownloadXml} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Download className="w-4 h-4" /> Download XML</button>
-            <button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
+          <div className="flex justify-end gap-3 bg-[var(--bg-card)] px-5 py-4 border-t border-[var(--border-color)]">
+            <button type="button" onClick={handleDownloadXml} className="px-4 py-2 border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] flex items-center gap-2"><Download className="w-4 h-4" /> Download XML</button>
+            <button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
             <button type="button" onClick={goBack} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
           </div>
         ) : (
