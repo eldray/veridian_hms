@@ -114,13 +114,14 @@ export default function StockTransactions() {
   const exportToCSV = async () => {
     setExporting(true);
     try {
-      const headers = ['Date', 'Item', 'Type', 'Quantity', 'Reference', 'Balance After', 'Performed By', 'Notes'];
+      const headers = ['Date', 'Time', 'Item', 'Type', 'Quantity', 'Unit', 'Reference', 'Balance', 'Performed By'];
       const csvData = filteredTransactions.map((t: any) => [
-        new Date(t.transactionDate).toLocaleString(),
+        new Date(t.transactionDate).toLocaleDateString(),
+        new Date(t.transactionDate).toLocaleTimeString(),
         t.StockItem?.name || getStockItemName(t.stockItemId),
         t.transactionType,
         t.transactionType === 'adjustment' ? `${t.adjustmentDirection === 'decrease' ? '-' : '+'}${Math.abs(Number(t.quantity) || 0)}` : ['purchase', 'transfer_in'].includes(t.transactionType) ? `+${Math.abs(Number(t.quantity) || 0)}` : `-${Math.abs(Number(t.quantity) || 0)}`,
-        t.reference || 'N/A', t.balanceAfter, getPerformer(t), t.notes || '',
+        t.Invoice?.invoiceNumber || t.Requisition?.requisitionNumber || t.referenceDisplay || t.reference || 'N/A', t.balanceAfter, getPerformer(t),
       ]);
       const csvContent = [headers, ...csvData].map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(',')).join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -259,7 +260,6 @@ export default function StockTransactions() {
                   <th className={TH}>Date</th>
                   <th className={TH}>Time</th>
                   <th className={TH}>Item</th>
-                  <th className={TH}>Notes</th>
                   <th className={TH}>Type</th>
                   <th className={cn(TH, 'text-right')}>Quantity</th>
                   <th className={TH}>Unit</th>
@@ -280,7 +280,6 @@ export default function StockTransactions() {
                       <td className={TD}><span className="text-sm text-[var(--text-primary)] whitespace-nowrap">{d.toLocaleDateString()}</span></td>
                       <td className={TD}><span className="text-sm text-[var(--text-secondary)] whitespace-nowrap">{d.toLocaleTimeString()}</span></td>
                       <td className={cn(TD, 'whitespace-normal')}><div className="flex items-center gap-2"><Package className="w-4 h-4 text-[var(--text-tertiary)] shrink-0" /><span className="text-sm font-medium text-[var(--text-primary)]">{itemName}</span></div></td>
-                      <td className={TD}><span className="text-xs text-[var(--text-tertiary)] line-clamp-1">{transaction.notes || '—'}</span></td>
                       <td className={TD}><Badge tone={config.accent} size="sm"><IconComponent className="w-3 h-3" />{config.label}</Badge></td>
                       <td className={cn(TD, 'text-right')}>
                         <span className={`text-sm font-bold ${config.direction === 'in' ? 'text-[var(--icon-green-text)]' : config.direction === 'out' ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-yellow-text)]'}`}>
@@ -288,7 +287,7 @@ export default function StockTransactions() {
                         </span>
                       </td>
                       <td className={TD}><span className="text-xs text-[var(--text-tertiary)]">{unit}</span></td>
-                      <td className={cn(TD_MONO, 'text-[var(--text-secondary)]')}>{transaction.reference || '—'}</td>
+                      <td className={cn(TD_MONO, 'text-[var(--text-secondary)] whitespace-nowrap')}>{transaction.Invoice?.invoiceNumber || transaction.Requisition?.requisitionNumber || transaction.referenceDisplay || transaction.reference || '—'}</td>
                       <td className={cn(TD, 'text-right')}><span className="text-sm font-medium text-[var(--text-primary)] whitespace-nowrap">{transaction.balanceAfter}</span></td>
                       <td className={TD}><div className="flex items-center gap-1"><User className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" /><span className="text-sm text-[var(--text-secondary)]">{titleCase(getPerformer(transaction))}</span></div></td>
                     </tr>
