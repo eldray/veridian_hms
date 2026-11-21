@@ -141,7 +141,7 @@ export const seedEncounters = async (
       dateTime: att.dateTime,
       paymentMode: att.paymentMode,
       // A claim is only generated from a covered visit, so the CCC has to be there.
-      nhisCCC: att.paymentMode === 'nhis' ? nhisCCCFor(att.attendanceNumber) : undefined,
+      ...(att.paymentMode === 'nhis' ? nhisSeedCCCFields(att.attendanceNumber, att.dateTime) : {}),
       status: att.status,
       encounterCategory: att.encounterCategory,
       visitCategory: att.visitCategory,
