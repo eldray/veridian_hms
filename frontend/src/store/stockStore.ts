@@ -200,7 +200,7 @@ interface StockState {
   // Reports
   getStockMovementReport: (filters?: { startDate?: string; endDate?: string; stockItemId?: string; category?: string }) => Promise<any>;
   getLowStockAlerts: () => Promise<StockItem[]>;
-  getStockItemTransactionHistory: (stockItemId: string, page?: number, limit?: number) => Promise<StockTransaction[]>;
+  getStockItemTransactionHistory: (stockItemId: string, page?: number, limit?: number, dateRange?: { startDate?: string; endDate?: string }) => Promise<StockTransaction[]>;
   
   // ==================== REQUISITIONS ====================
   getRequisitions: (filters?: { departmentId?: string; status?: string; urgency?: string; page?: number; limit?: number }) => Promise<void>;
@@ -644,11 +644,7 @@ getStockItems: async (filters = {}) => {
         apiGetStockItemTransactionHistory(stockItemId, { page: page + index + 1, limit, ...dateRange })
       ));
       const transactions = [...firstRows, ...remaining.flatMap(response => extractItems(response, 'transactions'))];
-      set({
-        transactions: transactions as StockTransaction[],
-        pagination: { page: 1, limit: transactions.length, total: transactions.length, pages: 1 },
-        isLoading: false
-      });
+      set({ transactions: transactions as StockTransaction[], pagination: { page: 1, limit: transactions.length, total: transactions.length, pages: 1 }, isLoading: false });
       return transactions as StockTransaction[];
     } catch (error: unknown) {
       console.error('Failed to fetch stock item transaction history:', error);
