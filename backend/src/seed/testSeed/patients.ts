@@ -30,6 +30,7 @@ export const seedPatients = async (
   planned: SeedStats,
 ): Promise<PatientRecords> => {
   const rows: any[] = [];
+  const nhisNumberByFolder = new Map<string, string>();
   const avatarByFolder = await seedAvatarImages('patients', patients.map((patient) => patient.folderNumber));
 
   patients.forEach((p, index) => {
@@ -49,7 +50,8 @@ export const seedPatients = async (
     const account = p.paymentMode === 'corporate'
       ? lookups.corporateAccounts[hashOf(`acct${p.folderNumber}`) % lookups.corporateAccounts.length]
       : null;
-
+    const nhisNumber = p.paymentMode === 'nhis' ? (p.nhisNumber || makeNhisNumber(index)) : null;
+    if (nhisNumber) nhisNumberByFolder.set(p.folderNumber, nhisNumber);
 
     rows.push({
       // The id carries the folder number and the seed marker. The folder band alone cannot tell
@@ -79,7 +81,8 @@ export const seedPatients = async (
       insuranceProviderId: insuranceProviderId ?? undefined,
       // Demo NHIS members always carry a syntactically valid membership number. This is
       // synthetic test data, not a real member lookup or an NHIA-issued number.
-      nhisNumber: p.paymentMode === 'nhis' ? (p.nhisNumber || makeNhisNumber(index)) : undefined,
+      nhisNumber: nhisNumber ?? undefined,
+      insuranceDetails: nhisNumber ? { ...(p.insuranceDetails ?? {}), memberId: nhisNumber } : (p.insuranceDetails ?? undefined),
       nhisActive: p.nhisActive,
       nhisExpiryDate: p.nhisExpiryDate ? asCalendarDay(p.nhisExpiryDate) : undefined,
       phoneNumber: p.phoneNumber,
@@ -87,6 +90,15 @@ export const seedPatients = async (
   });
 
   await writeMany('patients', (part) => prisma.patient.createMany({ data: part }), rows, stats, planned);
+
+  // Reconcile NHIS identity on earlier demo rows too. A forced re-seed must not leave
+  // an old synthetic NHIS patient without the membership number expected by its visits.
+  for (const [folderNumber, nhisNumber] of nhisNumberByFolder) {
+    await prisma.patient.updateMany({
+      where: { id: `seedpat-${folderNumber}`, paymentMode: 'nhis' },
+      data: { nhisNumber, insuranceDetails: { memberId: nhisNumber } },
+    });
+  }
 
   // Read back by the marker, not the folder band: a folder the demo could not claim because a
   // real patient already holds it stays a real patient, and the encounters that wanted it are
