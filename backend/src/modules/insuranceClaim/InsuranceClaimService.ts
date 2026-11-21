@@ -222,14 +222,20 @@ export class InsuranceClaimService extends BaseService {
       if (!existing) throw new Error('Batch not found');
       if (existing.status !== 'generated') throw new Error('Claims can only be removed from generated, unfinalized batches');
 
-      // ✅ FIXED: Decimal math
+      // Reject mismatched IDs before touching the batch total or relation.
+      const removedClaimIds = existing.claims.map((claim) => claim.id);
+      if (removedClaimIds.length !== new Set(claimIds).size) {
+        throw new ValidationError('One or more selected claims are not members of this batch.');
+      }
+      // Recompute the aggregate from persisted batch members, avoiding cumulative rounding drift.
       const remAmount = existing.claims.reduce((sum, c) => sum + toNumber(c.totalClaimAmount), 0);
 
       await tx.claimBatch.update({
         where: { id: batchId },
-        data: { totalAmount: toNumber(existing.totalAmount) - remAmount, claims: { disconnect: claimIds.map(id => ({ id })) } }
+        data: { totalAmount: toNumber(existing.totalAmount) - remAmount, claims: { disconnect: removedClaimIds.map(id => ({ id })) } }
       });
-      await tx.insuranceClaim.updateMany({ where: { id: { in: claimIds } }, data: { batchId: null } });
+      // Scope assignment clearing to the selected batch to protect claims from stale requests.
+      await tx.insuranceClaim.updateMany({ where: { id: { in: removedClaimIds }, batchId }, data: { batchId: null } });
 
       return await tx.claimBatch.findUnique({
         where: { id: batchId },
