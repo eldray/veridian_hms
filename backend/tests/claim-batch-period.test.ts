@@ -417,6 +417,20 @@ describe('claim batches are only generated for a month that has ended', () => {
       .toEqual(['claim-1', 'claim-2', 'claim-3']);
   });
 
+  it('does not persist or attach NHIS claims when XML preflight fails', async () => {
+    const { service, created, preflight } = generatingFrom([
+      nhisClaim('claim-invalid', 'MEDI', '100.00'),
+    ]);
+    preflight.mockRejectedValueOnce(new Error('Claim NHIS-claim-invalid cannot be exported: missing physician licence'));
+
+    await expect(service.generateBatch({
+      insuranceType: 'nhis', periodYear: 2026, periodMonth: 10, insuranceProviderId: 'nhis-a',
+    } as any, 'user-1')).rejects.toThrow(/missing physician licence/);
+
+    expect(preflight).toHaveBeenCalledOnce();
+    expect(created).toHaveLength(0);
+  });
+
   it('keeps NHIS claims without a priced G-DRG outside the monthly batch for correction', async () => {
     const { service, created } = generatingFrom([
       nhisClaim('claim-1', 'MEDI', '100.00'),
@@ -574,8 +588,9 @@ function generatingFrom(claims: any[], date = '2026-11-02T09:00:00') {
     $queryRaw: vi.fn().mockResolvedValue([]),
     claimBatch: batch.prisma.claimBatch,
   }));
+  const preflight = vi.spyOn(batch.service as any, 'validateNHISBatchBeforePersist').mockResolvedValue(undefined);
   vi.spyOn(batch.service as any, 'buildNHISBatchXml').mockResolvedValue('<NHISICClaim/>');
   vi.spyOn(fs.promises, 'mkdir').mockImplementation(async () => undefined as any);
   vi.spyOn(fs.promises, 'writeFile').mockImplementation(async () => undefined);
-  return { ...batch, created };
+  return { ...batch, created, preflight };
 }
