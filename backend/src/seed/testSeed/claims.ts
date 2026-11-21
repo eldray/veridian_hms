@@ -277,6 +277,10 @@ export const seedClaims = async (
   const notes: string[] = [];
   const refusals: string[] = [];
   let rejected = 0;
+  let skippedMissingPrimaryDiagnosis = 0;
+  let skippedOverlappingInpatientStay = 0;
+  let emptyBatchPlans = 0;
+  const skippedExamples: string[] = [];
   let notFinalizable = 0;
   let uncodedClaims = 0;
 
@@ -287,7 +291,11 @@ export const seedClaims = async (
     // The claims API requires a persisted primary diagnosis. Generated diagnosis
     // plans can still be absent from the database when a code is not in the facility's
     // configured diagnosis catalogue, so validate the actual encounter rows here.
-    if (!attendanceWithPrimaryDiagnosis.has(encounter.attendanceId)) continue;
+    if (!attendanceWithPrimaryDiagnosis.has(encounter.attendanceId)) {
+      skippedMissingPrimaryDiagnosis++;
+      if (skippedExamples.length < 5) skippedExamples.push(`${encounter.attendanceId}: no persisted primary diagnosis`);
+      continue;
+    }
     // An outpatient claim cannot overlap another inpatient stay for the same patient.
     // This is a payer rule enforced by the claims service; avoid creating a plan that
     // is guaranteed to be refused instead of weakening that service validation.
@@ -299,7 +307,11 @@ export const seedClaims = async (
         && stay.admissionDate.getTime() <= serviceDate
         && (stay.dischargeDate === null || stay.dischargeDate.getTime() >= serviceDate),
       );
-      if (overlapsInpatientStay) continue;
+      if (overlapsInpatientStay) {
+        skippedOverlappingInpatientStay++;
+        if (skippedExamples.length < 5) skippedExamples.push(`${encounter.attendanceId}: outpatient date overlaps another inpatient stay`);
+        continue;
+      }
     }
     const createdById = lookups.actorId(plan.createdBy);
 
@@ -404,7 +416,10 @@ export const seedClaims = async (
   const batchLink: Array<{ batchId: string; claimIds: string[] }> = [];
   for (const plan of claimBatches) {
     const claimIds = (claimsByBatch.get(plan.key) ?? []).filter((id) => claimById.get(id)?.status === ENUMS.claimStatus.finalized);
-    if (!claimIds.length) continue;
+    if (!claimIds.length) {
+      emptyBatchPlans++;
+      continue;
+    }
 
     // One batch is one payer's claims for one service month. Different insurance
     // providers and corporate accounts are kept in separate monthly batches.
@@ -477,4 +492,8 @@ export const seedClaims = async (
   if (uncodedClaims) console.log(`   ${uncodedClaims} NHIS claims carry no G-DRG code and were left unbatched for coding`);
   if (notFinalizable) console.log(`   ${notFinalizable} claims the app refuses to finalize stayed drafts - ${refusals.join(' | ')}`);
   if (rejected) console.log(`   ${rejected} claim plans could not be generated - ${notes.join(' | ') || 'no bill or no covered line'}`);
+  if (skippedMissingPrimaryDiagnosis || skippedOverlappingInpatientStay) {
+    console.warn(`   ${skippedMissingPrimaryDiagnosis + skippedOverlappingInpatientStay} claim plans were skipped before generation (${skippedMissingPrimaryDiagnosis} missing persisted primary diagnosis; ${skippedOverlappingInpatientStay} outpatient/inpatient date overlaps) - ${skippedExamples.join(' | ')}`);
+  }
+  if (emptyBatchPlans) console.log(`   ${emptyBatchPlans} planned batches had no finalized claims to attach`);
 };
