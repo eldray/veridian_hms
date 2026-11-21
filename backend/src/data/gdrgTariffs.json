@@ -504,7 +504,7 @@
         2,
         3
       ],
-      "tariffGhC": 1791.17
+      "tariffGhC": 866.28
     },
     {
       "gdrgCode": "PSUR01C",
@@ -1021,7 +1021,7 @@
         2,
         3
       ],
-      "tariffGhC": 1848.17
+      "tariffGhC": 894.32
     },
     {
       "gdrgCode": "MEDI01A",
@@ -1440,7 +1440,7 @@
         1,
         2
       ],
-      "tariffGhC": null
+      "tariffGhC": 350.41
     },
     {
       "gdrgCode": "MEDI32A",
@@ -2573,7 +2573,7 @@
         2,
         3
       ],
-      "tariffGhC": 478
+      "tariffGhC": 82.23
     },
     {
       "gdrgCode": "ENTH13C",
@@ -2587,7 +2587,7 @@
         2,
         3
       ],
-      "tariffGhC": 475.9
+      "tariffGhC": 84.33
     },
     {
       "gdrgCode": "ENTH14A",
@@ -3025,7 +3025,7 @@
         5,
         6
       ],
-      "tariffGhC": 348.36
+      "tariffGhC": 130.78
     },
     {
       "gdrgCode": "OBGY10A",
@@ -3585,7 +3585,7 @@
         2,
         7
       ],
-      "tariffGhC": null
+      "tariffGhC": 130.12
     },
     {
       "gdrgCode": "DENT06A",
@@ -3629,7 +3629,7 @@
         2,
         7
       ],
-      "tariffGhC": null
+      "tariffGhC": 149.98
     },
     {
       "gdrgCode": "DENT07C",
@@ -5308,7 +5308,7 @@
         2,
         3
       ],
-      "tariffGhC": 1352.18
+      "tariffGhC": 684.12
     },
     {
       "gdrgCode": "ORTH26C",
@@ -5336,7 +5336,7 @@
         2,
         3
       ],
-      "tariffGhC": 1589.32
+      "tariffGhC": 647.81
     },
     {
       "gdrgCode": "ORTH27C",
@@ -5350,7 +5350,7 @@
         2,
         3
       ],
-      "tariffGhC": 1574.08
+      "tariffGhC": 663.05
     },
     {
       "gdrgCode": "RSUR01A",
@@ -6162,7 +6162,7 @@
         6,
         10
       ],
-      "tariffGhC": null
+      "tariffGhC": 52.32
     },
     {
       "gdrgCode": "OPDC03A",
