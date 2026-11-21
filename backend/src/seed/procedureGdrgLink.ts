@@ -116,6 +116,25 @@ async function seedProcedureGDRGLinks(client: PrismaClient = prisma) {
       continue;
     }
 
+    const missingTariffs = mapping.gdrgCodes.filter((code) => !tariffMap.has(code));
+    if (missingTariffs.length) {
+      gdrgNotFound += missingTariffs.length;
+      missingTariffs.forEach((code) => errors.push(`⚠️  GDRG tariff not found: ${code} (for procedure ${mapping.procedureCode})`));
+      continue; // Keep existing links until the replacement mapping is complete.
+    }
+
+    const desiredTariffIds = mapping.gdrgCodes
+      .map((code) => tariffMap.get(code)!.id);
+
+    // Reconcile links for this procedure so obsolete G-DRGs from an older seed
+    // cannot remain eligible after the mapping table has been corrected.
+    await client.gDRGTariffProcedure.deleteMany({
+      where: {
+        procedureId: serviceCatalogId,
+        ...(desiredTariffIds.length ? { gdrgTariffId: { notIn: desiredTariffIds } } : {}),
+      },
+    });
+
     for (const gdrgCode of mapping.gdrgCodes) {
       const tariff = tariffMap.get(gdrgCode);
       if (!tariff) {

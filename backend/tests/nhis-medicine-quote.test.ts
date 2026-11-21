@@ -113,7 +113,8 @@ describe('the NHIS claim medicine quote', () => {
     const result = await run();
 
     expect(result.medicines).toEqual([]);
-    expect(result.unclaimable[0].reason).toBe('was prescribed, not dispensed to the patient');
+    expect(result.unclaimable[0].reason).toContain('has been prescribed but not dispensed');
+    expect(result.unclaimable[0].reason).toContain('Please dispense it');
   });
 
   it('leaves out a covered medicine with no active cash price to allocate against', async () => {

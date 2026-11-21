@@ -194,7 +194,7 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'J32.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'J02.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'J02.0', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
-  { icdCode: 'J03.90', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
+  { icdCode: 'J03.90', gdrgCodes: ['ENTH08A', 'ENTH08C', 'OPDC04A', 'OPDC04C'], isPrimaryGdrg: 'OPDC04A' },
   { icdCode: 'J04.0', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'J20.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
 
@@ -232,7 +232,7 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'D52.9', gdrgCodes: ['MEDI06A', 'PAED06C'], isPrimaryGdrg: 'MEDI06A' },
 
   // Other nutritional diseases → MEDI04A (other endocrine/nutritional); PAED04C
-  { icdCode: 'E01.8', gdrgCodes: ['MEDI04A', 'PAED04C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI04A' },
+  { icdCode: 'E01.8', gdrgCodes: ['MEDI01A', 'PAED01C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI01A' },
   { icdCode: 'E02', gdrgCodes: ['MEDI04A', 'PAED04C'], isPrimaryGdrg: 'MEDI04A' },
   { icdCode: 'E50.9', gdrgCodes: ['MEDI04A', 'PAED04C'], isPrimaryGdrg: 'MEDI04A' },
   { icdCode: 'E55.9', gdrgCodes: ['MEDI04A', 'PAED04C'], isPrimaryGdrg: 'MEDI04A' },
@@ -499,7 +499,7 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'B08.1', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'A46', gdrgCodes: ['MEDI31A', 'PAED39C'], isPrimaryGdrg: 'MEDI31A' },
   { icdCode: 'D23.9', gdrgCodes: ['ASUR30A', 'MEDI18A', 'OPDC06A'], isPrimaryGdrg: 'ASUR30A' },
-  { icdCode: 'E70.3', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
+  { icdCode: 'E70.3', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC05A' },
 
   // Ulcer → MEDI35A adult; PAED43C child
   { icdCode: 'L89.90', gdrgCodes: ['MEDI35A', 'PAED43C'], isPrimaryGdrg: 'MEDI35A' },
@@ -559,7 +559,7 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'O72.1', gdrgCodes: ['OBGY38A'], isPrimaryGdrg: 'OBGY38A' },
   { icdCode: 'O73.0', gdrgCodes: ['OBGY08A'], isPrimaryGdrg: 'OBGY08A' },
   { icdCode: 'O86.0', gdrgCodes: ['MEDI31A', 'OBGY09A'], isPrimaryGdrg: 'MEDI31A' },
-  { icdCode: 'Z34.00', gdrgCodes: ['OPDC02A'], isPrimaryGdrg: 'OPDC02A' },
+  
   { icdCode: 'Z39.0', gdrgCodes: ['OPDC02A'], isPrimaryGdrg: 'OPDC02A' },
 
   // Anaemia in pregnancy
@@ -665,7 +665,7 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'E03.1', gdrgCodes: ['MEDI01A', 'PAED01C'], isPrimaryGdrg: 'PAED01C' },
   { icdCode: 'E05.90', gdrgCodes: ['MEDI01A', 'PAED01C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'E05.0', gdrgCodes: ['MEDI01A', 'PAED01C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
-  { icdCode: 'E01.8', gdrgCodes: ['MEDI01A', 'PAED01C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
+  
 
   // Pulmonary embolism → MEDI34A adult; PAED42C child
   { icdCode: 'I26.9', gdrgCodes: ['MEDI34A', 'PAED42C'], isPrimaryGdrg: 'MEDI34A' },
@@ -703,7 +703,7 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'K86.1', gdrgCodes: ['MEDI26A', 'PAED34C', 'OPDC06A'], isPrimaryGdrg: 'OPDC06A' },
 
   // GI bleeding → MEDI25A; PAED33C
-  { icdCode: 'K64.9', gdrgCodes: ['MEDI25A', 'PAED33C'], isPrimaryGdrg: 'MEDI25A' }, // duplicate with haemorrhoids — context decides
+  // K64.9 is seeded as haemorrhoids in diagnoses.json; do not also map it as GI bleeding.
   { icdCode: 'K25.9', gdrgCodes: ['MEDI25A', 'PAED33C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'K26.9', gdrgCodes: ['MEDI25A', 'PAED33C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'K27.9', gdrgCodes: ['MEDI25A', 'PAED33C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
@@ -746,7 +746,7 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
 
   // Various general OPD catch-all symptoms
   { icdCode: 'R51', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
-  { icdCode: 'R42', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
+  
   { icdCode: 'R53.83', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'R60.9', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'R06.02', gdrgCodes: ['MEDI22A', 'PAED30C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
@@ -789,16 +789,14 @@ const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'I80.209', gdrgCodes: ['MEDI34A', 'PAED42C', 'OPDC06A'], isPrimaryGdrg: 'MEDI34A' },
 
   // ENT procedures for tonsillitis etc.
-  { icdCode: 'J03.90', gdrgCodes: ['ENTH08A', 'ENTH08C', 'OPDC04A', 'OPDC04C'], isPrimaryGdrg: 'OPDC04A' },
-
+  
   // Refractive error / eye OPD
   { icdCode: 'H52.7', gdrgCodes: ['OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC05A' },
   { icdCode: 'H52.1', gdrgCodes: ['OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC05A' },
   { icdCode: 'H52.4', gdrgCodes: ['OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC05A' },
 
   // Albinism (skin/eye)
-  { icdCode: 'E70.3', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPDC06A' },
-
+  
   // Multiple sclerosis / GBS / Myasthenia
   { icdCode: 'G35', gdrgCodes: ['MEDI11A', 'OPDC06A'], isPrimaryGdrg: 'MEDI11A' },
   { icdCode: 'G61.0', gdrgCodes: ['MEDI11A', 'PAED19C'], isPrimaryGdrg: 'MEDI11A' },
@@ -864,6 +862,25 @@ async function seedDiagnosisGDRGLinks() {
       errors.push(`⚠️  Diagnosis not found: ICD ${mapping.icdCode}`);
       continue;
     }
+
+    const missingTariffs = mapping.gdrgCodes.filter((code) => !tariffMap.has(code));
+    if (missingTariffs.length) {
+      gdrgNotFound += missingTariffs.length;
+      missingTariffs.forEach((code) => errors.push(`⚠️  GDRG not found: ${code} (for ICD ${mapping.icdCode})`));
+      continue; // Never delete existing links when the replacement mapping is incomplete.
+    }
+
+    const desiredTariffIds = mapping.gdrgCodes
+      .map((code) => tariffMap.get(code)!.id);
+
+    // The mapping table is the source of truth for each diagnosis. Remove obsolete
+    // links left by earlier seeds before writing the current adult/child alternatives.
+    await prisma.gDRGTariffDiagnosis.deleteMany({
+      where: {
+        diagnosisId: diagnosis.id,
+        ...(desiredTariffIds.length ? { gdrgTariffId: { notIn: desiredTariffIds } } : {}),
+      },
+    });
 
     for (const gdrgCode of mapping.gdrgCodes) {
       const tariff = tariffMap.get(gdrgCode);

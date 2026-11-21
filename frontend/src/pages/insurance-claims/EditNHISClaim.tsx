@@ -116,6 +116,26 @@ const a = (claim: any): any => claim?.attendance ?? claim?.Attendance ?? {};
 
 const toNum = (v: any): number => (v === null || v === undefined ? 0 : parseFloat(v.toString()) || 0);
 
+/** Whole-year age at the date the service was provided (not today's age). */
+const ageOnDate = (dateOfBirth: unknown, serviceDate: unknown): number | null => {
+  if (!dateOfBirth || !serviceDate) return null;
+  const dob = new Date(String(dateOfBirth));
+  const asOf = new Date(String(serviceDate));
+  if (Number.isNaN(dob.getTime()) || Number.isNaN(asOf.getTime()) || asOf < dob) return null;
+  let years = asOf.getFullYear() - dob.getFullYear();
+  if (asOf.getMonth() < dob.getMonth() || (asOf.getMonth() === dob.getMonth() && asOf.getDate() < dob.getDate())) years -= 1;
+  return years;
+};
+
+/** The tariff's explicit age bounds are authoritative (some paediatric tariffs extend to 18). */
+const gdrgAgeEligible = (tariff: any, age: number): boolean => {
+  const min = tariff?.minAgeYears == null ? null : Number(tariff.minAgeYears);
+  const max = tariff?.maxAgeYears == null ? null : Number(tariff.maxAgeYears);
+  if (min != null && age < min) return false;
+  if (max != null && age > max) return false;
+  return true;
+};
+
 /** A line with no saved amount shows a dash, never a GHS 0.00 that reads as a priced line. */
 const moneyCell = (value: any): string => {
   const n = toNum(value);
@@ -957,6 +977,7 @@ export default function EditNHISClaim() {
   const [notes, setNotes] = useState('');
 
   const [serviceFlags, setServiceFlags] = useState({ diagnostic: false, pharmacy: false, unbundled: false, allInclusive: true });
+  const [diagnosticEligible, setDiagnosticEligible] = useState(false);
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [referringFacility, setReferringFacility] = useState('');
   const [referralCode, setReferralCode] = useState('');
@@ -993,7 +1014,20 @@ export default function EditNHISClaim() {
     navigate(0);
   };
   const isFinalized = currentClaim?.status === 'finalized';
-  const availableGDRGs = tariffs || [];
+  const attendanceForAge = a(currentClaim);
+  const encounterServiceDate = primaryServiceType === 'IPD'
+    ? (admissionDate || attendanceForAge?.Admission?.admissionDate || attendanceForAge?.admission?.admissionDate)
+    : (visitDates.find(Boolean) || attendanceForAge?.dateTime?.split('T')[0]);
+  const encounterAgeYears = ageOnDate(
+    memberFormData.dateOfBirth || p(currentClaim)?.dateOfBirth,
+    encounterServiceDate,
+  );
+  const availableGDRGs = encounterAgeYears == null
+    ? (tariffs || [])
+    : (tariffs || []).filter((tariff: any) => gdrgAgeEligible(tariff, encounterAgeYears));
+  const selectedPrincipalTariff = (tariffs || []).find((tariff: any) => tariff.gdrgCode === principalGDRG);
+  const principalGDRGAgeInvalid = !!principalGDRG && encounterAgeYears != null &&
+    !!selectedPrincipalTariff && !gdrgAgeEligible(selectedPrincipalTariff, encounterAgeYears);
 
   useEffect(() => {
     if (id) {
@@ -1106,9 +1140,14 @@ export default function EditNHISClaim() {
     // Drafts are re-resolved from the attendance; submitted claims keep what was saved.
     const admissionRaw = attendance?.Admission ?? attendance?.admission ?? null;
     const admissionRecord: any = admissionRaw ?? {};
+    const attendanceTypeCodeForClaim = String(attendance?.attendanceType ?? '').toLowerCase();
+    const isZoomAttendance = attendanceTypeCodeForClaim.includes('zoom');
     const mapped = mapAttendanceToNHIS(attendance?.attendanceType, !!admissionRaw || currentClaim.typeOfService === 'IPD');
     const reResolved = currentClaim.status === 'draft' && !!attendance?.attendanceType;
-    const serviceType: 'OPD' | 'IPD' = reResolved ? mapped.typeOfService : (currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD');
+    // ZOOM is billed as an outpatient encounter and must carry the OPDC scheme.
+    const serviceType: 'OPD' | 'IPD' = isZoomAttendance
+      ? 'OPD'
+      : (reResolved ? mapped.typeOfService : (currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD'));
     setPrimaryServiceType(serviceType);
     setTypeOfAttendance(reResolved
       ? mapped.typeOfAttendance
@@ -1256,20 +1295,39 @@ export default function EditNHISClaim() {
     setNotes(currentClaim.notes || '');
 
     const unbundled = isNHISClaimUnbundled(currentClaim) || meta.serviceFlags?.unbundled === true;
+    const attendanceLabs: any[] = attendance?.labTest ?? attendance?.LabTest ?? [];
+    const attendanceMedicines: any[] = attendance?.medication ?? attendance?.Medication ?? [];
+    const attendanceTypeCode = String(attendance?.attendanceType ?? '').toLowerCase();
+    const attendanceServices: any[] = attendance?.services ?? attendance?.Service ?? attendance?.serviceItems ?? attendance?.ServiceItem ?? [];
+    const hasConsultation =
+      !!(attendance?.consultation ?? attendance?.Consultation) ||
+      (Array.isArray(attendance?.consultations ?? attendance?.Consultations) &&
+        (attendance.consultations ?? attendance.Consultations).length > 0) ||
+      attendanceTypeCode.includes('consultation') ||
+      (Array.isArray(attendanceServices) && attendanceServices.some((service: any) =>
+        String(service?.serviceType ?? service?.category ?? service?.serviceCategory ?? '').toLowerCase().includes('consultation')
+      ));
+    const hasMedication = attendanceMedicines.length > 0 || medFromServer.length > 0;
+    const isStandaloneDiagnostics = attendanceLabs.length > 0 && !hasConsultation && !hasMedication;
+    setDiagnosticEligible(isStandaloneDiagnostics);
     setServiceFlags({
-      diagnostic: meta.serviceFlags?.diagnostic ?? (attendance?.labTest ?? attendance?.LabTest ?? []).length > 0,
-      pharmacy: meta.serviceFlags?.pharmacy ?? (attendance?.medication ?? attendance?.Medication ?? []).length > 0,
+      // Diagnostic is only for a laboratory-only attendance: labs, but no consultation or medicines.
+      diagnostic: isStandaloneDiagnostics,
+      pharmacy: meta.serviceFlags?.pharmacy ?? attendanceMedicines.length > 0,
       unbundled,
       allInclusive: meta.serviceFlags?.allInclusive ?? !unbundled,
     });
-    // Every specialty is shown and ticked by the desk; what a claim may report is decided when it
-    // is saved. Only a draft that carries nothing yet is filled from its own codes.
+    // Derive specialties from the G-DRG families on the claim as well as any saved manual ticks.
+    // MEDI32 -> MEDI; OBGY0... -> OBGY; PSUR... -> PSUR; ASUR... -> ASUR.
+    const diagnosisGDRGs = [
+      ...diagFromServer.map((d: any) => d.gdrgTariff?.gdrgCode || d.gdrgCode || ''),
+      ...(Array.isArray(meta.diagnoses) ? meta.diagnoses.map((d: any) => d.gdrgCode || '') : []),
+    ];
+    const derivedSpecialties = nhisSpecialtiesFor(serviceType, [currentClaim.principalGDRG, ...diagnosisGDRGs]);
     const savedSpecialties: string[] = Array.isArray(meta.specialties)
       ? meta.specialties
       : (currentClaim.mdcCode ? [String(currentClaim.mdcCode)] : []);
-    setSpecialties(savedSpecialties.length
-      ? savedSpecialties
-      : nhisSpecialtiesFor(serviceType, [currentClaim.principalGDRG]));
+    setSpecialties(Array.from(new Set([...savedSpecialties, ...derivedSpecialties])));
     setReferringFacility(meta.referringFacility ?? attendance?.referringFacility ?? '');
     setReferralCode(meta.referralCode ?? '');
     setPhysicianId(meta.physicianId ?? '');
@@ -1384,7 +1442,15 @@ export default function EditNHISClaim() {
   const upsert = <T,>(list: T[], item: T, kind: string): T[] =>
     editing?.kind === kind ? list.map((x, i) => (i === editing.index ? item : x)) : [...list, item];
 
-  const addDiagnosis = (d: DiagnosisItem) => setDiagnoses(upsert(diagnoses, d, 'diagnosis'));
+  const addDiagnosis = (d: DiagnosisItem) => {
+    setDiagnoses(upsert(diagnoses, d, 'diagnosis'));
+    // On an admission, every G-DRG family represented by a diagnosis should be ticked.
+    // OPD remains under the OPDC scheme, as required by the submitted NHIS claim format.
+    if (primaryServiceType === 'IPD') {
+      const specialty = gdrgSpecialty(d.gdrgCode);
+      if (specialty) setSpecialties((prev) => Array.from(new Set([...prev, specialty])));
+    }
+  };
   const removeDiagnosis = (i: number) => setDiagnoses(diagnoses.filter((_, idx) => idx !== i));
   const setPrimaryDiagnosis = (i: number) =>
     setDiagnoses(diagnoses.map((d, idx) => ({ ...d, diagnosisType: idx === i ? 'primary' : 'additional' })));
@@ -1448,6 +1514,7 @@ export default function EditNHISClaim() {
       errs.push('A primary diagnosis must be selected');
     }
     if (!principalGDRG) errs.push('Principal GDRG is required');
+    if (principalGDRGAgeInvalid) errs.push(`Principal G-DRG ${principalGDRG} is not eligible for this patient’s age (${encounterAgeYears} years) on the service date. Select an age-appropriate tariff.`);
     if (primaryServiceType === 'OPD' && !visitDates.some(d => d)) errs.push('At least one visit date is required');
     if (primaryServiceType === 'IPD') {
       if (!admissionDate) errs.push('Admission date is required');
@@ -1688,7 +1755,7 @@ export default function EditNHISClaim() {
                   <CheckItem label="Outpatient" checked={primaryServiceType === 'OPD'} onChange={() => handleServiceTypeChange('OPD')} disabled={locked} />
                   <CheckItem label="Pharmacy" checked={serviceFlags.pharmacy} onChange={v => setServiceFlags({ ...serviceFlags, pharmacy: v })} disabled={locked} />
                   <CheckItem label="Inpatient" checked={primaryServiceType === 'IPD'} onChange={() => handleServiceTypeChange('IPD')} disabled={locked} />
-                  <CheckItem label="Diagnostic" checked={serviceFlags.diagnostic} onChange={v => setServiceFlags({ ...serviceFlags, diagnostic: v })} disabled={locked} />
+                  <CheckItem label="Diagnostic" checked={serviceFlags.diagnostic} onChange={v => setServiceFlags({ ...serviceFlags, diagnostic: v })} disabled={locked || !diagnosticEligible} />
                   <CheckItem label="UnBundled" checked={serviceFlags.unbundled} onChange={v => setServiceFlags({ ...serviceFlags, unbundled: v, allInclusive: v ? false : serviceFlags.allInclusive })} disabled={locked} />
                   <CheckItem label="All-Inclusive" checked={serviceFlags.allInclusive} onChange={v => setServiceFlags({ ...serviceFlags, allInclusive: v, unbundled: v ? false : serviceFlags.unbundled })} disabled={locked} />
                 </div>
@@ -1914,6 +1981,14 @@ export default function EditNHISClaim() {
             <div>
               <label className="block text-[11px] text-gray-500 mb-0.5">Select Principal GDRG</label>
               <SearchableGDRGSelect value={principalGDRG} onChange={handlePrincipalGDRGChange} options={availableGDRGs} disabled={locked} placeholder="Search GDRG by code or description..." />
+              {encounterAgeYears == null ? (
+                <p className="text-xs text-amber-700 mt-1">Enter the patient’s date of birth and service date to filter G-DRGs by age.</p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">Tariffs filtered for age {encounterAgeYears} on the service date.</p>
+              )}
+              {principalGDRGAgeInvalid && (
+                <p className="text-xs text-red-600 mt-1">The saved principal G-DRG is outside this patient’s age range. Choose an eligible tariff before saving.</p>
+              )}
               <p className="text-[15px] text-gray-700 mt-3">{principalGDRGDescription}</p>
               {principalGDRG ? (
                 <p className="mt-2 text-sm text-gray-700">

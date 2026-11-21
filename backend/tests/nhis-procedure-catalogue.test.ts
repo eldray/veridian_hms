@@ -93,4 +93,46 @@ describe('NHIS procedure catalogue coverage', () => {
     }
   });
 
+
+  it('preserves explicit adult, child and neonatal G-DRG age limits in the seed data', async () => {
+    const coreSeed = await import('node:fs/promises').then(({ readFile }) =>
+      readFile(new URL('../src/seed/coreSeed.ts', import.meta.url), 'utf8'),
+    );
+    expect(coreSeed).toContain('maxAgeYears: tariff.maxAgeYears == null ? null : Number.parseInt(String(tariff.maxAgeYears), 10)');
+    const neonatal = tariffData.gdrgTariffs.filter((tariff) => /^PAED(?:07|08|09|10|11|12|13|14)C$/.test(tariff.gdrgCode));
+    expect(neonatal.length).toBeGreaterThan(0);
+    for (const tariff of neonatal) expect(tariff.maxAgeYears).toBe(0);
+    for (const tariff of tariffData.gdrgTariffs) {
+      if (tariff.minAgeYears != null && tariff.maxAgeYears != null) {
+        expect(tariff.minAgeYears, tariff.gdrgCode).toBeLessThanOrEqual(tariff.maxAgeYears);
+      }
+    }
+  });
+
+  it('keeps diagnosis G-DRG links unique and references existing tariffs', async () => {
+    const source = await import('node:fs/promises').then(({ readFile }) =>
+      readFile(new URL('../src/seed/diagnosisGdrgLink.ts', import.meta.url), 'utf8'),
+    );
+    const rows = source.split(/\r?\n/).flatMap((line) => {
+      if (!/^\s*\{\s*icdCode:/.test(line)) return [];
+      const match = line.match(/icdCode:\s*'([^']+)'\s*,\s*gdrgCodes:\s*\[([^\]]*)\]\s*,\s*isPrimaryGdrg:\s*'([^']+)'/);
+      return match ? [{
+        icdCode: match[1],
+        codes: [...match[2].matchAll(/'([^']+)'/g)].map((code) => code[1]),
+        primary: match[3],
+      }] : [];
+    });
+    const codesByDiagnosis = new Map<string, string[]>();
+    for (const row of rows) {
+      expect(codesByDiagnosis.has(row.icdCode), 'duplicate diagnosis mapping row for ' + row.icdCode).toBe(false);
+      expect(row.codes, row.icdCode).toContain(row.primary);
+      for (const code of row.codes) {
+        expect(tariffByCode.has(code), 'missing tariff ' + code + ' linked to ' + row.icdCode).toBe(true);
+      }
+      expect(new Set(row.codes).size, 'duplicate G-DRG links for ' + row.icdCode).toBe(row.codes.length);
+      codesByDiagnosis.set(row.icdCode, row.codes);
+    }
+    expect(rows.length).toBeGreaterThan(400);
+  });
+
 });
