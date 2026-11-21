@@ -1107,9 +1107,14 @@ export default function EditNHISClaim() {
     // Drafts are re-resolved from the attendance; submitted claims keep what was saved.
     const admissionRaw = attendance?.Admission ?? attendance?.admission ?? null;
     const admissionRecord: any = admissionRaw ?? {};
+    const attendanceTypeCodeForClaim = String(attendance?.attendanceType ?? '').toLowerCase();
+    const isZoomAttendance = attendanceTypeCodeForClaim.includes('zoom');
     const mapped = mapAttendanceToNHIS(attendance?.attendanceType, !!admissionRaw || currentClaim.typeOfService === 'IPD');
     const reResolved = currentClaim.status === 'draft' && !!attendance?.attendanceType;
-    const serviceType: 'OPD' | 'IPD' = reResolved ? mapped.typeOfService : (currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD');
+    // ZOOM is billed as an outpatient encounter and must carry the OPDC scheme.
+    const serviceType: 'OPD' | 'IPD' = isZoomAttendance
+      ? 'OPD'
+      : (reResolved ? mapped.typeOfService : (currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD'));
     setPrimaryServiceType(serviceType);
     setTypeOfAttendance(reResolved
       ? mapped.typeOfAttendance
