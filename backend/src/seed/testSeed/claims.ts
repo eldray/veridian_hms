@@ -186,10 +186,8 @@ export const seedEligibilityChecks = async (
 };
 
 /**
- * What the payer answered the submitted period, written the way the tracking endpoints
- * write it: one submission, an adjudication, then the remittances that arrived. Amounts
- * are fractions of the batch because a batch is worth whatever its claims add up to, and
- * that is only known once they are priced.
+ * What the facility recorded for a submitted period: one submission and any remittances
+ * received. Amounts are fractions of the batch because its total is only known once priced.
  */
 const batchTrackingRows = (
   batchId: string,
@@ -205,6 +203,7 @@ const batchTrackingRows = (
     eventType: 'submission',
     status: null,
     submissionDate: response.submittedAt,
+    paymentDate: null,
     payerReference: response.payerReference,
     amount: null,
     paymentReference: null,
@@ -213,27 +212,13 @@ const batchTrackingRows = (
     recordedById,
     createdAt: response.submittedAt,
   }];
-  if (response.adjudication) {
-    rows.push({
-      batchId,
-      eventType: 'adjudication',
-      status: response.adjudication.status,
-      submissionDate: null,
-      payerReference: response.payerReference,
-      amount: null,
-      paymentReference: null,
-      paymentMethod: null,
-      notes: response.adjudication.notes,
-      recordedById,
-      createdAt: response.adjudication.at,
-    });
-  }
   for (const payment of response.payments) {
     rows.push({
       batchId,
       eventType: 'payment',
       status: null,
       submissionDate: null,
+      paymentDate: payment.at,
       payerReference: response.payerReference,
       amount: money(totalAmount * payment.fraction),
       paymentReference: payment.reference,

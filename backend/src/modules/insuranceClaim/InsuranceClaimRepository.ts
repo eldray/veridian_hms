@@ -16,6 +16,7 @@ const CLAIM_DETAIL_INCLUDE = {
   // auto-populate diagnoses / investigations / medicines / procedures.
   Attendance: {
     include: {
+      User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } },
       AttendanceDiagnosis: { include: { Diagnosis: true } },
       LabTest: { include: { LabTestTemplate: true, ServiceCatalog: true } },
       Scan: { include: { ScanTemplate: true, ServiceCatalog: true } },
@@ -251,7 +252,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
           include: {
             InsuranceProvider: true,
             Patient: true,
-            Attendance: true,
+            Attendance: { include: { User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } } } },
             Bill: true,
             // The printed batch report splits the money by what the lines actually were, and the
             // XML builder walks the same lines.

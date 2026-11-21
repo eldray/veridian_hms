@@ -64,6 +64,7 @@ function generate(input: EncounterInput) {
     status: admission ? 'discharged' : 'completed',
     Patient: { id: 'patient-1', nhisNumber, dateOfBirth: new Date('1985-04-02'), surname: 'Mensah', otherNames: 'Kofi' },
     InsuranceProvider: { id: 'nhis-1', type: 'nhis', name: 'NHIS' },
+    User_Attendance_providerIdToUser: { fullName: 'Dr Test', licenseNumber: 'LIC-001' },
     Bill: { id: 'bill-1' },
     Admission: admission ? { ...admission, dischargeStatus: 'discharged' } : null,
     AttendanceDiagnosis: [{ id: 'dx-1', diagnosisId: 'diag-1', diagnosisType: 'primary', date: serviceDate, Diagnosis: { icdCode: 'B54', name: 'Malaria' } }],
@@ -161,6 +162,8 @@ describe('NHIS claim generation follows the case the encounter is', () => {
     const { claim } = await run();
 
     expect(claim.principalGDRG).toBe('ZOOM07A');
+    expect(gdrgLine(claim).clinician).toBe('LIC-001');
+    expect(gdrgLine(claim).prescriberNo).toBe('LIC-001');
     expect(claim.typeOfService).toBe('OPD');
     expect(procedureLine(claim).gdrgTariffId).toBe('t-ZOOM07A');
   });
