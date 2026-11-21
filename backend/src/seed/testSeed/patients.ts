@@ -75,7 +75,6 @@ export const seedPatients = async (
       // A corporate patient is enrolled through a real account, so the employer on the
       // folder names that account instead of the generator's generic occupation list.
       employer: account ? { name: account.companyName } : (p.employer ? { name: p.employer } : undefined),
-      insuranceDetails: p.insuranceDetails ?? undefined,
       registeredAt: p.registeredAt,
       registeredBy: lookups.actorName({ role: 'records', salt: index }),
       insuranceProviderId: insuranceProviderId ?? undefined,
