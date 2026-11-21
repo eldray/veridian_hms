@@ -5,16 +5,15 @@ describe('claim batch adjudication tracking', () => {
   function setup() {
     const batch = { id: 'batch-1', batchNumber: 'BATCH-001', status: 'finalized', totalAmount: 100 };
     const created: any[] = [];
+    const createEvent = vi.fn(async ({ data }: any) => { created.push(data); return { id: 'event-1', ...data }; });
     const prisma: any = {
       claimBatch: { findUnique: vi.fn().mockResolvedValue(batch) },
-      claimBatchTrackingEvent: {
-        create: vi.fn(async ({ data }: any) => { created.push(data); return { id: 'event-1', ...data }; }),
-      },
-      $transaction: vi.fn(async (callback: any) => callback({
-        $queryRaw: vi.fn().mockResolvedValue([]),
-        claimBatchTrackingEvent: { create: vi.fn(async ({ data }: any) => { created.push(data); return { id: 'event-1', ...data }; })
-      })),
+      claimBatchTrackingEvent: { create: createEvent },
     };
+    prisma.$transaction = vi.fn(async (callback: any) => callback({
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      claimBatchTrackingEvent: { create: createEvent },
+    }));
     return { service: new ClaimBatchService(prisma), prisma, created };
   }
 
