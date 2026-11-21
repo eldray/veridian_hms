@@ -570,7 +570,13 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   async getMedicationsByStockItem(id: string) {
     return this.prisma.medication.findMany({
       where: { stockItemId: id },
-      include: { Attendance: { include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true } } } }, ServiceCatalog: { include: { pricing: { where: { isActive: true }, take: 1 } } } }, // ✅ Fixed 1-to-N pricing
+      include: {
+        Attendance: { include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true } } } },
+        ServiceCatalog: { include: { pricing: { where: { isActive: true }, take: 1 } } },
+        doses: { include: { administeredBy: { select: { id: true, fullName: true } } }, orderBy: { scheduledAt: 'asc' } },
+        User_Medication_dispensedByIdToUser: { select: { id: true, fullName: true } },
+        User_Medication_administeredByIdToUser: { select: { id: true, fullName: true } },
+      },
       orderBy: { prescribedAt: 'desc' }
     });
   }

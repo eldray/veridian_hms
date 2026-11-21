@@ -80,8 +80,6 @@ export class StockItemController extends BaseController {
     const result = await this.service.getStockTransactions(req.params.id, page, limit, {
       departmentId: req.user?.departmentId,
       includeAllStockLocations,
-      startDate: req.query.startDate as string | undefined,
-      endDate: req.query.endDate as string | undefined,
     });
     return this.ok(res, result, 'Transactions retrieved');
   });
