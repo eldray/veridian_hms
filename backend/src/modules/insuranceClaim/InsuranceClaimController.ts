@@ -222,20 +222,17 @@ export class InsuranceClaimController extends BaseController {
       }),
       prisma.insuranceClaim.count({ where }),
     ]);
-    const data = claims.map((claim: any) => {
-      const paid = claim.trackingEvents
-        .filter((event: any) => event.eventType === 'payment')
-        .reduce((sum: number, event: any) => sum + Number(event.amount || 0), 0);
-      return { ...claim, tracking: {
-        totalPaid: paid,
-        outstanding: Math.max(0, Number(claim.totalClaimAmount) - paid),
-        latestStatus: paid >= Number(claim.totalClaimAmount) && paid > 0
-          ? 'paid'
-          : paid > 0
-            ? 'partially_paid'
-            : (claim.trackingEvents.some((event: any) => event.eventType === 'submission') ? 'submitted' : 'not_submitted'),
-      }};
-    });
+    const data = claims.map((claim: any) => ({
+      ...claim,
+      tracking: {
+        // Payments are reconciled once against the monthly batch, never against individual claims.
+        totalPaid: 0,
+        outstanding: Number(claim.totalClaimAmount),
+        latestStatus: claim.trackingEvents.some((event: any) => event.eventType === 'submission')
+          ? 'submitted'
+          : 'not_submitted',
+      },
+    }));
     return this.paginated(res, data, { page, limit, total }, 'Finalized claims tracking retrieved');
   });
 
