@@ -566,6 +566,7 @@ export interface Attendance {
   providerId?: string | null;
   finalizedAt?: string | null;
   finalizedById?: string | null;
+  autoClosedAt?: string | null;
   encounterCategory: EncounterCategory;
   visitCategory: VisitCategory;
   gdrgCategory?: string;
