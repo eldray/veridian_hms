@@ -272,9 +272,15 @@ export class BillingService extends BaseService {
 
     const attendance = await this.prisma.attendance.findUnique({
       where: { id: data.attendanceId },
-      select: { id: true, patientId: true, dateTime: true },
+      select: { id: true, patientId: true, dateTime: true, paymentMode: true },
     });
     if (!attendance) throw new Error(`Attendance not found: ${data.attendanceId}`);
+    if (attendance.paymentMode === 'private_insurance' || attendance.paymentMode === 'corporate') {
+      throw new Error('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+    }
+    if (attendance.paymentMode !== data.paymentMode) {
+      throw new Error('The selected payment mode does not match the attendance payment mode.');
+    }
     if (attendance.patientId !== data.patientId) {
       throw new Error('The selected attendance does not belong to this patient.');
     }
@@ -452,7 +458,9 @@ export class BillingService extends BaseService {
       patientPayable,
       paidAmount: 0,
       balance: patientPayable,
-      status: 'pending' as any,
+      // A zero patient balance is settled by payer coverage, not a cash collection.
+      // paidAmount deliberately remains zero unless a Payment row is actually recorded.
+      status: patientPayable <= 0 ? 'paid' as any : 'pending' as any,
       createdById: userId,
       billDate: new Date(),
       insuranceProviderId: data.insuranceProviderId,
