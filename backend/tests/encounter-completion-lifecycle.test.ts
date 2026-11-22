@@ -22,7 +22,7 @@ describe('encounter completion lifecycle', () => {
       id: 'encounter-1',
       status: 'pending',
       encounterCategory: 'opd',
-      attendanceType: 'general',
+      attendanceType: 'general_consultation',
       finalizedAt: new Date(),
       Admission: null,
     });
@@ -34,6 +34,21 @@ describe('encounter completion lifecycle', () => {
       where: { id: 'encounter-1', status: 'pending' },
       data: { status: 'completed', bedId: null, updatedById: 'staff-1' },
     });
+  });
+
+  it('requires a signed clinical record before completing a registered OPD attendance', async () => {
+    const { service, tx } = setup({
+      id: 'encounter-1',
+      status: 'pending',
+      encounterCategory: 'opd',
+      attendanceType: 'general_consultation',
+      finalizedAt: null,
+      Admission: null,
+    });
+
+    await expect(service.completeEncounter('encounter-1', 'staff-1'))
+      .rejects.toThrow(/finalize and sign/i);
+    expect(tx.attendance.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses to complete an encounter with an active admission', async () => {
