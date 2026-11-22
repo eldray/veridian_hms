@@ -79,6 +79,7 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
   const svcItems = services.map((s) => ({ code: s.ServiceCatalog?.nhisServiceCode || s.ServiceCatalog?.code || '', name: s.ServiceCatalog?.name || s.name || 'Service', total: n(s.unitPrice) }));
 
   const totalClaim = n(claim?.totalClaimAmount) || n(claim?.Bill?.totalAmount);
+  const itemizedSubtotal = Math.max(0, gdrgAmount) + medTotal + invTotal + procTotal + svcTotal;
   const medTotal = medItems.reduce((s, m) => s + m.total, 0);
   const invTotal = investigations.reduce((s, i) => s + i.total, 0);
   const procTotal = procItems.reduce((s, p) => s + p.total, 0);
@@ -148,7 +149,7 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
     }), { keepTogether: true })}
 
     ${procItems.length ? section('Procedures (G-DRG related)', table({
-      head: ['Code', 'Procedure', 'G-DRG-related amount (GHS)'],
+      head: ['Code', 'Procedure', 'Amount (GHS)'],
       widths: ['16%', '58%', '26%'],
       align: [undefined, undefined, 'r'],
       rows: procItems.map((p) => [orDash(p.code), esc(p.name), esc(amt(p.total))]),
@@ -190,7 +191,7 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
         ['Other services', esc(amt(svcTotal))],
       ],
       foot: [
-        ['Subtotal', esc(amt(totalClaim))],
+        ['Subtotal', esc(amt(itemizedSubtotal))],
         ['Grand total', `<b>${esc(amt(totalClaim))}</b>`],
         ...(approved > 0 || paid > 0
           ? [['Approved by insurer', esc(amt(approved))], ['Paid by insurer', esc(amt(paid))], ['Outstanding', esc(amt(Math.max(0, (approved || totalClaim) - paid)))]]
