@@ -137,8 +137,8 @@ export const seedBills = async (
   const outcomes: Record<string, number> = {};
   const note = (reason: string) => { outcomes[reason] = (outcomes[reason] ?? 0) + 1; };
 
-  const operationalBillPlans = bills.filter((plan) => plan.paymentMode !== 'private_insurance' && plan.paymentMode !== 'corporate');
-  planned['bills'] = (planned['bills'] ?? 0) + operationalBillPlans.length;
+  // GeneratedBill plans are only cash/NHIS; private and corporate claims are seeded separately.
+  planned['bills'] = (planned['bills'] ?? 0) + bills.length;
 
   const startedAt = Date.now();
   console.log(`   billing ${bills.length} encounters - each bill is several database round trips, progress is shown every ${BILL_PROGRESS_EVERY}`);
