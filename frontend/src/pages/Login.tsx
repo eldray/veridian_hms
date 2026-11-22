@@ -70,10 +70,10 @@ const TOTAL_DEMO_ACCOUNTS = DEMO_GROUPS.reduce((n, g) => n + g.accounts.length, 
 
 // ── Feature tiles ────────────────────────────────────────────────────────────
 const FEATURES = [
-  { Icon: Users,       label: 'Patient Records', desc: 'Full lifecycle management' },
-  { Icon: Stethoscope, label: 'Clinical',        desc: 'Labs, vitals, entries'     },
-  { Icon: Pill,        label: 'Pharmacy',        desc: 'Prescribe & dispense'      },
-  { Icon: Receipt,     label: 'Billing',         desc: 'NHIS & cash payments'      },
+  { Icon: Users,        label: 'Patient care',       desc: 'Records & appointments' },
+  { Icon: Stethoscope,  label: 'Clinical care',      desc: 'Consultations & vitals' },
+  { Icon: FlaskConical, label: 'Diagnostics',        desc: 'Laboratory & imaging' },
+  { Icon: Pill,         label: 'Pharmacy & billing', desc: 'Medicines & payments' },
 ];
 
 // ── FormHeader ───────────────────────────────────────────────────────────────
@@ -216,15 +216,16 @@ export default function Login() {
         /* Exact background from your design */
         .login-bg {
           position: absolute; inset: 0;
-          background-image: url("https://images.unsplash.com/photo-1516549655169-df83a0774514?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80");
-          background-size: cover;
-          background-position: center 30%;
-          opacity: 0.12;
+          background:
+            radial-gradient(ellipse at 18% 22%, rgba(35, 145, 157, 0.28), transparent 42%),
+            radial-gradient(ellipse at 82% 78%, rgba(63, 116, 164, 0.24), transparent 45%),
+            linear-gradient(135deg, #071827 0%, #102f45 52%, #0b2538 100%);
+          opacity: 1;
           z-index: 0;
         }
         .login-overlay {
           position: absolute; inset: 0;
-          background: rgba(8,14,26,0.65);
+          background: linear-gradient(135deg, rgba(5, 18, 31, 0.20), rgba(5, 18, 31, 0.48));
           z-index: 1;
         }
 
@@ -235,10 +236,10 @@ export default function Login() {
           max-width: 1060px;
           display: grid;
           grid-template-columns: 1fr 460px;
-          border-radius: 16px;
+          border-radius: 20px;
           overflow: hidden;
           border: 1px solid rgba(255,255,255,0.08);
-          box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+          box-shadow: 0 28px 72px rgba(0,0,0,0.34), 0 0 0 1px rgba(255,255,255,0.06);
           max-height: 92vh;
           animation: fadeUp 0.4s ease both;
         }
@@ -246,7 +247,7 @@ export default function Login() {
         /* ── Brand Panel ── */
         .login-brand {
           color-scheme: dark;
-          background: rgba(10,17,32,0.96);
+          background: radial-gradient(ellipse at 10% 12%, rgba(37, 112, 132, 0.22), transparent 48%), linear-gradient(155deg, #102d43 0%, #0b2032 100%);
           backdrop-filter: blur(20px);
           padding: 40px;
           display: flex;
@@ -277,7 +278,7 @@ export default function Login() {
           margin: 0 0 12px 0;
         }
         .brand-sub {
-          color: #7B9EB6;
+          color: #A9C2D2;
           font-size: 13.5px;
           line-height: 1.6;
           max-width: 320px;
@@ -302,7 +303,7 @@ export default function Login() {
           border-color: rgba(255,255,255,0.15);
         }
         .feature-icon {
-          color: #4F8EA8;
+          color: #78C9C0;
           margin-bottom: 12px;
           display: block;
         }
@@ -313,13 +314,13 @@ export default function Login() {
           margin: 0 0 4px 0;
         }
         .feature-desc {
-          color: #5E7A8F;
+          color: #9BB3C2;
           font-size: 11.5px;
           margin: 0;
         }
 
         .brand-copyright {
-          color: #2A4A63;
+          color: #7895A8;
           font-size: 11px;
           margin: 0;
           padding-top: 20px;
@@ -354,13 +355,13 @@ export default function Login() {
         .field-wrap { position: relative; }
         .field-input {
           display: block; width: 100%; box-sizing: border-box;
-          min-height: 44px;
-          padding: 10px 12px 10px 38px;
+          min-height: 48px;
+          padding: 11px 12px 11px 40px;
           border: 1px solid var(--border-color);
-          border-radius: 8px;
-          font-size: 13.5px;
+          border-radius: 10px;
+          font-size: 14px;
           color: var(--text-primary);
-          background: #FFFFFF; /* Clean white background */
+          background: var(--bg-main);
           outline: none;
           font-family: inherit;
           transition: border-color 0.15s, box-shadow 0.15s;
@@ -370,6 +371,11 @@ export default function Login() {
           box-shadow: 0 0 0 3px color-mix(in srgb, var(--icon-cyan-text) 15%, transparent);
         }
         .field-input::placeholder { color: var(--text-tertiary); }
+        .field-input:focus-visible, .field-toggle:focus-visible, .link-btn:focus-visible,
+        .demo-btn:focus-visible, .btn-primary:focus-visible {
+          outline: 2px solid var(--icon-cyan-text);
+          outline-offset: 2px;
+        }
         .field-icon {
           position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
           width: 14px; height: 14px; color: var(--text-tertiary); pointer-events: none;
@@ -385,9 +391,9 @@ export default function Login() {
 
         /* ── Buttons ── */
         .btn-primary {
-          width: 100%; min-height: 44px;
-          padding: 10px 0;
-          border-radius: 8px;
+          width: 100%; min-height: 48px;
+          padding: 11px 0;
+          border-radius: 10px;
           border: none;
           background: var(--icon-cyan-text);
           color: var(--text-on-accent, #fff);
@@ -466,10 +472,22 @@ export default function Login() {
 
         /* ── Responsive ── */
         @media (max-width: 900px) {
-          .login-card { grid-template-columns: 1fr !important; max-width: 440px !important; max-height: none !important; }
-          .login-brand { display: none !important; }
-          .form-panel { overflow-y: auto !important; max-height: none !important; }
-          .form-panel-scroll { padding: 32px 24px !important; justify-content: flex-start !important; }
+          .login-card { grid-template-columns: 1fr !important; max-width: 460px !important; max-height: none !important; }
+          .login-brand { display: flex !important; padding: 20px 24px 16px !important; overflow: visible !important; }
+          .brand-inner { gap: 0 !important; }
+          .brand-middle, .brand-copyright { display: none !important; }
+          .login-brand .brand-inner > div:first-child { display: flex; justify-content: center; }
+          .form-panel { overflow-y: visible !important; max-height: none !important; }
+          .form-panel-scroll { padding: 28px 24px 30px !important; justify-content: flex-start !important; }
+        }
+        @media (max-width: 420px) {
+          .login-wrapper { padding: 12px !important; }
+          .login-brand { padding: 18px 20px 12px !important; }
+          .form-panel-scroll { padding: 24px 20px !important; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .login-card { animation: none !important; }
+          *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
         }
       `}</style>
 
@@ -521,7 +539,7 @@ export default function Login() {
             <div className="form-panel-scroll">
               {mode === 'login' && (
                 <>
-                  <FormHeader title="Sign in" subtitle="Enter your credentials to continue" />
+                  <FormHeader title="Welcome back" subtitle="Staff portal · Sign in to access your hospital workspace" />
 
                   <form onSubmit={handleSubmit} className="form-stack" aria-busy={loading}>
                     <div className="field-group">
@@ -641,7 +659,7 @@ export default function Login() {
                   <div className="form-section--plain info-strip">
                     <ShieldCheck style={{ width: 15, height: 15, color: 'var(--icon-green-text)', flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
                     <p style={{ margin: 0, fontSize: 11.5, color: 'var(--text-tertiary)', lineHeight: 1.55 }}>
-                      Secure &amp; HIPAA-compliant. Unauthorised access is prohibited and logged.
+                      Authorised staff access only. System activity is monitored and recorded.
                     </p>
                   </div>
                 </>
