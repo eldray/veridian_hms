@@ -60,7 +60,7 @@ export class ClaimPrintService {
     ];
     const categoryTotals = claimCategories.map((category) => {
       const rows = items.filter((item) => String(item.itemCategory || '').toLowerCase() === category.key);
-      return { ...category, rows, total: rows.reduce((sum, item) => sum + (Number(item.lineTotal) || 0, 0), 0) };
+      return { ...category, rows, total: rows.reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0) };
     }).filter((category) => category.rows.length > 0);
     const itemsTable = categoryTotals.map((category) => `
       <tr class="group-row"><td colspan="6">${esc(category.label)} <span class="muted">· ${category.rows.length} item(s)</span></td></tr>
@@ -117,7 +117,7 @@ export class ClaimPrintService {
   .muted { color:var(--muted); font-weight:400; }
   .total-box { margin:12px 0 0 auto; width:300px; border:1px solid var(--rule); }
   .total-box div { display:flex; justify-content:space-between; padding:7px 10px; }
-  .total-box .grand { background:var(--soft); border-top:2px solid var(--ink;); font-size:11pt; font-weight:700; }
+  .total-box .grand { background:var(--soft); border-top:2px solid var(--ink); font-size:11pt; font-weight:700; }
   .signatures { display:flex; gap:18px; margin-top:26px; }
   .signature { flex:1; font-size:8.5pt; } .line { border-bottom:1px solid var(--ink); height:28px; }
   .signature .role { font-weight:700; margin-top:4px; } .signature .meta { color:var(--muted); margin-top:2px; }
