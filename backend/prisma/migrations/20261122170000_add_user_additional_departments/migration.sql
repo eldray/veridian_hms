@@ -14,4 +14,4 @@ ALTER TABLE "_UserAdditionalDepartments"
 
 ALTER TABLE "_UserAdditionalDepartments"
   ADD CONSTRAINT "_UserAdditionalDepartments_B_fkey"
-  FOREIGN KEY ("B") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  FOREIGN KEY ("B") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
