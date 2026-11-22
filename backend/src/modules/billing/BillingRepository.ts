@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma, BillStatus } from '@prisma/client';
+import { ValidationError } from '../../utils/errors';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilters } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
@@ -161,7 +162,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
 
   async create(data: any, items: any[]) {
     if (CLAIMS_ONLY_PAYMENT_MODES.includes(data.paymentMode)) {
-      throw new Error('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+      throw new ValidationError('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
     }
     return this.prisma.$transaction(async (tx) => {
       const attendance = await tx.attendance.findUnique({
@@ -170,10 +171,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       });
       if (!attendance) throw new Error('Attendance not found');
       if (CLAIMS_ONLY_PAYMENT_MODES.includes(attendance.paymentMode)) {
-        throw new Error('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+        throw new ValidationError('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
       }
       if (attendance.paymentMode !== data.paymentMode || attendance.patientId !== data.patientId) {
-        throw new Error('The bill payer and patient must match the selected attendance.');
+        throw new ValidationError('The bill payer and patient must match the selected attendance.');
       }
 
       if (data.paymentMode === 'nhis' || data.paymentMode === 'private_insurance') {
