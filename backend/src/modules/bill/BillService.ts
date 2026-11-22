@@ -146,6 +146,14 @@ export class BillService extends BaseService {
 
   async generateFromEncounter(encounterId: string, createdBy: string) {
     this.logInfo('Generating bill from encounter', { encounterId });
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      select: { id: true, paymentMode: true }
+    });
+    if (!attendance) throw new Error('Encounter not found');
+    if (attendance.paymentMode === 'private_insurance' || attendance.paymentMode === 'corporate') {
+      throw new Error('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+    }
     return this.billRepository.generateFromEncounter(encounterId, createdBy);
   }
 }
