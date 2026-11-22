@@ -12,12 +12,13 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { useNursingStore } from '../store/nursingStore';
 import { ShiftHandoverModal } from '../components/nursing/ShiftHandoverModal';
 import { getPatientName } from '../utils/patient';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { describeApiError } from '../utils/apiError';
 import { getLatestVitals } from '../api';
 import { isDoseDue } from '../utils/frequencyUtils';
 import {
   RefreshCw, Users, Hospital, Bed,
-  Activity, User, AlertTriangle,
+  Activity, AlertTriangle,
   ClipboardList, ClipboardCheck, Send, ChevronRight, Building2,
   Moon, Sun, Pill, LayoutGrid, List,
   Clock, Stethoscope,
@@ -640,9 +641,13 @@ export default function Nursing() {
                 {/* Header */}
                 <div className="flex items-start gap-3 p-4 pb-3">
                   <div className="relative flex-shrink-0">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-100 to-teal-50 text-teal-700 flex items-center justify-center font-bold text-sm border border-teal-200">
-                      {initials(name) || <User className="w-4 h-4" />}
-                    </div>
+                    <PatientAvatar
+                      patient={patient}
+                      name={name}
+                      size="xl"
+                      className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)]"
+                      fallbackClassName="text-[var(--icon-cyan-text)]"
+                    />
                     {badges.alerts > 0 && (
                       <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-[var(--bg-card)] animate-pulse">
                         {badges.alerts}
@@ -804,9 +809,13 @@ export default function Nursing() {
                       <td className={TD}>
                         <div className="flex items-center gap-2.5">
                           <div className="relative flex-shrink-0">
-                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-teal-100 to-teal-50 text-teal-700 flex items-center justify-center font-bold text-xs border border-teal-200">
-                              {initials(name) || <User className="w-3.5 h-3.5" />}
-                            </div>
+                            <PatientAvatar
+                              patient={patient}
+                              name={name}
+                              size="sm"
+                              className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)]"
+                              fallbackClassName="text-[var(--icon-cyan-text)]"
+                            />
                             {badges.alerts > 0 && (
                               <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-[var(--bg-card)]">
                                 {badges.alerts}
