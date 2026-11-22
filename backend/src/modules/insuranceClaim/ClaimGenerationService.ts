@@ -251,7 +251,7 @@ export async function buildNHISClaimItems(
         itemType: 'N',
         code,
         description: med.name ?? med.StockItem?.name ?? '',
-        quantity: med.quantity ?? 1,
+        quantity: med.dispensedQuantity ?? med.quantity ?? 1,
         serviceDate: med.dispensedAt ?? med.prescribedAt,
         prescriptionText: formatPrescription({
           dosage: med.dosage,
@@ -261,7 +261,7 @@ export async function buildNHISClaimItems(
         clinician: primaryPhysicianLicense,
         prescriberNo: primaryPhysicianLicense,
       },
-      extractNHISPrice(med.ServiceCatalog).times(med.quantity ?? 1),
+      extractNHISPrice(med.ServiceCatalog).times(med.dispensedQuantity ?? med.quantity ?? 1),
     );
   }
 
