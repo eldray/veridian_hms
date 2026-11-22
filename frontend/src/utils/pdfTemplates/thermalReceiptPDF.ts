@@ -31,15 +31,15 @@ export const generateThermalReceiptHTML = (bill: any, patient: any, payment: any
   const previous = Math.max(0, billPaid - paid);
 
   const itemsHtml = items.length
-    ? items
-        .map((i) => {
+    ? `<table class="table compact">
+        <thead><tr><th style="width:58%">Item</th><th class="center" style="width:12%">Qty</th><th class="num" style="width:30%">Amount</th></tr></thead>
+        <tbody>${items.map((i) => {
           const q = Number(i?.quantity) || 1;
           const unit = i?.unitPrice ?? i?.price ?? 0;
           const line = i?.lineTotal ?? i?.total ?? Number(unit) * q;
-          return `<div class="item"><div class="name">${esc(i?.description || i?.itemDescription || 'Item')}</div>
-            <div class="row detail"><span>${q} x ${esc(num(unit))}</span><span class="r">${esc(num(line))}</span></div></div>`;
-        })
-        .join('')
+          return `<tr><td>${esc(i?.description || i?.itemDescription || 'Item')}</td><td class="center">${q}</td><td class="num">${esc(num(line))}</td></tr>`;
+        }).join('')}</tbody></table>
+    `
     : centre('No itemised services', 'sm');
 
   const body = `

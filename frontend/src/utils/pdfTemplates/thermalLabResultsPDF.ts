@@ -42,14 +42,12 @@ export const generateThermalLabResultsHTML = (
       const name = t?.testName || t?.name || t?.LabTestTemplate?.name || 'Laboratory test';
       const params: any[] = Array.isArray(t?.parameters) ? t.parameters : [];
       const lines = params.length
-        ? params
-            .map((p) => {
-              const f = flagFor(p);
-              const v = p?.value !== undefined && String(p.value) !== '' ? esc(p.value) : '-';
-              return `<div class="item"><div class="row"><span>${esc(p?.name || p?.fieldName || 'Parameter')}</span><span class="r"><b>${v}</b> ${esc(p?.unit || '')}${f ? ` <b>${f}</b>` : ''}</span></div>
-                ${p?.normalRange ? `<div class="detail sm">Ref: ${esc(p.normalRange)}</div>` : ''}</div>`;
-            })
-            .join('')
+        ? `<table class="table compact"><thead><tr><th style="width:48%">Test</th><th style="width:25%">Result</th><th style="width:27%">Ref.</th></tr></thead><tbody>${params.map((p) => {
+            const f = flagFor(p);
+            const v = p?.value !== undefined && String(p.value) !== '' ? esc(p.value) : '-';
+            return `<tr><td>${esc(p?.name || p?.fieldName || 'Parameter')}</td><td><b>${v}${p?.unit ? ` ${esc(p.unit)}` : ''}${f ? ` ${f}` : ''}</b></td><td class="secondary">${esc(p?.normalRange || '-')}</td></tr>`;
+          }).join('')}</tbody></table>
+        `
         : (() => {
             const raw = t?.result ?? t?.value;
             const val = typeof raw === 'object' && raw ? raw.value : raw;

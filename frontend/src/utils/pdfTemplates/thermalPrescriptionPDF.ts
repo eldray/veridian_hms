@@ -30,19 +30,23 @@ export const generateThermalPrescriptionHTML = (
   const dx = diagnosesOf(attendance);
   const weight = patient?.weight || attendance?.weight || '';
 
-  const medsHtml = meds
-    .map((m, i) => {
-      const name = m?.name || m?.medicationName || m?.description || 'Medicine';
-      const strength = m?.strength || m?.concentration || '';
-      const how = [m?.dosage || m?.dose, m?.route, m?.frequency, m?.duration && `x ${m.duration}`].filter(Boolean).join(', ');
-      return `<div class="item">
-        <div class="name">${i + 1}. ${esc(name)}${strength ? ` ${esc(strength)}` : ''}</div>
-        <div class="detail">${esc(how || 'As directed')}</div>
-        ${m?.quantity ? `<div class="detail">Qty: <b>${esc(m.quantity)}</b></div>` : ''}
-        ${m?.instructions ? `<div class="detail sm">${multiline(m.instructions)}</div>` : ''}
-      </div>`;
-    })
-    .join('');
+  const medsHtml = meds.length
+    ? `<table class="table compact rx-table">
+        <thead><tr><th style="width:42%">Medicine</th><th style="width:58%">Instructions</th></tr></thead>
+        <tbody>${meds.map((m) => {
+          const name = m?.name || m?.medicationName || m?.description || 'Medicine';
+          const strength = m?.strength || m?.concentration || '';
+          const dose = m?.dosage || m?.dose || '';
+          const frequency = m?.frequency || '';
+          const duration = m?.duration ? `for ${m.duration}` : '';
+          const quantity = m?.quantity != null ? `Qty ${m.quantity}` : '';
+          const route = m?.route || '';
+          const instructions = m?.instructions || '';
+          const directions = [dose, frequency, duration, quantity].filter(Boolean).join(' · ');
+          return `<tr><td class="med-name">${esc(name)}${strength ? ` ${esc(strength)}` : ''}</td><td>${esc(directions || 'As directed')}${route ? `<div class="secondary">${esc(route)}</div>` : ''}</td></tr>${instructions ? `<tr><td colspan="2" class="med-directions">${multiline(instructions)}</td></tr>` : ''}`;
+        }).join('')}</tbody></table>
+    `
+    : centre('No medicines', 'sm');
 
   const body = `
     ${slipHeader(h)}

@@ -83,6 +83,16 @@ const css = (w: ThermalWidth): string => {
   .item { margin: 1mm 0; break-inside: avoid; }
   .item .name { font-weight: 700; word-break: break-word; }
   .item .detail { padding-left: 3mm; }
+  .table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 1.2mm 0; }
+  .table th { font-weight: 700; text-align: left; border-bottom: 1px solid #000; padding: .7mm 0; }
+  .table td { vertical-align: top; padding: .8mm 0; overflow-wrap: anywhere; }
+  .table tbody tr { break-inside: avoid; }
+  .table .num { text-align: right; white-space: nowrap; }
+  .table .center { text-align: center; }
+  .table .secondary { font-size: 8pt; }
+  .table.compact th, .table.compact td { padding: .45mm 0; }
+  .table .med-name { font-weight: 700; }
+  .table .med-directions { font-size: 8pt; }
   .alert { border: 2px solid #000; padding: 1mm 1.5mm; margin: 1.5mm 0; font-weight: 700; word-break: break-word; }
   .sign { margin-top: 7mm; }
   .sign-line { border-bottom: 1px solid #000; height: 5mm; }
