@@ -105,33 +105,33 @@ function buildHtml(
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   @page { size: A4 landscape; margin: 10mm; }
-  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f1f5f9; padding: 20px; color: #1e293b; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2ee; padding: 20px; color: #17211b; }
   .page-container { max-width: 1400px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; }
   .header {
-    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-    color: #fff; padding: 20px 26px;
+    background: #fff; color: #17211b; border-bottom: 2px solid #14532d;
+    color: #17211b; padding: 18px 24px;
     display: flex; justify-content: space-between; align-items: center;
   }
   .hospital-info h1 { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
   .hospital-info p { font-size: 10.5px; opacity: 0.9; line-height: 1.35; }
-  .badge { background: rgba(255,255,255,0.2); padding: 4px 14px; border-radius: 20px; font-weight: 600; font-size: 11px; letter-spacing: 0.4px; }
+  .badge { background: #f3f6f3; color: #14532d; border: 1px solid #d7ded8; padding: 4px 14px; border-radius: 20px; font-weight: 600; font-size: 11px; letter-spacing: 0.4px; }
   .patient-range { font-size: 12.5px; font-weight: 600; margin-top: 6px; opacity: 0.95; text-align: right; }
 
   .content { padding: 20px 26px 26px; }
   .meta-strip {
     display: flex; gap: 26px; flex-wrap: wrap;
-    background: #f8fafc; border-left: 4px solid #3b82f6;
+    background: #f3f6f3; border-left: 3px solid #14532d;
     border-radius: 8px; padding: 10px 16px; margin-bottom: 16px;
     font-size: 11px;
   }
-  .meta-item .label { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-  .meta-item .value { font-size: 12.5px; font-weight: 600; color: #0f172a; margin-top: 1px; }
+  .meta-item .label { font-size: 9px; font-weight: 700; color: #647067; text-transform: uppercase; letter-spacing: 0.5px; }
+  .meta-item .value { font-size: 12.5px; font-weight: 600; color: #17211b; margin-top: 1px; }
 
   table.mar { width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; font-size: 10.5px; }
-  table.mar th { background: #f1f5f9; color: #334155; font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 2px; border-bottom: 2px solid #cbd5e1; text-align: center; }
+  table.mar th { background: #f3f6f3; color: #34443a; font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 2px; border-bottom: 2px solid #cbd5e1; text-align: center; }
   table.mar th.med-col { text-align: left; padding-left: 12px; min-width: 200px; }
   table.mar td { padding: 6px 2px; border-bottom: 1px solid #e2e8f0; border-left: 1px solid #f1f5f9; text-align: center; vertical-align: middle; }
-  table.mar td.med-cell { text-align: left; padding: 6px 12px; background: #fafbfc; border-left: none; }
+  table.mar td.med-cell { text-align: left; padding: 6px 12px; background: #fbfcfb; border-left: none; }
   table.mar td.med-cell .med-name { font-weight: 600; color: #0f172a; font-size: 11px; }
   table.mar td.med-cell .med-meta { font-size: 9.5px; color: #64748b; margin-top: 1px; }
   table.mar td.cell-empty { color: #cbd5e1; }
@@ -153,9 +153,9 @@ function buildHtml(
 
   .footer { margin-top: 20px; padding-top: 14px; border-top: 2px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10.5px; color: #94a3b8; flex-wrap: wrap; gap: 10px; }
 
-  .no-print { padding: 18px 40px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; display: flex; justify-content: center; gap: 12px; }
-  .print-btn { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: #fff; border: none; padding: 11px 28px; border-radius: 10px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
-  .close-btn { background: #e2e8f0; color: #475569; border: none; padding: 11px 28px; border-radius: 10px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .no-print { padding: 18px 40px; background: #f3f6f3; border-top: 1px solid #d7ded8; text-align: center; display: flex; justify-content: center; gap: 12px; }
+  .print-btn { background: #14532d; color: #fff; border: none; padding: 11px 28px; border-radius: 10px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .close-btn { background: #fff; color: #34443a; border: 1px solid #d7ded8; border: none; padding: 11px 28px; border-radius: 10px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 
   @media print {
     body { background: #fff; padding: 0; }
