@@ -24,8 +24,7 @@ import {
   AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, ClipboardList, DollarSign, FlaskConical,
   Plus, Printer, RefreshCw, Scan, Trash2, User,
 } from 'lucide-react';
-import { Badge, Button, cn, INPUT, PageHeader, SELECT, TD, TH, TH_ROW, TR } from '../components/ui';
-import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { Badge, Button, cn, INPUT, PageHeader, PatientVisitHeader, SELECT, TD, TH, TH_ROW, TR } from '../components/ui';
 import {
   CANCELLABLE_ORDER_STATUSES, CLOSED_STATUSES, dateTime, identityOf, label, LIST_KEYS, money, openedByLabel,
   pickList, shell, ticketLabel, ticketTone, unwrap,
@@ -334,48 +333,50 @@ export default function CounterTicket() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Ticket header */}
-          <div className={`${shell} p-4`}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex items-start gap-3 min-w-0">
-                {identity.patient ? <PatientAvatar patient={identity.patient} size="md" className="rounded-xl" /> : <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center shrink-0">
-                  <User className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                </div>}
-                <div className="min-w-0">
-                  <h2 className="text-lg font-semibold text-[var(--text-primary)] truncate">{identity.label}</h2>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    {identity.detail} · {identity.phone} · ticket #{ticket.attendanceNumber}
-                    {openedByLabel(ticket) ? ` · opened by ${openedByLabel(ticket)}` : ''}
-                  </p>
-                  {ticket.complaints ? <p className="text-sm mt-1 text-[var(--text-primary)]">{ticket.complaints}</p> : null}
-                </div>
-              </div>
-              <div className="text-right shrink-0">
+          {/* Ticket header — use the same shared patient/visit banner as Medical Entries, Labs and Scans */}
+          <PatientVisitHeader
+            patient={identity.patient || {
+              name: identity.label,
+              age: identity.client?.ageYears,
+              gender: identity.client?.gender,
+              contact: identity.client?.phone || identity.phone,
+              imageUrl: identity.client?.imageUrl,
+            }}
+            attendance={ticket}
+            icon={User}
+            accent="cyan"
+            fields={[
+              { label: 'Ticket #', value: ticket.attendanceNumber, mono: true },
+              { label: 'Customer Type', value: identity.kind === 'walk_in' ? 'Walk-in' : 'Registered Patient' },
+              ...(openedByLabel(ticket) ? [{ label: 'Opened By', value: openedByLabel(ticket) }] : []),
+              ...(ticket.complaints ? [{ label: 'Presenting Complaint', value: ticket.complaints }] : []),
+            ]}
+            aside={(
+              <>
                 <Badge tone={ticketTone(ticket.status)} dot size="sm">{ticketLabel(ticket.status)}</Badge>
                 {identity.kind === 'walk_in' && identity.client && !identity.client.registeredPatientId && canRegister ? (
-                  <p className="text-xs text-[var(--text-secondary)] mt-2">Not in the register — link them in “Bill” if they register.</p>
+                  <span className="text-xs text-[var(--text-secondary)] max-w-[180px]">Not in the register — link them in “Bill” if they register.</span>
                 ) : null}
-              </div>
+              </>
+            )}
+          />
+          {!isOpen ? (
+            <p className="text-sm text-[var(--text-secondary)] flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-[var(--text-secondary)]" /> This ticket is {label(ticket.status)}. Selling, ordering, billing and closing are switched off — open a new one for anything else.
+            </p>
+          ) : null}
+          {canDispense && !hasStore ? (
+            <p className="text-sm text-[var(--icon-orange-text)] flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>Your account has no department, so this screen cannot hand goods over — dispensing takes the stock from your own store. Ask an administrator to assign you to the pharmacy or issuing store.</span>
+            </p>
+          ) : null}
+          {detailError || catalogError ? (
+            <div role="alert" className="flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-3 py-2 text-sm text-[var(--icon-red-text)]">
+              <AlertCircle className="h-4 w-4 shrink-0" /> {detailError || catalogError}
             </div>
-            {!isOpen ? (
-              <p className="mt-3 text-sm text-[var(--text-secondary)] flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-[var(--text-secondary)]" /> This ticket is {label(ticket.status)}. Selling, ordering, billing and closing are switched off — open a new one for anything else.
-              </p>
-            ) : null}
-            {canDispense && !hasStore ? (
-              <p className="mt-3 text-sm text-[var(--icon-orange-text)] flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>Your account has no department, so this screen cannot hand goods over — dispensing takes the stock from your own store. Ask an administrator to assign you to the pharmacy or issuing store.</span>
-              </p>
-            ) : null}
-            {detailError || catalogError ? (
-              <div role="alert" className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-3 py-2 text-sm text-[var(--icon-red-text)]">
-                <AlertCircle className="h-4 w-4 shrink-0" /> {detailError || catalogError}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Tabs */}
+          ) : null}
+{/* Tabs */}
           <div className="border-b border-[var(--border-color)]">
             <div className="flex gap-4">
               {([
