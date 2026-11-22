@@ -103,16 +103,17 @@ export const InputDialog: React.FC<InputDialogProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto"
+      className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain"
       role="dialog"
       aria-modal="true"
       aria-labelledby="input-dialog-title"
+      aria-describedby={message ? "input-dialog-description" : undefined}
     >
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex min-h-full items-center justify-center p-4">
+      <div className="fixed inset-0 bg-slate-950/65 backdrop-blur-[3px] transition-opacity" onClick={onClose} />
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
         <div
           ref={dialogRef}
-          className="relative rounded-2xl shadow-2xl max-w-md w-full border"
+          className="relative w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl sm:rounded-3xl border shadow-2xl animate-in fade-in zoom-in-95 duration-200"
           style={{
             background: 'var(--bg-card)',
             borderColor: 'var(--border-color)',
@@ -124,7 +125,7 @@ export const InputDialog: React.FC<InputDialogProps> = ({
               e.preventDefault();
               submit();
             }}
-            className="p-6"
+            className="p-5 sm:p-7"
           >
             <div className="flex items-center justify-between mb-4">
               <div
@@ -154,7 +155,7 @@ export const InputDialog: React.FC<InputDialogProps> = ({
               {title}
             </h3>
             {message && (
-              <p className="text-sm mb-4 whitespace-pre-line" style={{ color: 'var(--text-secondary)' }}>
+              <p id="input-dialog-description" className="text-sm mb-4 whitespace-pre-line" style={{ color: 'var(--text-secondary)' }}>
                 {message}
               </p>
             )}
@@ -197,11 +198,11 @@ export const InputDialog: React.FC<InputDialogProps> = ({
               </p>
             )}
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 mt-6">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors border"
+                className="flex-1 min-h-11 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
                 style={{
                   borderColor: 'var(--border-color)',
                   color: 'var(--text-primary)',
@@ -215,7 +216,7 @@ export const InputDialog: React.FC<InputDialogProps> = ({
               <button
                 type="submit"
                 disabled={blockedByRequired}
-                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+                className="flex-1 min-h-11 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50"
                 style={{ background: 'var(--icon-cyan-text)', color: '#fff' }}
               >
                 {confirmText}
