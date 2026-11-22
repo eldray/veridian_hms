@@ -832,7 +832,7 @@ export default function EditPrivateClaim() {
     return (
       <ListSection title={title} count={rows.length} open={tablesOpen} emptyText={category === 'service' ? 'No consultations or services added...' : category === 'procedure' ? 'No procedures added...' : 'No laboratory or imaging entries added...'} action={addBtn(addLabel, category)}>
         <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-sm">
-          <thead><tr><TH>#</TH><TH>Description</TH><TH>Prescription / Directions</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">Actions</TH>}</tr></thead>
+          <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">Actions</TH>}</tr></thead>
           <tbody>{rows.map((item, idx) => (
             <tr key={item.id || item.billLineItemId || idx} className="border-t border-gray-100">
               <td className="px-3 py-3 text-gray-500">{idx + 1}.</td><td className="px-3 py-3 text-gray-700">{item.description}</td><td className="px-3 py-3 text-gray-700">{fmtDate(item.date)}</td><td className="px-3 py-3 text-center text-gray-700">{item.quantity}</td><td className="px-3 py-3 text-right text-gray-700">{money(item.unitPrice)}</td><td className="px-3 py-3 text-right text-gray-800 font-medium">{money(item.quantity * item.unitPrice)}</td>
@@ -909,7 +909,7 @@ export default function EditPrivateClaim() {
 
         <ListSection title="MEDICINES" count={medicines.length} open={tablesOpen} emptyText="No medicines added..." action={addBtn('Add', 'medicine')}>
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>Description</TH><TH>Prescription / Directions</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {medicines.map((med, idx) => (
                 <tr key={idx} className="border-t border-gray-100">
