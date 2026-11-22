@@ -216,14 +216,14 @@ export default function Login() {
         /* Hospital environment artwork behind the sign-in card */
         .login-bg {
           position: absolute; inset: 0;
-          background: #092235 url('/hospital-login-scene.svg') center / cover no-repeat;
+          background: #092235 url('https://images.unsplash.com/photo-1758691462878-6edc3d3da1be?auto=format&fit=crop&w=2000&q=85') center / cover no-repeat;
           opacity: 1;
           z-index: 0;
           transform: scale(1.015);
         }
         .login-overlay {
           position: absolute; inset: 0;
-          background: linear-gradient(110deg, rgba(4, 22, 36, 0.62), rgba(5, 22, 35, 0.78));
+          background: linear-gradient(110deg, rgba(4, 22, 36, 0.48), rgba(5, 22, 35, 0.68));
           z-index: 1;
         }
 
@@ -246,9 +246,11 @@ export default function Login() {
         .login-brand {
           color-scheme: dark;
           background:
-            linear-gradient(155deg, rgba(8, 35, 53, 0.82), rgba(7, 27, 43, 0.93)),
-            url('/hospital-login-scene.svg') center / cover no-repeat;
-          backdrop-filter: blur(20px);
+            linear-gradient(155deg, rgba(5, 24, 40, 0.94), rgba(4, 19, 34, 0.96)),
+            url('https://images.unsplash.com/photo-1758691462878-6edc3d3da1be?auto=format&fit=crop&w=1400&q=80') center / cover no-repeat;
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
+          border-right: 1px solid rgba(190, 225, 235, 0.12);
           padding: 40px;
           display: flex;
           flex-direction: column;
