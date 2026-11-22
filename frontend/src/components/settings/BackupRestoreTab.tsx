@@ -44,16 +44,18 @@ export default function BackupRestoreTab() {
       const response = await api.get('/backup');
       let backupList = [];
       let paginationData = null;
-      if (response.data?.data && Array.isArray(response.data.data)) {
-        backupList = response.data.data;
-        paginationData = response.data.pagination;
-      } else if (response.data?.backups && Array.isArray(response.data.backups)) {
-        backupList = response.data.backups;
-        paginationData = response.data.pagination;
-      } else if (Array.isArray(response.data)) {
-        backupList = response.data;
-      } else if (response.data?.success && response.data?.data) {
-        backupList = response.data.data;
+      // BaseController.paginated returns { success, data: { data: [...], pagination } }.
+      // Also accept the older flat list envelopes so the tab remains compatible.
+      const payload = response.data?.data ?? response.data;
+      if (Array.isArray(payload)) {
+        backupList = payload;
+        paginationData = response.data?.pagination;
+      } else if (payload && Array.isArray(payload.data)) {
+        backupList = payload.data;
+        paginationData = payload.pagination ?? response.data?.pagination;
+      } else if (payload && Array.isArray(payload.backups)) {
+        backupList = payload.backups;
+        paginationData = payload.pagination ?? response.data?.pagination;
       } else {
         backupList = [];
       }
@@ -140,7 +142,7 @@ export default function BackupRestoreTab() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
       success('Download Complete', `${backup.filename} downloaded successfully`);
     } catch (err: any) {
       console.error('Download failed:', err);
@@ -244,7 +246,7 @@ export default function BackupRestoreTab() {
       {/* Actions — single row, header pattern, not a big padded card */}
       <div className="bg-[var(--bg-card)] rounded-xl p-2.5 border border-[var(--border-color)]">
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={handleCreateBackup} disabled={creatingBackup || restoring} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium">
+          <button onClick={handleCreateBackup} disabled={creatingBackup || restoring || isLoading} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium">
             {creatingBackup ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}{creatingBackup ? 'Creating...' : 'Create Backup'}
           </button>
           {canRestoreBackup && (
@@ -254,7 +256,7 @@ export default function BackupRestoreTab() {
             </label>
           )}
           {canRestoreBackup && (
-            <button onClick={handleRestoreBackup} disabled={restoring || creatingBackup || !selectedFile} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium">
+            <button onClick={handleRestoreBackup} disabled={restoring || creatingBackup || isLoading || !selectedFile} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium">
               {restoring ? <Loader className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{restoring ? 'Restoring...' : 'Restore Backup'}
             </button>
           )}
@@ -300,8 +302,8 @@ export default function BackupRestoreTab() {
                     <td className="px-3 py-2 text-sm text-[var(--text-secondary)] whitespace-nowrap">{formatDate(backup.createdAt)}</td>
                     <td className="px-3 py-2 text-sm text-[var(--text-secondary)] text-right whitespace-nowrap">{backup.size ? (backup.sizeFormatted || formatFileSize(backup.size)) : '-'}</td>
                     <td className="px-3 py-2"><div className="flex items-center justify-center gap-1">
-                      <button onClick={() => handleDownloadBackup(backup)} disabled={downloadingBackup === backup.filename} className="p-2 text-[var(--text-secondary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]/20 rounded-lg disabled:opacity-50" title="Download Backup">{downloadingBackup === backup.filename ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}</button>
-                      <button onClick={() => setDeletingBackup(backup)} className="p-2 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)]/20 rounded-lg" title="Delete Backup"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleDownloadBackup(backup)} disabled={downloadingBackup === backup.filename || restoring || creatingBackup} className="p-2 text-[var(--text-secondary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]/20 rounded-lg disabled:opacity-50" title="Download Backup">{downloadingBackup === backup.filename ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}</button>
+                      <button onClick={() => setDeletingBackup(backup)} disabled={restoring || creatingBackup || downloadingBackup !== null} className="p-2 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)]/20 rounded-lg" title="Delete Backup"><Trash2 className="w-4 h-4" /></button>
                     </div></td>
                   </tr>
                 ))}
@@ -321,7 +323,7 @@ export default function BackupRestoreTab() {
             <p className="text-[var(--text-secondary)] mb-4 text-sm">Are you sure you want to delete <strong className="font-semibold text-[var(--text-primary)]">{deletingBackup.filename}</strong>? This backup file will be permanently removed.</p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setDeletingBackup(null)} className="px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium">Cancel</button>
-              <button onClick={handleDeleteBackup} className="px-3 py-1.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all text-sm font-medium">Delete Backup</button>
+              <button onClick={handleDeleteBackup} disabled={isLoading} className="px-3 py-1.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all text-sm font-medium">Delete Backup</button>
             </div>
           </div>
         </div>
