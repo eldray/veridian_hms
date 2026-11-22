@@ -429,7 +429,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       ]);
 
       const cleanData = Object.entries(data).reduce((acc, [key, value]) => {
-        if (value === undefined || (value === null && key !== 'followUpDate')) return acc;
+        if (value === undefined || (value === null && key !== 'followUpDate' && key !== 'referringFacility')) return acc;
         if (key === 'updatedAt') return acc;
 
         if (legacyClinicalKeys.has(key)) {
