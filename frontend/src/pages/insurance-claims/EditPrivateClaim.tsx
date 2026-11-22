@@ -44,6 +44,7 @@ interface MedicineItem {
   date: string;
   stockItemId?: string;
   serviceCatalogId?: string;
+  prescriptionText?: string;
 }
 
 const p = (claim: any): any => claim?.patient ?? claim?.Patient ?? {};
@@ -73,6 +74,28 @@ function buildServicesFromBill(bill: any): ServiceItem[] {
     });
 }
 
+function prescriptionTextForMedication(m: any): string {
+  if (!m) return '';
+  const details = [
+    m.dosage && 'Dose: ' + m.dosage,
+    m.frequency && 'Frequency: ' + m.frequency,
+    m.duration && 'Duration: ' + m.duration,
+    m.route && 'Route: ' + m.route,
+    m.instructions && 'Instructions: ' + m.instructions,
+  ].filter(Boolean);
+  return details.join(' · ');
+}
+
+function findAttendancePrescription(attendance: any, stockItemId?: string, serviceCatalogId?: string, description?: string): string {
+  const meds = attendance?.medication ?? attendance?.Medication ?? [];
+  const normalizedName = String(description || '').trim().toLowerCase();
+  const match = meds.find((m: any) =>
+    (stockItemId && m.stockItemId === stockItemId) ||
+    (serviceCatalogId && m.serviceCatalogId === serviceCatalogId) ||
+    (normalizedName && String(m.name || '').trim().toLowerCase() === normalizedName)
+  );
+  return prescriptionTextForMedication(match);
+}
 function buildMedicinesFromBill(bill: any, attendance: any): MedicineItem[] {
   const lineItems = (bill?.billLineItem ?? bill?.BillLineItem ?? []).filter(
     (li: any) => !li.isVoided && li.serviceType === 'medication'
@@ -89,6 +112,9 @@ function buildMedicinesFromBill(bill: any, attendance: any): MedicineItem[] {
         unitPrice,
         total: toNum(li.lineTotal) || quantity * unitPrice,
         date: li.createdAt ? new Date(li.createdAt).toISOString().split('T')[0] : '',
+        stockItemId: li.serviceCatalog?.stockItemId,
+        serviceCatalogId: li.serviceCatalogId || undefined,
+        prescriptionText: findAttendancePrescription(attendance, li.serviceCatalog?.stockItemId, li.serviceCatalogId, li.description),
       } as MedicineItem;
     });
   }
@@ -112,6 +138,7 @@ function buildMedicinesFromBill(bill: any, attendance: any): MedicineItem[] {
         : '',
       stockItemId: m.stockItemId,
       serviceCatalogId: catalog?.id,
+      prescriptionText: prescriptionTextForMedication(m),
     } as MedicineItem;
   });
 }
@@ -484,6 +511,10 @@ function EditMedicineModal({ isOpen, onClose, onSave, medicine }: any) {
             <label className="text-xs font-medium text-[var(--text-secondary)]">Date</label>
             <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm" />
           </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Prescription / Directions</label>
+            <textarea rows={3} value={formData.prescriptionText || ''} onChange={(e) => setFormData({ ...formData, prescriptionText: e.target.value })} placeholder="Dose, frequency, duration, route and instructions" className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm text-[var(--text-primary)]" />
+          </div>
           <div className="bg-[var(--icon-green-bg)] p-2 rounded-lg">
             <div className="flex justify-between text-sm">
               <span className="text-[var(--text-secondary)]">Total:</span>
@@ -649,6 +680,7 @@ export default function EditPrivateClaim() {
         date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
         stockItemId: m.serviceCatalog?.stockItemId,
         serviceCatalogId: m.serviceCatalogId,
+        prescriptionText: m.prescriptionText || findAttendancePrescription(attendance, m.serviceCatalog?.stockItemId, m.serviceCatalogId, m.description),
       })));
     } else if (meta.medicines?.length) {
       setMedicines(meta.medicines);
@@ -706,6 +738,7 @@ export default function EditPrivateClaim() {
         serviceDate: m.date || null,
         serviceCatalogId: m.serviceCatalogId ?? null,
         billLineItemId: m.billLineItemId ?? null,
+        prescriptionText: m.prescriptionText ?? null,
       });
     }
     return out;
@@ -876,12 +909,13 @@ export default function EditPrivateClaim() {
 
         <ListSection title="MEDICINES" count={medicines.length} open={tablesOpen} emptyText="No medicines added..." action={addBtn('Add', 'medicine')}>
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>Description</TH><TH>Prescription / Directions</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {medicines.map((med, idx) => (
                 <tr key={idx} className="border-t border-gray-100">
                   <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
                   <td className="px-3 py-3 text-gray-700">{med.description}</td>
+                  <td className="px-3 py-3 text-gray-600 text-xs min-w-[220px]">{med.prescriptionText || <span className="text-gray-400">No prescription details recorded</span>}</td>
                   <td className="px-3 py-3 text-gray-700">{fmtDate(med.date)}</td>
                   <td className="px-3 py-3 text-center text-gray-700">{med.quantity}</td>
                   <td className="px-3 py-3 text-right text-gray-700">{money(med.unitPrice)}</td>
