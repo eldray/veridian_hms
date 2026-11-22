@@ -67,7 +67,13 @@ export class StockTransactionService extends BaseService {
     if (!reason) throw new ValidationError('A reason is required to dispose of all stock');
 
     const items = await this.repo.prisma.stockItem.findMany({
-      where: { currentStock: { gt: 0 } },
+      where: {
+        OR: [
+          { currentStock: { gt: 0 } },
+          { stockBalances: { some: { quantity: { gt: 0 } } } },
+          { StockBatch: { some: { quantity: { gt: 0 } } } },
+        ],
+      },
       select: {
         id: true, name: true, unitOfMeasure: true, currentStock: true,
         stockBalances: { where: { quantity: { gt: 0 } } },
