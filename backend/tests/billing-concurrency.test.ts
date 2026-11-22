@@ -371,7 +371,11 @@ describe('attendance visit-level financial summaries', () => {
     const repository = new BillRepository({} as any);
     await (repository as any).syncAttendanceFinancials(tx, 'attendance-multiple-bills');
     expect(tx.bill.aggregate).toHaveBeenCalledWith({
-      where: { attendanceId: 'attendance-multiple-bills', status: { not: 'cancelled' } },
+      where: {
+        attendanceId: 'attendance-multiple-bills',
+        status: { not: 'cancelled' },
+        paymentMode: { notIn: ['private_insurance', 'corporate'] },
+      },
       _sum: { totalAmount: true, paidAmount: true, balance: true }
     });
     expect(attendanceUpdate).toHaveBeenCalledWith({
