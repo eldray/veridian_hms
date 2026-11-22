@@ -108,7 +108,7 @@ export default function StockManagement() {
       if (!approved) return;
     }
     try {
-      await createStockTransaction({ stockItemId: selectedItem.id, ...transactionData, quantity: transactionData.transactionType === 'adjustment' && transactionData.adjustmentDirection === 'decrease' ? -Math.abs(transactionData.quantity) : transactionData.quantity, departmentId: transactionData.departmentId || (user as any)?.departmentId || undefined, ...(transactionData.transactionType === 'write_off' ? { batchNumber: transactionData.batchNumber.trim() } : {}) } as Parameters<typeof createStockTransaction>[0]);
+      await createStockTransaction({ stockItemId: selectedItem.id, ...transactionData, quantity: transactionData.transactionType === 'adjustment' && transactionData.adjustmentDirection === 'decrease' ? -Math.abs(transactionData.quantity) : transactionData.quantity, departmentId: transactionData.transactionType === 'write_off' && canDisposeStock ? (transactionData.departmentId || undefined) : (transactionData.departmentId || (user as any)?.departmentId || undefined), ...(transactionData.transactionType === 'write_off' ? { batchNumber: transactionData.batchNumber.trim() } : {}) } as Parameters<typeof createStockTransaction>[0]);
       success('Recorded', 'Transaction completed successfully'); setShowTransactionForm(false); setSelectedItem(null); resetTransactionForm(); await loadAllData();
     } catch (err: any) { toastError('Transaction failed', apiError(err, 'Could not record transaction')); }
   };
@@ -135,7 +135,10 @@ export default function StockManagement() {
   const openSingleDisposal = (item: StockItem) => {
     if (!canDisposeStock) return;
     setSelectedItem(item);
-    setTransactionData({ transactionType: 'write_off', quantity: 0, adjustmentDirection: 'decrease', reference: '', notes: '', batchNumber: '', departmentId: (user as any)?.departmentId || departments[0]?.id || '' });
+    const firstBatch = ((item as any).StockBatch || []).find((batch: any) => Number(batch.quantity) > 0);
+    const firstBalance = (((item as any).stockBalances || []) as any[]).find(balance => Number(balance.quantity) > 0 && !balance.wardId);
+    const initialDepartmentId = firstBatch?.departmentId ?? firstBalance?.departmentId ?? (user as any)?.departmentId ?? departments[0]?.id ?? '';
+    setTransactionData({ transactionType: 'write_off', quantity: 0, adjustmentDirection: 'decrease', reference: '', notes: '', batchNumber: firstBatch?.batchNumber || '', departmentId: initialDepartmentId });
     setShowTransactionForm(true);
   };
 
@@ -377,7 +380,7 @@ export default function StockManagement() {
             <div className="border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between"><h2 className="text-lg font-bold text-[var(--text-primary)]">Allocate Unassigned Stock</h2><Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close allocation form" onClick={() => setShowAllocationForm(false)} /></div>
             <form onSubmit={handleAllocationSubmit} className="p-6 space-y-4">
               <div className="bg-[var(--bg-main)] rounded-lg p-3"><p className="text-sm text-[var(--text-secondary)]">Selected item</p><p className="font-semibold text-[var(--text-primary)]">{selectedItem.name}</p><p className="text-xs text-[var(--text-tertiary)] mt-1">Unassigned balance: {getInventoryBreakdown(selectedItem).departments.find(d => d.id === '__UNASSIGNED__')?.quantity || 0} {selectedItem.unitOfMeasure}</p><p className="text-xs text-[var(--text-tertiary)]">This is an internal allocation; the hospital total will not change.</p></div>
-              <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Receiving department *</label><select required value={allocationData.departmentId} onChange={e => setAllocationData({ ...allocationData, departmentId: e.target.value })} className={cn(SELECT, 'w-full')}><option value="">Choose department</option>{departments.filter((d: any) => d.isActive !== false).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+              <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Receiving department *</label><select required value={allocationData.departmentId} onChange={e => setAllocationData({ ...allocationData, departmentId: e.target.value })} className={cn(SELECT, 'w-full')}><option value="">Unassigned stock</option>{departments.filter((d: any) => d.isActive !== false).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity to allocate *</label><input type="number" min="1" step="1" required value={allocationData.quantity || ''} onChange={e => setAllocationData({ ...allocationData, quantity: Number(e.target.value) || 0 })} className={cn(INPUT, 'w-full')} /></div>
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]"><Button type="button" variant="secondary" className="flex-1" onClick={() => setShowAllocationForm(false)}>Cancel</Button><Button type="submit" variant="soft" accent="green" className="flex-1">Allocate Stock</Button></div>
             </form>
