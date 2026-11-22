@@ -972,7 +972,7 @@ export default function MedicalEntries() {
   if (!presentedComplaints.trim()) finalizeGaps.push('presenting complaint');
   if (!hpc.trim()) finalizeGaps.push('history of presenting complaint');
   if (!assessment.trim()) finalizeGaps.push('clinical assessment');
-  if (!treatmentPlan.trim()) finalizeGaps.push('management plan');
+  if (!treatmentPlan.trim()) finalizeGaps.push('treatment plan');
   if (!clinicalOutcome) finalizeGaps.push('clinical outcome at end of visit');
   if (!(currentAttendance as any)?.providerId && !user?.id) finalizeGaps.push('responsible clinician');
   const missingVitals = ([['blood pressure', 'bloodPressure'], ['temperature', 'temperature'],
@@ -1968,12 +1968,6 @@ export default function MedicalEntries() {
                   <option value="">Not recorded</option><option value="improved">Improved</option><option value="stable">Stable</option><option value="unchanged">Unchanged</option><option value="deteriorated">Deteriorated</option><option value="deceased">Deceased</option><option value="unknown">Unknown / unable to assess</option>
                 </select>
               </div>
-              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Management Plan</label>
-                <textarea value={treatmentPlan} onChange={e => setTreatmentPlan(e.target.value)} rows={3} disabled={!canAddEntries || isClinicalFinalized}
-                  placeholder="What was done and what happens next…" className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none" />
-              </div>
-
               {/* Save clinical */}
               {canAddEntries && (
                 <div className="space-y-2">
@@ -2515,6 +2509,24 @@ export default function MedicalEntries() {
                     <FileText className="w-3 h-3" /> Treatment Plan
                   </span>
                   <div className="flex-1 h-px bg-[var(--border-color)]" />
+                </div>
+
+                {/* The persistent plan lives here; this replaces the duplicate Management Plan field. */}
+                <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                    Planned management and instructions
+                  </label>
+                  <textarea
+                    value={treatmentPlan}
+                    onChange={e => setTreatmentPlan(e.target.value)}
+                    rows={4}
+                    disabled={!canAddEntries || isClinicalFinalized}
+                    placeholder="Document the treatment strategy, investigations or interventions planned, patient instructions, referrals and follow-up…"
+                    className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-y focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] disabled:opacity-60"
+                  />
+                  <p className="mt-1 text-[9px] text-[var(--text-tertiary)]">
+                    Saved with the Save Clinical action.
+                  </p>
                 </div>
 
                 {/* Logged treatment notes */}
