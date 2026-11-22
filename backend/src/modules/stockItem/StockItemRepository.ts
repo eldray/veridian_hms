@@ -178,7 +178,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       const batchAllocations: Array<{ batchId: string; batchNumber: string; quantity: number; expiryDate: Date; costPrice: string }> = [];
 
       if (batchCount > 0 && isOutgoing) {
-        if (!normalizedDepartmentId) throw new Error('Select the department issuing this stock');
+        if (transactionType !== 'write_off' && !normalizedDepartmentId) throw new Error('Select the department issuing this stock');
         let batches: any[];
         if (transactionType === 'write_off') {
           const selectedBatchNumber = String(batchNumber || '').trim();
@@ -186,7 +186,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           const selectedBatch = await tx.stockBatch.findFirst({
             where: {
               stockItemId: id, batchNumber: selectedBatchNumber,
-              departmentId: normalizedDepartmentId, wardId: null, quantity: { gt: 0 },
+              departmentId: normalizedDepartmentId ?? null, wardId: null, quantity: { gt: 0 },
             },
           });
           if (!selectedBatch) throw new Error(`Batch ${selectedBatchNumber} was not found at this department or has no remaining stock`);
@@ -211,7 +211,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           const move = Math.min(batch.quantity, remaining);
           const changed = await tx.stockBatch.updateMany({
             where: {
-              id: batch.id, departmentId: normalizedDepartmentId, wardId: null, quantity: { gte: move },
+              id: batch.id, departmentId: normalizedDepartmentId ?? null, wardId: null, quantity: { gte: move },
               ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gte: startOfCurrentDay() } }),
             },
             data: { quantity: { decrement: move } },
