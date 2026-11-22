@@ -24,6 +24,18 @@ import {
   fmtTime, patientFullName, getStatusStyle,
 } from '../../config/dashboardConfig';
 
+const toArray = (value: any): any[] => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.data)) return value.data;
+  if (Array.isArray(value?.data?.data)) return value.data.data;
+  if (Array.isArray(value?.items)) return value.items;
+  if (Array.isArray(value?.results)) return value.results;
+  if (Array.isArray(value?.rows)) return value.rows;
+  if (Array.isArray(value?.patients)) return value.patients;
+  if (Array.isArray(value?.claims)) return value.claims;
+  return [];
+};
+
 const unwrap = (r: any): any => {
   if (r?.success && r?.data) {
     if (r.data.data !== undefined) return r.data.data;
@@ -176,8 +188,7 @@ export function WorklistPanel({ kind }: { kind: WorklistKind }) {
       .then((res) => {
         if (!active) return;
         const payload = res?.data ?? res;
-        const list: any[] = Array.isArray(payload?.data) ? payload.data
-          : Array.isArray(payload) ? payload : [];
+        const list: any[] = toArray(payload);
         setItems(list);
         // FIX: never show 0 when there are items in the list
         const serverPending = Number(payload?.pending ?? payload?.total ?? 0) || 0;
@@ -204,7 +215,7 @@ export function WorklistPanel({ kind }: { kind: WorklistKind }) {
         </Link>
       }
     >
-      {loading ? <ListSkeleton /> : items.length === 0 ? (
+      {loading ? <ListSkeleton /> : toArray(items).length === 0 ? (
         <EmptyState Icon={meta.Icon} text={meta.emptyText} />
       ) : (
         <>
@@ -213,7 +224,7 @@ export function WorklistPanel({ kind }: { kind: WorklistKind }) {
             <CountBadge n={pending} />
           </div>
           <div className="space-y-2">
-            {items.slice(0, 25).map((it) => {
+            {toArray(items).slice(0, 25).map((it) => {
               const pr = PRIORITY_STYLE[it.priority];
               const loc = it.location?.ward
                 ? `${it.location.ward}${it.location.bed ? ` · ${it.location.bed}` : ''}` : null;
@@ -282,12 +293,12 @@ const paymentModeLabel = (mode: PaymentMode) =>
 
 export function RecentActivity({ items, loading }: { items: any[]; loading: boolean }) {
   return (
-    <PanelShell title="Recent Activity" subtitle="Latest patient visits" badge={<CountBadge n={items.length} />}>
-      {loading ? <ListSkeleton /> : items.length === 0 ? (
+    <PanelShell title="Recent Activity" subtitle="Latest patient visits" badge={<CountBadge n={toArray(items).length} />}>
+      {loading ? <ListSkeleton /> : toArray(items).length === 0 ? (
         <EmptyState Icon={Stethoscope} text="No visits recorded" />
       ) : (
         <div className="space-y-2">
-          {items.map((att) => {
+          {toArray(items).map((att) => {
             const patient = att.patient ?? att.Patient ?? {};
             const ss = getStatusStyle(att.status || 'pending');
             const status = att.status || 'pending';
@@ -351,15 +362,15 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
 
 export function TopDiagnoses({ items, loading }: { items: any[]; loading: boolean }) {
   const showBar = items.length > 1;
-  const maxCount = Math.max(...items.map((t) => t?.patients ?? 0), 1);
+  const maxCount = Math.max(...toArray(items).map((t) => t?.patients ?? 0), 1);
 
   return (
     <PanelShell title="Top Diagnoses" subtitle="Last 30 days" Icon={Heart} iconColor="var(--icon-red-text)">
-      {loading ? <ListSkeleton rows={5} h="h-10" /> : items.length === 0 ? (
+      {loading ? <ListSkeleton rows={5} h="h-10" /> : toArray(items).length === 0 ? (
         <EmptyState Icon={Heart} text="No diagnoses recorded" />
       ) : (
         <div className="space-y-2">
-          {items.slice(0, 5).map((t, i) => (
+          {toArray(items).slice(0, 5).map((t, i) => (
             <div
               key={i}
               className="flex items-center gap-3 px-3 py-2 rounded-lg"
@@ -498,7 +509,7 @@ export function NurseSummary() {
     getEncounters({ status: 'admitted', limit: 50 })
       .then((res: any) => {
         if (!active) return;
-        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        const list = toArray(res);
         setAdmitted(list);
       })
       .catch(() => { if (active) setAdmitted([]); })
@@ -707,7 +718,7 @@ export function LabSummary() {
                 Top tests today
               </p>
               <div className="space-y-1.5">
-                {topTests.slice(0, 4).map((t: any, i: number) => (
+                {toArray(topTests).slice(0, 4).map((t: any, i: number) => (
                   <div
                     key={i}
                     className="flex items-center justify-between px-3 py-1.5 rounded-lg"
@@ -789,7 +800,7 @@ export function ScanSummary() {
                 Top scans today
               </p>
               <div className="space-y-1.5">
-                {topScans.slice(0, 4).map((s: any, i: number) => (
+                {toArray(topScans).slice(0, 4).map((s: any, i: number) => (
                   <div
                     key={i}
                     className="flex items-center justify-between px-3 py-1.5 rounded-lg"
@@ -840,7 +851,7 @@ export function RecordsSummary() {
       let newPats = 0, recentList: any[] = [];
       if (patRes.status === 'fulfilled') {
         const d = patRes.value;
-        const list = Array.isArray(d) ? d : (d as any)?.data || [];
+        const list = toArray(d);
         newPats = list.length;
         recentList = list.slice(0, 5);
       }
@@ -1040,13 +1051,13 @@ export function ExpiringStockPanel() {
       subtitle="Next 30 days"
       Icon={Package}
       iconColor="var(--icon-red-text)"
-      badge={<CountBadge n={items.length} />}
+      badge={<CountBadge n={toArray(items).length} />}
     >
-      {loading ? <ListSkeleton rows={4} h="h-12" /> : items.length === 0 ? (
+      {loading ? <ListSkeleton rows={4} h="h-12" /> : toArray(items).length === 0 ? (
         <EmptyState Icon={Package} text="No items expiring soon" />
       ) : (
         <div className="space-y-1.5">
-          {items.slice(0, 8).map((it: any, i: number) => {
+          {toArray(items).slice(0, 8).map((it: any, i: number) => {
             const days = it.daysToExpiry ?? Math.floor(
               (new Date(it.expiryDate).getTime() - Date.now()) / 86400000
             );
@@ -1078,13 +1089,13 @@ export function ExpiringStockPanel() {
               </div>
             );
           })}
-          {items.length > 8 && (
+          {toArray(items).length > 8 && (
             <Link
               to="/dashboard/stock?filter=expiring"
               className="block text-center text-xs py-1"
               style={{ color: 'var(--icon-cyan-text)' }}
             >
-              +{items.length - 8} more →
+              +{toArray(items).length - 8} more →
             </Link>
           )}
         </div>
@@ -1122,13 +1133,13 @@ export function CriticalResultsPanel() {
       subtitle="Immediate notification needed"
       Icon={AlertTriangle}
       iconColor="var(--icon-red-text)"
-      badge={<CountBadge n={items.length} />}
+      badge={<CountBadge n={toArray(items).length} />}
     >
-      {loading ? <ListSkeleton rows={3} h="h-12" /> : items.length === 0 ? (
+      {loading ? <ListSkeleton rows={3} h="h-12" /> : toArray(items).length === 0 ? (
         <EmptyState Icon={CheckCircle} text="No critical results pending" />
       ) : (
         <div className="space-y-1.5">
-          {items.slice(0, 8).map((t: any, i: number) => (
+          {toArray(items).slice(0, 8).map((t: any, i: number) => (
             <Link
               key={t.id || i}
               to={`/dashboard/laboratory/${t.id}`}
@@ -1178,7 +1189,7 @@ export function HighRiskANCPanel() {
       if (statsRes.status === 'fulfilled') setStats(unwrap(statsRes.value));
       if (listRes.status === 'fulfilled') {
         const raw = unwrap(listRes.value);
-        const arr = Array.isArray(raw) ? raw : raw?.data || [];
+        const arr = toArray(raw);
         const highRisk = arr.filter((r: any) =>
           r.riskLevel === 'high' || r.riskFactors?.length > 0
         );
@@ -1347,7 +1358,7 @@ export function HRWorklistPanel() {
     getLeaves({ status: 'pending', limit: 20 })
       .then((res: any) => {
         if (!active) return;
-        const list = Array.isArray(res) ? res : res?.data || [];
+        const list = toArray(res);
         setLeaves(list);
       })
       .catch(() => { if (active) setLeaves([]); })
@@ -1508,7 +1519,7 @@ export function PaymentModePanel() {
     getEncounters({ date: today, limit: 500 })
       .then((res: any) => {
         if (!active) return;
-        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        const list = toArray(res);
         const counts = { cash: 0, nhis: 0, private_insurance: 0, total: list.length };
         list.forEach((e: any) => {
           const m = e.paymentMode || 'cash';
@@ -1662,7 +1673,7 @@ export function RecentAdmissionsPanel() {
     getEncounters({ status: 'admitted', limit: 8 })
       .then((res: any) => {
         if (!active) return;
-        const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        const list = toArray(res);
         setItems(list);
       })
       .catch(() => { if (active) setItems([]); })
@@ -1682,11 +1693,11 @@ export function RecentAdmissionsPanel() {
         </Link>
       }
     >
-      {loading ? <ListSkeleton rows={4} h="h-12" /> : items.length === 0 ? (
+      {loading ? <ListSkeleton rows={4} h="h-12" /> : toArray(items).length === 0 ? (
         <EmptyState Icon={Bed} text="No admissions today" />
       ) : (
         <div className="space-y-1.5">
-          {items.map((a: any) => {
+          {toArray(items).map((a: any) => {
             const p = a.patient || a.Patient || {};
             const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
             const ward = a.Ward?.wardName || a.ward?.wardName || '—';
@@ -1778,8 +1789,8 @@ export function RecentPaymentsPanel() {
     getBills({ limit: 20 })
       .then((res: any) => {
         if (!active) return;
-        const list = Array.isArray(res) ? res : res?.data || [];
-        const paid = list.filter((b: any) => (b.paidAmount || 0) > 0).slice(0, 6);
+        const list = toArray(res);
+        const paid = toArray(list).filter((b: any) => (b.paidAmount || 0) > 0).slice(0, 6);
         setItems(paid);
       })
       .catch(() => { if (active) setItems([]); })
@@ -1801,11 +1812,11 @@ export function RecentPaymentsPanel() {
         </Link>
       }
     >
-      {loading ? <ListSkeleton rows={4} h="h-12" /> : items.length === 0 ? (
+      {loading ? <ListSkeleton rows={4} h="h-12" /> : toArray(items).length === 0 ? (
         <EmptyState Icon={Coins} text="No payments recorded" />
       ) : (
         <div className="space-y-1.5">
-          {items.map((b: any) => {
+          {toArray(items).map((b: any) => {
             const p = b.patient || b.Patient || {};
             const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
             return (
