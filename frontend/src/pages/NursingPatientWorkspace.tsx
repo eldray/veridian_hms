@@ -395,72 +395,77 @@ export default function NursingPatientWorkspace() {
 
   return (
     <div className="space-y-4 p-5">
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={goBack}
-            className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
-          </button>
-          <div className="w-11 h-11 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm">
-            {patientName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')}
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg font-bold text-[var(--text-primary)]">{patientName}</h1>
-              <PatientTypeBadge attendance={selectedAtt} admission={activeAdmission} />
-              <PaymentBadge mode={selectedAtt.paymentMode} />
+      {/* ── Compact patient header and workspace navigation ── */}
+      <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
+        <div className="px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
+              <button
+                onClick={goBack}
+                className="p-2 mt-0.5 sm:mt-0 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)] transition-colors flex-shrink-0"
+                aria-label="Back to Nursing Station"
+              >
+                <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
+              </button>
+              <PatientAvatar patient={selectedPatient} size="lg" className="rounded-xl flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)] truncate">{patientName}</h1>
+                  <PatientTypeBadge attendance={selectedAtt} admission={activeAdmission} />
+                  <PaymentBadge mode={selectedAtt.paymentMode} />
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-secondary)]">
+                  <span className="font-mono">#{selectedPatient.folderNumber || '—'}</span>
+                  {selectedPatient.gender && <span className="capitalize">{selectedPatient.gender}</span>}
+                  {age != null && <span>{age} yrs</span>}
+                  {selectedPatient.contact && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{selectedPatient.contact}</span>}
+                  {bedNumber && <span>Bed {bedNumber}</span>}
+                  {daysOnWard && <span>{daysOnWard}d on ward</span>}
+                </div>
+                {activeAdmission && (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--text-tertiary)]">
+                    <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" /> Admitted {new Date(activeAdmission.admissionDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    <span className="inline-flex items-center gap-1"><Hospital className="w-3 h-3" /> Admission #{activeAdmission.admissionNumber || '—'}</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-              #{selectedPatient.folderNumber}
-              {bedNumber && ` · Bed ${bedNumber}`}
-              {age != null && ` · ${age} yrs`}
-              {selectedPatient.gender && ` · ${selectedPatient.gender}`}
-              {daysOnWard && ` · ${daysOnWard}d on ward`}
-            </p>
+            <div className="flex items-center gap-2 flex-wrap pl-11 sm:pl-0">
+              <button
+                onClick={() => openMarPrint(
+                  doses,
+                  patientName,
+                  selectedPatient.folderNumber || '—',
+                  new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString(),
+                  new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString(),
+                  hospital,
+                )}
+                disabled={doses.length === 0}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-colors disabled:opacity-50"
+              >
+                <Printer className="w-3.5 h-3.5" /> Print MAR
+              </button>
+              <button
+                onClick={() => setShowVitalsModal(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+              >
+                <Activity className="w-3.5 h-3.5" /> Record Vitals
+              </button>
+            </div>
           </div>
         </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => openMarPrint(
-              doses,
-              patientName,
-              selectedPatient.folderNumber || '—',
-              new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString(),
-              new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString(),
-              hospital,
-            )}
-            disabled={doses.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
-          >
-            <Printer className="w-4 h-4" /> Print MAR
-          </button>
-          <button
-            onClick={() => setShowVitalsModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
-          >
-            <Activity className="w-4 h-4" /> Record Vitals
-          </button>
-        </div>
-      </div>
-
-      {/* ── Tabs ── */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="border-b border-[var(--border-color)] px-4 flex gap-1 bg-[var(--bg-main)] overflow-x-auto">
+        <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)] px-2 sm:px-4 flex gap-1 overflow-x-auto">
           {([
-            { key: 'overview', label: 'Overview',  icon: Info },
-            { key: 'mar',      label: 'MAR',       icon: ClipboardList },
-            { key: 'tasks',    label: 'Tasks',     icon: ListTodo },
-            { key: 'notes',    label: 'Notes',     icon: StickyNote },
-            { key: 'vitals',   label: 'Vitals',    icon: Activity },
+            { key: 'overview', label: 'Overview', icon: Info },
+            { key: 'mar', label: 'MAR', icon: ClipboardList },
+            { key: 'tasks', label: 'Tasks', icon: ListTodo },
+            { key: 'notes', label: 'Notes', icon: StickyNote },
+            { key: 'vitals', label: 'Vitals', icon: Activity },
           ] as const).map(({ key, label, icon: Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key as TabKey)}
-              className={`flex items-center gap-1.5 py-3 px-3 text-xs font-medium border-b-2 transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 py-3 px-3 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
                 activeTab === key
                   ? 'border-teal-500 text-teal-600'
                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
@@ -471,7 +476,6 @@ export default function NursingPatientWorkspace() {
             </button>
           ))}
         </div>
-
         {/* ── Tab content — min-h keeps the page full, no hang ── */}
         <div className="p-5 min-h-[calc(100vh-320px)]">
           {/* ══════════ OVERVIEW ══════════ */}
@@ -721,10 +725,10 @@ export default function NursingPatientWorkspace() {
               </div>
 
               {/* ─── ROW 3: Tasks (2/3) | Patient info (1/3) ─── */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4">
 
-                {/* Tasks — 2 columns */}
-                <div className="lg:col-span-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden flex flex-col">
+                {/* Tasks — full width */}
+                <div className=" rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden flex flex-col">
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
                     <ListTodo className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                     <span className="text-xs font-semibold text-[var(--text-primary)]">Today's Tasks</span>
@@ -786,87 +790,7 @@ export default function NursingPatientWorkspace() {
                   )}
                 </div>
 
-                {/* Patient info — 1 column */}
-                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
-                  <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-                    <PatientAvatar patient={selectedPatient} size="md" />
-                    <span className="text-xs font-semibold text-[var(--text-primary)]">Patient Info</span>
-                  </div>
 
-                  <div className="p-4 space-y-3 text-xs">
-                    <div className="flex items-center gap-2">
-                      <User className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                      <span className="text-[var(--text-secondary)]">
-                        {selectedPatient.gender === 'male' ? 'Male' : selectedPatient.gender === 'female' ? 'Female' : '—'}
-                        {age != null && ` · ${age} yrs`}
-                      </span>
-                    </div>
-
-                    {selectedPatient.contact && (
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                        <span className="text-[var(--text-secondary)] truncate">{selectedPatient.contact}</span>
-                      </div>
-                    )}
-
-                    {selectedPatient.address && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0 mt-0.5" />
-                        <span className="text-[var(--text-secondary)] line-clamp-2">{selectedPatient.address}</span>
-                      </div>
-                    )}
-
-                    {activeAdmission && (
-                      <>
-                        <div className="h-px bg-[var(--border-color)] my-1" />
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                          <div>
-                            <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Admitted</p>
-                            <p className="text-[var(--text-primary)] font-medium">
-                              {new Date(activeAdmission.admissionDate).toLocaleDateString([], {
-                                month: 'short', day: 'numeric', year: 'numeric',
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Hospital className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                          <div>
-                            <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Admission #</p>
-                            <p className="text-[var(--text-primary)] font-medium font-mono">
-                              {activeAdmission.admissionNumber}
-                            </p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    {selectedPatient.insuranceDetails?.memberId && (
-                      <>
-                        <div className="h-px bg-[var(--border-color)] my-1" />
-                        <div className="flex items-center gap-2">
-                          <Shield className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">Insurance ID</p>
-                            <p className="text-[var(--text-primary)] font-medium font-mono truncate">
-                              {selectedPatient.insuranceDetails.memberId}
-                            </p>
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    <div className="h-px bg-[var(--border-color)] my-1" />
-                    <button
-                      onClick={() => navigate(`/dashboard/patients/${getEntityId(selectedPatient)}`)}
-                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-teal-600 hover:bg-teal-50 transition-colors font-semibold"
-                    >
-                      View full patient record
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           )}
