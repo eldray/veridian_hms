@@ -1,19 +1,6 @@
 // src/components/nursing/MarPrintModal.tsx
-import React, { useState } from 'react';
-import { X, Printer } from 'lucide-react';
-import { useHospitalStore } from '../../store/hospitalStore';
 import { openPrintWindow } from '../../utils/pdfGenerator';
 import type { MarDose, DoseStatus } from '../../api/nursing';
-
-interface MarPrintModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  doses: MarDose[];
-  patientName: string;
-  patientFolder: string;
-  dateFrom: string;
-  dateTo: string;
-}
 
 const STATUS_GLYPH: Record<DoseStatus, { ch: string; bg: string; fg: string; label: string }> = {
   scheduled:    { ch: '·', bg: '#f1f5f9', fg: '#64748b', label: 'Scheduled' },
@@ -238,93 +225,18 @@ function buildHtml(
 </html>`;
 }
 
-// ─────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────
-
-export const MarPrintModal: React.FC<MarPrintModalProps> = ({
-  isOpen,
-  onClose,
-  doses,
-  patientName,
-  patientFolder,
-  dateFrom,
-  dateTo,
-}) => {
-  const { hospital } = useHospitalStore();
-  const [printing, setPrinting] = useState(false);
-
-  if (!isOpen) return null;
-
-  const handlePrint = () => {
-    setPrinting(true);
-    try {
-      const html = buildHtml(doses, patientName, patientFolder, dateFrom, dateTo, hospital);
-      openPrintWindow(html, `MAR-${patientFolder}`);
-      onClose();
-    } finally {
-      setPrinting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-lg border border-[var(--border-color)] shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
-              <Printer className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-[var(--text-primary)]">Print MAR Chart</h2>
-              <p className="text-[11px] text-[var(--text-tertiary)]">
-                A4 landscape · {doses.length} dose{doses.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--bg-main)] transition-colors">
-            <X className="w-4 h-4 text-[var(--text-secondary)]" />
-          </button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="bg-[var(--bg-main)] rounded-lg p-3">
-              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-bold">Patient</p>
-              <p className="font-semibold text-[var(--text-primary)] mt-0.5 truncate">{patientName}</p>
-              <p className="text-[10px] text-[var(--text-secondary)]">{patientFolder}</p>
-            </div>
-            <div className="bg-[var(--bg-main)] rounded-lg p-3">
-              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-bold">Period</p>
-              <p className="font-semibold text-[var(--text-primary)] mt-0.5">{dateFrom}</p>
-              <p className="text-[10px] text-[var(--text-secondary)]">→ {dateTo}</p>
-            </div>
-          </div>
-
-          <p className="text-xs text-[var(--text-secondary)]">
-            A new window will open with the printable chart. Use the browser's print dialog to save or send to a printer.
-          </p>
-        </div>
-
-        <div className="flex gap-3 px-5 py-4 border-t border-[var(--border-color)] bg-[var(--bg-main)] rounded-b-xl">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2 rounded-lg text-sm font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handlePrint}
-            disabled={printing || doses.length === 0}
-            className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors disabled:opacity-50"
-          >
-            <Printer className="w-4 h-4" />
-            {printing ? 'Opening…' : 'Open Print Preview'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default MarPrintModal;
+/**
+ * Opens the MAR directly in its print layout. Called from the user's click
+ * so the browser allows the print window to open.
+ */
+export function openMarPrint(
+  doses: MarDose[],
+  patientName: string,
+  patientFolder: string,
+  dateFrom: string,
+  dateTo: string,
+  hospital: any,
+): void {
+  const html = buildHtml(doses, patientName, patientFolder, dateFrom, dateTo, hospital);
+  openPrintWindow(html, `MAR-${patientFolder}`);
+}
