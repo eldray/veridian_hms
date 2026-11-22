@@ -13,6 +13,7 @@
 // post-corrects the dates it inherited from "now".
 import { Prisma } from '@prisma/client';
 import { InsuranceClaimService } from '../../modules/insuranceClaim/InsuranceClaimService.js';
+import { facilityLevelFromType } from '../../modules/insuranceClaim/helpers/NHISPrincipalGdrgResolver.js';
 import type {
   GeneratedBillLinePlan, GeneratedClaim, GeneratedClaimBatch, GeneratedEligibilityCheck, GeneratedPreAuth,
 } from '../bulkGenerator.js';
@@ -261,6 +262,32 @@ export const seedClaims = async (
   });
   const attendanceWithPrimaryDiagnosis = new Set(primaryDiagnosisRows.map((row) => row.attendanceId));
   const patientIds = [...new Set([...payerByAttendance.values()].map((payer) => payer.patientId).filter((id): id is string => !!id))];
+  // ANC/PNC tariffs are facility-level restricted. Read the actual credential and
+  // priced tariff before attempting demo claim generation; never broaden the tariff
+  // levels merely to make synthetic claims pass.
+  const [hospital, antenatalTariff, seededPatients] = await Promise.all([
+    prisma.hospital.findFirst({ select: { nhisFacilityType: true } }),
+    prisma.gDRGTariff.findUnique({
+      where: { gdrgCode: 'OPDC02A' },
+      select: { nhiaTariff: true, minAgeYears: true, maxAgeYears: true, applicableLevels: true, isActive: true },
+    }),
+    prisma.patient.findMany({ where: { id: { in: patientIds } }, select: { id: true, dateOfBirth: true } }),
+  ]);
+  const facilityLevel = facilityLevelFromType(hospital?.nhisFacilityType);
+  const dateOfBirthByPatient = new Map(seededPatients.map((patient) => [patient.id, patient.dateOfBirth]));
+  const isPricedAncTariffAvailable = (patientId: string, serviceDate: Date): boolean => {
+    if (!antenatalTariff || !antenatalTariff.isActive || toNumber(antenatalTariff.nhiaTariff) <= 0) return false;
+    const levels = antenatalTariff.applicableLevels ?? [];
+    if (levels.length && (facilityLevel == null || !levels.includes(facilityLevel))) return false;
+    const dob = dateOfBirthByPatient.get(patientId);
+    if (!dob) return false;
+    let age = serviceDate.getFullYear() - dob.getFullYear();
+    const month = serviceDate.getMonth() - dob.getMonth();
+    if (month < 0 || (month === 0 && serviceDate.getDate() < dob.getDate())) age--;
+    if (antenatalTariff.minAgeYears != null && age < antenatalTariff.minAgeYears) return false;
+    if (antenatalTariff.maxAgeYears != null && age > antenatalTariff.maxAgeYears) return false;
+    return true;
+  };
   const inpatientStays = await prisma.admission.findMany({
     where: {
       status: { not: 'cancelled' },
@@ -279,6 +306,7 @@ export const seedClaims = async (
   let rejected = 0;
   let skippedMissingPrimaryDiagnosis = 0;
   let skippedOverlappingInpatientStay = 0;
+  let skippedUnbillableAntenatal = 0;
   let emptyBatchPlans = 0;
   const skippedExamples: string[] = [];
   let notFinalizable = 0;
@@ -312,6 +340,16 @@ export const seedClaims = async (
         if (skippedExamples.length < 5) skippedExamples.push(`${encounter.attendanceId}: outpatient date overlaps another inpatient stay`);
         continue;
       }
+    }
+    // Keep the clinical ANC/PNC encounter, but do not create a synthetic NHIS
+    // claim when OPDC02A is unpriced or outside the facility's accredited levels.
+    // The current tariff schedule excludes level 3, so a Primary facility must not
+    // generate a claim that the live endpoint will reject with HTTP 400.
+    const isAntenatalVisit = encounter.plan.attendanceType === 'antenatal' || encounter.plan.attendanceType === 'postnatal';
+    if (plan.insuranceType === 'nhis' && isAntenatalVisit && !isPricedAncTariffAvailable(patientId, encounter.plan.dateTime)) {
+      skippedUnbillableAntenatal++;
+      if (skippedExamples.length < 5) skippedExamples.push(`${encounter.attendanceId}: ANC/PNC has no priced OPDC02A tariff for facility level ${facilityLevel ?? 'unknown'}`);
+      continue;
     }
     const createdById = lookups.actorId(plan.createdBy);
 
@@ -492,6 +530,7 @@ export const seedClaims = async (
   if (uncodedClaims) console.log(`   ${uncodedClaims} NHIS claims carry no G-DRG code and were left unbatched for coding`);
   if (notFinalizable) console.log(`   ${notFinalizable} claims the app refuses to finalize stayed drafts - ${refusals.join(' | ')}`);
   if (rejected) console.log(`   ${rejected} claim plans could not be generated - ${notes.join(' | ') || 'no bill or no covered line'}`);
+  if (skippedUnbillableAntenatal) console.warn(`   ${skippedUnbillableAntenatal} NHIS ANC/PNC claim plans skipped: OPDC02A is not priced/applicable at facility level ${facilityLevel ?? 'unknown'} - ${skippedExamples.filter((example) => example.includes('ANC/PNC')).join(' | ')}`);
   if (skippedMissingPrimaryDiagnosis || skippedOverlappingInpatientStay) {
     console.warn(`   ${skippedMissingPrimaryDiagnosis + skippedOverlappingInpatientStay} claim plans were skipped before generation (${skippedMissingPrimaryDiagnosis} missing persisted primary diagnosis; ${skippedOverlappingInpatientStay} outpatient/inpatient date overlaps) - ${skippedExamples.join(' | ')}`);
   }
