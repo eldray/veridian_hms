@@ -231,6 +231,9 @@ export async function buildNHISClaimItems(
   // effective on the service date may enter the claim. Missing/unverified rules
   // are treated as not listed; patient-pay medicines stay off the NHIS XML.
   for (const med of att.Medication) {
+    if (med.status !== 'dispensed' && med.status !== 'administered') continue;
+    const dispensedQuantity = Number(med.dispensedQuantity ?? med.quantity ?? 0);
+    if (!Number.isSafeInteger(dispensedQuantity) || dispensedQuantity <= 0) continue;
     const medicineServiceDate = med.dispensedAt ?? med.prescribedAt;
     const payerRule = med.StockItem?.payerRules?.find(
       (rule: any) => rule.insuranceProviderId === att.insuranceProviderId,
@@ -251,7 +254,7 @@ export async function buildNHISClaimItems(
         itemType: 'N',
         code,
         description: med.name ?? med.StockItem?.name ?? '',
-        quantity: med.dispensedQuantity ?? med.quantity ?? 1,
+        quantity: dispensedQuantity,
         serviceDate: med.dispensedAt ?? med.prescribedAt,
         prescriptionText: formatPrescription({
           dosage: med.dosage,
@@ -261,7 +264,7 @@ export async function buildNHISClaimItems(
         clinician: primaryPhysicianLicense,
         prescriberNo: primaryPhysicianLicense,
       },
-      extractNHISPrice(med.ServiceCatalog).times(med.dispensedQuantity ?? med.quantity ?? 1),
+      extractNHISPrice(med.ServiceCatalog).times(dispensedQuantity),
     );
   }
 
