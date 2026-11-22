@@ -226,11 +226,13 @@ const startServer = async () => {
   await initCounterService(prisma);
   console.log('✅ Counter Service initialized');
 
-  // ✅ UPDATED: Only run seed in development or if explicitly enabled
-  // The installed desktop app never runs the demo seed, whatever RUN_SEED says (a stray variable on a
-  // clinic PC must not be able to write fake patients into a live database). First-run reference data is
-  // loaded by bootstrap.mjs from the setup screen, not from here.
-  const shouldRunSeed = !isDesktopApp && (process.env.NODE_ENV === 'development' || process.env.RUN_SEED === 'true');
+  // Seeding is always opt-in. In development, tsx watch restarts this process after
+  // backend file changes; tying seeding to NODE_ENV would therefore rerun the seed
+  // routine on every save/restart and can repeatedly reconcile reference catalogues.
+  // Use `RUN_SEED=true` for a deliberate one-off startup seed, or `npm run seed`
+  // from backend for an explicit manual seed. The installed desktop app never runs
+  // the demo seed; first-run reference data is loaded by bootstrap.mjs from setup.
+  const shouldRunSeed = !isDesktopApp && process.env.RUN_SEED === 'true';
 
   const listenConfig = parseListenConfig(process.env);
 
