@@ -1444,7 +1444,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         const claimed = await tx.medication.updateMany({
           where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
           data: {
-            status: 'dispensed', quantity: qty, dispensedAt: new Date(), dispensedById: actorId,
+            status: 'dispensed', dispensedQuantity: qty, dispensedAt: new Date(), dispensedById: actorId,
             dispensedBatchNumber: batchAllocations.length === 1 ? batchAllocations[0].batchNumber : undefined,
             dispensedExpiryDate: batchAllocations.length === 1 ? batchAllocations[0].expiryDate : undefined,
             dispensedUnitCost: batchAllocations.length === 1 ? batchAllocations[0].costPrice : stockItem.costPrice,
@@ -1453,7 +1453,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         if (claimed.count !== 1) throw new ConflictError('Medication has already been dispensed or is no longer available');
 
         updateData.status = 'dispensed';
-        updateData.quantity = qty;
+        updateData.dispensedQuantity = qty;
         updateData.dispensedAt = new Date();
         updateData.dispensedById = actorId;
         updateData.dispensedBatchNumber = batchAllocations.length === 1 ? batchAllocations[0].batchNumber : undefined;
