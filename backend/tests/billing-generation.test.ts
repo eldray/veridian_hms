@@ -137,5 +137,10 @@ describe('automatic bill generation payer allocations', () => {
       insuranceCoveredAmount: 120,
       patientPayableAmount: 0,
     });
+    expect(createdBills[0].data).toMatchObject({
+      status: 'paid',
+      paidAmount: 0,
+      balance: 0,
+    });
   });
 });
