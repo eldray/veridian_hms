@@ -257,7 +257,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               {notificationDropdownOpen && (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-2 w-80 rounded-xl border overflow-hidden z-50"
+                  className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1rem))] rounded-xl border overflow-hidden z-50"
                   style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', boxShadow: 'var(--shadow-md)' }}
                 >
                   <div
@@ -422,7 +422,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="relative ml-1" ref={dropdownRef}>
               <button
                 onClick={() => setUserDropdownOpen(v => !v)}
-                aria-label="User menu"
+                aria-label={`User menu for ${displayName}`}\n                title="Open your profile and account options"
                 aria-expanded={userDropdownOpen}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
@@ -447,7 +447,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
               {userDropdownOpen && (
                 <div
-                  className="absolute right-0 mt-2 w-60 rounded-xl border overflow-hidden z-50"
+                  className="absolute right-0 mt-2 w-[min(15rem,calc(100vw-1rem))] rounded-xl border overflow-hidden z-50"
                   style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', boxShadow: 'var(--shadow-md)' }}
                 >
                   <div
