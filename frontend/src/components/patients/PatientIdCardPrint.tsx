@@ -1,6 +1,6 @@
 import React from 'react';
 import { Printer, X, ShieldCheck, Phone, MapPin, CalendarDays, CreditCard } from 'lucide-react';
-import { useHospitalStore } from '../store/hospitalStore';
+import { useHospitalStore } from '../../store/hospitalStore';
 
 interface PatientIdCardPrintProps {
   patient: any;
