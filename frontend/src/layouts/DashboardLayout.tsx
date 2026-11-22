@@ -136,6 +136,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const currentUnread = unreadCount || notifications?.filter(n => !n.isRead)?.length || 0;
   const sidebarWidth = sidebarCollapsed ? 'w-[60px]' : 'w-[220px]';
+  const displayName = user?.fullName || user?.username || 'User';
+  const roleLabel = (user?.role || 'Staff').replace(/_/g, ' ');
+  const avatarUrl = (user as any)?.avatarUrl || (user as any)?.profileImage || (user as any)?.imageUrl || '';
 
   // Footer year & version
   const year = new Date().getFullYear();
@@ -424,18 +427,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
               >
-                <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'var(--icon-cyan-text)' }}
-                >
-                  <User className="w-3 h-3 text-white" />
-                </div>
-                <div className="hidden sm:block text-left">
-                  <p className="text-[11px] font-semibold leading-tight max-w-[110px] truncate" style={{ color: 'var(--text-primary)' }}>
-                    {user?.fullName || 'User'}
+                <span className="relative w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ring-1 ring-[var(--border-color)]" style={{ background: 'var(--icon-cyan-bg)' }}>
+                  <User className="w-4 h-4" style={{ color: 'var(--icon-cyan-text)' }} />
+                  {avatarUrl && <img src={avatarUrl} alt="" className="absolute inset-0 w-full h-full rounded-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />}
+                </span>
+                <div className="hidden sm:block text-left min-w-0">
+                  <p className="text-[11px] font-semibold leading-tight max-w-[118px] truncate" style={{ color: 'var(--text-primary)' }}>
+                    {displayName}
                   </p>
                   <p className="text-[9px] capitalize font-medium leading-tight" style={{ color: 'var(--text-tertiary)' }}>
-                    {user?.role?.replace('_', ' ') || 'Role'}
+                    {roleLabel}
                   </p>
                 </div>
                 <ChevronDown
@@ -454,17 +455,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ background: 'var(--icon-cyan-text)' }}
-                      >
-                        <User className="w-4 h-4 text-white" />
+                      <div className="relative w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ring-2 ring-[var(--border-color)]" style={{ background: 'var(--icon-cyan-bg)' }}>
+                        <User className="w-5 h-5" style={{ color: 'var(--icon-cyan-text)' }} />
+                        {avatarUrl && <img src={avatarUrl} alt={displayName} className="absolute inset-0 w-full h-full rounded-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{user?.fullName}</p>
+                        <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>{displayName}</p>
                         <p className="text-[10px] capitalize mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                          {user?.role?.replace('_', ' ')}
+                          {roleLabel}
                         </p>
+                        {user?.department && <p className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--text-tertiary)' }}>{typeof user.department === 'string' ? user.department : user.department.name}</p>}
                       </div>
                     </div>
                     <p
@@ -484,6 +484,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     >
                       <User className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} />
                       My Profile
+                      <span className="ml-auto text-[10px]" style={{ color: 'var(--text-tertiary)' }}>View &amp; update</span>
                     </Link>
                     {hasRole(ADMIN_LIKE) && (
                       <Link
