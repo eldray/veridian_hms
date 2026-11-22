@@ -37,15 +37,21 @@ export default function PatientIdCardPrint({ patient, onClose }: PatientIdCardPr
   const address = patient?.address || patient?.residenceCommunity || 'Address not recorded';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-3 sm:p-6">
+    <div id="patient-id-card-modal" className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-3 sm:p-6">
       <style>{`
         /* CR80 / ISO ID-1: 85.60 × 53.98 mm. Each side is a separate page
            for duplex card printers; printer-driver duplex alignment remains hardware-specific. */
         @page { size: 85.6mm 54mm; margin: 0; }
         @media print {
-          html, body { width: 85.6mm !important; height: 54mm !important; margin: 0 !important; padding: 0 !important; }
+          html, body { width: 85.6mm !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
           body * { visibility: hidden !important; }
-          #patient-id-card-print, #patient-id-card-print * { visibility: visible !important; }
+          #patient-id-card-modal, #patient-id-card-modal * { visibility: visible !important; }
+          #patient-id-card-modal {
+            position: absolute !important; top: 0 !important; left: 0 !important;
+            display: block !important; width: 85.6mm !important; height: auto !important;
+            min-height: 0 !important; margin: 0 !important; padding: 0 !important;
+            background: #fff !important; overflow: visible !important;
+          }
           #patient-id-card-print {
             position: static !important; display: block !important;
             width: 85.6mm !important; height: auto !important; max-height: none !important;
