@@ -189,6 +189,8 @@ export default function PatientBillingItems() {
 
   const loadedForPatientRef = useRef<string | null>(null);
   const autoOpenedBillRef = useRef<string | null>(null);
+  // Prevent a slow response for the previous visit from replacing the newly selected visit.
+  const billDetailsRequestRef = useRef(0);
 
   // ===== Helpers =====
   const formatCurrency = useCallback(
@@ -361,14 +363,19 @@ export default function PatientBillingItems() {
   // ===== Bill detail fetch =====
   const handleViewBillDetails = useCallback(
     async (billId: string) => {
+      const requestVersion = ++billDetailsRequestRef.current;
       setIsLoadingItems(true);
       try {
         await getBill(billId);
+        // Only the most recent request may finish the visible loading state. Older
+        // attendance requests can complete after a user has switched visits.
       } catch (err: any) {
         console.error('Error loading bill details:', err);
-        toastError('Error', err.message || 'Failed to load bill details');
+        if (requestVersion === billDetailsRequestRef.current) {
+          toastError('Unable to load bill items', err.message || 'Please retry loading this bill.');
+        }
       } finally {
-        setIsLoadingItems(false);
+        if (requestVersion === billDetailsRequestRef.current) setIsLoadingItems(false);
       }
     },
     [getBill, toastError]
@@ -404,6 +411,11 @@ export default function PatientBillingItems() {
 
   useEffect(() => {
     if (!currentBill) return;
+    const loadedAttendanceId = String((currentBill as any).attendanceId || currentBill.Attendance?.id || '');
+    // The billing store is shared across pages. Ignore late responses for a bill
+    // belonging to another visit so they cannot overwrite the selected attendance.
+    if (!patientBills.some((bill) => bill.id === currentBill.id)) return;
+    if (loadedAttendanceId && loadedAttendanceId !== selectedAttendanceId) return;
     setSelectedBill(() => ({
       ...currentBill,
       BillLineItem:
@@ -416,7 +428,7 @@ export default function PatientBillingItems() {
         })) || [],
     }));
     setSelectedItems(new Set());
-  }, [currentBill]);
+  }, [currentBill, patientBills, selectedAttendanceId]);
 
   useEffect(() => {
     return () => { clearCurrentBill(); };
@@ -816,6 +828,9 @@ export default function PatientBillingItems() {
               if (nextPatientId) getAttendances({ patientId: nextPatientId }).catch((err: any) => toastError('Attendances unavailable', err.message));
             }}
             onAttendanceSelect={(attendanceId) => {
+              // Invalidate any in-flight detail request from the previously selected visit.
+              billDetailsRequestRef.current += 1;
+              setIsLoadingItems(false);
               setSelectedAttendanceId(attendanceId);
               setSelectedBill(null);
               setSelectedItems(new Set());
