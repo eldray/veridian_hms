@@ -11,7 +11,7 @@ import { useEstimatesStore, type EstimateStatus } from '../store/estimatesStore'
 import { useToast } from '../store/toastStore';
 import { getPatientName } from '../utils/patient';
 import {
-  FileText, RefreshCw, Eye, Briefcase, DollarSign,
+  FileText, RefreshCw, Eye, Briefcase, DollarSign, Calendar,
 } from 'lucide-react';
 import {
   Badge, Button, cn, FilterSelect, humanStatus, PageHeader, Pagination,
@@ -31,6 +31,16 @@ const estimateBadgeTone = (status: EstimateStatus) =>
 // walk-in label rather than showing every unregistered estimate as one "Unknown Patient".
 const clientName = (patient: any): string => (patient ? getPatientName(patient) : 'Walk-in client');
 
+const localDateInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const today = new Date();
+const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
 export default function Estimates() {
   const navigate = useNavigate();
   const { error: toastError } = useToast();
@@ -38,19 +48,29 @@ export default function Estimates() {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EstimateStatus | 'all'>('all');
+  const [fromDate, setFromDate] = useState(() => localDateInput(monthStart));
+  const [toDate, setToDate] = useState(() => localDateInput(today));
   const [page, setPage] = useState(1);
 
   // useCallback so the effect below can list it without re-running every render.
   const load = useCallback(async () => {
     try {
       await Promise.all([
-        loadEstimates({ page, limit: 20, status: statusFilter === 'all' ? undefined : statusFilter }),
-        loadStatistics(),
+        loadEstimates({
+          page, limit: 20,
+          status: statusFilter === 'all' ? undefined : statusFilter,
+          fromDate: fromDate ? new Date(`${fromDate}T00:00:00.000`).toISOString() : undefined,
+          toDate: toDate ? new Date(`${toDate}T23:59:59.999`).toISOString() : undefined,
+        }),
+        loadStatistics({
+          fromDate: fromDate ? new Date(`${fromDate}T00:00:00.000`).toISOString() : undefined,
+          toDate: toDate ? new Date(`${toDate}T23:59:59.999`).toISOString() : undefined,
+        }),
       ]);
     } catch (e: any) {
       toastError('Load failed', e?.response?.data?.message || e.message);
     }
-  }, [page, statusFilter, loadEstimates, loadStatistics, toastError]);
+  }, [page, statusFilter, fromDate, toDate, loadEstimates, loadStatistics, toastError]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -111,8 +131,12 @@ export default function Estimates() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <SearchInput
+      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 shadow-sm space-y-3">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]"><Calendar className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" /> Date range <span className="font-normal normal-case tracking-normal">— defaults to this month</span></div>
+        <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(220px,2fr)_auto] gap-3 items-end">
+          <div><label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">From</label><input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => { setFromDate(e.target.value); setPage(1); }} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)]" /></div>
+          <div><label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">To</label><input type="date" value={toDate} min={fromDate || undefined} max={localDateInput(new Date())} onChange={(e) => { setToDate(e.target.value); setPage(1); }} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)]" /></div>
+          <SearchInput
           className="flex-1"
           value={search}
           onChange={(v) => { setSearch(v); setPage(1); }}
@@ -127,6 +151,7 @@ export default function Estimates() {
           }}
           options={STATUSES.map((s) => ({ value: s, label: s === 'all' ? 'All Statuses' : s }))}
         />
+        </div>
       </div>
       {isSearching && (
         <p className="text-[11px] text-[var(--text-tertiary)] -mt-3">

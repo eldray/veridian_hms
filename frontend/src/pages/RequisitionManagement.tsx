@@ -847,23 +847,22 @@ export default function RequisitionsPage() {
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => { setShowForm(false); resetForm(); }}>
           <div
-            className="bg-[var(--bg-card)] rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden border border-[var(--border-color)]"
+            className="bg-[var(--bg-card)] rounded-xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden border border-[var(--border-color)] shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            <div className="bg-[var(--bg-card)] border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between shrink-0">
+            <div className="bg-[var(--bg-card)] border-b-[3px] border-[var(--icon-cyan-text)] px-6 md:px-10 py-5 flex items-center justify-between shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-[var(--text-primary)]">{editingRequisition ? `Edit Draft — ${editingRequisition.requisitionNumber}` : 'New Requisition'}</h2>
-                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                  Fill the four steps below to raise a stock request
-                </p>
+                <p className="text-[15px] font-bold tracking-[3px] uppercase text-[var(--icon-cyan-text)]">Stock Requisition</p>
+                <h2 className="text-xl font-bold text-[var(--text-primary)] mt-1">{editingRequisition ? `Edit Draft — ${editingRequisition.requisitionNumber}` : 'New Requisition'}</h2>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">Create a stock request using the document-style estimate layout.</p>
               </div>
               <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close form" onClick={() => { setShowForm(false); resetForm(); }} />
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 bg-[var(--bg-main)]">
               {editingRequisition && <div className="mx-6 mt-4 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">Only purpose, urgency and notes can be changed on a draft. Requester, supplier, required date and stock lines are preserved.</div>}
               {/* Sticky context bar */}
-              <div className="sticky top-0 z-10 bg-[var(--bg-main)] border-b border-[var(--border-color)] px-6 py-2.5 flex items-center gap-3 text-xs shrink-0">
+              <div className="sticky top-0 z-10 bg-[var(--bg-card)] border-b border-[var(--border-color)] px-6 md:px-10 py-3 flex items-center gap-3 text-xs shrink-0 shadow-sm">
                 <div className="flex items-center gap-2 min-w-0">
                   <User className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" />
                   <span className="text-[var(--text-secondary)] shrink-0">From</span>
@@ -891,9 +890,9 @@ export default function RequisitionsPage() {
                 )}
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
+              <div className="flex-1 overflow-y-auto px-6 md:px-10 py-7 space-y-5 min-h-0">
                 {/* 1. Who is requesting */}
-                <section>
+                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="w-6 h-6 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] flex items-center justify-center text-xs font-bold shrink-0">1</span>
                     <h3 className="text-sm font-bold text-[var(--text-primary)]">Who is requesting</h3>
@@ -944,7 +943,7 @@ export default function RequisitionsPage() {
                 </section>
 
                 {/* 2. Supplier */}
-                <section>
+                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="w-6 h-6 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] flex items-center justify-center text-xs font-bold shrink-0">2</span>
                     <h3 className="text-sm font-bold text-[var(--text-primary)]">Where to request from</h3>
@@ -970,7 +969,7 @@ export default function RequisitionsPage() {
                 </section>
 
                 {/* 3. Items */}
-                <section>
+                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] flex items-center justify-center text-xs font-bold shrink-0">3</span>
@@ -1156,7 +1155,7 @@ export default function RequisitionsPage() {
                 </section>
 
                 {/* 4. Details */}
-                <section>
+                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="w-6 h-6 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] flex items-center justify-center text-xs font-bold shrink-0">4</span>
                     <h3 className="text-sm font-bold text-[var(--text-primary)]">Details</h3>
@@ -1217,7 +1216,7 @@ export default function RequisitionsPage() {
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[var(--border-color)] bg-[var(--bg-card)] shrink-0">
+              <div className="flex items-center justify-between gap-3 px-6 md:px-10 py-4 border-t border-[var(--border-color)] bg-[var(--bg-card)] shrink-0">
                 <div className="text-xs text-[var(--text-tertiary)] hidden sm:block">
                   {pickedItemCount} item{pickedItemCount === 1 ? '' : 's'} ·{' '}
                   {formData.supplyingDepartmentId ? 'Supplier selected' : 'No supplier yet'} ·{' '}
