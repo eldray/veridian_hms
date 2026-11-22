@@ -213,19 +213,17 @@ export default function Login() {
           background-color: var(--bg-main);
         }
         
-        /* Exact background from your design */
+        /* Hospital environment artwork behind the sign-in card */
         .login-bg {
           position: absolute; inset: 0;
-          background:
-            radial-gradient(ellipse at 18% 22%, rgba(35, 145, 157, 0.28), transparent 42%),
-            radial-gradient(ellipse at 82% 78%, rgba(63, 116, 164, 0.24), transparent 45%),
-            linear-gradient(135deg, #071827 0%, #102f45 52%, #0b2538 100%);
+          background: #092235 url('/hospital-login-scene.svg') center / cover no-repeat;
           opacity: 1;
           z-index: 0;
+          transform: scale(1.015);
         }
         .login-overlay {
           position: absolute; inset: 0;
-          background: linear-gradient(135deg, rgba(5, 18, 31, 0.20), rgba(5, 18, 31, 0.48));
+          background: linear-gradient(110deg, rgba(4, 22, 36, 0.62), rgba(5, 22, 35, 0.78));
           z-index: 1;
         }
 
@@ -247,7 +245,9 @@ export default function Login() {
         /* ── Brand Panel ── */
         .login-brand {
           color-scheme: dark;
-          background: radial-gradient(ellipse at 10% 12%, rgba(37, 112, 132, 0.22), transparent 48%), linear-gradient(155deg, #102d43 0%, #0b2032 100%);
+          background:
+            linear-gradient(155deg, rgba(8, 35, 53, 0.82), rgba(7, 27, 43, 0.93)),
+            url('/hospital-login-scene.svg') center / cover no-repeat;
           backdrop-filter: blur(20px);
           padding: 40px;
           display: flex;
@@ -285,6 +285,25 @@ export default function Login() {
           margin: 0;
         }
         
+        .login-capabilities {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 16px;
+        }
+        .login-capabilities span {
+          display: inline-flex;
+          align-items: center;
+          min-height: 25px;
+          padding: 3px 9px;
+          border: 1px solid rgba(180, 225, 226, 0.25);
+          border-radius: 999px;
+          background: rgba(10, 49, 66, 0.46);
+          color: #C8E3E5;
+          font-size: 10.5px;
+          letter-spacing: .01em;
+        }
+
         /* Feature Tiles - styled to match your dark aesthetic */
         .feature-grid {
           display: grid;
@@ -514,6 +533,11 @@ export default function Login() {
                   <p className="brand-sub">
                     Patient records, clinical workflows, pharmacy, billing, and reporting — built for modern Ghanaian healthcare.
                   </p>
+                  <div className="login-capabilities" aria-label="Connected hospital services">
+                    <span>OPD &amp; IPD</span>
+                    <span>NHIS &amp; private claims</span>
+                    <span>Connected care teams</span>
+                  </div>
                 </div>
 
                 <div className="feature-grid">
