@@ -136,9 +136,14 @@ export class ReportService {
     const { startDate, endDate, paymentMode, corporateAccountId } = filters;
     const range = parseReportRange(startDate, endDate);
 
-    const where: any = { status: { in: COUNTED_BILL_STATUSES } };
+    const where: any = {
+      status: { in: COUNTED_BILL_STATUSES },
+      // Private insurance and corporate are claim liabilities, not operational bills.
+      paymentMode: paymentMode
+        ? { equals: paymentMode, notIn: ['private_insurance', 'corporate'] }
+        : { notIn: ['private_insurance', 'corporate'] },
+    };
     if (range) where.billDate = range;
-    if (paymentMode) where.paymentMode = paymentMode;
     if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
     const sums = { totalAmount: true, paidAmount: true, balance: true, insuranceCovered: true, waiverAmount: true } as const;
@@ -198,7 +203,7 @@ export class ReportService {
         collectionRate: money(toNum(totals._sum.totalAmount)) > 0
           ? Math.round((toNum(totals._sum.paidAmount) / toNum(totals._sum.totalAmount)) * 1000) / 10
           : 0,
-        note: 'Draft and cancelled bills are not counted.',
+        note: 'Draft and cancelled bills are not counted. Private-insurance and corporate liabilities are reported under Claims, not operational Bills.',
       },
       revenueByPaymentMode,
       byPaymentMode,
@@ -429,9 +434,12 @@ export class ReportService {
     const where: any = {
       status: { in: [BillStatus.paid, BillStatus.partial] },
       paidAmount: { gt: 0 },
+      // Claims-only payer records must never be counted as cash/operational revenue.
+      paymentMode: paymentMode
+        ? { equals: paymentMode, notIn: ['private_insurance', 'corporate'] }
+        : { notIn: ['private_insurance', 'corporate'] },
     };
     if (range) where.billDate = range;
-    if (paymentMode) where.paymentMode = paymentMode;
     if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
     const [totals, byMode] = await Promise.all([
@@ -468,7 +476,7 @@ export class ReportService {
         averageBillAmount: totalBills > 0 ? money(totalRevenue / totalBills) : 0,
         corporateRevenue,
         corporateShare: totalRevenue > 0 ? (corporateRevenue / totalRevenue) * 100 : 0,
-        note: 'Collected amounts on paid and part-paid bills.',
+        note: 'Collected amounts on paid and part-paid operational bills; private-insurance and corporate claims are excluded.',
       },
       revenueByPaymentMode,
       generatedAt: new Date(),

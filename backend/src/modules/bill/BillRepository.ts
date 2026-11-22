@@ -10,6 +10,7 @@ import { computeLineTax, loadTaxConfiguration, mergeTaxBreakdowns, type TaxBreak
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
+const CLAIMS_ONLY_PAYMENT_MODES: PaymentMode[] = [PaymentMode.private_insurance, PaymentMode.corporate];
 
 export class BillRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
@@ -17,10 +18,11 @@ export class BillRepository extends BaseRepository<any, any, any> {
   }
 
   private async syncAttendanceFinancials(tx: any, attendanceId: string, fallback?: any) {
-    // Visit summaries aggregate all non-cancelled bills attached to this attendance.
+    // Operational attendance totals: totalBill is gross billed, paidAmount is actual cash collected,
+    // and outstandingBalance is the remaining patient liability. Insurer claim values are separate.
     if (typeof tx.bill.aggregate !== 'function') {
       // Lightweight unit-test doubles may omit Prisma aggregate; real Prisma supports it.
-      if (fallback && tx.attendance?.update) {
+      if (fallback && tx.attendance?.update && !CLAIMS_ONLY_PAYMENT_MODES.includes(fallback.paymentMode)) {
         await tx.attendance.update({ where: { id: attendanceId }, data: {
           totalBill: toNumber(fallback.totalAmount),
           paidAmount: toNumber(fallback.paidAmount),
@@ -30,7 +32,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
       return;
     }
     const totals = await tx.bill.aggregate({
-      where: { attendanceId, status: { not: 'cancelled' } },
+      where: { attendanceId, status: { not: 'cancelled' }, paymentMode: { notIn: CLAIMS_ONLY_PAYMENT_MODES } },
       _sum: { totalAmount: true, paidAmount: true, balance: true }
     });
     await tx.attendance.update({ where: { id: attendanceId }, data: {
@@ -102,7 +104,23 @@ export class BillRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('A bill must be for either a registered patient or a counter customer, not both');
     }
 
+    if (CLAIMS_ONLY_PAYMENT_MODES.includes(paymentMode)) {
+      throw new ValidationError('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+    }
+
     return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, paymentMode: true }
+      });
+      if (!attendance) throw new NotFoundError('Attendance', attendanceId);
+      if (CLAIMS_ONLY_PAYMENT_MODES.includes(attendance.paymentMode)) {
+        throw new ValidationError('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+      }
+      if (attendance.paymentMode !== paymentMode) {
+        throw new ValidationError('The bill payment mode does not match the attendance payment mode.');
+      }
+
       // Each line needs the service's name and type (required columns): read them from the catalog
       const catalogIds = Array.from(new Set(items.map((i) => i.serviceCatalogId).filter(Boolean)));
       const catalog = await tx.serviceCatalog.findMany({
@@ -594,8 +612,6 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
   // ✅ Generates a Bill from an attendance's billable items (ServiceRendered, LabTest, Scan, Procedure, Medication).
   async generateFromEncounter(encounterId: string, createdBy: string) {
-    // Tax is resolved once per bill; every line is computed with the same regime.
-    const taxConfig = await loadTaxConfiguration(this.prisma);
     return this.prisma.$transaction(async (tx) => {
       const attendanceDate = await tx.attendance.findUnique({
         where: { id: encounterId },
@@ -628,11 +644,21 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
       if (!attendance) throw new Error('Encounter not found');
+      if (CLAIMS_ONLY_PAYMENT_MODES.includes(attendance.paymentMode)) {
+        throw new ValidationError('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+      }
+      const taxConfig = await loadTaxConfiguration(this.prisma);
 
       // One bill per attendance. Existing bills are incrementally synchronized below.
       const existingBill = await tx.bill.findUnique({ where: { attendanceId: encounterId } });
+      if (existingBill && CLAIMS_ONLY_PAYMENT_MODES.includes(existingBill.paymentMode)) {
+        throw new ValidationError('A legacy private-insurance or corporate bill exists for this attendance. Preserve it for audit and resolve it through the Claims workflow; do not generate another bill.');
+      }
 
       const paymentMode: PaymentMode = attendance.paymentMode;
+      if (existingBill && existingBill.paymentMode !== paymentMode) {
+        throw new ValidationError('The existing bill payer does not match the attendance payment mode. Reconcile the existing record before generating another bill.');
+      }
       const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
       const payerProvider = (paymentMode === 'nhis' || paymentMode === 'private_insurance') && attendance.insuranceProviderId
         ? await tx.insuranceProvider.findUnique({

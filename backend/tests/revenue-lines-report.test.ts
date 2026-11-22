@@ -53,7 +53,10 @@ describe('revenue lines report', () => {
     const arg = findMany.mock.calls[0][0];
     expect(arg.where.isVoided).toBe(false);
     expect(arg.where.bill.billDate).toEqual({ gte: dateFrom, lte: dateTo });
-    expect(arg.where.bill.paymentMode).toBe('cash');
+    expect(arg.where.bill.paymentMode).toEqual({
+      equals: 'cash',
+      notIn: ['private_insurance', 'corporate'],
+    });
     expect(arg.where.bill.status).toBe('paid');
     expect(arg.where.serviceType).toBe('lab_test');
     expect(arg.take).toBe(2000);

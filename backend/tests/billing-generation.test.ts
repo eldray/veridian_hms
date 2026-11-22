@@ -52,7 +52,7 @@ function buildRepository(attendance: any, provider: any, stockItem: any, activeL
 }
 
 describe('automatic bill generation payer allocations', () => {
-  it('applies the private insurer coverage percentage and leaves the remainder patient-payable', async () => {
+  it('refuses to create an operational bill for a private-insurance attendance', async () => {
     const attendance = {
       id: 'attendance-1',
       patientId: 'patient-1',
@@ -60,42 +60,19 @@ describe('automatic bill generation payer allocations', () => {
       paymentMode: 'private_insurance',
       insuranceProviderId: 'insurer-1',
       corporateAccountId: null,
-      ServiceRendered: [{
-        id: 'service-rendered-1',
-        quantity: 1,
-        ServiceCatalog: {
-          id: 'catalog-1',
-          name: 'Consultation',
-          code: 'CONS',
-          serviceType: 'consultation',
-          stockItemId: null,
-          isNHISCovered: true,
-          isPrivateInsuranceExempted: false,
-          pricing: [{ cashPrice: 100, nhisPrice: 60, insurancePrice: 80 }],
-        },
-      }],
+      ServiceRendered: [],
       LabTest: [],
       Scan: [],
       Procedure: [],
       Medication: [],
       WardChargeRecord: [],
     };
-    const { repository, createdBills } = buildRepository(
-      attendance,
-      { coveragePercentage: 50 },
-      null,
-      [{ lineTotal: 80, patientPayableAmount: 40, insuranceCoveredAmount: 40 }],
-    );
+    const { repository, tx, createdBills } = buildRepository(attendance, { coveragePercentage: 50 }, null, []);
 
-    await repository.generateFromEncounter('attendance-1', 'user-1');
-
-    const lines = createdBills[0].data.BillLineItem.create;
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatchObject({
-      lineTotal: 80,
-      insuranceCoveredAmount: 40,
-      patientPayableAmount: 40,
-    });
+    await expect(repository.generateFromEncounter('attendance-1', 'user-1'))
+      .rejects.toThrow(/Claims-only/i);
+    expect(createdBills).toHaveLength(0);
+    expect(tx.bill.findUnique).not.toHaveBeenCalled();
   });
 
   it('allocates the full covered NHIS medicine tariff to the insurer without patient co-payment', async () => {
@@ -159,6 +136,11 @@ describe('automatic bill generation payer allocations', () => {
       lineTotal: 120,
       insuranceCoveredAmount: 120,
       patientPayableAmount: 0,
+    });
+    expect(createdBills[0].data).toMatchObject({
+      status: 'paid',
+      paidAmount: 0,
+      balance: 0,
     });
   });
 });

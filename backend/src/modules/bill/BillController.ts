@@ -271,6 +271,11 @@ export class BillController extends BaseController {
       if (error.message === 'No billable items found for this encounter') {
         return this.badRequest(res, error.message);
       }
+      if (error.message?.includes('Claims-only') ||
+          error.message?.includes('legacy private-insurance or corporate bill') ||
+          error.message?.includes('payer does not match the attendance payment mode')) {
+        return this.conflict(res, error.message);
+      }
       if (error.message === 'A bill already exists for this encounter' ||
           error.message?.includes('legacy bill without source links')) {
         return this.conflict(res, error.message);

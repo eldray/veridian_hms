@@ -1,4 +1,5 @@
 import { PrismaClient, BillStatus } from '@prisma/client';
+import { ValidationError } from '../../utils/errors';
 import { BaseService } from '../../shared/base/BaseService';
 import { BillingRepository } from './BillingRepository';
 import { CreateBillDTO, AddPaymentDTO, UpdateBillStatusDTO, BillFilters, RefundPaymentDTO } from './BillingTypes';
@@ -267,14 +268,20 @@ export class BillingService extends BaseService {
     this.logInfo('Creating new bill', { patientId: data.patientId, paymentMode: data.paymentMode });
 
     if (data.paymentMode === 'private_insurance' || data.paymentMode === 'corporate') {
-      throw new Error('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+      throw new ValidationError('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
     }
 
     const attendance = await this.prisma.attendance.findUnique({
       where: { id: data.attendanceId },
-      select: { id: true, patientId: true, dateTime: true },
+      select: { id: true, patientId: true, dateTime: true, paymentMode: true },
     });
     if (!attendance) throw new Error(`Attendance not found: ${data.attendanceId}`);
+    if (attendance.paymentMode === 'private_insurance' || attendance.paymentMode === 'corporate') {
+      throw new ValidationError('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+    }
+    if (attendance.paymentMode !== data.paymentMode) {
+      throw new ValidationError('The selected payment mode does not match the attendance payment mode.');
+    }
     if (attendance.patientId !== data.patientId) {
       throw new Error('The selected attendance does not belong to this patient.');
     }
@@ -452,7 +459,9 @@ export class BillingService extends BaseService {
       patientPayable,
       paidAmount: 0,
       balance: patientPayable,
-      status: 'pending' as any,
+      // A zero patient balance is settled by payer coverage, not a cash collection.
+      // paidAmount deliberately remains zero unless a Payment row is actually recorded.
+      status: patientPayable <= 0 ? 'paid' as any : 'pending' as any,
       createdById: userId,
       billDate: new Date(),
       insuranceProviderId: data.insuranceProviderId,

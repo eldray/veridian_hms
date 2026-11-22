@@ -75,8 +75,8 @@ describe('seeded shelf replenishment', () => {
     const lots = replenishShelfStock(lookups, ledger, encounters as any, PHARMACY);
 
     expect(lots).toBe(1);
-    // 12 courses x 30 units, a quarter spare.
-    expect(ledger.aggregateQuantity(stock.id)).toBe(Math.ceil(360 * 1.25));
+    // 12 courses x 30 units, plus the 50% reserve configured by replenishShelfStock.
+    expect(ledger.aggregateQuantity(stock.id)).toBe(Math.ceil(360 * 1.5));
     expect(dispenseEvery(ledger, encounters)).toEqual({ ok: 12, short: 0 });
   });
 
@@ -95,7 +95,7 @@ describe('seeded shelf replenishment', () => {
     replenishShelfStock(lookups, ledger, encounters as any, PHARMACY);
 
     const purchase = ledger.pendingWrites().transactions.find((movement) => movement.transactionType === 'purchase');
-    expect(purchase?.quantity).toBe(Math.ceil(600 * 1.25) - 40);
+    expect(purchase?.quantity).toBe(Math.ceil(600 * 1.5) - 40);
     expect(purchase!.transactionDate.getTime())
       .toBeLessThan(new Date(Date.now() - 120 * 86_400_000).getTime());
   });
