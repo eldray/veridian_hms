@@ -1,0 +1,1 @@
+ALTER TABLE "attendances" ADD COLUMN "autoClosedAt" TIMESTAMP(3);
