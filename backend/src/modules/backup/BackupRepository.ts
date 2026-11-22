@@ -55,9 +55,13 @@ export class BackupRepository {
       const paginatedBackups = sortedBackups.slice(start, start + limit);
 
       return { backups: paginatedBackups, total };
-    } catch (error) {
+    } catch (error: any) {
+      // A first-run installation has no backup directory yet; treat that as
+      // an empty list. Permission and I/O failures must reach the UI as errors
+      // instead of falsely reporting that every backup has disappeared.
+      if (error?.code === 'ENOENT') return { backups: [], total: 0 };
       console.error('Error reading backup directory:', error);
-      return { backups: [], total: 0 };
+      throw new Error('Unable to read the backup directory');
     }
   }
 
@@ -161,6 +165,10 @@ export class BackupRepository {
         }
       }
       return totalSize;
-    } catch { return 0; }
+    } catch (error: any) {
+      if (error?.code === 'ENOENT') return 0;
+      console.error('Error calculating backup storage size:', error);
+      throw new Error('Unable to calculate backup storage size');
+    }
   }
 }
