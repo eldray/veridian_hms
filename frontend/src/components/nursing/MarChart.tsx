@@ -522,10 +522,12 @@ export const MarChart: React.FC<MarChartProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">MAR overview</p><p className="mt-1 text-sm font-bold text-[var(--text-primary)]">Medication doses</p></div>
         <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Administered</p><p className="mt-1 text-xl font-bold text-[var(--icon-green-text)] tabular-nums">{totalGiven}<span className="ml-1 text-xs font-medium text-[var(--text-tertiary)]">/ {totalDoses}</span></p>
-          {totalDue > 0 && (
-            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Needs attention</p><p className="mt-1 flex items-center gap-2 text-xl font-bold text-[var(--icon-yellow-text)]"><AlertTriangle className="h-4 w-4" />{totalDue}</p></div>
-          )}
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Administered</p>
+          <p className="mt-1 text-xl font-bold text-[var(--icon-green-text)] tabular-nums">{totalGiven}<span className="ml-1 text-xs font-medium text-[var(--text-tertiary)]">/ {totalDoses}</span></p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Needs attention</p>
+          <p className="mt-1 flex items-center gap-2 text-xl font-bold text-[var(--icon-yellow-text)]"><AlertTriangle className="h-4 w-4" />{totalDue}</p>
         </div>
       </div>
 
