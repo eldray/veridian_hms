@@ -80,8 +80,6 @@ function prescriptionTextForMedication(m: any): string {
     m.dosage && 'Dose: ' + m.dosage,
     m.frequency && 'Frequency: ' + m.frequency,
     m.duration && 'Duration: ' + m.duration,
-    m.route && 'Route: ' + m.route,
-    m.instructions && 'Instructions: ' + m.instructions,
   ].filter(Boolean);
   return details.join(' · ');
 }
@@ -513,7 +511,7 @@ function EditMedicineModal({ isOpen, onClose, onSave, medicine }: any) {
           </div>
           <div>
             <label className="text-xs font-medium text-[var(--text-secondary)]">Prescription / Directions</label>
-            <textarea rows={3} value={formData.prescriptionText || ''} onChange={(e) => setFormData({ ...formData, prescriptionText: e.target.value })} placeholder="Dose, frequency, duration, route and instructions" className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm text-[var(--text-primary)]" />
+            <textarea rows={3} value={formData.prescriptionText || ''} onChange={(e) => setFormData({ ...formData, prescriptionText: e.target.value })} placeholder="Dose, frequency and duration" className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm text-[var(--text-primary)]" />
           </div>
           <div className="bg-[var(--icon-green-bg)] p-2 rounded-lg">
             <div className="flex justify-between text-sm">
@@ -942,8 +940,6 @@ export default function EditPrivateClaim() {
             <div className="flex justify-between"><span>Laboratory & imaging</span><strong>{money(services.filter(x => x.itemCategory === 'investigation').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
             <div className="flex justify-between"><span>Medicines</span><strong>{money(medicines.reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
             <div className="flex justify-between border-t pt-2"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
-            <div className="flex justify-between"><span>Insurance coverage ({coveragePercentage}%)</span><strong>{money(insuranceCoverage)}</strong></div>
-            <div className="flex justify-between font-bold border-t pt-2 text-base"><span>Patient payable</span><strong>{money(patientPayable)}</strong></div>
           </div>
         </ClaimCard>
 
