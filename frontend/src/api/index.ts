@@ -3583,7 +3583,7 @@ export const downloadBackup = async (filename: string) => {
   try {
     console.log('📥 Starting download for:', filename);
 
-    const response = await api.get(`/backup/download/${filename}`, {
+    const response = await api.get(`/backup/download/${encodeURIComponent(filename)}`, {
       responseType: 'blob',
       headers: {
         'Accept': 'application/octet-stream'
@@ -3635,7 +3635,7 @@ export const downloadBackup = async (filename: string) => {
 };
 
 export const deleteBackup = async (filename: string) => {
-  const response = await api.delete(`/backup/${filename}`);
+  const response = await api.delete(`/backup/${encodeURIComponent(filename)}`);
   return response.data;
 };
 
