@@ -115,20 +115,20 @@ function buildHtml(
   .meta-item .label { font-size: 9px; font-weight: 700; color: #647067; text-transform: uppercase; letter-spacing: 0.5px; }
   .meta-item .value { font-size: 12.5px; font-weight: 600; color: #17211b; margin-top: 1px; }
 
-  .day-section { margin: 0 0 18px; }\n  .day-heading { display:flex; justify-content:space-between; gap:12px; margin:0 0 7px; padding:7px 9px; background:#edf4ef; border-left:3px solid #14532d; color:#14532d; font-size:12px; break-after:avoid; page-break-after:avoid; }\n  .day-heading span { color:#647067; font-size:9px; font-weight:500; }\n  table.mar { width:100%; table-layout:fixed; border-collapse:collapse; border:1px solid #d7ded8; font-size:9px; }
+  .day-section { margin: 0 0 18px; }
+  .day-heading { display:flex; justify-content:space-between; gap:12px; margin:0 0 7px; padding:7px 9px; background:#edf4ef; border-left:3px solid #14532d; color:#14532d; font-size:12px; break-after:avoid; page-break-after:avoid; }
+  .day-heading span { color:#647067; font-size:9px; font-weight:500; }
+  table.mar { width:100%; table-layout:fixed; border-collapse:collapse; border:1px solid #d7ded8; font-size:9px; }
   table.mar th { background: #f3f6f3; color: #34443a; font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 2px; border-bottom: 2px solid #d7ded8; text-align: center; }
   table.mar th.med-col { text-align:left; padding-left:8px; width:28%; }
   table.mar td { padding:4px 2px; border-bottom:1px solid #e1e7e2; border-left:1px solid #eef2ee; text-align:center; vertical-align:middle; overflow-wrap:anywhere; }
   table.mar td.med-cell { text-align: left; padding: 6px 12px; background: #fbfcfb; border-left: none; }
-  table.mar td.med-cell .med-name { font-weight: 600; color: #0f172a; font-size: 11px; }
-  table.mar td.med-cell .med-meta { font-size: 9.5px; color: #64748b; margin-top: 1px; }
+  table.mar td.med-cell strong { display:block; font-weight:700; color:#0f172a; font-size:9px; }
+  table.mar td.med-cell small { display:block; font-size:8px; color:#64748b; margin-top:2px; }
+  table.mar td small { display:block; font-size:7px; color:#475569; margin-top:2px; overflow-wrap:anywhere; }
   table.mar td.cell-empty { color: #cbd5e1; }
 
-  .glyph {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; border-radius: 50%;
-    font-size: 11px; font-weight: 700;
-  }
+  .glyph { display:inline-flex; align-items:center; justify-content:center; width:19px; height:19px; border-radius:50%; font-size:10px; font-weight:700; }
 
   .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; font-size: 10px; color: #475569; }
   .legend-item { display: flex; align-items: center; gap: 5px; }
@@ -147,11 +147,20 @@ function buildHtml(
 
   @media print {
     body { background: #fff; padding: 0; }
-    .page-container { box-shadow:none; border-radius:0; max-width:100%; overflow:visible; }\n    .content { padding:10px 0 0; }\n    .day-section { margin-bottom:12px; }\n    .day-heading { break-after:avoid; page-break-after:avoid; }\n    table.mar thead { display:table-header-group; }\n    table.mar tr { break-inside:avoid; page-break-inside:avoid; }\n    table.mar th, table.mar td { padding:3px 2px; }\n    .meta-strip { margin-bottom:12px; padding:7px 10px; gap:14px; }\n    .signatures { margin-top:18px; padding-top:12px; }\n    .footer { margin-top:12px; padding-top:8px; }
+    .page-container { box-shadow:none; border-radius:0; max-width:100%; overflow:visible; }
+    .content { padding:10px 0 0; }
+    .day-section { margin-bottom:12px; }
+    .day-heading { break-after:avoid; page-break-after:avoid; }
+    table.mar thead { display:table-header-group; }
+    table.mar tr { break-inside:avoid; page-break-inside:avoid; }
+    table.mar th, table.mar td { padding:3px 2px; }
+    .meta-strip { margin-bottom:12px; padding:7px 10px; gap:14px; }
+    .signatures { margin-top:18px; padding-top:12px; }
+    .footer { margin-top:12px; padding-top:8px; }
     .no-print { display: none !important; }
     .header, .glyph, .badge { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    table.mar { font-size: 9.5px; }
-    .glyph { width: 18px; height: 18px; font-size: 9.5px; }
+    table.mar { font-size:8px; }
+    .glyph { width:16px; height:16px; font-size:9px; }
   }
 </style>
 </head>
