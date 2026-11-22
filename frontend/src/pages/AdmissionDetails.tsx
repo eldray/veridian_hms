@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
 import { usePatientStore } from '../store/patientStore';
-import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useWardStore } from '../store/wardStore';
 import {
@@ -335,52 +335,26 @@ export default function AdmissionDetails() {
         )}
       </div>
 
-      {/* ── PATIENT BANNER ─────────────────────────────────────── */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <PatientAvatar patient={patient} size="lg" className="rounded-xl" />
-            <div className="min-w-0">
-              <p className="text-base font-bold text-[var(--text-primary)] truncate">{patientName}</p>
-              <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] mt-0.5 flex-wrap">
-                <span className="inline-flex items-center gap-1 font-mono bg-[var(--bg-main)] px-1.5 py-0.5 rounded border border-[var(--border-color)]">
-                  <Hash className="w-2.5 h-2.5 text-[var(--text-tertiary)]" />
-                  {patient?.folderNumber || '—'}
-                </span>
-                <span className="capitalize">{patient?.gender || '—'}</span>
-                <span className="opacity-40">·</span>
-                <span>
-                  {patient?.dateOfBirth
-                    ? `${Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))} yrs`
-                    : '—'}
-                </span>
-                {patient?.contact && (
-                  <>
-                    <span className="opacity-40">·</span>
-                    <span className="inline-flex items-center gap-1"><Phone className="w-2.5 h-2.5" />{patient.contact}</span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] bg-[var(--bg-main)] px-2 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-secondary)] flex items-center gap-1">
-              <CalendarClock className="w-2.5 h-2.5" />
-              Admitted {formatDateOnly(admission?.admissionDate || attendance?.dateTime)}
-            </span>
-            {lengthOfStay > 0 && (
-              <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-1 rounded-full border border-teal-200 flex items-center gap-1">
-                <Clock className="w-2.5 h-2.5" />
-                {lengthOfStay} day{lengthOfStay !== 1 ? 's' : ''}
-              </span>
-            )}
-            <span className="text-[10px] bg-[var(--bg-main)] px-2 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-secondary)] flex items-center gap-1">
-              <Building2 className="w-2.5 h-2.5" />
-              {attendance?.Ward?.wardName || '—'} · {attendance?.Bed?.bedNumber || '—'}
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* ── PATIENT BANNER — shared Medical Entries header ── */}
+      <PatientVisitHeader
+        patient={patient}
+        attendance={attendance}
+        icon={Hospital}
+        accent="teal"
+        fields={[
+          { label: 'Admission No.', value: admission?.admissionNumber || attendance?.attendanceNumber || '—', mono: true },
+          { label: 'Admitted', value: formatDateOnly(admission?.admissionDate || attendance?.dateTime) },
+          { label: 'Length of Stay', value: `${lengthOfStay} day${lengthOfStay !== 1 ? 's' : ''}` },
+          { label: 'Ward', value: attendance?.Ward?.wardName || '—' },
+          { label: 'Bed', value: attendance?.Bed?.bedNumber || '—', mono: true },
+        ]}
+        aside={
+          <>
+            {getTypeBadge()}
+            {getStatusBadge()}
+          </>
+        }
+      />
 
       {/* ── ALERT: Detention over 48h ───────────────────────────── */}
       {isDetention && isActive && lengthOfStay >= 2 && (
