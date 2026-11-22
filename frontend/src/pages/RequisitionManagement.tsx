@@ -847,7 +847,7 @@ export default function RequisitionsPage() {
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => { setShowForm(false); resetForm(); }}>
           <div
-            className="bg-[var(--bg-card)] rounded-xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden border border-[var(--border-color)] shadow-2xl"
+            className="bg-[var(--bg-card)] rounded-xl w-full max-w-7xl max-h-[94vh] flex flex-col overflow-hidden border border-[var(--border-color)] shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="bg-[var(--bg-card)] border-b-[3px] border-[var(--icon-cyan-text)] px-6 md:px-10 py-5 flex items-center justify-between shrink-0">
@@ -890,328 +890,131 @@ export default function RequisitionsPage() {
                 )}
               </div>
 
-              <div className="flex-1 overflow-y-auto px-6 md:px-10 py-7 space-y-5 min-h-0">
-                {/* 1. Who is requesting */}
-                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-6 h-6 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] flex items-center justify-center text-xs font-bold shrink-0">1</span>
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Who is requesting</h3>
-                  </div>
-                  <div className="pl-8 space-y-3">
-                    <div className="inline-flex rounded-lg border border-[var(--border-color)] overflow-hidden bg-[var(--bg-main)]">
-                      {(['department', 'ward'] as const).map(type => (
-                        <button
-                          key={type}
-                          type="button"
-                          disabled={!!editingRequisition}
-                          onClick={() => setFormData({ ...formData, requesterType: type })}
-                          className={`px-4 py-2 text-xs font-semibold transition-colors ${
-                            formData.requesterType === type
-                              ? 'bg-[var(--icon-cyan-text)] text-white'
-                              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
-                          }`}
-                        >
-                          {type === 'department' ? 'My department' : 'A ward'}
-                        </button>
-                      ))}
-                    </div>
-
-                    {formData.requesterType === 'department' ? (
-                      <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)]">
-                        <Building2 className="w-4 h-4 text-[var(--text-tertiary)] shrink-0" />
-                        <span className="text-sm font-medium text-[var(--text-primary)]">
-                          {myDepartmentName || 'Your department'}
-                        </span>
-                        <span className="ml-auto text-xs text-[var(--text-tertiary)] uppercase tracking-wide">
-                          Locked to your account
-                        </span>
-                      </div>
-                    ) : (
-                      <select
-                        required
-                        disabled={!!editingRequisition} value={formData.requestingWardId}
-                        onChange={e => setFormData({ ...formData, requestingWardId: e.target.value })}
-                        className={cn(SELECT, 'w-full')}
-                      >
-                        <option value="">Select ward…</option>
-                        {wards.map(ward => (
-                          <option key={ward.id} value={ward.id}>{ward.wardName}</option>
+              <div className="flex-1 overflow-y-auto px-5 md:px-8 py-5 space-y-4 min-h-0">
+                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 shadow-sm">
+                  <div className="min-w-0">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Requesting from</label>
+                    <div className="flex items-center gap-3">
+                      <div className="inline-flex shrink-0 rounded-lg border border-[var(--border-color)] overflow-hidden bg-[var(--bg-main)]">
+                        {(['department', 'ward'] as const).map(type => (
+                          <button key={type} type="button" disabled={!!editingRequisition}
+                            onClick={() => setFormData({ ...formData, requesterType: type })}
+                            className={`px-3 py-2 text-xs font-semibold transition-colors ${formData.requesterType === type ? 'bg-[var(--icon-cyan-text)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'}`}>
+                            {type === 'department' ? 'Department' : 'Ward'}
+                          </button>
                         ))}
-                      </select>
-                    )}
-                  </div>
-                </section>
-
-                {/* 2. Supplier */}
-                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-6 h-6 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] flex items-center justify-center text-xs font-bold shrink-0">2</span>
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Where to request from</h3>
-                  </div>
-                  <div className="pl-8">
-                    <select
-                      required
-                      disabled={!!editingRequisition} value={formData.supplyingDepartmentId}
-                      onChange={e => changeSupplier(e.target.value)}
-                      className={cn(SELECT, 'w-full')}
-                    >
-                      <option value="">Select supplying department / store…</option>
-                      {supplierOptions.map(dept => (
-                        <option key={dept.id} value={dept.id}>
-                          {dept.name}{(dept as any).isStore ? ' — Main Store' : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-1.5 text-xs text-[var(--text-tertiary)]">
-                      Item search will use this department's live stock levels.
-                    </p>
-                  </div>
-                </section>
-
-                {/* 3. Items */}
-                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] flex items-center justify-center text-xs font-bold shrink-0">3</span>
-                      <h3 className="text-sm font-bold text-[var(--text-primary)]">What you need</h3>
-                      {pickedItemCount > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
-                          {pickedItemCount}
-                        </span>
+                      </div>
+                      {formData.requesterType === 'department' ? (
+                        <div className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)]">
+                          <Building2 className="w-4 h-4 text-[var(--text-tertiary)] shrink-0" />
+                          <span className="text-sm font-medium text-[var(--text-primary)] truncate">{myDepartmentName || 'Your department'}</span>
+                          <span className="ml-auto text-[10px] text-[var(--text-tertiary)] whitespace-nowrap">Your account</span>
+                        </div>
+                      ) : (
+                        <select required disabled={!!editingRequisition} value={formData.requestingWardId}
+                          onChange={e => setFormData({ ...formData, requestingWardId: e.target.value })}
+                          className={cn(SELECT, 'flex-1 min-w-0')}>
+                          <option value="">Select ward…</option>{wards.map(ward => <option key={ward.id} value={ward.id}>{ward.wardName}</option>)}
+                        </select>
                       )}
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      icon={Plus}
-                      disabled={!!editingRequisition || !formData.supplyingDepartmentId}
-                      disabled={!!editingRequisition} onClick={addRequisitionItem}
-                    >
-                      Add item
-                    </Button>
                   </div>
-
-                  <div className="pl-8 space-y-3">
-                    {!formData.supplyingDepartmentId && (
-                      <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] text-xs">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>Choose the supplying department in step 2 first, then add items here.</span>
-                      </div>
-                    )}
-
-                    {formData.requisitionItems.map((item, index) => {
-                      const picked = item.picked;
-                      const over = !!picked && item.quantityRequested > picked.supplierQty;
-                      const chosenIds = new Set(formData.requisitionItems.map(l => l.stockItemId).filter(Boolean));
-
-                      return (
-                        <div key={index} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)] overflow-hidden">
-                          <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-color)] bg-[var(--bg-card)]">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Package className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" />
-                              <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-                                Item #{index + 1}
-                              </span>
-                              {picked && (
-                                <span className="text-xs text-[var(--text-tertiary)] truncate">
-                                  · {picked.name}{picked.strength && picked.strength !== 'N/A' ? ` ${picked.strength}` : ''}
-                                </span>
-                              )}
-                            </div>
-                            <Button
-                              size="xs"
-                              variant="ghost"
-                              iconOnly
-                              icon={Trash2}
-                              className="text-[var(--text-tertiary)] hover:bg-[var(--icon-red-bg)] hover:text-[var(--icon-red-text)]"
-                              title="Remove item"
-                              disabled={!!editingRequisition} onClick={() => removeRequisitionItem(index)}
-                            />
-                          </div>
-
-                          <div className="p-3 space-y-3">
-                            <div>
-                              <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-                                Item
-                              </label>
-                              <AsyncSelect<RequisitionStockLookupItem, false>
-                                key={`${formData.supplyingDepartmentId}-${index}`}
-                                cacheOptions={false}
-                                defaultOptions
-                                isDisabled={!!editingRequisition || !formData.supplyingDepartmentId}
-                                loadOptions={loadItemOptions}
-                                value={picked || null}
-                                onChange={(sel) => updateRequisitionItem(index, {
-                                  stockItemId: sel?.id || '',
-                                  picked: sel || null,
-                                })}
-                                getOptionValue={(o) => o.id}
-                                getOptionLabel={(o) => `${o.name}${o.strength && o.strength !== 'N/A' ? ' ' + o.strength : ''}`}
-                                isOptionDisabled={(o) => chosenIds.has(o.id) && o.id !== item.stockItemId}
-                                formatOptionLabel={(o, meta) => (
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <div className="truncate">{o.name}{o.strength && o.strength !== 'N/A' ? ` ${o.strength}` : ''}</div>
-                                      <div className="text-xs opacity-60">{o.drugCode} · {o.unitOfMeasure}</div>
-                                    </div>
-                                    {meta.context === 'menu' && (
-                                      <div className="text-right text-xs shrink-0">
-                                        <div className={cn('font-semibold', o.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]')}>
-                                          {supplierName}: {o.supplierQty}
-                                        </div>
-                                        <div className="opacity-70">You: {o.requesterQty}</div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                                placeholder={formData.supplyingDepartmentId ? 'Search by name or code…' : 'Select the supplier first'}
-                                noOptionsMessage={({ inputValue }) => (inputValue ? `No items match "${inputValue}"` : 'Type to search items')}
-                                loadingMessage={() => 'Searching…'}
-                                isClearable
-                                className="text-sm"
-                                classNamePrefix="react-select"
-                                styles={{
-                                  control: (base) => ({ ...base, backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', minHeight: '38px', fontSize: '13px' }),
-                                  option: (base) => ({ ...base, fontSize: '13px' }),
-                                  menu: (base) => ({ ...base, zIndex: 9999, minWidth: 380 }),
-                                  singleValue: (base) => ({ ...base, color: 'var(--text-primary)' }),
-                                  input: (base) => ({ ...base, color: 'var(--text-primary)' }),
-                                }}
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                              <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-                                  Quantity
-                                </label>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    required
-                                    disabled={!!editingRequisition} value={item.quantityRequested}
-                                    onChange={e => updateRequisitionItem(index, { quantityRequested: parseInt(e.target.value) || 0 })}
-                                    className={cn(INPUT, 'flex-1', over && 'border-[var(--icon-red-text)]')}
-                                  />
-                                  <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap">
-                                    {picked?.unitOfMeasure || '—'}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="md:col-span-2">
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-                                  Reason for this item <span className="normal-case font-normal">(optional)</span>
-                                </label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g. For Ward 3 deliveries this week"
-                                  disabled={!!editingRequisition} value={item.purpose}
-                                  onChange={e => updateRequisitionItem(index, { purpose: e.target.value })}
-                                  className={cn(INPUT, 'w-full')}
-                                />
-                              </div>
-                            </div>
-
-                            {picked && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <div className={`rounded-lg px-3 py-2 border ${
-                                  picked.supplierQty > 0
-                                    ? 'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)]/30'
-                                    : 'bg-[var(--icon-red-bg)] border-[var(--icon-red-text)]/30'
-                                }`}>
-                                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                                    At {supplierName}
-                                  </p>
-                                  <p className={`text-lg font-bold leading-tight ${
-                                    picked.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'
-                                  }`}>
-                                    {picked.supplierQty} <span className="text-xs font-normal">{picked.unitOfMeasure}</span>
-                                  </p>
-                                </div>
-                                <div className="rounded-lg px-3 py-2 border border-[var(--border-color)] bg-[var(--icon-blue-bg)]">
-                                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
-                                    At {requesterDeptName}
-                                  </p>
-                                  <p className="text-lg font-bold leading-tight text-[var(--icon-blue-text)]">
-                                    {picked.requesterQty} <span className="text-xs font-normal">{picked.unitOfMeasure}</span>
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-
-                            {picked && over && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] text-xs font-semibold">
-                                <AlertCircle className="w-3 h-3" />
-                                Only {picked.supplierQty} available — you are asking for {item.quantityRequested}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="min-w-0">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Request stock from</label>
+                    <select required disabled={!!editingRequisition} value={formData.supplyingDepartmentId}
+                      onChange={e => changeSupplier(e.target.value)} className={cn(SELECT, 'w-full')}>
+                      <option value="">Select supplying department / store…</option>
+                      {supplierOptions.map(dept => <option key={dept.id} value={dept.id}>{dept.name}{(dept as any).isStore ? ' — Main Store' : ''}</option>)}
+                    </select>
+                    <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Search results use this location's live stock balance.</p>
                   </div>
                 </section>
 
-                {/* 4. Details */}
-                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="w-6 h-6 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] flex items-center justify-center text-xs font-bold shrink-0">4</span>
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Details</h3>
+                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h3 className="text-sm font-bold text-[var(--text-primary)]">Requisition items</h3>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{pickedItemCount}</span>
+                    </div>
+                    <Button type="button" size="sm" variant="outline" icon={Plus}
+                      disabled={!!editingRequisition || !formData.supplyingDepartmentId} onClick={addRequisitionItem}>Add item</Button>
                   </div>
-                  <div className="pl-8 space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                          Purpose <span className="text-[var(--icon-red-text)]">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Replenishment for delivery ward"
-                          value={formData.purpose}
-                          onChange={e => setFormData({ ...formData, purpose: e.target.value })}
-                          className={cn(INPUT, 'w-full')}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Urgency</label>
-                        <select
-                          value={formData.urgency}
-                          onChange={e => setFormData({ ...formData, urgency: e.target.value as any })}
-                          className={cn(SELECT, 'w-full')}
-                        >
-                          <option value="routine">Routine</option>
-                          <option value="urgent">Urgent</option>
-                          <option value="emergency">Emergency</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                        Required by <span className="text-xs font-normal text-[var(--text-tertiary)]">(optional)</span>
-                      </label>
-                      <input
-                        type="date"
-                        disabled={!!editingRequisition} value={formData.requiredDate}
-                        onChange={e => setFormData({ ...formData, requiredDate: e.target.value })}
-                        className={cn(INPUT, 'w-full md:w-64')}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                        Additional notes <span className="text-xs font-normal text-[var(--text-tertiary)]">(optional)</span>
-                      </label>
-                      <textarea
-                        rows={2}
-                        placeholder="Any additional information or special instructions…"
-                        value={formData.notes}
-                        onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                        className={cn(INPUT, 'w-full resize-none')}
-                      />
-                    </div>
+                  {!formData.supplyingDepartmentId && <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] text-xs"><AlertCircle className="w-3.5 h-3.5 shrink-0" />Select the supplying department above before adding stock items.</div>}
+                  <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
+                    <table className="w-full min-w-[1050px] text-sm">
+                      <thead className={TH_ROW}><tr><th className={TH}>Stock item</th><th className={cn(TH, 'w-36')}>Supplier balance</th><th className={cn(TH, 'w-28 text-center')}>Quantity</th><th className={TH}>Reason / purpose</th><th className={cn(TH, 'w-12 text-center')}></th></tr></thead>
+                      <tbody>
+                        {formData.requisitionItems.map((item, index) => {
+                          const picked = item.picked;
+                          const over = !!picked && item.quantityRequested > picked.supplierQty;
+                          const chosenIds = new Set(formData.requisitionItems.map(l => l.stockItemId).filter(Boolean));
+                          return (
+                            <tr key={index} className={TR}>
+                              <td className={cn(TD, 'min-w-[380px]')}>
+                                <AsyncSelect<RequisitionStockLookupItem, false>
+                                  key={`${formData.supplyingDepartmentId}-${index}`} cacheOptions={false} defaultOptions
+                                  isDisabled={!!editingRequisition || !formData.supplyingDepartmentId}
+                                  loadOptions={loadItemOptions} value={picked || null}
+                                  onChange={(sel) => updateRequisitionItem(index, { stockItemId: sel?.id || '', picked: sel || null })}
+                                  getOptionValue={(o) => o.id}
+                                  getOptionLabel={(o) => `${o.name}${o.strength && o.strength !== 'N/A' ? ' ' + o.strength : ''}`}
+                                  isOptionDisabled={(o) => chosenIds.has(o.id) && o.id !== item.stockItemId}
+                                  formatOptionLabel={(o, meta) => (
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="min-w-0"><div className="truncate">{o.name}{o.strength && o.strength !== 'N/A' ? ` ${o.strength}` : ''}</div><div className="text-xs opacity-60">{o.drugCode} · {o.unitOfMeasure}</div></div>
+                                      {meta.context === 'menu' && <div className="text-right text-xs shrink-0"><div className={cn('font-semibold', o.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]')}>{supplierName}: {o.supplierQty}</div><div className="opacity-70">You: {o.requesterQty}</div></div>}
+                                    </div>
+                                  )}
+                                  placeholder={formData.supplyingDepartmentId ? 'Search by name or code…' : 'Select supplier first'}
+                                  noOptionsMessage={({ inputValue }) => inputValue ? `No items match "${inputValue}"` : 'Type to search items'}
+                                  loadingMessage={() => 'Searching…'} isClearable className="text-sm" classNamePrefix="react-select"
+                                  styles={{
+                                    control: (base) => ({ ...base, backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', minHeight: '38px', fontSize: '13px' }),
+                                    option: (base) => ({ ...base, fontSize: '13px' }),
+                                    menu: (base) => ({ ...base, zIndex: 9999, minWidth: 380 }),
+                                    singleValue: (base) => ({ ...base, color: 'var(--text-primary)' }),
+                                    input: (base) => ({ ...base, color: 'var(--text-primary)' }),
+                                  }}
+                                />
+                                {picked && <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">At {requesterDeptName}: {picked.requesterQty} {picked.unitOfMeasure}</p>}
+                              </td>
+                              <td className={TD}>
+                                {picked ? <span className={cn('text-xs font-semibold', picked.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]')}>{picked.supplierQty} {picked.unitOfMeasure}</span> : <span className="text-xs text-[var(--text-tertiary)]">—</span>}
+                                {over && <p className="mt-1 text-[10px] text-[var(--icon-red-text)]">Only {picked?.supplierQty} available</p>}
+                              </td>
+                              <td className={TD}><input type="number" min="1" step="1" required disabled={!!editingRequisition}
+                                value={item.quantityRequested} onChange={e => updateRequisitionItem(index, { quantityRequested: parseInt(e.target.value) || 0 })}
+                                className={cn(INPUT, 'w-full text-center', over && 'border-[var(--icon-red-text)]')} /></td>
+                              <td className={TD}><input type="text" placeholder="Optional reason for this item" disabled={!!editingRequisition}
+                                value={item.purpose} onChange={e => updateRequisitionItem(index, { purpose: e.target.value })}
+                                className={cn(INPUT, 'w-full')} /></td>
+                              <td className={cn(TD, 'text-center')}><Button type="button" size="xs" variant="ghost" iconOnly icon={Trash2}
+                                className="text-[var(--icon-red-text)]" title="Remove item" disabled={!!editingRequisition}
+                                onClick={() => removeRequisitionItem(index)} /></td>
+                            </tr>
+                          );
+                        })}
+                        {formData.requisitionItems.length === 0 && <tr><td colSpan={5} className="px-3 py-8 text-center text-xs text-[var(--text-tertiary)]">No items added yet. Select a supplier, then click Add item.</td></tr>}
+                      </tbody>
+                    </table>
                   </div>
+                  {formData.requisitionItems.some(item => item.picked && item.quantityRequested > item.picked.supplierQty) && <p className="mt-2 text-xs text-[var(--icon-red-text)]">One or more requested quantities exceed the supplier's available balance. Review the highlighted rows before submitting.</p>}
+                </section>
+
+                <section className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr] gap-3 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 shadow-sm items-end">
+                  <div><label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Purpose *</label>
+                    <input type="text" required placeholder="e.g. Replenishment for delivery ward" value={formData.purpose}
+                      onChange={e => setFormData({ ...formData, purpose: e.target.value })} className={cn(INPUT, 'w-full')} /></div>
+                  <div><label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Urgency</label>
+                    <select value={formData.urgency} onChange={e => setFormData({ ...formData, urgency: e.target.value as any })} className={cn(SELECT, 'w-full')}>
+                      <option value="routine">Routine</option><option value="urgent">Urgent</option><option value="emergency">Emergency</option>
+                    </select></div>
+                  <div><label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Required by</label>
+                    <input type="date" disabled={!!editingRequisition} value={formData.requiredDate}
+                      onChange={e => setFormData({ ...formData, requiredDate: e.target.value })} className={cn(INPUT, 'w-full')} /></div>
+                  <div className="lg:col-span-3"><label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Additional notes (optional)</label>
+                    <textarea rows={2} placeholder="Any additional information or special instructions…" value={formData.notes}
+                      onChange={e => setFormData({ ...formData, notes: e.target.value })} className={cn(INPUT, 'w-full resize-none')} /></div>
                 </section>
               </div>
 

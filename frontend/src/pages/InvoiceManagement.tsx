@@ -389,7 +389,7 @@ export default function InvoiceManagement() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => { setShowForm(false); resetForm(); }}>
-          <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-6xl max-h-[94vh] overflow-y-auto shadow-2xl border border-[var(--border-color)]" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-7xl max-h-[94vh] flex flex-col overflow-hidden shadow-2xl border border-[var(--border-color)]" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 z-20 bg-[var(--bg-card)] border-b-[3px] border-[var(--icon-cyan-text)] px-6 md:px-10 py-5 flex items-center justify-between">
               <div>
                 <p className="text-[15px] font-bold tracking-[3px] uppercase text-[var(--icon-cyan-text)]">Purchase Invoice</p>
@@ -398,10 +398,10 @@ export default function InvoiceManagement() {
               </div>
               <Button variant="ghost" iconOnly icon={X} aria-label="Close" onClick={() => { setShowForm(false); resetForm(); }} />
             </div>
-            <form onSubmit={handleSubmit} className="px-6 md:px-10 py-7 space-y-6 bg-[var(--bg-main)]">
+            <form onSubmit={handleSubmit} className="px-5 md:px-8 py-5 space-y-4 bg-[var(--bg-main)] overflow-y-auto min-h-0">
               <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 pb-3 border-b border-[var(--border-color)]"><Building className="w-4 h-4 text-[var(--icon-cyan-text)]" /><h3 className="text-sm font-bold text-[var(--text-primary)]">Invoice Information</h3></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_1.2fr_2.1fr_1fr] gap-3 items-end">
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Invoice Number *</label><input type="text" required disabled={!!editingInvoice} placeholder="INV-001" value={formData.invoiceNumber} onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })} className={cn(INPUT, 'w-full disabled:opacity-75')} /></div>
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Supplier Name *</label><input type="text" required placeholder="Supplier Name" value={formData.supplierName} onChange={e => setFormData({ ...formData, supplierName: e.target.value })} className={cn(INPUT, 'w-full')} /></div>
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Received At Department/Store or Ward *</label>
@@ -423,7 +423,7 @@ export default function InvoiceManagement() {
               <div>
                 <div className="flex items-center justify-between mb-3 pb-3 border-b border-[var(--border-color)]">
                   <h3 className="font-semibold text-[var(--text-primary)] text-sm">Invoice Items *</h3>
-                  {!editingInvoice && (<Button size="sm" variant="outline" icon={Plus} onClick={addInvoiceItem}>Add Item</Button>)}
+                  {!editingInvoice && (<Button type="button" size="sm" variant="outline" icon={Plus} onClick={addInvoiceItem}>Add Item</Button>)}
                 </div>
                 {editingInvoice && (
                   <div className="mb-4 flex items-start gap-2.5 p-3 bg-[var(--icon-yellow-bg)]/20 border border-[var(--icon-yellow-bg)]/30 rounded-lg text-xs text-[var(--text-secondary)]">
@@ -431,34 +431,54 @@ export default function InvoiceManagement() {
                     <span>Items cannot be modified after an invoice is created to preserve stock logs. To change items, please close this form, delete the invoice, and create a new one.</span>
                   </div>
                 )}
-                <div className="space-y-3">
-                  {formData.invoiceItems.map((item, index) => (
-                    <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-                      <div className="md:col-span-4"><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Stock Item *</label>
-                        {editingInvoice ? (<div className="w-full px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] text-sm font-medium">{getStockItemName(item.stockItemId)}</div>)
-                        : (<SearchableStockItemSelect value={item.stockItemId} onChange={(value) => updateInvoiceItem(index, 'stockItemId', value)} items={activeStockItems} placeholder="Search for an item..." />)}
-                      </div>
-                      <div className="md:col-span-2"><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity *</label><input type="number" min="1" required disabled={!!editingInvoice} value={item.quantity} onChange={e => updateInvoiceItem(index, 'quantity', parseInt(e.target.value) || 0)} className={cn(INPUT, 'w-full disabled:opacity-75')} /></div>
-                      <div className="md:col-span-2"><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Unit Cost ($) *</label><input type="number" step="0.01" min="0" required disabled={!!editingInvoice} value={item.unitCost} onChange={e => updateInvoiceItem(index, 'unitCost', parseFloat(e.target.value) || 0)} className={cn(INPUT, 'w-full disabled:opacity-75')} /></div>
-                      <div className="md:col-span-2"><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Batch Number</label><input type="text" placeholder="Optional" disabled={!!editingInvoice} value={item.batchNumber} onChange={e => updateInvoiceItem(index, 'batchNumber', e.target.value)} className={cn(INPUT, 'w-full disabled:opacity-75')} /></div>
-                      <div className="md:col-span-2 flex gap-2">
-                        <div className="flex-1"><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Expiry Date</label><input type="date" disabled={!!editingInvoice} value={item.expiryDate} onChange={e => updateInvoiceItem(index, 'expiryDate', e.target.value)} className={cn(INPUT, 'w-full disabled:opacity-75')} /></div>
-                        {!editingInvoice && formData.invoiceItems.length > 1 && (<Button variant="ghost" size="sm" iconOnly icon={Trash2} aria-label="Remove item" className="text-[var(--icon-red-text)] self-end" onClick={() => removeInvoiceItem(index)} />)}
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
+                  <table className="w-full min-w-[1050px] text-sm">
+                    <thead className={TH_ROW}><tr>
+                      <th className={TH}>Stock item</th><th className={cn(TH, 'w-28 text-center')}>Quantity</th>
+                      <th className={cn(TH, 'w-36 text-right')}>Unit cost</th><th className={cn(TH, 'w-40')}>Batch number</th>
+                      <th className={cn(TH, 'w-44')}>Expiry date</th><th className={cn(TH, 'w-12 text-center')}></th>
+                    </tr></thead>
+                    <tbody>
+                      {formData.invoiceItems.map((item, index) => (
+                        <tr key={index} className={TR}>
+                          <td className={cn(TD, 'min-w-[320px]')}>
+                            {editingInvoice ? <span className="font-medium">{getStockItemName(item.stockItemId)}</span>
+                              : <SearchableStockItemSelect value={item.stockItemId} onChange={(value) => updateInvoiceItem(index, 'stockItemId', value)} items={activeStockItems} placeholder="Search stock item…" />}
+                          </td>
+                          <td className={TD}><input type="number" min="1" required disabled={!!editingInvoice} value={item.quantity}
+                            onChange={e => updateInvoiceItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                            className={cn(INPUT, 'w-full text-center disabled:opacity-75')} /></td>
+                          <td className={TD}><input type="number" step="0.01" min="0" required disabled={!!editingInvoice} value={item.unitCost}
+                            onChange={e => updateInvoiceItem(index, 'unitCost', parseFloat(e.target.value) || 0)}
+                            className={cn(INPUT, 'w-full text-right disabled:opacity-75')} /></td>
+                          <td className={TD}><input type="text" placeholder="Optional" disabled={!!editingInvoice} value={item.batchNumber}
+                            onChange={e => updateInvoiceItem(index, 'batchNumber', e.target.value)}
+                            className={cn(INPUT, 'w-full disabled:opacity-75')} /></td>
+                          <td className={TD}><input type="date" disabled={!!editingInvoice} value={item.expiryDate}
+                            onChange={e => updateInvoiceItem(index, 'expiryDate', e.target.value)}
+                            className={cn(INPUT, 'w-full disabled:opacity-75')} /></td>
+                          <td className={cn(TD, 'text-center')}>{!editingInvoice && <Button type="button" variant="ghost" size="xs" iconOnly icon={Trash2}
+                            aria-label="Remove item" className="text-[var(--icon-red-text)]" onClick={() => removeInvoiceItem(index)} />}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-[var(--bg-main)] border-t border-[var(--border-color)]"><tr>
+                      <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold text-[var(--text-secondary)]">Invoice total</td>
+                      <td className="px-3 py-2.5 text-right font-bold text-[var(--icon-cyan-text)]">${calculateTotal().toFixed(2)}</td>
+                    </tr></tfoot>
+                  </table>
                 </div>
                 {formData.invoiceItems.length === 0 && (<div className="text-center py-6 text-[var(--text-secondary)] text-sm border border-dashed border-[var(--border-color)] rounded-lg"><Package className="w-8 h-8 mx-auto mb-2 text-[var(--text-tertiary)]" />Click "Add Item" to add items to this invoice</div>)}
               </div>
               </section>
-              <section className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
-                <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Notes</label><textarea placeholder="Additional notes about this invoice..." rows={3} value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={cn(INPUT, 'w-full resize-none')} /></div>
+              <section className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 shadow-sm items-end">
+                <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Notes</label><textarea placeholder="Additional notes about this invoice..." rows={2} value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={cn(INPUT, 'w-full resize-none')} /></div>
                 <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
                   <div className="flex justify-between items-center mb-2"><span className="text-sm text-[var(--text-secondary)]">Subtotal:</span><span className="text-sm font-medium text-[var(--text-primary)]">${calculateTotal().toFixed(2)}</span></div>
                   <div className="flex justify-between items-center pt-2 border-t border-[var(--border-color)]"><span className="text-base font-bold text-[var(--text-primary)]">Total:</span><span className="text-xl font-bold text-[var(--icon-cyan-text)]">${calculateTotal().toFixed(2)}</span></div>
                 </div>
               </section>
-              <div className="flex gap-3 pt-5 border-t border-[var(--border-color)]">
+              <div className="sticky bottom-0 flex gap-3 pt-4 border-t border-[var(--border-color)] bg-[var(--bg-main)]">
                 <Button variant="secondary" className="flex-1" onClick={() => { setShowForm(false); resetForm(); }}>Cancel</Button>
                 <Button type="submit" variant="soft" accent="cyan" className="flex-1" disabled={formData.invoiceItems.length === 0}>{editingInvoice ? 'Update Invoice' : 'Create Invoice'}</Button>
               </div>
