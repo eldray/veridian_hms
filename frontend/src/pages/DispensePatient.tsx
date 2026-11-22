@@ -979,7 +979,7 @@ export default function DispensePatient() {
                             Print
                           </Button>
 
-                          {canDispense && !isDispensed && hasStock && (
+                          {!isDispensed && (
                             <Button
                               size="sm"
                               variant="soft"
@@ -987,7 +987,7 @@ export default function DispensePatient() {
                               className="flex-1"
                               icon={Zap}
                               loading={dispensingId === med.id}
-                              disabled={bulkDispensing}
+                              disabled={!canDispense || !hasStock || dispensingId === med.id || bulkDispensing}
                               onClick={() => handleDispenseClick(med)}
                             >
                               Dispense
@@ -1006,7 +1006,7 @@ export default function DispensePatient() {
                               Partial ({avail})
                             </Button>
                           )}
-                          {canDispense && !isDispensed && noStock && (
+                          {!isDispensed && noStock && (
                             <span className="flex-1 text-center text-xs font-semibold text-[var(--icon-red-text)] px-3 py-2 rounded-lg bg-[var(--icon-red-bg)]">
                               Out of stock · Dispense disabled
                             </span>
