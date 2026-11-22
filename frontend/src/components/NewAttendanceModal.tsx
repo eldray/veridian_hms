@@ -116,9 +116,7 @@ export default function NewAttendanceModal({
   // Populate membership/account information when the payment mode changes.
   useEffect(() => {
     const source = resolvedPatient || {};
-    if (paymentMode === 'nhis') {
-      setNhisCCC(attendanceData?.nhisCCC || '');
-    } else if (paymentMode === 'corporate') {
+    if (paymentMode === 'corporate') {
       setResolvedCorporateAccountId(corporateAccountId || source.corporateAccountId || source.employer?.corporateAccountId || source.insuranceProviderId || '');
     }
   }, [paymentMode, resolvedPatient, corporateAccountId, attendanceData]);
@@ -197,8 +195,7 @@ export default function NewAttendanceModal({
     e.preventDefault();
 
     if (!validateForm()) {
-      const errorMessage = validationErrors[0] || 'Please fix the form errors';
-      error('Validation Failed', errorMessage);
+      error('Validation Failed', 'Please fix the highlighted form errors');
       return;
     }
 
@@ -473,7 +470,7 @@ export default function NewAttendanceModal({
             {/* Payment Mode Selection */}
             <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
               <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2">Payment Mode</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {paymentModes.map((mode) => {
                   const Icon = mode.icon;
                   const isSelected = paymentMode === mode.id;
@@ -604,9 +601,9 @@ export default function NewAttendanceModal({
                       }`}>
                         Status: {currentInsuranceProvider.isActive ? 'Active ✓' : 'Inactive ✗'}
                       </p>
-                      {resolvedPatient?.insuranceDetails?.insuranceNumber && (
+                      {(resolvedPatient?.insuranceDetails?.insuranceNumber || resolvedPatient?.insuranceDetails?.policyNumber) && (
                         <p className="text-xs text-[var(--text-secondary)] mt-1">
-                          Policy No: {resolvedPatient.insuranceDetails.insuranceNumber}
+                          Policy No: {resolvedPatient.insuranceDetails.insuranceNumber || resolvedPatient.insuranceDetails.policyNumber}
                         </p>
                       )}
                     </>
