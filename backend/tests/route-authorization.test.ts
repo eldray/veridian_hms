@@ -120,6 +120,17 @@ describe('route authorization coverage', () => {
     expect(controller).toMatch(/topDiagnoses: \[\.\.\.stats\.topDiagnoses\]/);
   });
 
+  it('allows Pharmacy and Records to read purchase invoices while keeping write access restricted', () => {
+    const source = read(path.join(modulesDir, 'purchaseInvoice', 'PurchaseInvoiceRoutes.ts'));
+    expect(source).toMatch(/const READERS: UserRole\[\] = \['super_admin', 'admin', 'pharmacist', 'records'\]/);
+    expect(source).toMatch(/const WRITERS: UserRole\[\] = \['super_admin', 'admin', 'pharmacist'\]/);
+    expect(source).toMatch(/const DELETERS: UserRole\[\] = \['super_admin', 'admin'\]/);
+    expect(source).toMatch(/router\.get\('\/',\s*requireRole\(READERS\)/);
+    expect(source).toMatch(/router\.get\('\/:id',\s*requireRole\(READERS\)/);
+    expect(source).toMatch(/router\.post\([\s\S]*?requireRole\(WRITERS\)/);
+    expect(source).toMatch(/router\.delete\('\/:id',\s*requireRole\(DELETERS\)/);
+  });
+
   it('restricts facility-wide billing reports to finance and administrators', () => {
     const source = read(path.join(modulesDir, 'billing', 'BillingRoutes.ts'));
     expect(source).toMatch(/router\.get\('\/invoices',\s*requireRole\(FINANCIAL_READERS\)/);

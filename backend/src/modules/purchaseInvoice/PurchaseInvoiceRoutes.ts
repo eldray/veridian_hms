@@ -10,8 +10,8 @@ export const createPurchaseInvoiceRoutes = () => {
   router.use(protect);
 
   // ── Central role lists ──
-  const READERS: UserRole[] = ['super_admin', 'admin', 'accounts', 'pharmacist'];
-  const WRITERS: UserRole[] = ['super_admin', 'admin', 'accounts'];
+  const READERS: UserRole[] = ['super_admin', 'admin', 'pharmacist', 'records'];
+  const WRITERS: UserRole[] = ['super_admin', 'admin', 'pharmacist'];
   const DELETERS: UserRole[] = ['super_admin', 'admin'];
 
   // ==========================================
@@ -21,7 +21,7 @@ export const createPurchaseInvoiceRoutes = () => {
   // Read
   router.get('/',         requireRole(READERS), purchaseInvoiceController.getInvoices);
   router.get('/suppliers', requireRole(READERS), purchaseInvoiceController.getSuppliers);
-  router.get('/stats',    requireRole(['super_admin', 'admin', 'accounts']), purchaseInvoiceController.getInvoiceStats);
+  router.get('/stats',    requireRole(['super_admin', 'admin', 'pharmacist', 'records']), purchaseInvoiceController.getInvoiceStats);
   router.get('/:id',      requireRole(READERS), purchaseInvoiceController.getInvoiceById);
 
   // Create
