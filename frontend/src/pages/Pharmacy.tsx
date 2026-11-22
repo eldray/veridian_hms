@@ -192,11 +192,21 @@ export default function Pharmacy() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Patients" value={stats.patients} icon={Users} accent="cyan" />
-        <StatCard label="Open Prescriptions" value={stats.openItems} icon={Pill} accent="purple" />
-        <StatCard label="Dispensed Items" value={stats.dispensedItems} icon={CheckCircle} accent="green" />
-        <StatCard label="Urgent / Critical" value={stats.urgent} icon={AlertTriangle} accent="red" />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: 'Patients', value: stats.patients, Icon: Users, tone: 'cyan' },
+          { label: 'Open Prescriptions', value: stats.openItems, Icon: Pill, tone: 'purple' },
+          { label: 'Dispensed', value: stats.dispensedItems, Icon: CheckCircle, tone: 'green' },
+          { label: 'Urgent / Critical', value: stats.urgent, Icon: AlertTriangle, tone: 'red' },
+        ].map(({ label, value, Icon, tone }) => (
+          <div key={label} className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2 sm:px-3">
+            <Icon className={`h-4 w-4 shrink-0 text-[var(--icon-${tone}-text)]`} />
+            <span className="min-w-0">
+              <span className="block text-lg font-bold leading-none tabular-nums text-[var(--text-primary)]">{value}</span>
+              <span className="mt-1 block truncate text-[10px] leading-tight text-[var(--text-secondary)] sm:text-[11px]">{label}</span>
+            </span>
+          </div>
+        ))}
       </div>
 
       <Card>
