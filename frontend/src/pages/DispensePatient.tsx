@@ -92,7 +92,7 @@ const DispenseModal: React.FC<{
   onConfirm: (qty: number) => void; onClose: () => void; isProcessing: boolean;
 }> = ({ medication, stockItem, onConfirm, onClose, isProcessing }) => {
   const [quantity, setQuantity] = useState(toNum(medication.quantity, 1));
-  const max = Math.max(0, toNum(stockItem?.currentStock, 0));
+  const max = Math.max(0, toNum(stockItem?.dispenseAvailable, 0));
   const unitCost = toNum(medication.unitCost, toNum(stockItem?.costPrice, 0));
 
   return (
@@ -157,7 +157,7 @@ const DispenseModal: React.FC<{
             </Button>
             <Button
               variant="soft" accent="green" className="flex-1"
-              icon={CheckCircle} loading={isProcessing}
+              icon={CheckCircle} loading={isProcessing} disabled={max < 1 || quantity < 1 || quantity > max}
               onClick={() => onConfirm(quantity)}
             >
               Dispense
@@ -189,7 +189,6 @@ export default function DispensePatient() {
   const [medicationSectionTab, setMedicationSectionTab] = useState<'medications' | 'consumables'>('medications');
   const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
   const [consumableUses, setConsumableUses] = useState<any[]>([]);
-  const [bulkDispensing, setBulkDispensing] = useState(false);
   const [dispenseModal, setDispenseModal] = useState<{ isOpen: boolean; medication: any; stockItem: any }>({
     isOpen: false, medication: null, stockItem: null,
   });
@@ -349,13 +348,25 @@ export default function DispensePatient() {
 
   const getStockFor = (med: any) => stockItems.find(s => s.id === med.stockItemId);
 
+  // StockItem.currentStock is the hospital-wide aggregate. Dispensing is restricted
+  // to the signed-in user's issuing department, so use that department's ledger balance.
+  const getDepartmentAvailable = (stock: any) => {
+    const departmentId = user?.departmentId;
+    if (!departmentId || !Array.isArray(stock?.stockBalances)) return 0;
+    const balance = stock.stockBalances.find(
+      (entry: any) => entry.departmentId === departmentId && !entry.wardId,
+    );
+    return Math.max(0, Number(balance?.quantity) || 0);
+  };
+
   const handleDispenseClick = (med: any) => {
     const stock = getStockFor(med);
-    if (!stock || toNum(stock.currentStock) < 1) {
-      toastError('Out of stock', `${med.name} has no stock`);
+    const available = getDepartmentAvailable(stock);
+    if (!stock || available < 1) {
+      toastError('No pharmacy stock', `${med.name} has no stock balance in your assigned issuing department. Check the stock allocation before dispensing.`);
       return;
     }
-    setDispenseModal({ isOpen: true, medication: med, stockItem: stock });
+    setDispenseModal({ isOpen: true, medication: med, stockItem: { ...stock, dispenseAvailable: available } });
   };
 
   const handleConfirmDispense = async (quantity: number) => {
@@ -394,72 +405,6 @@ export default function DispensePatient() {
       toastError('Dispensing saved; refresh needed', 'The medicine was dispensed, but the screen could not refresh all updated details. Refresh the page before making further dispensing decisions.');
     } finally {
       setDispensingId(null);
-    }
-  };
-
-  const handleBulkDispenseReady = async () => {
-    if (!attendance?.id) return;
-    const ready = prescriptions.filter(
-      m => m.status === 'prescribed' &&
-        toNum(getStockFor(m)?.currentStock) >= toNum(m.quantity, 1)
-    );
-    if (!ready.length) {
-      toastError('Nothing ready', 'No prescriptions have sufficient stock');
-      return;
-    }
-    setBulkDispensing(true);
-    let okCount = 0;
-    const failedItems: Array<{ name: string; reason: string }> = [];
-    try {
-      for (const m of ready) {
-        setDispensingId(m.id);
-        try {
-          const stock = getStockFor(m);
-          await dispenseMedication(attendance.id, m.id, {
-            quantity: toNum(m.quantity, 1),
-            batchNumber: stock?.batchNumber || undefined,
-            expiryDate: stock?.expiryDate ? new Date(stock.expiryDate).toISOString() : undefined,
-          });
-          okCount++;
-        } catch (err: any) {
-          failedItems.push({
-            name: m.name || 'Unnamed medication',
-            reason: err?.response?.data?.message || err?.message || 'Dispensing failed',
-          });
-        }
-      }
-      await Promise.all([getStockItems(), calculateBill(attendance.id)]);
-      const refreshed = await getAttendance(attendance.id);
-      if (refreshed?.id === attendance.id) {
-        setAttendance(refreshed);
-        setPrescriptions((refreshed?.Medication || []).filter((m: any) =>
-          ['prescribed', 'dispensed'].includes(m.status)));
-        setAllAttendances(list => list.map(a => (a.id === attendance.id ? refreshed : a)));
-      }
-      if (failedItems.length > 0) {
-        const details = failedItems
-          .map(item => `${item.name}: ${item.reason}`)
-          .join('; ');
-        toastError(
-          okCount > 0 ? 'Bulk dispense partially completed' : 'Bulk dispense failed',
-          `${okCount} of ${ready.length} item(s) dispensed. ${details}`
-        );
-      } else {
-        success('Bulk dispense', `${okCount} of ${ready.length} item(s) dispensed`);
-      }
-    } catch (err: any) {
-      if (okCount > 0) {
-        toastError(
-          'Dispensing saved; refresh needed',
-          `${okCount} item(s) were dispensed, but the screen could not refresh all updated details. Refresh the page before making further dispensing decisions.`
-        );
-      } else {
-        const details = failedItems.map(item => `${item.name}: ${item.reason}`).join('; ');
-        toastError('Bulk dispense failed', details || err?.response?.data?.message || err.message);
-      }
-    } finally {
-      setDispensingId(null);
-      setBulkDispensing(false);
     }
   };
 
@@ -514,11 +459,6 @@ export default function DispensePatient() {
   };
   const prescribedMeds = prescriptions;
   const pendingDispenseCount = prescribedMeds.filter(m => m.status === 'prescribed').length;
-  const readyToDispenseCount = prescribedMeds.filter(
-    m => m.status === 'prescribed' &&
-      toNum(getStockFor(m)?.currentStock) >= toNum(m.quantity, 1)
-  ).length;
-
   const dispensedHistory = useMemo(() => (attendance?.Medication || [])
     .filter((m: any) => m.status === 'dispensed')
     .sort((a: any, b: any) =>
@@ -527,7 +467,7 @@ export default function DispensePatient() {
 
   const dispensedTotal = useMemo(
     () => dispensedHistory.reduce(
-      (sum: number, m: any) => sum + toNum(m.dispensedUnitCost) * toNum(m.quantity, 1),
+      (sum: number, m: any) => sum + toNum(m.dispensedUnitCost) * toNum(m.dispensedQuantity, toNum(m.quantity, 1)),
       0
     ),
     [dispensedHistory]
@@ -738,19 +678,6 @@ export default function DispensePatient() {
                 {prescribedMeds.length > 0 && <Badge tone="purple">{prescribedMeds.length}</Badge>}
               </span>
             )}
-            actions={prescribedMeds.length > 0 && canDispense && readyToDispenseCount > 0 ? (
-              <Button
-                size="sm"
-                variant="soft"
-                accent="green"
-                icon={Zap}
-                loading={bulkDispensing}
-                disabled={!!dispensingId}
-                onClick={handleBulkDispenseReady}
-              >
-                Dispense Ready ({readyToDispenseCount})
-              </Button>
-            ) : undefined}
           >
             {prescribedMeds.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -766,8 +693,8 @@ export default function DispensePatient() {
               <div className="divide-y divide-[var(--border-color)]">
                 {prescribedMeds.map((med: any) => {
                   const stock = getStockFor(med);
-                  const avail = toNum(stock?.currentStock);
-                  const needed = toNum(med.quantity, 1);
+                  const avail = getDepartmentAvailable(stock);
+                  const needed = 1;
                   const dispensedQty = toNum(med.dispensedQuantity, 0);
                   const hasStock = avail >= needed;
                   const lowStock = avail > 0 && avail < needed;
@@ -814,8 +741,8 @@ export default function DispensePatient() {
                         </Col>
 
                         {/* 3. Qty */}
-                        <Col label={isDispensed ? 'Dispensed Qty' : 'Prescribed Qty'}>
-                          <p className="text-sm font-bold text-[var(--text-primary)]">{isDispensed ? dispensedQty : needed}</p>
+                        <Col label={isDispensed ? 'Dispensed Qty' : 'Dispense Qty'}>
+                          <p className="text-sm font-bold text-[var(--text-primary)]">{isDispensed ? dispensedQty : 'Enter when dispensing'}</p>
                         </Col>
 
                         {/* 4. Stock */}
@@ -837,9 +764,9 @@ export default function DispensePatient() {
                         </Col>
 
                         {/* 6. Total */}
-                        <Col label={isDispensed ? 'Dispensed Total' : 'Estimated Cost'}>
+                        <Col label={isDispensed ? 'Dispensed Total' : 'Total'}>
                           <p className="text-xs font-bold text-[var(--icon-green-text)]">
-                            GHS {(unitCost * (isDispensed ? dispensedQty : needed)).toFixed(2)}
+                            {isDispensed ? `GHS ${(unitCost * dispensedQty).toFixed(2)}` : '—'}
                           </p>
                         </Col>
 
