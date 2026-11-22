@@ -41,7 +41,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     // Older clinical stock movements store the attendance's internal ID in
     // reference as "Encounter <id>". Resolve it to the user-facing attendance number.
     const attendanceIds: string[] = Array.from(new Set<string>(result.data.flatMap((tx: any): string[] => {
-      const match = String(tx.reference || '').match(/^Encounter\\s+(.+)$/i);
+      const match = String(tx.reference || '').match(/^Encounter\s+(.+)$/i);
       const id = match?.[1]?.trim();
       return id ? [id] : [];
     })));
