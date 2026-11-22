@@ -408,6 +408,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         'allergyReviewNotes',
         'providerId',
         'followUpDate',
+        'referringFacility',
         'dateTime',
         'attendanceType',
         'paymentMode',
