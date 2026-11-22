@@ -308,3 +308,55 @@ export const ClinicalAssessmentSummary: React.FC<{
     </div>
   );
 };
+
+
+/**
+ * Inline clinical assessment editor used in the Medical Entries workspace.
+ * Changes update the page state immediately and are persisted by the existing
+ * Save Clinical action, preserving the encounter data contract.
+ */
+export const ClinicalAssessmentEditor: React.FC<{
+  value: ClinicalAssessmentValue;
+  onChange: (next: ClinicalAssessmentValue) => void;
+  readOnly?: boolean;
+}> = ({ value, onChange, readOnly = false }) => {
+  const update = (patch: Partial<ClinicalAssessmentValue>) => onChange({ ...value, ...patch });
+  return (
+    <div className="space-y-4">
+      <div>
+        <SectionLabel icon={<FileText className="w-3 h-3" />}>Presenting complaints</SectionLabel>
+        <ComplaintInput value={value.complaints}
+          onChange={(complaints) => update({ complaints })}
+          placeholder="Search and select presenting complaints, or type your own…"
+          disabled={readOnly} />
+      </div>
+      <div>
+        <SectionLabel icon={<History className="w-3 h-3" />}>History of presenting complaint</SectionLabel>
+        <textarea value={value.history} rows={3} disabled={readOnly}
+          placeholder="Describe the history of the presenting complaint…"
+          onChange={(e) => update({ history: e.target.value })} className={inputCls} />
+      </div>
+      <div>
+        <SectionLabel icon={<Clock className="w-3 h-3" />}>ODQ — click suggestions or enter details</SectionLabel>
+        <ODQInput value={value.odq} onChange={(odq) => update({ odq })} disabled={readOnly} />
+      </div>
+      <div>
+        <SectionLabel icon={<ScanLine className="w-3 h-3" />}>Physical examination</SectionLabel>
+        <textarea value={value.examination} rows={3} disabled={readOnly}
+          placeholder="Record general and focused examination findings…"
+          onChange={(e) => update({ examination: e.target.value })} className={inputCls} />
+      </div>
+      <SystemGrid title="Review of systems" icon={<ClipboardList className="w-3 h-3" />}
+        systems={REVIEW_SYSTEMS} values={value.reviewOfSystems}
+        placeholder="Symptoms, relevant negatives or findings" disabled={readOnly}
+        onChange={(reviewOfSystems) => update({ reviewOfSystems })} />
+      <SystemGrid title="Structured physical examination" icon={<Stethoscope className="w-3 h-3" />}
+        systems={EXAMINATION_SYSTEMS} values={value.physicalExamStructured}
+        placeholder="Record findings for this system" disabled={readOnly}
+        onChange={(physicalExamStructured) => update({ physicalExamStructured })} />
+      <p className="text-[10px] text-[var(--text-tertiary)]">
+        {readOnly ? 'This signed clinical record is read-only.' : 'Your entries are held in this consultation until you select Save Clinical.'}
+      </p>
+    </div>
+  );
+};
