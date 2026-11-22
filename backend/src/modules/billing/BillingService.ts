@@ -1,4 +1,5 @@
 import { PrismaClient, BillStatus } from '@prisma/client';
+import { ValidationError } from '../../utils/errors';
 import { BaseService } from '../../shared/base/BaseService';
 import { BillingRepository } from './BillingRepository';
 import { CreateBillDTO, AddPaymentDTO, UpdateBillStatusDTO, BillFilters, RefundPaymentDTO } from './BillingTypes';
@@ -267,7 +268,7 @@ export class BillingService extends BaseService {
     this.logInfo('Creating new bill', { patientId: data.patientId, paymentMode: data.paymentMode });
 
     if (data.paymentMode === 'private_insurance' || data.paymentMode === 'corporate') {
-      throw new Error('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+      throw new ValidationError('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
     }
 
     const attendance = await this.prisma.attendance.findUnique({
@@ -276,10 +277,10 @@ export class BillingService extends BaseService {
     });
     if (!attendance) throw new Error(`Attendance not found: ${data.attendanceId}`);
     if (attendance.paymentMode === 'private_insurance' || attendance.paymentMode === 'corporate') {
-      throw new Error('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+      throw new ValidationError('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
     }
     if (attendance.paymentMode !== data.paymentMode) {
-      throw new Error('The selected payment mode does not match the attendance payment mode.');
+      throw new ValidationError('The selected payment mode does not match the attendance payment mode.');
     }
     if (attendance.patientId !== data.patientId) {
       throw new Error('The selected attendance does not belong to this patient.');
