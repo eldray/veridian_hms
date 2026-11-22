@@ -89,7 +89,7 @@ export default function NewAttendanceModal({
         if (patientData.paymentMode) {
           setPaymentMode(patientData.paymentMode as PaymentMode);
         }
-        setNhisCCC(patientData.nhisNumber || patientData.insuranceDetails?.memberId || patientData.insuranceDetails?.insuranceNumber || '');
+        setNhisCCC('');
         setResolvedCorporateAccountId(corporateAccountId || patientData.corporateAccountId || patientData.employer?.corporateAccountId || patientData.insuranceProviderId || '');
       }
     }
@@ -100,7 +100,7 @@ export default function NewAttendanceModal({
     if (isEditMode && attendanceData) {
       setAttendanceType(attendanceData.attendanceType || 'emergency_acute');
       setPaymentMode(attendanceData.paymentMode || 'cash');
-      setNhisCCC(attendanceData.nhisCCC || attendanceData.patient?.nhisNumber || attendanceData.patient?.insuranceDetails?.memberId || '');
+      setNhisCCC(attendanceData.nhisCCC || '');
       setResolvedCorporateAccountId(corporateAccountId || attendanceData.corporateAccountId || attendanceData.patient?.corporateAccountId || attendanceData.patient?.employer?.corporateAccountId || '');
       setComplaints(attendanceData.complaints || '');
       setStatus(attendanceData.status || 'pending');
@@ -117,7 +117,7 @@ export default function NewAttendanceModal({
   useEffect(() => {
     const source = resolvedPatient || {};
     if (paymentMode === 'nhis') {
-      setNhisCCC(source.nhisNumber || source.insuranceDetails?.memberId || source.insuranceDetails?.insuranceNumber || attendanceData?.nhisCCC || '');
+      setNhisCCC(attendanceData?.nhisCCC || '');
     } else if (paymentMode === 'corporate') {
       setResolvedCorporateAccountId(corporateAccountId || source.corporateAccountId || source.employer?.corporateAccountId || source.insuranceProviderId || '');
     }
@@ -155,8 +155,10 @@ export default function NewAttendanceModal({
 
       if (!providerId) {
         errors.push('Patient must have an insurance provider selected for private insurance');
-      } else if (insuranceProviders && insuranceProviders.length > 0) {
-        // Only validate against the list if it has actually loaded
+      } else if (!insuranceProviders || insuranceProviders.length === 0) {
+        errors.push('Insurance provider status has not been verified');
+      } else {
+        // Verify selected provider against loaded active provider records
         const insuranceProvider = insuranceProviders.find(p => p.id === providerId);
         if (!insuranceProvider) {
           errors.push('Selected insurance provider not found');
@@ -168,14 +170,14 @@ export default function NewAttendanceModal({
       const insuranceDetails = src?.insuranceDetails;
       if (insuranceDetails?.isActive !== true) errors.push(insuranceDetails?.isActive === false ? 'Patient insurance policy is inactive' : 'Insurance policy status is not verified as active');
       if (insuranceDetails?.endDate && new Date(insuranceDetails.endDate).getTime() < Date.now()) errors.push('Patient insurance policy has expired');
-      // If insuranceProviders list is empty/still loading, skip lookup — the ID is enough
+      // Require the loaded provider record and the patient's policy to be active
     }
 
     if (paymentMode === 'corporate') {
       if (!corporateAccountId) errors.push('Corporate account is required for corporate patients');
       const account = corporateAccounts.find((a: any) => a.id === corporateAccountId);
       if (corporateAccountId && account && account.isActive !== true) errors.push('Corporate account is inactive');
-      if (corporateAccountId && !account && corporateAccounts.length > 0) errors.push('Corporate account could not be verified');
+      if (corporateAccountId && !account) errors.push('Corporate account could not be verified or is still loading');
     }
 
     // Routine vaccination check-ins do not require an illness complaint.
@@ -317,7 +319,7 @@ export default function NewAttendanceModal({
           ? {
               id: resolvedProviderId,
               name: resolvedPatient?.insuranceDetails?.providerName || 'Insurance Provider',
-              isActive: true,
+              isActive: false,
               coveragePercentage: '—'
             }
           : null)
@@ -542,6 +544,11 @@ export default function NewAttendanceModal({
                   <Shield className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
                   NHIS Information
                 </h3>
+                <div className="mb-2 text-xs text-[var(--text-secondary)] flex flex-wrap gap-x-3 gap-y-1">
+                  <span>Member No: <strong>{resolvedNhisNumber || 'Not recorded'}</strong></span>
+                  <span>Status: <strong>{resolvedNhisActive === true ? 'Active' : resolvedNhisActive === false ? 'Inactive' : 'Not verified'}</strong></span>
+                  <span>Expiry: <strong>{resolvedNhisExpiry ? new Date(resolvedNhisExpiry).toLocaleDateString() : 'Not recorded'}</strong></span>
+                </div>
                 <div>
                   <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
                     NHIS CCC Code *
