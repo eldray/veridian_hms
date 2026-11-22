@@ -8,7 +8,7 @@ import { forgotPassword, completePasswordReset } from '../api/auth';
 import VeridianLogo from '../components/VeridianLogo';
 import {
   Lock, User, Eye, EyeOff,
-  Users, Stethoscope, Shield, Activity, Pill, Receipt, LogIn, CheckCircle,
+  Users, Stethoscope, Shield, Activity, Pill, LogIn, CheckCircle,
   FlaskConical, ScanLine, BriefcaseBusiness, Calculator,
   HeartPulse, Archive, ArrowLeft, KeyRound, ShieldCheck, Info,
 } from 'lucide-react';
