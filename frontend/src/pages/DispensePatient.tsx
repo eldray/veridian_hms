@@ -92,7 +92,7 @@ const DispenseModal: React.FC<{
   onConfirm: (qty: number) => void; onClose: () => void; isProcessing: boolean;
 }> = ({ medication, stockItem, onConfirm, onClose, isProcessing }) => {
   const [quantity, setQuantity] = useState(toNum(medication.quantity, 1));
-  const max = toNum(stockItem?.currentStock, toNum(medication.quantity, 1));
+  const max = Math.max(0, toNum(stockItem?.currentStock, 0));
   const unitCost = toNum(medication.unitCost, toNum(stockItem?.costPrice, 0));
 
   return (
@@ -768,6 +768,7 @@ export default function DispensePatient() {
                   const stock = getStockFor(med);
                   const avail = toNum(stock?.currentStock);
                   const needed = toNum(med.quantity, 1);
+                  const dispensedQty = toNum(med.dispensedQuantity, 0);
                   const hasStock = avail >= needed;
                   const lowStock = avail > 0 && avail < needed;
                   const noStock = avail === 0;
@@ -775,7 +776,7 @@ export default function DispensePatient() {
                     med.dispensedUnitCost,
                     toNum(med.unitCost, toNum(stock?.costPrice, 0))
                   );
-                  const isDispensed = med.status === 'dispensed';
+                  const isDispensed = med.status === 'dispensed' || med.status === 'administered';
                   const unit = stock?.unitOfMeasure || 'units';
 
                   const prescriberName =
@@ -813,8 +814,8 @@ export default function DispensePatient() {
                         </Col>
 
                         {/* 3. Qty */}
-                        <Col label="Qty">
-                          <p className="text-sm font-bold text-[var(--text-primary)]">{needed}</p>
+                        <Col label={isDispensed ? 'Dispensed Qty' : 'Prescribed Qty'}>
+                          <p className="text-sm font-bold text-[var(--text-primary)]">{isDispensed ? dispensedQty : needed}</p>
                         </Col>
 
                         {/* 4. Stock */}
@@ -836,9 +837,9 @@ export default function DispensePatient() {
                         </Col>
 
                         {/* 6. Total */}
-                        <Col label="Total">
+                        <Col label={isDispensed ? 'Dispensed Total' : 'Estimated Cost'}>
                           <p className="text-xs font-bold text-[var(--icon-green-text)]">
-                            GHS {(unitCost * needed).toFixed(2)}
+                            GHS {(unitCost * (isDispensed ? dispensedQty : needed)).toFixed(2)}
                           </p>
                         </Col>
 
@@ -933,8 +934,8 @@ export default function DispensePatient() {
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          <Col label="Qty">
-                            <p className="text-sm font-bold text-[var(--text-primary)]">{needed}</p>
+                          <Col label={isDispensed ? 'Dispensed Qty' : 'Prescribed Qty'}>
+                            <p className="text-sm font-bold text-[var(--text-primary)]">{isDispensed ? dispensedQty : needed}</p>
                           </Col>
                           <Col label="In Stock">
                             <p className={`text-sm font-bold ${
@@ -948,9 +949,9 @@ export default function DispensePatient() {
                               GHS {unitCost.toFixed(2)}
                             </p>
                           </Col>
-                          <Col label="Total">
+                          <Col label={isDispensed ? 'Dispensed Total' : 'Estimated Cost'}>
                             <p className="text-xs font-bold text-[var(--icon-green-text)]">
-                              GHS {(unitCost * needed).toFixed(2)}
+                              GHS {(unitCost * (isDispensed ? dispensedQty : needed)).toFixed(2)}
                             </p>
                           </Col>
                           <Col label="Prescribed By">
@@ -1102,7 +1103,9 @@ export default function DispensePatient() {
               <>
                 <div className="divide-y divide-[var(--border-color)]">
                   {dispensedHistory.map((med: any) => {
-                    const qty = toNum(med.quantity, 1);
+                    const qty = toNum(med.dispensedQuantity, toNum(med.quantity, 1));
+                    const prescribedQty = toNum(med.quantity, qty);
+                    const remainingQty = Math.max(0, prescribedQty - qty);
                     const unitCost = toNum(med.dispensedUnitCost);
                     const total = unitCost * qty;
                     const dispenserName =
@@ -1145,8 +1148,9 @@ export default function DispensePatient() {
                           </Col>
 
                           {/* 3. Qty */}
-                          <Col label="Qty">
-                            <p className="text-sm font-bold text-[var(--text-primary)]">{qty}</p>
+                          <Col label="Dispensed / Prescribed">
+                            <p className="text-sm font-bold text-[var(--text-primary)]">{qty} / {prescribedQty}</p>
+                            {remainingQty > 0 && <p className="text-[10px] text-[var(--icon-yellow-text)]">{remainingQty} remaining</p>}
                           </Col>
 
                           {/* 4. Unit Cost */}
@@ -1224,8 +1228,9 @@ export default function DispensePatient() {
                           </p>
 
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            <Col label="Qty">
-                              <p className="text-sm font-bold text-[var(--text-primary)]">{qty}</p>
+                            <Col label="Dispensed / Prescribed">
+                              <p className="text-sm font-bold text-[var(--text-primary)]">{qty} / {prescribedQty}</p>
+                              {remainingQty > 0 && <p className="text-[10px] text-[var(--icon-yellow-text)]">{remainingQty} remaining</p>}
                             </Col>
                             <Col label="Unit Cost">
                               <p className="text-xs font-semibold text-[var(--text-primary)]">

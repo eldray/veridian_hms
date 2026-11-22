@@ -195,6 +195,7 @@ export const seedMedications = async (
           dispensedCount++;
           // Exactly one allocation is what lets the dispensing screen name a single batch.
           const single = result.allocations.length === 1 ? result.allocations[0] : null;
+          row.dispensedQuantity = med.quantity;
           row.dispensedAt = med.dispensedAt ?? med.prescribedAt;
           row.dispensedById = lookups.actorId(dispenser);
           row.dispensedBatchNumber = single?.batchNumber;
