@@ -14,7 +14,7 @@ export const createBillRoutes = () => {
   const FINANCIAL_READERS = ['admin', 'accounts'];
 
   // GET /api/bills - List all bills with filtering and pagination
-  router.get('/', requireRole(FINANCIAL_READERS), billController.getBills);
+  router.get('/', billController.getBills);
 
   // GET /api/bills/statistics - Get bill statistics
   router.get('/statistics', requireRole(FINANCIAL_READERS), billController.getBillStatistics);
