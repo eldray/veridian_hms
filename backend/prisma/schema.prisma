@@ -775,7 +775,8 @@ model Medication {
   dosage               String?
   frequency            String?
   duration             String?
-  quantity             Int              @default(1)
+  quantity             Int              @default(1) // Prescribed quantity; never overwritten by dispensing.
+  dispensedQuantity    Int?             // Actual quantity handed out; null until dispensing succeeds.
   route                String?
   instructions         String?
   status               MedicationStatus @default(prescribed)
