@@ -91,7 +91,7 @@ const DispenseModal: React.FC<{
   medication: any; stockItem: any;
   onConfirm: (qty: number) => void; onClose: () => void; isProcessing: boolean;
 }> = ({ medication, stockItem, onConfirm, onClose, isProcessing }) => {
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<number | ''>('');
   const max = Math.max(0, toNum(stockItem?.dispenseAvailable, 0));
   const unitCost = toNum(medication.unitCost, toNum(stockItem?.costPrice, 0));
 
@@ -119,14 +119,19 @@ const DispenseModal: React.FC<{
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Quantity</p>
             <div className="flex items-center gap-3">
-              <button onClick={() => setQuantity(q => Math.max(1, q - 1))}
+              <button onClick={() => setQuantity(q => Math.max(1, (Number(q) || 1) - 1))}
                 className="w-8 h-8 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-sm font-bold">
                 −
               </button>
               <input type="number" value={quantity} min={1} max={max}
-                onChange={e => setQuantity(Math.min(Math.max(1, parseInt(e.target.value) || 1), max))}
+                onChange={e => {
+                  const raw = e.target.value;
+                  if (!raw) { setQuantity(''); return; }
+                  const parsed = Number.parseInt(raw, 10);
+                  if (Number.isFinite(parsed)) setQuantity(Math.min(Math.max(1, parsed), max));
+                }}
                 className={cn(INPUT, 'w-20 text-center font-bold')} />
-              <button onClick={() => setQuantity(q => Math.min(max, q + 1))}
+              <button onClick={() => setQuantity(q => Math.min(max, (Number(q) || 0) + 1))}
                 className="w-8 h-8 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-sm font-bold">
                 +
               </button>
@@ -141,7 +146,7 @@ const DispenseModal: React.FC<{
             </div>
             <div className="px-3 py-2 rounded-lg bg-[var(--icon-green-bg)] border border-[var(--border-color)]">
               <p className="text-[10px] text-[var(--icon-green-text)]">Total</p>
-              <p className="text-sm font-bold text-[var(--icon-green-text)]">GHS {(unitCost * quantity).toFixed(2)}</p>
+              <p className="text-sm font-bold text-[var(--icon-green-text)]">GHS {(unitCost * (Number(quantity) || 0)).toFixed(2)}</p>
             </div>
           </div>
 
@@ -157,8 +162,8 @@ const DispenseModal: React.FC<{
             </Button>
             <Button
               variant="soft" accent="green" className="flex-1"
-              icon={CheckCircle} loading={isProcessing} disabled={max < 1 || quantity < 1 || quantity > max}
-              onClick={() => onConfirm(quantity)}
+              icon={CheckCircle} loading={isProcessing} disabled={max < 1 || quantity === '' || quantity < 1 || quantity > max}
+              onClick={() => onConfirm(Number(quantity))}
             >
               Dispense
             </Button>
