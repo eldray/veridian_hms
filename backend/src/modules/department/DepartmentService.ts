@@ -189,8 +189,8 @@ export class DepartmentService {
       throw new Error('User not found');
     }
 
-    // Check if already assigned to this department
-    if (user.departmentId === departmentId) {
+    // A user may belong to several departments; prevent duplicate membership.
+    if (await this.repository.checkUserInDepartment(departmentId, userId)) {
       throw new Error('User is already assigned to this department');
     }
 
