@@ -28,7 +28,6 @@ import {
   PageHeader,
   Pagination,
   SearchInput,
-  StatCard,
   statusTone,
   TD,
   TD_MONO,
@@ -208,11 +207,21 @@ export default function ScansWaitingList() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Patients" value={stats.patients} icon={Users} accent="indigo" />
-        <StatCard label="Open Scans" value={stats.openScans} icon={Scan} accent="purple" />
-        <StatCard label="Completed Scans" value={stats.completedScans} icon={CheckCircle} accent="green" />
-        <StatCard label="Urgent / STAT" value={stats.urgent} icon={AlertTriangle} accent="red" />
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: 'Patients', value: stats.patients, Icon: Users, color: 'text-[var(--icon-cyan-text)]' },
+          { label: 'Open Scans', value: stats.openScans, Icon: Scan, color: 'text-[var(--icon-purple-text)]' },
+          { label: 'Completed', value: stats.completedScans, Icon: CheckCircle, color: 'text-[var(--icon-green-text)]' },
+          { label: 'Urgent / STAT', value: stats.urgent, Icon: AlertTriangle, color: 'text-[var(--icon-red-text)]' },
+        ].map(({ label, value, Icon, color }) => (
+          <div key={label} className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2 sm:px-3">
+            <Icon className={`h-4 w-4 shrink-0 ${color}`} />
+            <span className="min-w-0">
+              <span className="block text-lg font-bold leading-none tabular-nums text-[var(--text-primary)]">{value}</span>
+              <span className="mt-1 block truncate text-[10px] leading-tight text-[var(--text-secondary)] sm:text-[11px]">{label}</span>
+            </span>
+          </div>
+        ))}
       </div>
 
       <Card>

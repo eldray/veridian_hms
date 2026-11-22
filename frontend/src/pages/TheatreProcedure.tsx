@@ -808,7 +808,7 @@ export default function TheatreProcedure() {
           </div>
 
           {/* ── STATS STRIP ───────────────────────────────────── */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {[
               { count: scheduledProcedures.length, label: 'Scheduled', Icon: Clock, bg: 'bg-blue-100', color: 'text-blue-600' },
               { count: inProgressProcedures.length, label: 'In Progress', Icon: Activity, bg: 'bg-yellow-100', color: 'text-yellow-600' },
@@ -816,12 +816,14 @@ export default function TheatreProcedure() {
             ].map(s => {
               const Icon = s.Icon;
               return (
-                <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-                  <div className={`w-9 h-9 ${s.bg} rounded-lg flex items-center justify-center mb-1.5`}>
-                    <Icon className={`w-4 h-4 ${s.color}`} />
-                  </div>
-                  <p className={`text-2xl font-bold ${s.color} leading-tight`}>{s.count}</p>
-                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{s.label}</p>
+                <div key={s.label} className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2 sm:px-3">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${s.bg}`}>
+                    <Icon className={`h-3.5 w-3.5 ${s.color}`} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className={`block text-lg font-bold leading-none tabular-nums ${s.color}`}>{s.count}</span>
+                    <span className="mt-1 block truncate text-[10px] leading-tight text-[var(--text-secondary)] sm:text-[11px]">{s.label}</span>
+                  </span>
                 </div>
               );
             })}
