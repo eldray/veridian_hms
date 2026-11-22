@@ -12,18 +12,19 @@ import { useToast } from '../store/toastStore';
 import { useLiveRefresh } from '../api/realtime';
 import { canAccessPage, isAdminLike } from '../config/access';
 import { confirmDialog } from '../context/ConfirmDialog';
-import { describeApiError, describeApiErrorTitle, describeBlobError } from '../utils/apiError';
+import { describeApiError, describeApiErrorTitle } from '../utils/apiError';
 import { getScanDisplayName } from '../utils/scan';
 import {
   addCounterLabOrder, addCounterSaleItem, addCounterScanOrder, closeCounterTicket, dispenseCounterItem,
-  downloadDocument, generateBillStatement, generateLabResult, generatePrescription, generateReceipt,
-  getCounterBill, getCounterStockAvailability, getCounterTicket, linkCounterClient, raiseCounterBill,
+  getBillingInvoice, getCounterBill, getCounterStockAvailability, getCounterTicket, linkCounterClient, raiseCounterBill,
   removeCounterLabOrder, removeCounterSaleItem, removeCounterScanOrder, searchCounterPatients, getServiceCatalog,
 } from '../api';
 import {
   AlertCircle, AlertTriangle, ArrowLeft, CheckCircle2, ClipboardList, DollarSign, FlaskConical,
   Plus, Printer, RefreshCw, Scan, Trash2, User,
 } from 'lucide-react';
+import { generatePDF } from '../utils/pdfGenerator';
+import { useSettingsStore } from '../store/settingsStore';
 import { Badge, Button, cn, INPUT, PageHeader, PatientVisitHeader, SELECT, TD, TH, TH_ROW, TR } from '../components/ui';
 import {
   CANCELLABLE_ORDER_STATUSES, CLOSED_STATUSES, dateTime, identityOf, label, LIST_KEYS, money, openedByLabel,
@@ -58,6 +59,7 @@ export default function CounterTicket() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, hasRole } = useAuthStore();
+  const { hospital, getHospital } = useSettingsStore();
   const { success, error: toastError } = useToast();
 
   const [ticket, setTicket] = useState<any | null>(null);
@@ -99,6 +101,10 @@ export default function CounterTicket() {
   // refuses the dispense when the account has no department. So the control is not shown
   // at all — a button that can only ever fail is worse than no button.
   const hasStore = !!user?.departmentId;
+
+  useEffect(() => {
+    if (!hospital) void getHospital().catch(() => undefined);
+  }, [hospital, getHospital]);
 
   const detailRequest = useRef(0);
 
@@ -238,7 +244,8 @@ export default function CounterTicket() {
   const labs = useMemo(() => pickList(ticket, LIST_KEYS.labs), [ticket]);
   const scans = useMemo(() => pickList(ticket, LIST_KEYS.scans), [ticket]);
   const identity = identityOf(ticket);
-  const hasResults = labs.some((o: any) => o.status === 'completed') || scans.some((s: any) => s.status === 'completed');
+  const hasLabResults = labs.some((o: any) => String(o.status || '').toLowerCase() === 'completed');
+  const hasScanResults = scans.some((s: any) => String(s.status || '').toLowerCase() === 'completed');
   const hasDispensed = medications.some((m: any) => m.status === 'dispensed' || m.status === 'administered');
   const balance = Number(bill?.balance ?? 0);
 
@@ -257,29 +264,37 @@ export default function CounterTicket() {
       .then((done) => { if (done) { setDrugSearch(''); setDrugResults([]); setDrugQty('1'); } });
   };
 
-  const print = async (busyLabel: string, failureTitle: string, generate: () => Promise<any>, fileName: string) => {
+  // Use the existing hospital print templates directly. Open the preview synchronously
+  // from the click so the browser does not block it after an awaited invoice request.
+  const print = async (busyLabel: string, failureTitle: string, render: () => string | Promise<string>, fileName: string) => {
+    const narrow = /receipt|dispensing/i.test(fileName);
+    const printWindow = window.open('', '_blank', narrow ? 'width=440,height=760' : 'width=980,height=900');
+    if (!printWindow) {
+      toastError('Print preview blocked', 'Allow pop-ups for Veridian HMS to preview and print documents.');
+      return;
+    }
     setWorking(busyLabel);
     try {
-      const result: any = await generate();
-      const documentId = result?.data?.documentId ?? result?.documentId;
-      if (!documentId) throw new Error('The document was prepared without a file reference.');
-      const blob = await downloadDocument(documentId);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${fileName}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      success('Document ready', 'Saved as a PDF — print it from the file.');
+      const html = await render();
+      printWindow.document.write(html);
+      printWindow.document.title = fileName;
+      printWindow.document.close();
+      printWindow.focus();
+      success('Print preview ready', 'Use the document Print button to print or save as PDF.');
     } catch (err: any) {
-      // Downloads are blob responses, so the server's reason has to be read back out of the blob.
-      toastError(failureTitle, await describeBlobError(err, 'The document could not be prepared.'));
+      printWindow.close();
+      toastError(failureTitle, describeApiError(err, 'The print template could not be prepared.'));
     } finally {
       setWorking(null);
     }
   };
+
+  const printPatient = identity.patient || {
+    name: identity.label,
+    age: identity.client?.ageYears,
+    contact: identity.client?.phone || identity.phone,
+  };
+  const hospitalInfo = hospital || { name: ticket?.hospitalName || 'Health Facility' };
 
   return (
     <div className="space-y-6 p-6">
@@ -482,10 +497,16 @@ export default function CounterTicket() {
                     <Button
                       variant="secondary"
                       icon={Printer}
-                      onClick={() => print('Print labels', 'Labels not printed', () => generatePrescription(ticket.id), `counter_${ticket.attendanceNumber}_labels`)}
+                      onClick={() => print('Print dispensing slip', 'Dispensing slip not printed', () => generatePDF('thermalPrescription', {
+                        medications,
+                        patient: printPatient,
+                        attendance: ticket,
+                        prescriberName: '',
+                        paperWidth: 80,
+                      }, hospitalInfo), `counter_${ticket.attendanceNumber}_dispensing_slip`)}
                       disabled={!!working}
                     >
-                      Print dispensed labels
+                      Print dispensing slip
                     </Button>
                   ) : null}
                 </div>
@@ -657,15 +678,34 @@ export default function CounterTicket() {
               <div className={shell}>
                 <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)] rounded-t-xl flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-[var(--text-primary)]">Orders on this ticket ({labs.length + scans.length})</h3>
-                  {canPrintResults ? (
+                  {canPrintResults && labs.length > 0 ? (
                     <Button
                       variant="secondary"
                       icon={Printer}
-                      disabled={!!working || !hasResults}
-                      title={hasResults ? 'Prints the lab and scan sheet for this ticket' : 'Nothing has been reported yet'}
-                      onClick={() => print('Print results', 'Results not printed', () => generateLabResult(ticket.id), `counter_${ticket.attendanceNumber}_results`)}
+                      disabled={!!working || !hasLabResults}
+                      title={hasLabResults ? 'Print completed laboratory results using the standard lab report' : 'No laboratory results have been completed yet'}
+                      onClick={() => print('Print lab results', 'Lab report not printed', () => generatePDF('labResults', {
+                        labTests: labs,
+                        patient: printPatient,
+                        attendance: ticket,
+                      }, hospitalInfo), `counter_${ticket.attendanceNumber}_lab_results`)}
                     >
-                      Print result sheet
+                      Print lab results
+                    </Button>
+                  ) : null}
+                  {canPrintResults && scans.length > 0 ? (
+                    <Button
+                      variant="secondary"
+                      icon={Printer}
+                      disabled={!!working || !hasScanResults}
+                      title={hasScanResults ? 'Print completed imaging reports using the standard scan report' : 'No scan report has been completed yet'}
+                      onClick={() => print('Print scan report', 'Scan report not printed', () => generatePDF('scanReport', {
+                        scans,
+                        patient: printPatient,
+                        attendance: ticket,
+                      }, hospitalInfo), `counter_${ticket.attendanceNumber}_scan_report`)}
+                    >
+                      Print scan report
                     </Button>
                   ) : null}
                 </div>
@@ -799,7 +839,24 @@ export default function CounterTicket() {
                             variant="secondary"
                             icon={Printer}
                             disabled={!!working}
-                            onClick={() => print('Print statement', 'Statement not printed', () => generateBillStatement(bill.id), `counter_${bill.billNumber}_statement`)}
+                            onClick={() => print('Print statement', 'Statement not printed', async () => {
+                              const fullBill: any = await getBillingInvoice(bill.id);
+                              if (!fullBill) throw new Error('Bill details could not be loaded.');
+                              const payments = (fullBill.Payment || fullBill.Payments || fullBill.payments || fullBill.paymentHistory || []).filter((payment: any) => !payment?.isVoided);
+                              const refunds = (fullBill.Refund || fullBill.refunds || []).map((refund: any) => ({
+                                transactionDate: refund.refundedAt,
+                                reference: refund.refundNumber,
+                                paymentMethod: refund.refundMethod,
+                                receivedBy: refund.processedBy,
+                                amount: -Math.abs(Number(refund.amount) || 0),
+                                notes: refund.reason,
+                              }));
+                              const billForPrint = { ...fullBill, payments: [...payments, ...refunds] };
+                              return generatePDF('billStatement', {
+                                bill: billForPrint,
+                                patient: fullBill.Patient || fullBill.patient || printPatient,
+                              }, hospitalInfo);
+                            }, `counter_${bill.billNumber}_statement`)}
                           >
                             Print statement
                           </Button>
@@ -807,7 +864,21 @@ export default function CounterTicket() {
                             variant="secondary"
                             icon={Printer}
                             disabled={!!working}
-                            onClick={() => print('Print receipt', 'Receipt not printed', () => generateReceipt(bill.id), `counter_${bill.billNumber}_receipt`)}
+                            onClick={() => print('Print receipt', 'Receipt not printed', async () => {
+                              const fullBill: any = await getBillingInvoice(bill.id);
+                              if (!fullBill) throw new Error('Bill details could not be loaded.');
+                              const payments = (fullBill.Payment || fullBill.Payments || fullBill.payments || fullBill.paymentHistory || [])
+                                .filter((payment: any) => !payment?.isVoided)
+                                .sort((a: any, b: any) => new Date(a.paymentDate || a.transactionDate || a.createdAt || 0).getTime() - new Date(b.paymentDate || b.transactionDate || b.createdAt || 0).getTime());
+                              const lastPayment = payments[payments.length - 1];
+                              if (!lastPayment) throw new Error('No recorded payment is available for a receipt. Take payment at Accounts first.');
+                              return generatePDF('thermalReceipt', {
+                                bill: fullBill,
+                                patient: fullBill.Patient || fullBill.patient || printPatient,
+                                payment: lastPayment,
+                                paperWidth: 80,
+                              }, hospitalInfo);
+                            }, `counter_${bill.billNumber}_receipt`)}
                           >
                             Print receipt
                           </Button>
