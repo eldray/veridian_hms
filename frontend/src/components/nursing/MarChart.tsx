@@ -103,8 +103,8 @@ const DoseCell: React.FC<{
   // Empty slot (no dose scheduled at this time for this drug today)
   if (!dose) {
     return (
-      <td className="p-1 align-top">
-        <div className="h-full min-h-[64px] rounded-md border border-dashed border-[var(--border-color)] bg-transparent" />
+      <td className="p-2 align-top">
+        <div className="h-full min-h-[88px] rounded-md border border-dashed border-[var(--border-color)] bg-transparent" />
       </td>
     );
   }
@@ -129,7 +129,7 @@ const DoseCell: React.FC<{
         {/* Status icon + label */}
         <div className="flex items-center justify-between gap-1 px-1.5 pt-1">
           <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${cfg.text}`} />
-          <span className={`text-[9px] font-bold uppercase tracking-wide ${cfg.text} truncate`}>
+          <span className={`text-[10px] font-bold uppercase tracking-wide ${cfg.text} truncate`}>
             {cfg.label}
           </span>
         </div>
@@ -138,10 +138,10 @@ const DoseCell: React.FC<{
         <div className="px-1.5 pt-0.5 pb-1 flex-1 flex flex-col">
           {dose.status === 'administered' && (
             <>
-              <span className={`text-[10px] font-bold font-mono ${cfg.text} leading-tight`}>
+              <span className={`text-xs font-bold font-mono ${cfg.text} leading-tight`}>
                 {fmtTime(dose.administeredAt)}
               </span>
-              <span className="text-[9px] text-[var(--text-tertiary)] truncate leading-tight">
+              <span className="text-[10px] text-[var(--text-secondary)] truncate leading-tight">
                 {initialsOf(dose.administeredBy?.fullName)}
               </span>
             </>
@@ -438,7 +438,7 @@ const DayCard: React.FC<{
       {/* Grid body */}
       {open && (
         <div ref={scrollRef} className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                 {/* Sticky corner */}
@@ -517,24 +517,17 @@ export const MarChart: React.FC<MarChartProps> = ({
   const totalDue = doses.filter(d => d.status === 'due' || d.status === 'late').length;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Summary bar */}
-      <div className="flex items-center gap-3 flex-wrap px-3 py-2 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
-        <span className="text-[11px] font-semibold text-[var(--text-secondary)]">
-          MAR Summary
-        </span>
-        <div className="flex items-center gap-3 ml-auto flex-wrap">
-          <span className="text-[11px] text-[var(--text-tertiary)]">
-            <span className="font-bold text-[var(--icon-green-text)] tabular-nums">{totalGiven}</span>
-            <span className="mx-0.5">/</span>
-            <span className="tabular-nums">{totalDoses}</span> given
-          </span>
-          {totalDue > 0 && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]">
-              <AlertTriangle className="w-2.5 h-2.5" />
-              {totalDue} need{totalDue === 1 ? 's' : ''} attention
-            </span>
-          )}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">MAR overview</p><p className="mt-1 text-sm font-bold text-[var(--text-primary)]">Medication doses</p></div>
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Administered</p>
+          <p className="mt-1 text-xl font-bold text-[var(--icon-green-text)] tabular-nums">{totalGiven}<span className="ml-1 text-xs font-medium text-[var(--text-tertiary)]">/ {totalDoses}</span></p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Needs attention</p>
+          <p className="mt-1 flex items-center gap-2 text-xl font-bold text-[var(--icon-yellow-text)]"><AlertTriangle className="h-4 w-4" />{totalDue}</p>
         </div>
       </div>
 
