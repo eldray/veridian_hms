@@ -79,7 +79,7 @@ describe('encounter completion lifecycle', () => {
       id: 'encounter-1',
       status: 'pending',
       encounterCategory: 'opd',
-      attendanceType: 'general',
+      attendanceType: 'general_consultation',
       finalizedAt: new Date(),
       Admission: null,
     }, 0);
