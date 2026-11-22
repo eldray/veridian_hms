@@ -211,6 +211,8 @@ export default function Referrals() {
   const [partI, setPartI] = useState<ReferralPartI>(() => emptyPartI());
   const [partII, setPartII] = useState<ReferralPartII>(() => emptyPartII());
   const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [referralWizardStep, setReferralWizardStep] = useState(0);
+  const [referralSectionPage, setReferralSectionPage] = useState(0);
   const [detailReferral, setDetailReferral] = useState<Referral | null>(null);
   const [acceptTarget, setAcceptTarget] = useState<Referral | null>(null);
   const [acceptPartII, setAcceptPartII] = useState<Record<string, string>>(() => emptyPartII());
@@ -289,6 +291,8 @@ export default function Referrals() {
       receiverTitle: user?.role || '',
     }));
     setFormErrors([]);
+    setReferralWizardStep(0);
+    setReferralSectionPage(0);
     setShowModal(true);
   }, [searchParams, user, hospital]);
 
@@ -385,6 +389,8 @@ export default function Referrals() {
   const resetForm = () => {
     lastAutoPatientId.current = '';
     lastAutoAttendanceId.current = '';
+    setReferralWizardStep(0);
+    setReferralSectionPage(0);
     setSelectedPatientId('');
     setSelectedPatientRecord(null);
     setSelectedAttendanceId('');
@@ -787,7 +793,7 @@ export default function Referrals() {
                   </div>
                   <button onClick={() => { setShowModal(false); resetForm(); }} className="p-1.5 hover:bg-[var(--bg-card)] rounded-lg transition-colors flex-shrink-0 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" aria-label="Close"><X className="w-5 h-5" /></button>
                 </div>
-                <Segmented aria-label="Referral type" accent="cyan" value={referralType} onChange={(v) => setReferralType(v as 'outgoing' | 'incoming')}
+                <Segmented aria-label="Referral type" accent="cyan" value={referralType} onChange={(v) => { setReferralType(v as 'outgoing' | 'incoming'); setReferralSectionPage(0); }}
                   options={[{ value: 'outgoing', label: 'Outgoing', icon: ArrowUpRight }, { value: 'incoming', label: 'Incoming', icon: ArrowDownLeft }]} />
                 <div className="mt-3 flex items-center gap-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg px-3 py-2">
                   <Hash className="w-3.5 h-3.5 text-[var(--icon-cyan-text)] flex-shrink-0" />
@@ -800,6 +806,19 @@ export default function Referrals() {
               </div>
 
               <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5" style={{ scrollbarWidth: 'thin' }}>
+                <div className="sticky top-0 z-10 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-2 text-xs font-semibold">
+                    <span className={referralWizardStep === 0 ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-tertiary)]'}>1. Patient</span>
+                    <span className={referralWizardStep === 1 ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-tertiary)]'}>2. Destination</span>
+                    <span className={referralWizardStep === 2 ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-tertiary)]'}>3. Referral form</span>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-[var(--bg-main)] overflow-hidden">
+                    <div className="h-full rounded-full bg-[var(--icon-cyan-text)] transition-all" style={{ width: `${((referralWizardStep + 1) / 3) * 100}%` }} />
+                  </div>
+                  <p className="text-[10px] mt-1 text-[var(--text-secondary)]">Step {referralWizardStep + 1} of 3 — only the current page is shown</p>
+                </div>
+                {referralWizardStep === 0 && (
+                  <>
                 {/* 1 — Patient: pick once, everything below auto-fills */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
@@ -846,6 +865,11 @@ export default function Referrals() {
                   </div>
                 )}
 
+
+                  </>
+                )}
+                {referralWizardStep === 1 && (
+                  <>
                 {/* 2 — Transfer details */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
@@ -938,6 +962,11 @@ export default function Referrals() {
                   </div>
                 </div>
 
+
+                  </>
+                )}
+                {referralWizardStep === 2 && (
+                  <>
                 {/* 4 — The referral document: Part I when sending, Part II when receiving.
                        Identity fields inside it are already auto-filled above. */}
                 <div className="border-t border-[var(--border-color)] pt-4 space-y-3">
@@ -953,10 +982,10 @@ export default function Referrals() {
                     </span>
                   </div>
                   {referralType === 'outgoing' ? (
-                    <ReferralPartFields sections={PART_I_SECTIONS} values={partI as unknown as Record<string, string>}
+                    <ReferralPartFields sections={PART_I_SECTIONS.slice(referralSectionPage, referralSectionPage + 1)} values={partI as unknown as Record<string, string>}
                       onChange={(key, value) => setPartI(prev => ({ ...prev, [key]: value }))} tone="cyan" />
                   ) : (
-                    <ReferralPartFields sections={PART_II_SECTIONS} values={partII as unknown as Record<string, string>}
+                    <ReferralPartFields sections={PART_II_SECTIONS.slice(referralSectionPage, referralSectionPage + 1)} values={partII as unknown as Record<string, string>}
                       onChange={(key, value) => setPartII(prev => ({ ...prev, [key]: value }))} tone="green" />
                   )}
                   {formErrors.length > 0 && (
@@ -969,8 +998,7 @@ export default function Referrals() {
                   )}
                 </div>
 
-                {/* 5 — Additional Notes: LAST, so the form reads top-to-bottom
-                       (patient → destination → urgency → referral document → notes). */}
+{referralSectionPage === (referralType === 'outgoing' ? PART_I_SECTIONS.length : PART_II_SECTIONS.length) - 1 && (
                 <div className="border-t border-[var(--border-color)] pt-4">
                   <div className="flex items-center gap-2 mb-3">
                     <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
@@ -980,15 +1008,30 @@ export default function Referrals() {
                     onChange={e => setFormData(p => ({ ...p, referralNotes: e.target.value }))}
                     placeholder="Anything the receiving facility should know that does not fit the form…"
                     className={`${INPUT} resize-none`} />
+                )}
                 </div>
+
+                  </>
+                )}
               </form>
 
-              <div className="px-6 py-4 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3 flex-shrink-0">
+              <div className="px-5 py-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3 flex-shrink-0">
                 <Button variant="secondary" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</Button>
-                <Button variant="soft" accent={referralType === 'outgoing' ? 'cyan' : 'green'} icon={Send} loading={isLoading}
-                  disabled={isLoading || !selectedPatientId} onClick={handleSubmit as any}>
-                  {isLoading ? 'Creating…' : `Create ${referralType === 'outgoing' ? 'Outgoing' : 'Incoming'} Referral`}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {referralWizardStep > 0 && <Button variant="secondary" onClick={() => setReferralWizardStep(s => s - 1)}>Back</Button>}
+                  {referralWizardStep < 2 ? (
+                    <Button variant="soft" accent="cyan" onClick={() => {
+                      if (referralWizardStep === 0 && !selectedPatientId) { toastError("Patient required", "Select a patient before continuing."); return; }
+                      if (referralWizardStep === 1 && !(referralType === "outgoing" ? formData.referredToFacility : formData.referredFromFacility).trim()) { toastError("Facility required", "Enter the referral facility before continuing."); return; }
+                      setReferralWizardStep(s => s + 1);
+                    }}>Continue →</Button>
+                  ) : (
+                    <Button variant="soft" accent={referralType === "outgoing" ? "cyan" : "green"} icon={Send} loading={isLoading}
+                      disabled={isLoading || !selectedPatientId} onClick={handleSubmit as any}>
+                      {isLoading ? "Creating…" : `Create ${referralType === "outgoing" ? "Outgoing" : "Incoming"} Referral`}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
