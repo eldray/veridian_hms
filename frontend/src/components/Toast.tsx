@@ -58,23 +58,23 @@ export function Toast({ toast, onRemove }: ToastProps) {
   const Icon = icons[toast.type];
 
   return (
-    <div className={`flex items-start gap-3 p-3 rounded-lg border ${styles[toast.type]} shadow-lg max-w-xs animate-in slide-in-from-right duration-300`}>
+    <div className={`flex items-start gap-3 p-4 rounded-xl border ${styles[toast.type]} shadow-xl w-full max-w-none animate-in slide-in-from-right duration-300`}>
       <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
         toast.type === 'success' ? 'text-green-600' :
         toast.type === 'error' ? 'text-red-600' :
         toast.type === 'warning' ? 'text-yellow-600' : 'text-blue-600'
       }`} />
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm leading-tight">{toast.title}</p>
+        <p className="font-semibold text-base leading-snug">{toast.title}</p>
         {toast.message && (
-          <p className="text-xs opacity-90 mt-1 leading-relaxed">{toast.message}</p>
+          <p className="text-sm opacity-95 mt-1.5 leading-relaxed break-words">{toast.message}</p>
         )}
       </div>
       <button
         onClick={() => onRemove(toast.id)}
-        className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+        className="flex-shrink-0 rounded-md p-1 text-gray-500 hover:text-gray-800 hover:bg-black/5 transition-colors"
       >
-        <X className="w-3 h-3" />
+        <X className="w-4 h-4" />
       </button>
     </div>
   );
