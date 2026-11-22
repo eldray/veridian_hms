@@ -425,14 +425,14 @@ export default function NursingPatientWorkspace() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick=() => openMarPrint(
+            onClick={() => openMarPrint(
               doses,
               patientName,
               selectedPatient.folderNumber || '—',
               new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString(),
               new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString(),
               hospital,
-            )
+            )}
             disabled={doses.length === 0}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
           >
