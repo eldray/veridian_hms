@@ -46,6 +46,11 @@ describe('payer liability aggregation', () => {
     ];
     const billUpdate = vi.fn().mockImplementation(async ({ data }: any) => ({ id: 'bill-payer-test', ...data }));
     const tx: any = {
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'attendance-1', paymentMode: 'nhis', patientId: 'patient-1',
+        }),
+      },
       insuranceProvider: { findUnique: vi.fn().mockResolvedValue(provider) },
       bill: {
         create: vi.fn().mockResolvedValue({ id: 'bill-payer-test' }),
