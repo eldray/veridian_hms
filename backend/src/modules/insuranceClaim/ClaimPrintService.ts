@@ -40,19 +40,16 @@ export class ClaimPrintService {
   async renderClaimHtml(claimId: string): Promise<string> {
     const claim: any = await this.repo.findClaimById(claimId);
     if (!claim) throw new NotFoundError('Claim', claimId);
-
     const hospital = await this.prisma.hospital.findFirst();
     if (!hospital) throw new ValidationError('Hospital record not found');
 
     const providerType: string = claim.InsuranceProvider?.type ?? 'nhis';
     const providerName: string = claim.InsuranceProvider?.name ?? '—';
     const corporateName = claim.CorporateAccount?.companyName ?? null;
-
     const patient = claim.Patient ?? {};
     const attendance = claim.Attendance ?? {};
     const admission = attendance.Admission ?? null;
     const items: any[] = claim.items ?? [];
-
     const claimCategories = [
       { key: 'diagnosis', label: 'Diagnoses', payable: false },
       { key: 'service', label: 'Consultation / Services', payable: true },
@@ -66,194 +63,85 @@ export class ClaimPrintService {
       return { ...category, rows, total: rows.reduce((sum, item) => sum + (Number(item.lineTotal) || 0), 0) };
     }).filter((category) => category.rows.length > 0);
     const itemsTable = categoryTotals.map((category) => `
-      <tr class="category-row"><td colspan="6">${esc(category.label)} · ${category.rows.length} item(s)</td></tr>
+      <tr class="group-row"><td colspan="6">${esc(category.label)} <span class="muted">· ${category.rows.length} item(s)</span></td></tr>
       ${category.rows.map((i) => `
         <tr>
-          <td>${esc(i.itemNumber)}</td>
+          <td class="center">${esc(i.itemNumber)}</td>
           <td>${esc(i.description)}</td>
-          <td><code>${esc(i.code)}</code></td>
-          <td style="text-align:center">${esc(i.quantity)}</td>
-          <td style="text-align:right">${formatMoney(i.unitPrice)}</td>
-          <td style="text-align:right">${formatMoney(i.lineTotal)}</td>
+          <td class="code">${esc(i.code)}</td>
+          <td class="center">${esc(i.quantity)}</td>
+          <td class="num">${formatMoney(i.unitPrice)}</td>
+          <td class="num">${formatMoney(i.lineTotal)}</td>
         </tr>`).join('')}
-      <tr class="subtotal-row"><td colspan="5" style="text-align:right">${esc(category.label)} subtotal</td><td style="text-align:right">${formatMoney(category.total)}</td></tr>
+      <tr class="subtotal"><td colspan="5" class="num">${esc(category.label)} subtotal</td><td class="num">${formatMoney(category.total)}</td></tr>
     `).join('');
     const payableTotal = categoryTotals.filter((category) => category.payable).reduce((sum, category) => sum + category.total, 0);
-
-    const statusBadge =
-      claim.status === 'finalized'
-        ? '<span class="badge badge-finalized">FINALIZED</span>'
-        : '<span class="badge badge-draft">DRAFT</span>';
-
-    const claimTypeLabel =
-      providerType === 'nhis'
-        ? 'NHIS CLAIM'
-        : providerType === 'private'
-        ? 'PRIVATE INSURANCE CLAIM'
-        : 'CORPORATE CLAIM';
-
+    const status = claim.status === 'finalized' ? 'FINALIZED' : 'DRAFT';
+    const typeLabel = providerType === 'nhis' ? 'NHIS CLAIM' : providerType === 'private' ? 'PRIVATE INSURANCE CLAIM' : 'CORPORATE CLAIM';
+    const claimRef = String(claim.claimNumber || '');
+    const printDate = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const hospitalContact = [hospital.phone && `Tel: ${esc(hospital.phone)}`, hospital.email && esc(hospital.email)].filter(Boolean).join(' · ');
+    const hospitalMeta = [hospital.address, hospitalContact, hospital.nhisFacilityCode && `NHIA facility code: ${esc(hospital.nhisFacilityCode)}`].filter(Boolean).map(esc).join(' · ');
+    const patientName = [patient.surname, patient.otherNames].filter(Boolean).join(' ').trim() || '—';
+    const totalItems = categoryTotals.filter((category) => category.payable).reduce((sum, category) => sum + category.rows.length, 0);
     return `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>${esc(claimTypeLabel)} — ${esc(claim.claimNumber)}</title>
+<html lang="en-GH"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(typeLabel)} — ${esc(claimRef)}</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f1f5f9; padding: 30px; color: #1e293b; }
-  .page { max-width: 1000px; margin: 0 auto; background: white; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,0.12); overflow: hidden; }
-  .header { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: white; padding: 26px 36px; display: flex; justify-content: space-between; align-items: center; }
-  .header-left { display: flex; align-items: center; gap: 18px; }
-  .logo { width: 62px; height: 62px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 28px; border: 2px solid rgba(255,255,255,0.3); }
-  .hospital-name { font-size: 20px; font-weight: 700; }
-  .hospital-meta { font-size: 12px; opacity: 0.9; line-height: 1.5; }
-  .header-right { text-align: right; }
-  .doc-badge { background: rgba(255,255,255,0.2); padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.5px; }
-  .doc-number { font-size: 14px; font-weight: 700; margin-top: 6px; }
-  .patient-bar { background: #f8fafc; padding: 16px 36px; border-bottom: 2px solid #e2e8f0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-  .field { display: flex; flex-direction: column; }
-  .field .label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-  .field .value { font-size: 14px; font-weight: 600; color: #0f172a; margin-top: 2px; }
-  .content { padding: 24px 36px 32px; }
-  .section-title { font-size: 15px; font-weight: 700; color: #0f172a; margin: 20px 0 12px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; }
-  .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
-  .info-card { background: #f8fafc; padding: 12px 16px; border-radius: 8px; border-left: 3px solid #2563eb; }
-  .info-card .label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-  .info-card .value { font-size: 14px; font-weight: 600; color: #0f172a; margin-top: 2px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0; }
-  thead th { background: #f1f5f9; padding: 9px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; }
-  tbody td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
-  tbody tr:last-child td { border-bottom: none; }
-  .category-row td { background:#eaf1f8; color:#1e3a8a; font-weight:700; padding:9px 12px; border-top:2px solid #cbd5e1; }
-  .subtotal-row td { background:#f8fafc; color:#475569; font-weight:600; padding:7px 12px; }
-  code { font-family: 'Courier New', monospace; font-size: 12px; background: #f1f5f9; padding: 1px 6px; border-radius: 3px; }
-  .totals { margin-top: 14px; display: flex; justify-content: flex-end; }
-  .totals-table { width: 320px; border-collapse: collapse; font-size: 13px; }
-  .totals-table td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
-  .totals-table td:first-child { color: #64748b; }
-  .totals-table td:last-child { text-align: right; font-weight: 600; }
-  .totals-table tr:last-child td { border-top: 2px solid #0f172a; border-bottom: none; padding-top: 10px; font-size: 15px; font-weight: 700; color: #0f172a; }
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
-  .badge-finalized { background: #dcfce7; color: #166534; }
-  .badge-draft { background: #fef3c7; color: #92400e; }
-  .signature-section { margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
-  .signature-box { min-width: 200px; text-align: center; }
-  .signature-line { height: 1px; background: #94a3b8; margin: 38px auto 8px; }
-  .signature-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-  .signature-name { font-weight: 600; font-size: 13px; color: #0f172a; margin-top: 4px; }
-  .footer { margin-top: 24px; padding-top: 16px; border-top: 2px solid #e2e8f0; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between; }
-  .no-print { padding: 18px 36px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: center; gap: 12px; }
-  .btn { padding: 10px 26px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
-  .btn-primary { background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: white; }
-  .btn-secondary { background: #e2e8f0; color: #475569; }
-  @media print {
-    body { background: white; padding: 0; }
-    .page { box-shadow: none; border-radius: 0; }
-    .no-print { display: none !important; }
-    .header, .badge { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  }
-</style>
-</head>
-<body>
-<div class="page">
-  <div class="header">
-    <div class="header-left">
-      <div class="logo">🏥</div>
-      <div>
-        <div class="hospital-name">${esc(hospital.name)}</div>
-        <div class="hospital-meta">${esc(hospital.address)}<br>Tel: ${esc(hospital.phone)} &nbsp;|&nbsp; ${esc(hospital.email)}</div>
-      </div>
-    </div>
-    <div class="header-right">
-      <div class="doc-badge">${esc(claimTypeLabel)}</div>
-      <div class="doc-number">${esc(claim.claimNumber)}</div>
-    </div>
-  </div>
-
-  <div class="patient-bar">
-    <div class="field"><span class="label">Patient</span><span class="value">${esc(patient.surname)} ${esc(patient.otherNames)}</span></div>
-    <div class="field"><span class="label">Folder No.</span><span class="value">${esc(patient.folderNumber)}</span></div>
-    <div class="field"><span class="label">NHIS No.</span><span class="value">${esc(patient.nhisNumber ?? '—')}</span></div>
-    <div class="field"><span class="label">Claim Status</span><span class="value">${statusBadge}</span></div>
-    <div class="field"><span class="label">Provider</span><span class="value">${esc(providerName)}${corporateName ? ` · ${esc(corporateName)}` : ''}</span></div>
-  </div>
-
-  <div class="content">
-    <div class="section-title">Claim Information</div>
-    <div class="info-grid">
-      <div class="info-card"><div class="label">Attendance No.</div><div class="value">${esc(attendance.attendanceNumber ?? '—')}</div></div>
-      <div class="info-card"><div class="label">Visit Date</div><div class="value">${formatDate(attendance.dateTime)}</div></div>
-      <div class="info-card"><div class="label">Type of Service</div><div class="value">${esc(claim.typeOfService ?? '—')}</div></div>
-      <div class="info-card"><div class="label">Type of Attendance</div><div class="value">${esc(claim.typeOfAttendance ?? '—')}</div></div>
-      <div class="info-card"><div class="label">Outcome</div><div class="value">${esc(claim.serviceOutcome ?? '—')}</div></div>
-      <div class="info-card"><div class="label">Principal GDRG</div><div class="value">${esc(claim.principalGDRG ?? '—')}</div></div>
-      ${claim.claimCheckCode ? `<div class="info-card"><div class="label">Claim Check Code</div><div class="value">${esc(claim.claimCheckCode)}</div></div>` : ''}
-      ${claim.preAuthNumber ? `<div class="info-card"><div class="label">Pre-Auth No.</div><div class="value">${esc(claim.preAuthNumber)}</div></div>` : ''}
-    </div>
-
-    ${
-      admission
-        ? `<div class="info-grid">
-            <div class="info-card"><div class="label">Admission Date</div><div class="value">${formatDate(admission.admissionDate)}</div></div>
-            <div class="info-card"><div class="label">Discharge Date</div><div class="value">${formatDate(admission.dischargeDate)}</div></div>
-          </div>`
-        : ''
-    }
-
-    <div class="section-title">Itemized Services</div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:50px">#</th>
-          <th>Description</th>
-          <th style="width:120px">Code</th>
-          <th style="width:60px;text-align:center">Qty</th>
-          <th style="width:110px;text-align:right">Unit Price</th>
-          <th style="width:120px;text-align:right">Line Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${itemsTable || '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px;">No items on this claim.</td></tr>'}
-      </tbody>
-    </table>
-
-    <div class="totals">
-      <table class="totals-table">
-        <tr><td>Payable line items</td><td>${categoryTotals.filter((category) => category.payable).reduce((sum, category) => sum + category.rows.length, 0)}</td></tr>
-        <tr><td>Claim Total (GHS)</td><td>${formatMoney(payableTotal)}</td></tr>
-      </table>
-    </div>
-
-    <div class="signature-section">
-      <div class="signature-box">
-        <div class="signature-line"></div>
-        <div class="signature-label">Prepared By</div>
-        <div class="signature-name">________________________</div>
-      </div>
-      <div class="signature-box">
-        <div class="signature-line"></div>
-        <div class="signature-label">Approved By</div>
-        <div class="signature-name">________________________</div>
-      </div>
-      <div class="signature-box">
-        <div class="signature-line"></div>
-        <div class="signature-label">Patient / Guardian</div>
-        <div class="signature-name">________________________</div>
-      </div>
-    </div>
-
-    <div class="footer">
-      <div>${esc(hospital.name)} · ${esc(hospital.nhisFacilityCode ?? '')}</div>
-      <div>Generated ${new Date().toLocaleString()}</div>
-    </div>
-  </div>
-
-  <div class="no-print">
-    <button class="btn btn-primary" onclick="window.print()">🖨️ Print Claim</button>
-    <button class="btn btn-secondary" onclick="window.close()">✕ Close</button>
-  </div>
-</div>
-</body>
-</html>`;
+  @page { size: A4; margin: 14mm 14mm 17mm; @bottom-left { content: "${esc(hospital.name)} · ${esc(claimRef)} · Confidential · Printed ${printDate}"; font: 8pt Arial; color: #555; } @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt Arial; color:#555; } }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  :root { --ink:#111827; --muted:#6b7280; --rule:#c9ced6; --soft:#f3f4f6; --accent:#14532d; }
+  html { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  body { font:10pt/1.45 "Segoe UI",Arial,Helvetica,sans-serif; color:var(--ink); background:#e5e7eb; }
+  .page { width:210mm; margin:12px auto; background:#fff; padding:14mm; box-shadow:0 1px 6px rgba(0,0,0,.18); }
+  .letterhead { display:flex; align-items:center; gap:12px; padding-bottom:8px; border-bottom:2px solid var(--accent); }
+  .lh-main { flex:1; min-width:0; } .lh-name { font-size:15pt; font-weight:700; color:var(--accent); line-height:1.2; }
+  .lh-meta { font-size:8.5pt; color:#374151; }
+  .lh-code { text-align:right; font-size:8pt; color:#374151; }
+  .doc-title { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; margin:10px 0 8px; }
+  .doc-title h1 { font-size:15pt; font-weight:700; text-transform:uppercase; letter-spacing:.6px; }
+  .doc-meta { text-align:right; font-size:9pt; line-height:1.5; }
+  .k { color:var(--muted); margin-right:4px; } .status { display:inline-block; border:1px solid var(--ink); padding:1px 8px; border-radius:3px; font-size:8pt; font-weight:700; letter-spacing:.5px; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid var(--rule); border-left:1px solid var(--rule); }
+  .cell { padding:4px 7px; border-right:1px solid var(--rule); border-bottom:1px solid var(--rule); min-width:0; }
+  .label { font-size:7.5pt; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+  .value { font-size:9.5pt; font-weight:500; word-break:break-word; }
+  .patient { margin-bottom:10px; background:var(--soft); }
+  .section { margin-top:11px; } .section h2 { font-size:9pt; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--accent); border-bottom:1px solid var(--accent); padding-bottom:2px; margin-bottom:5px; }
+  table { width:100%; border-collapse:collapse; font-size:9pt; }
+  th { background:var(--soft); text-align:left; font-size:8pt; text-transform:uppercase; letter-spacing:.3px; padding:4px 6px; border:1px solid var(--rule); }
+  td { padding:4px 6px; border:1px solid var(--rule); vertical-align:top; }
+  .num { text-align:right; font-variant-numeric:tabular-nums; } .center { text-align:center; }
+  .group-row td { background:#e9eef4; color:#23415e; font-weight:700; border-top:1px solid #b8c6d6; }
+  .subtotal td { background:var(--soft); font-weight:600; color:#4b5563; }
+  .code { font-family:Consolas,monospace; font-size:8.5pt; }
+  .muted { color:var(--muted); font-weight:400; }
+  .total-box { margin:12px 0 0 auto; width:300px; border:1px solid var(--rule); }
+  .total-box div { display:flex; justify-content:space-between; padding:7px 10px; }
+  .total-box .grand { background:var(--soft); border-top:2px solid var(--ink); font-size:11pt; font-weight:700; }
+  .signatures { display:flex; gap:18px; margin-top:26px; }
+  .signature { flex:1; font-size:8.5pt; } .line { border-bottom:1px solid var(--ink); height:28px; }
+  .signature .role { font-weight:700; margin-top:4px; } .signature .meta { color:var(--muted); margin-top:2px; }
+  .foot { margin-top:16px; padding-top:6px; border-top:1px solid var(--rule); font-size:8pt; color:var(--muted); display:flex; justify-content:space-between; gap:12px; }
+  .toolbar { position:fixed; top:12px; right:16px; display:flex; gap:8px; }
+  .toolbar button { font:600 10pt "Segoe UI",Arial,sans-serif; padding:7px 14px; border-radius:6px; border:1px solid var(--accent); cursor:pointer; background:var(--accent); color:#fff; }
+  .toolbar button.alt { background:#fff; color:var(--accent); }
+  @media print { body { background:#fff; } .page { width:auto; margin:0; padding:0; box-shadow:none; } .toolbar { display:none !important; } * { print-color-adjust:exact; -webkit-print-color-adjust:exact; } }
+</style></head><body>
+<div class="toolbar"><button onclick="window.print()">Print claim</button><button class="alt" onclick="window.close()">Close</button></div>
+<main class="page">
+  <header class="letterhead"><div class="lh-main"><div class="lh-name">${esc(hospital.name)}</div><div class="lh-meta">${hospitalMeta}</div></div><div class="lh-code">${hospital.nhisFacilityCode ? `NHIA facility code: <b>${esc(hospital.nhisFacilityCode)}</b>` : ''}</div></header>
+  <div class="doc-title"><h1>${esc(typeLabel)}</h1><div class="doc-meta"><div><span class="k">Claim no.</span><b>${esc(claimRef)}</b></div><div><span class="k">Attendance date</span><b>${formatDate(attendance.dateTime)}</b></div><div class="status">${esc(status)}</div></div></div>
+  <section class="patient grid">
+    ${[['Patient',patientName],['Folder no.',patient.folderNumber || '—'],['NHIS no.',patient.nhisNumber || '—'],['Status',status],['Payer / provider',providerName],['Corporate account',corporateName || '—'],['Attendance no.',attendance.attendanceNumber || '—'],['Attendance type',claim.typeOfAttendance || '—']].map(([label,value])=>`<div class="cell"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`).join('')}
+  </section>
+  <section class="section"><h2>Claim and service details</h2><div class="grid">
+    ${[['Type of service',claim.typeOfService || '—'],['Outcome',claim.serviceOutcome || '—'],['Principal G-DRG',claim.principalGDRG || '—'],['Claim check code',claim.claimCheckCode || '—'],['Pre-authorisation',claim.preAuthNumber || '—'],['Admission date',formatDate(admission?.admissionDate)],['Discharge date',formatDate(admission?.dischargeDate)],['Payer',corporateName || providerName]].map(([label,value])=>`<div class="cell"><div class="label">${esc(label)}</div><div class="value">${esc(value)}</div></div>`).join('')}
+  </div></section>
+  <section class="section"><h2>Itemised claim services</h2><table><thead><tr><th style="width:7%">#</th><th>Description</th><th style="width:14%">Code</th><th class="center" style="width:8%">Qty</th><th class="num" style="width:16%">Unit price</th><th class="num" style="width:16%">Line total</th></tr></thead><tbody>${itemsTable || '<tr><td colspan="6" class="center muted">No items recorded on this claim.</td></tr>'}</tbody></table></section>
+  <div class="total-box"><div><span>Payable item count</span><b>${totalItems}</b></div><div class="grand"><span>Claim total (GHS)</span><b>${formatMoney(payableTotal)}</b></div></div>
+  <section class="signatures"><div class="signature"><div class="line"></div><div class="role">Prepared by</div><div class="meta">Name / signature / date</div></div><div class="signature"><div class="line"></div><div class="role">Verified / approved by</div><div class="meta">Name / signature / date</div></div><div class="signature"><div class="line"></div><div class="role">Facility stamp</div><div class="meta">Official stamp</div></div></section>
+  <div class="foot"><span>${esc(hospital.name)} · ${esc(claimRef)} · Confidential</span><span>Printed ${esc(printDate)}</span></div>
+</main></body></html>`;
   }
 
   // ==========================================
