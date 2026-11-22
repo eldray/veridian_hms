@@ -88,6 +88,10 @@ export class DepartmentRepository {
           },
           orderBy: { fullName: 'asc' }
         },
+        additionalMembers: {
+          select: { id: true, fullName: true, role: true, email: true, phone: true, isActive: true, specialization: true, createdAt: true },
+          orderBy: { fullName: 'asc' },
+        },
         appointments: {
           where: {
             // ✅ FIXED: Changed from appointmentDate to scheduledAt
@@ -126,7 +130,10 @@ export class DepartmentRepository {
       }
     });
 
-    return department;
+    if (!department) return null;
+    const combinedUsers = new Map<string, any>();
+    for (const user of [...(department.users || []), ...(department.additionalMembers || [])]) combinedUsers.set(user.id, user);
+    return { ...department, users: Array.from(combinedUsers.values()).sort((a, b) => a.fullName.localeCompare(b.fullName)) } as any;
   }
 
   async create(data: CreateDepartmentDTO): Promise<Department> {
@@ -169,10 +176,7 @@ export class DepartmentRepository {
   }
 
   async getUserCount(departmentId: string): Promise<number> {
-    const count = await this.prisma.user.count({
-      where: { departmentId }
-    });
-    return count;
+    return this.prisma.user.count({ where: { OR: [{ departmentId }, { departments: { some: { id: departmentId } } }] } });
   }
 
   async getAppointmentCount(departmentId: string, fromDate?: Date): Promise<number> {
@@ -230,22 +234,16 @@ export class DepartmentRepository {
 
     const now = new Date();
 
-    const [totalStaff, activeStaff, staffGroups, totalAppointments, upcomingAppointments] = await Promise.all([
-      this.prisma.user.count({ where: { departmentId } }),
-      this.prisma.user.count({ where: { departmentId, isActive: true } }),
-      this.prisma.user.groupBy({
-        by: ['role'],
-        where: { departmentId },
-        _count: { _all: true },
-      }),
+    const [departmentUsers, totalAppointments, upcomingAppointments] = await Promise.all([
+      this.prisma.user.findMany({ where: { OR: [{ departmentId }, { departments: { some: { id: departmentId } } }] }, select: { id: true, role: true, isActive: true } }),
       this.prisma.appointment.count({ where: { departmentId } }),
       this.prisma.appointment.count({ where: { departmentId, scheduledAt: { gte: now } } }),
     ]);
 
+    const totalStaff = departmentUsers.length;
+    const activeStaff = departmentUsers.filter((user: any) => user.isActive).length;
     const staffByRole: Record<string, number> = {};
-    staffGroups.forEach((group: any) => {
-      staffByRole[group.role] = group._count._all;
-    });
+    departmentUsers.forEach((user: any) => { staffByRole[user.role] = (staffByRole[user.role] || 0) + 1; });
 
     return {
       departmentId: department.id,
@@ -262,25 +260,22 @@ export class DepartmentRepository {
   }
 
   async assignUserToDepartment(departmentId: string, userId: string): Promise<any> {
-    return this.prisma.user.update({
-      where: { id: userId },
-      data: { departmentId }
-    });
+    return this.prisma.user.update({ where: { id: userId }, data: { departments: { connect: { id: departmentId } } } });
   }
 
   async removeUserFromDepartment(departmentId: string, userId: string): Promise<void> {
-    await this.prisma.user.update({
-      where: { 
-        id: userId,
-        departmentId 
-      },
-      data: { departmentId: null }
-    });
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { departmentId: true } });
+    if (!user) return;
+    if (user.departmentId === departmentId) {
+      await this.prisma.user.update({ where: { id: userId }, data: { departmentId: null } });
+    } else {
+      await this.prisma.user.update({ where: { id: userId }, data: { departments: { disconnect: { id: departmentId } } } });
+    }
   }
 
   async getUsersByDepartment(departmentId: string): Promise<any[]> {
     return this.prisma.user.findMany({
-      where: { departmentId },
+      where: { OR: [{ departmentId }, { departments: { some: { id: departmentId } } }] },
       select: {
         id: true,
         fullName: true,
@@ -312,7 +307,7 @@ export class DepartmentRepository {
     const user = await this.prisma.user.findFirst({
       where: {
         id: userId,
-        departmentId
+        OR: [{ departmentId }, { departments: { some: { id: departmentId } } }]
       }
     });
     return !!user;
