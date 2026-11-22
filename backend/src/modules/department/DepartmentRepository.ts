@@ -45,11 +45,8 @@ export class DepartmentRepository {
               specialization: true
             }
           },
-          _count: {
-            select: {
-              users: true
-            }
-          }
+          additionalMembers: { select: { id: true } },
+          _count: { select: { users: true } }
         },
         orderBy: { name: 'asc' },
         skip,
@@ -58,7 +55,11 @@ export class DepartmentRepository {
       this.prisma.department.count({ where })
     ]);
 
-    return { departments, total };
+    const normalizedDepartments = departments.map((department: any) => {
+      const memberIds = new Set([...(department.users || []).map((user: any) => user.id), ...(department.additionalMembers || []).map((user: any) => user.id)]);
+      return { ...department, _count: { ...department._count, users: memberIds.size } };
+    });
+    return { departments: normalizedDepartments, total };
   }
 
   async findById(id: string): Promise<DepartmentWithRelations | null> {
@@ -133,7 +134,8 @@ export class DepartmentRepository {
     if (!department) return null;
     const combinedUsers = new Map<string, any>();
     for (const user of [...(department.users || []), ...(department.additionalMembers || [])]) combinedUsers.set(user.id, user);
-    return { ...department, users: Array.from(combinedUsers.values()).sort((a, b) => a.fullName.localeCompare(b.fullName)) } as any;
+    const users = Array.from(combinedUsers.values()).sort((a, b) => a.fullName.localeCompare(b.fullName));
+    return { ...department, users, _count: { ...department._count, users: users.length } } as any;
   }
 
   async create(data: CreateDepartmentDTO): Promise<Department> {
