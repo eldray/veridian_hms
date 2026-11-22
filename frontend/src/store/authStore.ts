@@ -42,6 +42,9 @@ const sanitizeUser = (user: any): Partial<User> => ({
   department: user.department,
   departmentId: user.departmentId,
   isActive: user.isActive,
+  // Keep every supported avatar field in the auth store so the global
+  // dashboard navbar reflects profile photo uploads immediately and after refresh.
+  avatarUrl: user.avatarUrl,
   profileImage: user.profileImage,
   imageUrl: user.imageUrl,
   seniority: user.seniority,

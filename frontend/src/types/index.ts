@@ -307,6 +307,10 @@ export interface User {
   id: string;
   username: string;
   fullName: string;
+  /** Staff profile photo URL used by the dashboard navbar and profile. */
+  avatarUrl?: string | null;
+  profileImage?: string | null;
+  imageUrl?: string | null;
   role: UserRole;
   permissions?: string[];
   seniority: Seniority;  // ✅ ADD THIS
