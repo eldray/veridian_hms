@@ -1224,8 +1224,7 @@ export default function Referrals() {
                     </div>
                   );
                 })()}
-                {/* 5 — Additional Notes: LAST, so the form reads top-to-bottom
-                       (patient → destination → urgency → referral document → notes). */}
+{referralSectionPage === (referralType === 'outgoing' ? PART_I_SECTIONS.length : PART_II_SECTIONS.length) - 1 && (
                 <div className="border-t border-[var(--border-color)] pt-4">
                   <div className="flex items-center gap-2 mb-3">
                     <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
@@ -1236,6 +1235,7 @@ export default function Referrals() {
                     placeholder="Anything the receiving facility should know that does not fit the form…"
                     className={`${INPUT} resize-none`} />
                 </div>
+                )}
 
                   </>
                 )}
