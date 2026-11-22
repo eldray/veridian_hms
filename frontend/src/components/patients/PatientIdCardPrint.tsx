@@ -47,9 +47,10 @@ export default function PatientIdCardPrint({ patient, onClose }: PatientIdCardPr
           body * { visibility: hidden !important; }
           #patient-id-card-print, #patient-id-card-print * { visibility: visible !important; }
           #patient-id-card-print {
-            position: fixed !important; inset: 0 !important;
-            width: 85.6mm !important; height: 54mm !important; min-height: 0 !important; padding: 0 !important;
-            margin: 0 !important; background: #fff !important; overflow: visible !important;
+            position: static !important; display: block !important;
+            width: 85.6mm !important; height: auto !important; max-height: none !important;
+            min-height: 0 !important; padding: 0 !important; margin: 0 !important;
+            background: #fff !important; overflow: visible !important; border-radius: 0 !important;
           }
           #patient-id-card-print .patient-id-card-screen-actions { display: none !important; }
           #patient-id-card-print .patient-id-card-sheet {
@@ -92,8 +93,8 @@ export default function PatientIdCardPrint({ patient, onClose }: PatientIdCardPr
               </div>
               <span className="rounded-full border border-white/25 px-2 py-1 text-[7px] font-bold tracking-widest">PATIENT</span>
             </header>
-            <div className="relative flex min-h-0 flex-1 gap-3 px-4 py-3">
-              {patient?.imageUrl ? <img src={patient.imageUrl} alt={name} className="h-[82px] w-[66px] shrink-0 rounded-md border-2 border-white/70 bg-white object-cover" /> : <div className="flex h-[82px] w-[66px] shrink-0 items-center justify-center rounded-md border-2 border-white/50 bg-white/15 text-xl font-black tracking-wider">{initials(name)}</div>}
+            <div className="relative flex min-h-0 flex-1 gap-2 px-3 py-2.5">
+              {patient?.imageUrl ? <img src={patient.imageUrl} alt={name} className="h-[68px] w-[56px] shrink-0 rounded-md border-2 border-white/70 bg-white object-cover" /> : <div className="flex h-[68px] w-[56px] shrink-0 items-center justify-center rounded-md border-2 border-white/50 bg-white/15 text-xl font-black tracking-wider">{initials(name)}</div>}
               <div className="min-w-0 flex-1">
                 <p className="text-[7px] font-semibold uppercase tracking-widest text-cyan-100">Patient name</p>
                 <p className="mt-0.5 line-clamp-2 text-[13px] font-extrabold leading-tight">{name}</p>
