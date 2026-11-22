@@ -80,6 +80,8 @@ interface Attendance {
   clinicalOutcome?: 'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown' | null;
   allergyReviewStatus?: 'not_reviewed' | 'no_known_allergies' | 'allergies_present' | null;
   allergyReviewNotes?: string | null;
+  referringFacility?: string | null;
+  followUpDate?: string | null;
   allergyReviewedAt?: string | null;
   allergyReviewedById?: string | null;
   providerId?: string | null;
