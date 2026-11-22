@@ -49,8 +49,8 @@ export const MedicationsTab: React.FC<MedicationsTabProps> = ({ attendance }) =>
                 <p className="font-semibold text-gray-900 text-sm">{med.duration || 'N/A'}</p>
               </div>
               <div className="bg-white rounded p-2 border border-gray-200">
-                <p className="text-xs text-gray-600 font-medium">Quantity</p>
-                <p className="font-semibold text-gray-900 text-sm">{med.quantity || 'N/A'}</p>
+                <p className="text-xs text-gray-600 font-medium">{med.status === 'dispensed' || med.status === 'administered' ? 'Dispensed quantity' : 'Prescribed quantity'}</p>
+                <p className="font-semibold text-gray-900 text-sm">{med.status === 'dispensed' || med.status === 'administered' ? (med.dispensedQuantity ?? med.quantity ?? 'N/A') : (med.quantity ?? 'N/A')}</p>
               </div>
             </div>
             {med.dispensedAt && (
