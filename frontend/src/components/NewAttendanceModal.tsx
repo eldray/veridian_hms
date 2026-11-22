@@ -5,6 +5,7 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
+import { useCorporateStore } from '../store/corporateStore';
 import { useToast } from '../store/toastStore';
 import { describeApiError } from '../utils/apiError';
 import { X, Save, User, CheckCircle, CreditCard, Tag, Shield, Building, AlertCircle, Calendar, Clock, FileText, Stethoscope, Syringe } from 'lucide-react';
@@ -35,12 +36,14 @@ export default function NewAttendanceModal({
   const { createAttendance, updateAttendance, isLoading } = useAttendanceStore();
   const { getPatientById } = usePatientStore();
   const { providers: insuranceProviders, getInsuranceProviders } = useInsuranceStore();
+  const { corporateAccounts, getCorporateAccounts } = useCorporateStore();
   const { user } = useAuthStore();
   const { success, error } = useToast();
 
   const [attendanceType, setAttendanceType] = useState<AttendanceType>(initialAttendanceType || 'emergency_acute');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(initialPaymentMode || 'cash');
   const [nhisCCC, setNhisCCC] = useState('');
+  const [corporateAccountId, setResolvedCorporateAccountId] = useState(corporateAccountId || '');
   const [complaints, setComplaints] = useState('');
   const [status, setStatus] = useState<AttendanceStatus>('pending');
   const [patient, setPatient] = useState<any>(null);
@@ -73,7 +76,8 @@ export default function NewAttendanceModal({
   // Load insurance providers
   useEffect(() => {
     getInsuranceProviders().catch(console.error);
-  }, [getInsuranceProviders]);
+    getCorporateAccounts({ isActive: true, limit: 100 }).catch(console.error);
+  }, [getInsuranceProviders, getCorporateAccounts]);
 
   // Initialize from patient data (for new attendance)
   useEffect(() => {
@@ -85,9 +89,8 @@ export default function NewAttendanceModal({
         if (patientData.paymentMode) {
           setPaymentMode(patientData.paymentMode as PaymentMode);
         }
-        if (patientData.paymentMode === 'nhis' && patientData.insuranceDetails?.memberId) {
-          setNhisCCC(patientData.insuranceDetails.memberId);
-        }
+        setNhisCCC(patientData.nhisNumber || patientData.insuranceDetails?.memberId || patientData.insuranceDetails?.insuranceNumber || '');
+        setResolvedCorporateAccountId(corporateAccountId || patientData.corporateAccountId || patientData.employer?.corporateAccountId || patientData.insuranceProviderId || '');
       }
     }
   }, [patientId, getPatientById, isEditMode]);
@@ -97,7 +100,8 @@ export default function NewAttendanceModal({
     if (isEditMode && attendanceData) {
       setAttendanceType(attendanceData.attendanceType || 'emergency_acute');
       setPaymentMode(attendanceData.paymentMode || 'cash');
-      setNhisCCC(attendanceData.nhisCCC || '');
+      setNhisCCC(attendanceData.nhisCCC || attendanceData.patient?.nhisNumber || attendanceData.patient?.insuranceDetails?.memberId || '');
+      setResolvedCorporateAccountId(corporateAccountId || attendanceData.corporateAccountId || attendanceData.patient?.corporateAccountId || attendanceData.patient?.employer?.corporateAccountId || '');
       setComplaints(attendanceData.complaints || '');
       setStatus(attendanceData.status || 'pending');
 
@@ -109,7 +113,17 @@ export default function NewAttendanceModal({
     }
   }, [isEditMode, attendanceData, patientId, getPatientById]);
 
-  // Watch for patient changes to update payment mode (for new attendance)
+  // Populate membership/account information when the payment mode changes.
+  useEffect(() => {
+    const source = resolvedPatient || {};
+    if (paymentMode === 'nhis') {
+      setNhisCCC(source.nhisNumber || source.insuranceDetails?.memberId || source.insuranceDetails?.insuranceNumber || attendanceData?.nhisCCC || '');
+    } else if (paymentMode === 'corporate') {
+      setResolvedCorporateAccountId(corporateAccountId || source.corporateAccountId || source.employer?.corporateAccountId || source.insuranceProviderId || '');
+    }
+  }, [paymentMode, resolvedPatient, corporateAccountId, attendanceData]);
+
+  // Watch for patient changes to update payment mode
   useEffect(() => {
     if (!isEditMode && patient) {
       if (patient.paymentMode) {
@@ -128,6 +142,10 @@ export default function NewAttendanceModal({
       } else if (!/^\d{5}$/.test(nhisCCC.trim())) {
         errors.push('NHIS CCC code must be exactly 5 digits');
       }
+      const nhisActive = resolvedPatient?.nhisActive ?? resolvedPatient?.insuranceDetails?.isActive;
+      if (nhisActive !== true) errors.push(nhisActive === false ? 'NHIS membership is inactive' : 'NHIS membership status is not verified as active');
+      const expiry = resolvedPatient?.nhisExpiryDate || resolvedPatient?.insuranceDetails?.endDate;
+      if (expiry && new Date(expiry).getTime() < Date.now()) errors.push('NHIS membership has expired');
     }
 
     if (paymentMode === 'private_insurance') {
@@ -147,11 +165,17 @@ export default function NewAttendanceModal({
         }
 
       }
+      const insuranceDetails = src?.insuranceDetails;
+      if (insuranceDetails?.isActive !== true) errors.push(insuranceDetails?.isActive === false ? 'Patient insurance policy is inactive' : 'Insurance policy status is not verified as active');
+      if (insuranceDetails?.endDate && new Date(insuranceDetails.endDate).getTime() < Date.now()) errors.push('Patient insurance policy has expired');
       // If insuranceProviders list is empty/still loading, skip lookup — the ID is enough
     }
 
-    if (paymentMode === 'corporate' && !corporateAccountId) {
-      errors.push('Corporate account is required for corporate patients');
+    if (paymentMode === 'corporate') {
+      if (!corporateAccountId) errors.push('Corporate account is required for corporate patients');
+      const account = corporateAccounts.find((a: any) => a.id === corporateAccountId);
+      if (corporateAccountId && account && account.isActive !== true) errors.push('Corporate account is inactive');
+      if (corporateAccountId && !account && corporateAccounts.length > 0) errors.push('Corporate account could not be verified');
     }
 
     // Routine vaccination check-ins do not require an illness complaint.
@@ -281,6 +305,10 @@ export default function NewAttendanceModal({
 
   // ✅ FIXED: currentInsuranceProvider uses resolvedPatient + fallback object when list is loading
   const resolvedProviderId = resolveInsuranceProviderId(resolvedPatient);
+  const resolvedNhisNumber = resolvedPatient?.nhisNumber || resolvedPatient?.insuranceDetails?.memberId || resolvedPatient?.insuranceDetails?.insuranceNumber || nhisCCC;
+  const resolvedNhisActive = resolvedPatient?.nhisActive ?? resolvedPatient?.insuranceDetails?.isActive;
+  const resolvedNhisExpiry = resolvedPatient?.nhisExpiryDate || resolvedPatient?.insuranceDetails?.endDate;
+  const selectedCorporateAccount = corporateAccounts.find((a: any) => a.id === corporateAccountId);
 
   const currentInsuranceProvider = paymentMode === 'private_insurance'
     ? (
@@ -581,6 +609,18 @@ export default function NewAttendanceModal({
                     </p>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Corporate account details */}
+            {paymentMode === 'corporate' && (
+              <div className={`rounded-lg p-3 border ${selectedCorporateAccount?.isActive ? 'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] border-[var(--icon-red-text)]'}`}>
+                <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2 flex items-center gap-1"><Building className="w-3.5 h-3.5" /> Corporate Account Verification</h3>
+                {selectedCorporateAccount ? <>
+                  <p className="text-xs font-medium">{selectedCorporateAccount.companyName}</p>
+                  <p className={`text-xs ${selectedCorporateAccount.isActive ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}`}>Status: {selectedCorporateAccount.isActive ? 'Active' : 'Inactive'}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">Account: {selectedCorporateAccount.id}</p>
+                </> : <p className="text-xs text-[var(--icon-red-text)]">{corporateAccountId ? 'Account could not be verified' : 'No corporate account assigned to patient'}</p>}
               </div>
             )}
 
