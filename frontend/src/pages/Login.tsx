@@ -238,7 +238,7 @@ export default function Login() {
           max-width: 1000px;
           display: grid;
           grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
-          transform: translateX(clamp(-64px, -3.5vw, -20px));
+          left: clamp(-64px, -3.5vw, -20px);
           border-radius: 20px;
           overflow: hidden;
           border: 1px solid rgba(255,255,255,0.08);
@@ -499,7 +499,7 @@ export default function Login() {
         /* ── Responsive ── */
         @media (max-width: 900px) {
           .login-wrapper { min-height: 100svh; height: auto; overflow-y: auto; overflow-x: hidden; }
-          .login-card { width: 100%; grid-template-columns: 1fr !important; max-width: 460px !important; max-height: none !important; transform: none !important; margin: auto; }
+          .login-card { width: 100%; grid-template-columns: 1fr !important; max-width: 460px !important; max-height: none !important; left: 0; margin: auto; }
           .login-brand { display: flex !important; padding: 20px 24px 16px !important; overflow: visible !important; }
           .brand-inner { gap: 0 !important; }
           .brand-middle, .brand-copyright { display: none !important; }
