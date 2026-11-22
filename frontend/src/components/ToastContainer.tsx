@@ -8,7 +8,7 @@ export function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-3 right-3 z-50 space-y-2 max-w-xs">
+    <div className="fixed top-[calc(52px+12px)] right-3 z-[100] flex max-h-[calc(100vh-76px)] w-[min(26rem,calc(100vw-1.5rem))] flex-col gap-3 overflow-y-auto overscroll-contain px-1 pb-1">
       {toasts.map((toast) => (
         <Toast key={toast.id} toast={toast} onRemove={removeToast} />
       ))}
