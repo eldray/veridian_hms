@@ -26,6 +26,20 @@ import {
   TABLE_SHELL, TD, TD_MONO, TD_MUTED, TH, TH_ROW, TR,
 } from '../components/ui';
 
+const getLocalDateInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+const getDefaultInvoiceDateRange = () => {
+  const today = new Date();
+  return {
+    startDate: getLocalDateInputValue(new Date(today.getFullYear(), today.getMonth(), 1)),
+    endDate: getLocalDateInputValue(today),
+  };
+};
+
 const titleCase = (s: any) => String(s ?? '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).trim();
 
 interface InvoiceItem { id?: string; stockItemId: string; quantity: number; unitCost: number; batchNumber?: string; expiryDate?: string; StockItem?: { name: string; unitOfMeasure: string; currentStock: number }; }
@@ -116,6 +130,7 @@ export default function InvoiceManagement() {
   const canViewStaffDirectory = hasRole(['super_admin', 'admin', 'hr_officer']);
   const [searchTerm, setSearchTerm] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('all');
+  const [invoiceDateRange, setInvoiceDateRange] = useState(getDefaultInvoiceDateRange);
   const [showFilters, setShowFilters] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -159,7 +174,14 @@ export default function InvoiceManagement() {
 
   const invoices = purchaseInvoices || [];
   const getUniqueSuppliers = () => { const suppliers = new Set(invoices.map(inv => inv.supplierName).filter(Boolean)); return Array.from(suppliers).sort(); };
-  const filteredInvoices = invoices.filter(invoice => {
+  const dateFilteredInvoices = invoices.filter(invoice => {
+    // Invoice dates are calendar dates; compare their YYYY-MM-DD portion to avoid
+    // timezone shifts moving an invoice into the previous/next day.
+    const invoiceDate = String(invoice.invoiceDate || '').slice(0, 10);
+    return (!invoiceDateRange.startDate || invoiceDate >= invoiceDateRange.startDate) &&
+      (!invoiceDateRange.endDate || invoiceDate <= invoiceDateRange.endDate);
+  });
+  const filteredInvoices = dateFilteredInvoices.filter(invoice => {
     const q = searchTerm.toLowerCase();
     const matchesSearch = !q ||
       invoice.invoiceNumber?.toLowerCase().includes(q) ||
@@ -245,13 +267,20 @@ export default function InvoiceManagement() {
     printWindow.document.write(`<!DOCTYPE html><html><head><title>Invoice ${invoice.invoiceNumber}</title><style>body { font-family: Arial, sans-serif; margin: 40px; }.header { text-align: center; margin-bottom: 30px; }.invoice-details { margin-bottom: 20px; }table { width: 100%; border-collapse: collapse; margin-top: 20px; }th { background-color: #f5f5f5; padding: 10px; text-align: left; border-bottom: 2px solid #ddd; }td { padding: 8px; border-bottom: 1px solid #ddd; }.total { margin-top: 20px; text-align: right; font-size: 18px; font-weight: bold; }.footer { margin-top: 50px; text-align: center; font-size: 12px; color: #666; }</style></head><body><div class="header"><h1>PURCHASE INVOICE</h1></div><div class="invoice-details"><p><strong>Invoice Number:</strong> ${invoice.invoiceNumber}</p><p><strong>Supplier:</strong> ${invoice.supplierName}</p><p><strong>Date:</strong> ${new Date(invoice.invoiceDate).toLocaleDateString()}</p>${invoice.notes ? `<p><strong>Notes:</strong> ${invoice.notes}</p>` : ''}</div><table><thead><tr><th>Item</th><th>Quantity</th><th>Unit Cost</th><th>Total</th></tr></thead><tbody>${itemsHtml}</tbody></table><div class="total">Total Amount: $${invoice.totalAmount.toFixed(2)}</div><div class="footer"><p>Generated on ${new Date().toLocaleString()}</p></div></body></html>`);
     printWindow.document.close(); printWindow.print();
   };
-  const clearFilters = () => { setSearchTerm(''); setSupplierFilter('all'); setCurrentPage(1); };
-  const hasActiveFilters = searchTerm !== '' || supplierFilter !== 'all';
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSupplierFilter('all');
+    setInvoiceDateRange(getDefaultInvoiceDateRange());
+    setCurrentPage(1);
+  };
+  const hasActiveFilters = searchTerm !== '' || supplierFilter !== 'all' ||
+    invoiceDateRange.startDate !== getDefaultInvoiceDateRange().startDate ||
+    invoiceDateRange.endDate !== getDefaultInvoiceDateRange().endDate;
   const summaryStats = {
-    totalInvoices: invoices?.length || 0,
-    totalSpent: invoices?.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0) || 0,
-    uniqueSuppliers: getUniqueSuppliers().length,
-    totalItems: invoices?.reduce((sum, inv) => sum + (inv.InvoiceItem?.length || 0), 0) || 0,
+    totalInvoices: filteredInvoices.length,
+    totalSpent: filteredInvoices.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0),
+    uniqueSuppliers: new Set(filteredInvoices.map(inv => inv.supplierName).filter(Boolean)).size,
+    totalItems: filteredInvoices.reduce((sum, inv) => sum + (inv.InvoiceItem?.length || 0), 0),
   };
   const activeStockItems = stockItems.filter(item => item.isActive);
 
@@ -278,7 +307,20 @@ export default function InvoiceManagement() {
             <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2"><Filter className="w-4 h-4" />Filter Invoices</h3>
             <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close filters" onClick={() => setShowFilters(false)} />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">From date</label>
+              <input type="date" value={invoiceDateRange.startDate} max={invoiceDateRange.endDate || undefined}
+                onChange={e => { setInvoiceDateRange(prev => ({ ...prev, startDate: e.target.value })); setCurrentPage(1); }}
+                className={cn(INPUT, 'w-full')} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">To date</label>
+              <input type="date" value={invoiceDateRange.endDate} min={invoiceDateRange.startDate || undefined}
+                max={getLocalDateInputValue(new Date())}
+                onChange={e => { setInvoiceDateRange(prev => ({ ...prev, endDate: e.target.value })); setCurrentPage(1); }}
+                className={cn(INPUT, 'w-full')} />
+            </div>
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Supplier</label>
               <select value={supplierFilter} onChange={e => { setSupplierFilter(e.target.value); setCurrentPage(1); }} className={cn(SELECT, 'w-full')}>
