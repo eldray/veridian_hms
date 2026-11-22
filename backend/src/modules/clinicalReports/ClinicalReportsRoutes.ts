@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { protect, requireRole } from '../../middleware/authMiddleware';
+import { protect } from '../../middleware/authMiddleware';
 import { ClinicalReportsController } from './ClinicalReportsController';
 
 export function createClinicalReportsRoutes(prisma: PrismaClient): Router {
@@ -8,7 +8,8 @@ export function createClinicalReportsRoutes(prisma: PrismaClient): Router {
   const controller = new ClinicalReportsController(prisma);
 
   router.use(protect);
-  router.use(requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'sonographer']));
+  // Read-only clinical summaries are available to authenticated staff.
+  // Result entry, verification and clinical record mutations remain separately guarded.
 
   router.get('/lab', controller.generateLabReport);
   router.get('/scan', controller.generateScanReport);
