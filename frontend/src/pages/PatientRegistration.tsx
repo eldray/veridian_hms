@@ -14,7 +14,8 @@ import {
   Info,
   Edit,
   AlertCircle,
-  Eye
+  Eye,
+  Printer
 } from 'lucide-react';
 import { Button, PageHeader } from '../components/ui';
 import type {
@@ -29,6 +30,7 @@ import type {
 import PaymentModeTab from '../components/PaymentModeTab';
 import AdditionalInfoTab from '../components/AdditionalInfoTab';
 import { BasicInfoForm } from '../components/patients/BasicInfoForm';
+import PatientIdCardPrint from '../components/patients/PatientIdCardPrint';
 
 // Convert ISO date to input format
 const convertISODateToInputFormat = (isoDate: string): string => {
@@ -110,6 +112,8 @@ export default function PatientRegistration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [savedPatientId, setSavedPatientId] = useState<string | null>(null);
+  const [idCardPatient, setIdCardPatient] = useState<any | null>(null);
+  const [showIdCard, setShowIdCard] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const isEditMode = searchParams.get('edit') === 'true';
@@ -341,6 +345,8 @@ export default function PatientRegistration() {
       setImagePreview('');
       setSaveSuccess(false);
       setSavedPatientId(null);
+      setIdCardPatient(null);
+      setShowIdCard(false);
     }
   }, [isEditMode]);
 
@@ -457,12 +463,14 @@ export default function PatientRegistration() {
       console.log('📤 Submitting patient data:', patientData);
   
       let result;
+      let savedImageUrl: string | undefined;
       if (isEditMode && patientId) {
         result = await updatePatient(patientId, patientData);
         if (image && result.id) {
           const imageUrl = await handleImageUpload(image, result.id);
           if (imageUrl) {
-            await updatePatient(result.id, { ...patientData, imageUrl });
+            savedImageUrl = imageUrl;
+            result = await updatePatient(result.id, { ...patientData, imageUrl });
           }
         }
         success('Updated', 'Patient information saved');
@@ -478,6 +486,15 @@ export default function PatientRegistration() {
       }
   
       setSavedPatientId(result.id);
+      setIdCardPatient({
+        ...result,
+        ...patientData,
+        id: result.id,
+        imageUrl: savedImageUrl || result.imageUrl || currentPatient?.imageUrl,
+        folderNumber: result.folderNumber || formData.folderNumber || result.id,
+        nhisNumber: result.nhisNumber || paymentData.insuranceDetails?.insuranceNumber,
+        nhisExpiryDate: result.nhisExpiryDate || paymentData.insuranceDetails?.endDate,
+      });
       setSaveSuccess(true);
   
     } catch (error: any) {
@@ -722,6 +739,9 @@ return (
           <Button size="sm" icon={Edit} onClick={handleContinueEditing}>
             Continue editing
           </Button>
+          <Button size="sm" variant="soft" accent="cyan" icon={Printer} onClick={() => setShowIdCard(true)} disabled={!idCardPatient}>
+            Print ID card
+          </Button>
           <Button size="sm" variant="soft" accent="green" icon={Eye} onClick={handleViewDetails}>
             View patient
           </Button>
@@ -748,7 +768,7 @@ return (
           <p className="text-xs mt-0.5" style={{ color: 'var(--icon-green-text)' }}>
             {isEditMode
               ? 'Patient information has been updated successfully.'
-              : 'Record saved. Add payment mode or additional info using the tabs above.'}
+              : 'Record saved. You can print the patient ID card now or complete payment and additional details below.'}
           </p>
         </div>
       </div>
@@ -929,5 +949,8 @@ return (
       </div>
     </div>
   </div>
+  {showIdCard && idCardPatient && (
+    <PatientIdCardPrint patient={idCardPatient} onClose={() => setShowIdCard(false)} />
+  )}
 );
 }
