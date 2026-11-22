@@ -30,6 +30,16 @@ export class StockTransactionController extends BaseController {
     return this.created(res, result, 'Stock transaction created successfully');
   });
 
+  disposeAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.disposeAllStock({
+      role: req.user?.role,
+      performedBy: req.user?.id,
+      notes: req.body.notes,
+      reference: req.body.reference,
+    });
+    return this.ok(res, result, 'Bulk stock disposal completed');
+  });
+
   getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));

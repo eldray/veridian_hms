@@ -24,6 +24,7 @@ export const createStockTransactionRoutes = () => {
   // 2. DYNAMIC ID ROUTES
   // ==========================================
 
+  router.post('/dispose-all', requireRole(['admin', 'super_admin']), stockTransactionController.disposeAll);
   router.post('/', requireRole(['admin', 'super_admin', 'pharmacist']), stockTransactionController.create);
   router.get('/', requireRole(['admin', 'super_admin', 'pharmacist', 'accounts']), stockTransactionController.getAll);
   router.get('/:id', requireRole(['admin', 'super_admin', 'pharmacist', 'accounts']), stockTransactionController.getById);

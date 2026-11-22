@@ -308,6 +308,9 @@ export class StockItemService extends BaseService {
     if (transactionType === 'adjustment' && !String(notes || '').trim()) {
       throw new ValidationError('A reason is required for every stock adjustment');
     }
+    if (transactionType === 'write_off' && !isAdmin) {
+      throw new ValidationError('Only an administrator may dispose of stock');
+    }
     if (transactionType === 'write_off' && !String(notes || '').trim()) {
       throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
     }

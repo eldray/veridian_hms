@@ -12,7 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { Plus, Package, AlertTriangle, Edit, Trash2, RefreshCw, FileText, ClipboardList, History, TrendingUp, Grid, List, X, Warehouse } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getStockItemMedicationHistory } from '../api';
+import { disposeAllStock, getStockItemMedicationHistory } from '../api';
 import { Badge, Button, Card, cn, FilterSelect, INPUT, LinkButton, PageHeader, Pagination, SearchInput, SELECT, StatCard, TABLE_SHELL, TD, TD_MONO, TD_MUTED, TH, TH_ROW, TR } from '../components/ui';
 import type { BadgeTone } from '../components/ui';
 
@@ -35,6 +35,10 @@ export default function StockManagement() {
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showAllocationForm, setShowAllocationForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showBulkDisposeForm, setShowBulkDisposeForm] = useState(false);
+  const [bulkDisposeReason, setBulkDisposeReason] = useState('');
+  const [bulkDisposeConfirmation, setBulkDisposeConfirmation] = useState('');
+  const [bulkDisposalLoading, setBulkDisposalLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyDates, setHistoryDates] = useState(currentMonthHistoryRange);
   const [medicationHistory, setMedicationHistory] = useState<any[]>([]);
@@ -47,6 +51,7 @@ export default function StockManagement() {
   const isAdmin = hasRole(['admin', 'pharmacist']);
   const canDelete = hasRole(['admin', 'super_admin']);
   const canAllocateStock = hasRole(['admin', 'super_admin']);
+  const canDisposeStock = hasRole(['admin', 'super_admin']);
   const apiError = (err: any, fallback: string): string => err?.response?.data?.message || err?.message || fallback;
   const [formData, setFormData] = useState({ name: '', drugCode: '', category: 'medication', description: '', strength: '', unitOfMeasure: '', reorderLevel: 10, costPrice: 0, cashPrice: '', nhisPrice: '', insurancePrice: '', corporatePrice: '', supplier: '', batchNumber: '', expiryDate: '', isMedication: true, isActive: true });
   const [transactionData, setTransactionData] = useState({ transactionType: 'purchase' as 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'write_off', quantity: 0, adjustmentDirection: 'increase' as 'increase' | 'decrease', reference: '', notes: '', batchNumber: '', departmentId: (user as any)?.departmentId || '' });
@@ -98,11 +103,45 @@ export default function StockManagement() {
   };
   const handleTransactionSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); if (!selectedItem) return;
+    if (transactionData.transactionType === 'write_off') {
+      const approved = await confirmDialog({ title: 'Confirm stock disposal', message: `You are disposing ${transactionData.quantity} ${selectedItem.unitOfMeasure} of ${selectedItem.name}. This will reduce stock and create an audit write-off record. Continue?`, confirmText: 'Dispose Stock' });
+      if (!approved) return;
+    }
     try {
-      await createStockTransaction({ stockItemId: selectedItem.id, ...transactionData, quantity: transactionData.transactionType === 'adjustment' && transactionData.adjustmentDirection === 'decrease' ? -Math.abs(transactionData.quantity) : transactionData.quantity, departmentId: transactionData.departmentId || (user as any)?.departmentId || undefined, ...(transactionData.transactionType === 'write_off' ? { batchNumber: transactionData.batchNumber.trim() } : {}) } as Parameters<typeof createStockTransaction>[0]);
+      await createStockTransaction({ stockItemId: selectedItem.id, ...transactionData, quantity: transactionData.transactionType === 'adjustment' && transactionData.adjustmentDirection === 'decrease' ? -Math.abs(transactionData.quantity) : transactionData.quantity, departmentId: transactionData.transactionType === 'write_off' && canDisposeStock ? (transactionData.departmentId || undefined) : (transactionData.departmentId || (user as any)?.departmentId || undefined), ...(transactionData.transactionType === 'write_off' ? { batchNumber: transactionData.batchNumber.trim() } : {}) } as Parameters<typeof createStockTransaction>[0]);
       success('Recorded', 'Transaction completed successfully'); setShowTransactionForm(false); setSelectedItem(null); resetTransactionForm(); await loadAllData();
     } catch (err: any) { toastError('Transaction failed', apiError(err, 'Could not record transaction')); }
   };
+  const handleBulkDispose = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canDisposeStock || bulkDisposeConfirmation !== 'DISPOSE ALL' || !bulkDisposeReason.trim()) return;
+    setBulkDisposalLoading(true);
+    try {
+      const result = await disposeAllStock({ notes: bulkDisposeReason.trim(), reference: `BULK-DISPOSAL-${new Date().toISOString()}` });
+      await loadAllData();
+      setShowBulkDisposeForm(false);
+      setBulkDisposeReason('');
+      setBulkDisposeConfirmation('');
+      if (result.failedCount > 0) {
+        toastError('Bulk disposal partially completed', `${result.disposedQuantity} units disposed in ${result.disposedMovements} movements; ${result.failedCount} item/location(s) need review. ${(result.failures || []).slice(0, 3).map((f: any) => `${f.item}: ${f.reason}`).join(' | ')} ${result.note || ''}`);
+      } else {
+        success('Bulk disposal completed', `${result.disposedQuantity} units disposed across ${result.disposedMovements} audited stock movements. ${result.note || ''}`);
+      }
+    } catch (err: any) {
+      toastError('Bulk disposal failed', apiError(err, 'Could not dispose all stock'));
+    } finally { setBulkDisposalLoading(false); }
+  };
+
+  const openSingleDisposal = (item: StockItem) => {
+    if (!canDisposeStock) return;
+    setSelectedItem(item);
+    const firstBatch = ((item as any).StockBatch || []).find((batch: any) => Number(batch.quantity) > 0);
+    const firstBalance = (((item as any).stockBalances || []) as any[]).find(balance => Number(balance.quantity) > 0 && !balance.wardId);
+    const initialDepartmentId = firstBatch?.departmentId ?? firstBalance?.departmentId ?? (user as any)?.departmentId ?? departments[0]?.id ?? '';
+    setTransactionData({ transactionType: 'write_off', quantity: 0, adjustmentDirection: 'decrease', reference: '', notes: '', batchNumber: firstBatch?.batchNumber || '', departmentId: initialDepartmentId });
+    setShowTransactionForm(true);
+  };
+
   const handleAllocationSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); if (!selectedItem) return;
     try { await allocateStockToDepartment(selectedItem.id, allocationData); success('Allocated', 'Stock moved to the selected department; hospital total is unchanged'); setShowAllocationForm(false); setSelectedItem(null); setAllocationData({ quantity: 0, departmentId: '' }); await loadAllData(); }
@@ -161,6 +200,7 @@ export default function StockManagement() {
           <LinkButton to="/dashboard/invoices" icon={FileText}>Invoices</LinkButton>
           <LinkButton to="/dashboard/requisitions" icon={ClipboardList}>Requisitions</LinkButton>
           <LinkButton to="/dashboard/transactions" icon={History}>Transactions</LinkButton>
+          {canDisposeStock && (<Button variant="dangerSoft" icon={Trash2} onClick={() => setShowBulkDisposeForm(true)}>Dispose All Stock</Button>)}
           {isAdmin && (<Button variant="soft" icon={Plus} onClick={() => setShowForm(true)}>Add Item</Button>)}
         </>} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -241,7 +281,8 @@ export default function StockManagement() {
                 )}
                 {isAdmin && (
                   <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
-                    <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedItem(item); setShowTransactionForm(true); }}>Stock In/Out</Button>
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => { setSelectedItem(item); resetTransactionForm(); setShowTransactionForm(true); }}>Stock In/Out</Button>
+                    {canDisposeStock && (<Button variant="dangerSoft" size="sm" icon={Trash2} onClick={() => openSingleDisposal(item)}>Dispose</Button>)}
                     {canAllocateStock && (<Button variant="soft" accent="green" size="sm" className="flex-1" onClick={() => { setSelectedItem(item); setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' }); setShowAllocationForm(true); }}>Allocate</Button>)}
                     <Button variant="ghost" size="sm" iconOnly icon={Edit} aria-label={`Edit ${item.name}`} className="text-[var(--icon-green-text)]" onClick={() => handleEdit(item)} />
                     {canDelete && (<Button variant="dangerSoft" size="sm" iconOnly icon={Trash2} aria-label={`Delete ${item.name}`} onClick={() => handleDelete(item.id)} />)}
@@ -276,6 +317,7 @@ export default function StockManagement() {
               <td className={cn(TD, 'text-center')}>{isAdmin && (<div className="flex items-center justify-center gap-2">
                 <Button variant="ghost" size="sm" iconOnly icon={History} aria-label={`View stock history for ${item.name}`} title={`View stock history for ${item.name}`} onClick={() => { const dates = currentMonthHistoryRange(); setHistoryDates(dates); void openStockHistory(item, dates); }} />
                 <Button variant="ghost" size="sm" iconOnly icon={TrendingUp} aria-label={`Stock in/out for ${item.name}`} className="text-[var(--icon-cyan-text)]" onClick={() => { setSelectedItem(item); setShowTransactionForm(true); }} />
+                {canDisposeStock && (<Button variant="dangerSoft" size="sm" iconOnly icon={Trash2} aria-label={`Dispose stock for ${item.name}`} title={`Dispose stock for ${item.name}`} onClick={() => openSingleDisposal(item)} />)}
                 {canAllocateStock && (<Button variant="soft" accent="green" size="sm" iconOnly icon={Package} aria-label={`Allocate unassigned stock for ${item.name}`} onClick={() => { setSelectedItem(item); setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' }); setShowAllocationForm(true); }} />)}
                 <Button variant="ghost" size="sm" iconOnly icon={Edit} aria-label={`Edit ${item.name}`} className="text-[var(--icon-green-text)]" onClick={() => handleEdit(item)} />
                 {canDelete && (<Button variant="dangerSoft" size="sm" iconOnly icon={Trash2} aria-label={`Delete ${item.name}`} onClick={() => handleDelete(item.id)} />)}
@@ -338,9 +380,22 @@ export default function StockManagement() {
             <div className="border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between"><h2 className="text-lg font-bold text-[var(--text-primary)]">Allocate Unassigned Stock</h2><Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close allocation form" onClick={() => setShowAllocationForm(false)} /></div>
             <form onSubmit={handleAllocationSubmit} className="p-6 space-y-4">
               <div className="bg-[var(--bg-main)] rounded-lg p-3"><p className="text-sm text-[var(--text-secondary)]">Selected item</p><p className="font-semibold text-[var(--text-primary)]">{selectedItem.name}</p><p className="text-xs text-[var(--text-tertiary)] mt-1">Unassigned balance: {getInventoryBreakdown(selectedItem).departments.find(d => d.id === '__UNASSIGNED__')?.quantity || 0} {selectedItem.unitOfMeasure}</p><p className="text-xs text-[var(--text-tertiary)]">This is an internal allocation; the hospital total will not change.</p></div>
-              <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Receiving department *</label><select required value={allocationData.departmentId} onChange={e => setAllocationData({ ...allocationData, departmentId: e.target.value })} className={cn(SELECT, 'w-full')}><option value="">Choose department</option>{departments.filter((d: any) => d.isActive !== false).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
+              <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Receiving department *</label><select required value={allocationData.departmentId} onChange={e => setAllocationData({ ...allocationData, departmentId: e.target.value })} className={cn(SELECT, 'w-full')}><option value="">Unassigned stock</option>{departments.filter((d: any) => d.isActive !== false).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity to allocate *</label><input type="number" min="1" step="1" required value={allocationData.quantity || ''} onChange={e => setAllocationData({ ...allocationData, quantity: Number(e.target.value) || 0 })} className={cn(INPUT, 'w-full')} /></div>
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]"><Button type="button" variant="secondary" className="flex-1" onClick={() => setShowAllocationForm(false)}>Cancel</Button><Button type="submit" variant="soft" accent="green" className="flex-1">Allocate Stock</Button></div>
+            </form>
+          </div>
+        </div>
+      )}
+      {showBulkDisposeForm && canDisposeStock && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]" onClick={() => !bulkDisposalLoading && setShowBulkDisposeForm(false)}>
+          <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-lg border border-[var(--border-color)]" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-[var(--border-color)]"><h2 className="text-lg font-bold text-[var(--text-primary)]">Dispose all facility stock</h2><p className="text-sm text-[var(--text-secondary)] mt-1">This writes off every available department, ward and unassigned stock balance, with a separate audit movement for each batch/location.</p></div>
+            <form onSubmit={handleBulkDispose} className="p-6 space-y-4">
+              <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Disposal reason *</label><textarea required rows={3} value={bulkDisposeReason} onChange={e => setBulkDisposeReason(e.target.value)} className={cn(INPUT, 'w-full resize-none')} placeholder="Explain why the entire facility stock is being disposed of" /></div>
+              <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Type DISPOSE ALL to confirm *</label><input required value={bulkDisposeConfirmation} onChange={e => setBulkDisposeConfirmation(e.target.value)} className={cn(INPUT, 'w-full')} placeholder="DISPOSE ALL" /></div>
+              <p className="text-xs text-[var(--icon-red-text)]">This action reduces recorded stock to zero where disposal is possible. It cannot be undone as a single operation; each successful write-off is permanently recorded in stock transactions.</p>
+              <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]"><Button type="button" variant="secondary" className="flex-1" disabled={bulkDisposalLoading} onClick={() => setShowBulkDisposeForm(false)}>Cancel</Button><Button type="submit" variant="danger" className="flex-1" loading={bulkDisposalLoading} disabled={bulkDisposeConfirmation !== 'DISPOSE ALL' || !bulkDisposeReason.trim()}>Dispose All Stock</Button></div>
             </form>
           </div>
         </div>
@@ -348,17 +403,17 @@ export default function StockManagement() {
       {showTransactionForm && selectedItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleTransactionCancel}>
           <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between"><h2 className="text-lg font-bold text-[var(--text-primary)]">Stock Transaction</h2><Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close transaction form" onClick={handleTransactionCancel} /></div>
+            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between"><h2 className="text-lg font-bold text-[var(--text-primary)]">{transactionData.transactionType === 'write_off' ? 'Dispose Stock' : 'Stock Transaction'}</h2><Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close transaction form" onClick={handleTransactionCancel} /></div>
             <form onSubmit={handleTransactionSubmit} className="p-6 space-y-4">
               <div className="bg-[var(--bg-main)] rounded-lg p-3 mb-2"><p className="text-sm text-[var(--text-secondary)]">Selected Item</p><p className="font-semibold text-[var(--text-primary)]">{selectedItem.name}</p><p className="text-xs text-[var(--text-tertiary)]">Current stock: {selectedItem.currentStock} {selectedItem.unitOfMeasure}</p></div>
-              <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Transaction Type *</label><select required value={transactionData.transactionType} onChange={e => setTransactionData({ ...transactionData, transactionType: e.target.value as any })} className={cn(SELECT, 'w-full')}><option value="purchase">Purchase (Add Stock)</option><option value="sale">Sale (Remove Stock)</option><option value="adjustment">Adjustment (Manual)</option><option value="requisition">Requisition (Remove Stock)</option><option value="write_off">Expiry / Damage Write-off (Remove Stock)</option></select></div>
+              <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Transaction Type *</label><select required value={transactionData.transactionType} onChange={e => setTransactionData({ ...transactionData, transactionType: e.target.value as any })} className={cn(SELECT, 'w-full')}><option value="purchase">Purchase (Add Stock)</option><option value="sale">Sale (Remove Stock)</option><option value="adjustment">Adjustment (Manual)</option><option value="requisition">Requisition (Remove Stock)</option>{canDisposeStock && <option value="write_off">Dispose / Write-off (Remove Stock)</option>}</select></div>
               {transactionData.transactionType === 'adjustment' && (<div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Adjustment Direction *</label><select required value={transactionData.adjustmentDirection} onChange={e => setTransactionData({ ...transactionData, adjustmentDirection: e.target.value as 'increase' | 'decrease' })} className={cn(SELECT, 'w-full')}><option value="increase">Increase stock</option><option value="decrease">Decrease stock</option></select></div>)}
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Issuing / Receiving Department</label><select value={transactionData.departmentId} onChange={e => setTransactionData({ ...transactionData, departmentId: e.target.value })} className={cn(SELECT, 'w-full')}><option value="">Choose department</option>{departments.filter((d: any) => d.isActive !== false).map((d: any) => (<option key={d.id} value={d.id}>{d.name}</option>))}</select><p className="text-xs text-[var(--text-tertiary)] mt-1">For sales from batch-tracked stock, choose the department issuing the item. Hospital total reduces automatically.</p></div>
               {transactionData.transactionType === 'write_off' && (<div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Batch Number {selectedItem && (selectedItem as any).StockBatch?.length ? '*' : '(required for batch-tracked items)'}</label><input type="text" required={Boolean((selectedItem as any)?.StockBatch?.length)} value={transactionData.batchNumber} onChange={e => setTransactionData({ ...transactionData, batchNumber: e.target.value })} placeholder="Enter the exact affected batch number" className={cn(INPUT, 'w-full')} /><p className="text-xs text-[var(--text-tertiary)] mt-1">For batch-tracked stock, enter the exact affected batch number. Expired or inactive batches can be written off for reconciliation.</p></div>)}
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity *</label><input type="number" min="1" required value={transactionData.quantity} onChange={e => setTransactionData({ ...transactionData, quantity: parseInt(e.target.value) || 0 })} className={cn(INPUT, 'w-full')} /></div>
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Reference (Optional)</label><input type="text" placeholder="e.g., PO-123, INV-456" value={transactionData.reference} onChange={e => setTransactionData({ ...transactionData, reference: e.target.value })} className={cn(INPUT, 'w-full')} /></div>
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{['write_off', 'adjustment'].includes(transactionData.transactionType) ? 'Reason *' : 'Notes'}</label><textarea rows={2} required={['write_off', 'adjustment'].includes(transactionData.transactionType)} value={transactionData.notes} onChange={e => setTransactionData({ ...transactionData, notes: e.target.value })} className={cn(INPUT, 'w-full resize-none')} placeholder="Optional notes" /></div>
-              <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]"><Button type="button" variant="secondary" className="flex-1" onClick={handleTransactionCancel}>Cancel</Button><Button type="submit" variant="soft" className="flex-1">Record Transaction</Button></div>
+              <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]"><Button type="button" variant="secondary" className="flex-1" onClick={handleTransactionCancel}>Cancel</Button><Button type="submit" variant={transactionData.transactionType === 'write_off' ? 'danger' : 'soft'} className="flex-1">{transactionData.transactionType === 'write_off' ? 'Confirm Disposal' : 'Record Transaction'}</Button></div>
             </form>
           </div>
         </div>

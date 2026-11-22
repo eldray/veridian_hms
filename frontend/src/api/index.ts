@@ -2673,6 +2673,9 @@ export const getStockTransaction = (id: string) =>
 export const createStockTransaction = (data: any) =>
   api.post('/stock-transactions', data).then(r => r.data?.data || r.data);
 
+export const disposeAllStock = (data: { notes: string; reference?: string }) =>
+  api.post('/stock-transactions/dispose-all', data).then(r => r.data?.data || r.data);
+
 export const updateStockTransaction = (id: string, data: { notes?: string; reference?: string }) =>
   api.put(`/stock-transactions/${id}`, data).then(r => r.data?.data || r.data);
 

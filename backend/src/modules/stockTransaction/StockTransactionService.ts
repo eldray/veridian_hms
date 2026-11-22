@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { StockTransactionRepository } from './StockTransactionRepository';
+import { StockItemRepository } from '../stockItem/StockItemRepository';
 import { NotFoundError, ValidationError } from '../../utils/errors';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
@@ -8,10 +9,12 @@ const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
 export class StockTransactionService extends BaseService {
   private repo: StockTransactionRepository;
+  private stockItemRepo: StockItemRepository;
 
   constructor(prisma: PrismaClient) {
     super('StockTransactionService');
     this.repo = new StockTransactionRepository(prisma);
+    this.stockItemRepo = new StockItemRepository(prisma);
   }
 
   async create(data: any) {
@@ -27,10 +30,13 @@ export class StockTransactionService extends BaseService {
     if (!validTypes.includes(data.transactionType)) {
       throw new ValidationError(`Invalid transaction type. Must be one of: ${validTypes.join(', ')}`);
     }
+    const isAdmin = ['admin', 'super_admin'].includes(String(data.role || '').toLowerCase());
+    if (data.transactionType === 'write_off' && !isAdmin) {
+      throw new ValidationError('Only an administrator may dispose of stock');
+    }
     if (data.transactionType === 'write_off' && !String(data.notes || '').trim()) {
       throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
     }
-    const isAdmin = ['admin', 'super_admin'].includes(String(data.role || '').toLowerCase());
     if (data.transactionType === 'adjustment' && !isAdmin) {
       throw new ValidationError('Only an administrator may record a stock adjustment. Include an audit note explaining the reason.');
     }
@@ -46,6 +52,80 @@ export class StockTransactionService extends BaseService {
     data.quantity = quantity;
 
     return this.repo.createSafely(data);
+  }
+
+  /**
+   * Administrator-only bulk disposal. Each item/location/batch is written as an
+   * ordinary write_off transaction so stock balances, batches and audit history
+   * stay aligned. Individual movements are atomic; failures are reported per lot.
+   * Department, ward and unassigned stock are all included in the facility-wide action.
+   */
+  async disposeAllStock(data: { role?: string; performedBy?: string; notes?: string; reference?: string }) {
+    const isAdmin = ['admin', 'super_admin'].includes(String(data.role || '').toLowerCase());
+    if (!isAdmin) throw new ValidationError('Only an administrator may dispose of all stock');
+    const reason = String(data.notes || '').trim();
+    if (!reason) throw new ValidationError('A reason is required to dispose of all stock');
+
+    const items = await this.repo.prisma.stockItem.findMany({
+      where: {
+        OR: [
+          { currentStock: { gt: 0 } },
+          { stockBalances: { some: { quantity: { gt: 0 } } } },
+          { StockBatch: { some: { quantity: { gt: 0 } } } },
+        ],
+      },
+      select: {
+        id: true, name: true, unitOfMeasure: true, currentStock: true,
+        stockBalances: { where: { quantity: { gt: 0 } } },
+        StockBatch: { where: { quantity: { gt: 0 } }, select: { batchNumber: true, quantity: true, departmentId: true, wardId: true } },
+        _count: { select: { StockBatch: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
+
+    let disposedQuantity = 0;
+    let disposedMovements = 0;
+    const failures: Array<{ item: string; reason: string }> = [];
+    for (const item of items as any[]) {
+      const tracked = Number(item._count?.StockBatch || 0) > 0;
+      if (tracked) {
+        if (!item.StockBatch.length) {
+          failures.push({ item: item.name, reason: 'No positive batch balance was available; check stock discrepancies.' });
+          continue;
+        }
+        for (const batch of item.StockBatch) {
+          try {
+            await this.stockItemRepo.updateStockLevelSafely(
+              item.id, Number(batch.quantity), 'write_off', data.reference,
+              reason, data.performedBy, batch.departmentId || undefined, batch.batchNumber, batch.wardId || undefined,
+            );
+            disposedQuantity += Number(batch.quantity);
+            disposedMovements++;
+          } catch (error: any) {
+            failures.push({ item: item.name, reason: `${batch.batchNumber}: ${error?.message || 'Disposal failed'}` });
+          }
+        }
+      } else {
+        const locations = item.stockBalances.filter((balance: any) => Number(balance.quantity) > 0);
+        if (!locations.length) {
+          failures.push({ item: item.name, reason: 'No department or unassigned stock balance was found for the hospital stock total.' });
+          continue;
+        }
+        for (const balance of locations) {
+          try {
+            await this.stockItemRepo.updateStockLevelSafely(
+              item.id, Number(balance.quantity), 'write_off', data.reference,
+              reason, data.performedBy, balance.departmentId || undefined, undefined, balance.wardId || undefined,
+            );
+            disposedQuantity += Number(balance.quantity);
+            disposedMovements++;
+          } catch (error: any) {
+            failures.push({ item: item.name, reason: error?.message || 'Disposal failed' });
+          }
+        }
+      }
+    }
+    return { disposedMovements, disposedQuantity, failedCount: failures.length, failures, note: 'Disposal covers department, ward and unassigned balances. Each successful movement is individually audited.' };
   }
 
   async getAll(filters: any) {

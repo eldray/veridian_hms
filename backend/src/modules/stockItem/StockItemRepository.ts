@@ -103,9 +103,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       where, page, limit: Math.min(limit, 1000), orderBy: { name: 'asc' },
       include: {
         StockBatch: {
-          where: {
+          where: includeAllStockLocations ? {} : {
             isActive: true,
-            ...(!includeAllStockLocations ? { departmentId: departmentId ?? null, wardId: null } : {}),
+            departmentId: departmentId ?? null,
+            wardId: null,
           },
           include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
           orderBy: { expiryDate: 'asc' },
@@ -164,6 +165,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     performedBy?: string,
     departmentId?: string,
     batchNumber?: string,
+    wardId?: string,
   ) {
     if (transactionType === 'transfer_in' || transactionType === 'transfer_out') {
       throw new Error('Internal transfers must use the dedicated stock transfer or requisition fulfilment workflow');
@@ -174,11 +176,13 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       const adjustmentDirection = transactionType === 'adjustment' ? (quantity < 0 ? 'decrease' : 'increase') : undefined;
       const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off' || (transactionType === 'adjustment' && adjustmentDirection === 'decrease');
       const normalizedDepartmentId = departmentId || undefined;
+      const normalizedWardId = wardId || undefined;
+      if (normalizedDepartmentId && normalizedWardId) throw new Error('Stock cannot belong to a department and a ward at the same time');
       const batchCount = await tx.stockBatch.count({ where: { stockItemId: id } });
       const batchAllocations: Array<{ batchId: string; batchNumber: string; quantity: number; expiryDate: Date; costPrice: string }> = [];
 
       if (batchCount > 0 && isOutgoing) {
-        if (!normalizedDepartmentId) throw new Error('Select the department issuing this stock');
+        if (transactionType !== 'write_off' && !normalizedDepartmentId) throw new Error('Select the department issuing this stock');
         let batches: any[];
         if (transactionType === 'write_off') {
           const selectedBatchNumber = String(batchNumber || '').trim();
@@ -186,7 +190,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           const selectedBatch = await tx.stockBatch.findFirst({
             where: {
               stockItemId: id, batchNumber: selectedBatchNumber,
-              departmentId: normalizedDepartmentId, wardId: null, quantity: { gt: 0 },
+              departmentId: normalizedDepartmentId ?? null, wardId: normalizedWardId ?? null, quantity: { gt: 0 },
             },
           });
           if (!selectedBatch) throw new Error(`Batch ${selectedBatchNumber} was not found at this department or has no remaining stock`);
@@ -211,7 +215,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           const move = Math.min(batch.quantity, remaining);
           const changed = await tx.stockBatch.updateMany({
             where: {
-              id: batch.id, departmentId: normalizedDepartmentId, wardId: null, quantity: { gte: move },
+              id: batch.id, departmentId: normalizedDepartmentId ?? null, wardId: normalizedWardId ?? null, quantity: { gte: move },
               ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gte: startOfCurrentDay() } }),
             },
             data: { quantity: { decrement: move } },
@@ -232,7 +236,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
 
       let locationBalanceAfter: number;
       if (isOutgoing) {
-        const balance = await decreaseDepartmentStockBalance(tx, id, normalizedDepartmentId, effectiveQuantity);
+        const balance = await decreaseDepartmentStockBalance(tx, id, normalizedDepartmentId, effectiveQuantity, normalizedWardId);
         locationBalanceAfter = balance.quantity;
         const updated = await tx.stockItem.updateMany({
           where: { id, currentStock: { gte: effectiveQuantity } },
@@ -251,7 +255,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         data: {
           stockItemId: id, transactionType, quantity: effectiveQuantity,
           balanceAfter: locationBalanceAfter, reference, notes,
-          performedBy: performedBy || 'system', departmentId: normalizedDepartmentId, adjustmentDirection,
+          performedBy: performedBy || 'system', departmentId: normalizedDepartmentId, wardId: normalizedWardId, adjustmentDirection,
           batchAllocations: batchAllocations.length ? batchAllocations as any : undefined,
         },
       });
