@@ -31,18 +31,19 @@ export const generateThermalPrescriptionHTML = (
   const weight = patient?.weight || attendance?.weight || '';
 
   const medsHtml = meds.length
-    ? `<table class="table compact">
-        <thead><tr><th style="width:38%">Medicine</th><th style="width:17%">Dose</th><th style="width:20%">Freq.</th><th style="width:15%">Dur.</th><th class="num" style="width:10%">Qty</th></tr></thead>
+    ? `<table class="table compact rx-table">
+        <thead><tr><th style="width:42%">Medicine</th><th style="width:58%">Instructions</th></tr></thead>
         <tbody>${meds.map((m) => {
           const name = m?.name || m?.medicationName || m?.description || 'Medicine';
           const strength = m?.strength || m?.concentration || '';
-          const dose = m?.dosage || m?.dose || '-';
-          const frequency = m?.frequency || '-';
-          const duration = m?.duration ? String(m.duration) : '-';
-          const quantity = m?.quantity ?? '-';
+          const dose = m?.dosage || m?.dose || '';
+          const frequency = m?.frequency || '';
+          const duration = m?.duration ? `for ${m.duration}` : '';
+          const quantity = m?.quantity != null ? `Qty ${m.quantity}` : '';
           const route = m?.route || '';
           const instructions = m?.instructions || '';
-          return `<tr><td class="med-name">${esc(name)}${strength ? ` ${esc(strength)}` : ''}</td><td>${esc(dose)}</td><td>${esc(frequency)}</td><td>${esc(duration)}</td><td class="num">${esc(quantity)}</td></tr>${route || instructions ? `<tr><td colspan="5" class="med-directions">${esc(route)}${route && instructions ? ' · ' : ''}${instructions ? multiline(instructions) : ''}</td></tr>` : ''}`;
+          const directions = [dose, frequency, duration, quantity].filter(Boolean).join(' · ');
+          return `<tr><td class="med-name">${esc(name)}${strength ? ` ${esc(strength)}` : ''}</td><td>${esc(directions || 'As directed')}${route ? `<div class="secondary">${esc(route)}</div>` : ''}</td></tr>${instructions ? `<tr><td colspan="2" class="med-directions">${multiline(instructions)}</td></tr>` : ''}`;
         }).join('')}</tbody></table>
     `
     : centre('No medicines', 'sm');
