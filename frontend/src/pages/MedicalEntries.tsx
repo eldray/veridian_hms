@@ -2181,7 +2181,7 @@ export default function MedicalEntries() {
                         colWidths={['32%', '10%', '16%', '16%', '26%']}>
                         {dispensedMeds.map((med: any) => {
                           const unitCost = Number(med.dispensedUnitCost ?? med.unitCost ?? 0);
-                          const qty = Number(med.quantity ?? 0);
+                          const qty = Number(med.dispensedQuantity ?? med.quantity ?? 0);
                           return (
                             <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                               <TdPrimary>
