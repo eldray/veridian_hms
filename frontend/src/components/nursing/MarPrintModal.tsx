@@ -33,15 +33,6 @@ function escapeHtml(s: any): string {
   return div.innerHTML;
 }
 
-function fmtHour(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-function fmtDay(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
 function buildHtml(
   doses: MarDose[],
   patientName: string,
