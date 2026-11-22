@@ -70,8 +70,8 @@ export class StockTransactionService extends BaseService {
       where: { currentStock: { gt: 0 } },
       select: {
         id: true, name: true, unitOfMeasure: true, currentStock: true,
-        stockBalances: { where: { quantity: { gt: 0 }, wardId: null } },
-        StockBatch: { where: { quantity: { gt: 0 }, wardId: null }, select: { batchNumber: true, quantity: true, departmentId: true } },
+        stockBalances: { where: { quantity: { gt: 0 } } },
+        StockBatch: { where: { quantity: { gt: 0 } }, select: { batchNumber: true, quantity: true, departmentId: true, wardId: true } },
         _count: { select: { StockBatch: true } },
       },
       orderBy: { name: 'asc' },
@@ -84,14 +84,14 @@ export class StockTransactionService extends BaseService {
       const tracked = Number(item._count?.StockBatch || 0) > 0;
       if (tracked) {
         if (!item.StockBatch.length) {
-          failures.push({ item: item.name, reason: 'No department-level batch stock was available; check ward stock or stock discrepancies.' });
+          failures.push({ item: item.name, reason: 'No positive batch balance was available; check stock discrepancies.' });
           continue;
         }
         for (const batch of item.StockBatch) {
           try {
             await this.stockItemRepo.updateStockLevelSafely(
               item.id, Number(batch.quantity), 'write_off', data.reference,
-              reason, data.performedBy, batch.departmentId || undefined, batch.batchNumber,
+              reason, data.performedBy, batch.departmentId || undefined, batch.batchNumber, batch.wardId || undefined,
             );
             disposedQuantity += Number(batch.quantity);
             disposedMovements++;
@@ -100,7 +100,7 @@ export class StockTransactionService extends BaseService {
           }
         }
       } else {
-        const locations = item.stockBalances.filter((balance: any) => !balance.wardId && Number(balance.quantity) > 0);
+        const locations = item.stockBalances.filter((balance: any) => Number(balance.quantity) > 0);
         if (!locations.length) {
           failures.push({ item: item.name, reason: 'No department or unassigned stock balance was found for the hospital stock total.' });
           continue;
@@ -109,7 +109,7 @@ export class StockTransactionService extends BaseService {
           try {
             await this.stockItemRepo.updateStockLevelSafely(
               item.id, Number(balance.quantity), 'write_off', data.reference,
-              reason, data.performedBy, balance.departmentId || undefined,
+              reason, data.performedBy, balance.departmentId || undefined, undefined, balance.wardId || undefined,
             );
             disposedQuantity += Number(balance.quantity);
             disposedMovements++;
@@ -119,7 +119,7 @@ export class StockTransactionService extends BaseService {
         }
       }
     }
-    return { disposedMovements, disposedQuantity, failedCount: failures.length, failures, note: 'Ward-managed stock is not included in facility-store bulk disposal.' };
+    return { disposedMovements, disposedQuantity, failedCount: failures.length, failures, note: 'Disposal covers department, ward and unassigned balances. Each successful movement is individually audited.' };
   }
 
   async getAll(filters: any) {
