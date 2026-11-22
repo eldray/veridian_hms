@@ -51,6 +51,25 @@ describe('encounter completion lifecycle', () => {
     expect(tx.attendance.updateMany).not.toHaveBeenCalled();
   });
 
+  it('refuses to complete an OPD visit while tests, scans, prescriptions or procedures remain open', async () => {
+    const { service, tx } = setup({
+      id: 'encounter-1',
+      status: 'pending',
+      encounterCategory: 'opd',
+      attendanceType: 'general_consultation',
+      finalizedAt: new Date(),
+      Admission: null,
+    });
+    tx.labTest.count.mockResolvedValue(1);
+    tx.scan.count.mockResolvedValue(1);
+    tx.medication.count.mockResolvedValue(1);
+    tx.procedure.count.mockResolvedValue(1);
+
+    await expect(service.completeEncounter('encounter-1', 'staff-1'))
+      .rejects.toThrow(/clinical work remains outstanding/i);
+    expect(tx.attendance.updateMany).not.toHaveBeenCalled();
+  });
+
   it('refuses to complete an encounter with an active admission', async () => {
     const { service, tx } = setup({
       id: 'encounter-1',
