@@ -12,22 +12,22 @@ export function createDiagnosisRoutes(prisma: PrismaClient): Router {  // ✅ Ac
   router.use(protect);
 
   // GET /api/diagnoses - Get all diagnoses with filters and pagination
-  router.get('/', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getAll);
+  router.get('/', controller.getAll);
 
   // GET /api/diagnoses/search - Search diagnoses
-  router.get('/search', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.search);
+  router.get('/search', controller.search);
 
   // GET /api/diagnoses/stats - Get diagnosis statistics (Admin only)
   router.get('/stats', requireRole(['admin']), controller.getStats);
 
   // GET /api/diagnoses/morbidity-groups - Get all morbidity groups
-  router.get('/morbidity-groups', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getMorbidityGroups);
+  router.get('/morbidity-groups', controller.getMorbidityGroups);
 
   // GET /api/diagnoses/morbidity-group/:morbidityGroup - Get diagnoses by morbidity group
-  router.get('/morbidity-group/:morbidityGroup', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getByMorbidityGroup);
+  router.get('/morbidity-group/:morbidityGroup', controller.getByMorbidityGroup);
 
   // GET /api/diagnoses/:id - Get diagnosis by ID
-  router.get('/:id', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getById);
+  router.get('/:id', controller.getById);
 
   // POST /api/diagnoses - Create a new diagnosis (Admin only)
   router.post('/', requireRole(['admin']), controller.create);
