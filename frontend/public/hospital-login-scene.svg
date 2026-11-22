@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" fill="none">
+<defs>
+ <linearGradient id="wall" x2="0" y2="1"><stop stop-color="#D9EEF0"/><stop offset="1" stop-color="#8EBAC0"/></linearGradient>
+ <linearGradient id="glass" x2="1" y2="1"><stop stop-color="#C6F0F0"/><stop offset="1" stop-color="#4C91A5"/></linearGradient>
+ <linearGradient id="floor" x2="0" y2="1"><stop stop-color="#B8D0D1"/><stop offset="1" stop-color="#426C7A"/></linearGradient>
+ <linearGradient id="desk" x2="0" y2="1"><stop stop-color="#F4FAF8"/><stop offset="1" stop-color="#8CB9B7"/></linearGradient>
+ <filter id="blur"><feGaussianBlur stdDeviation="18"/></filter>
+</defs>
+<rect width="1600" height="1000" fill="#15374A"/>
+<rect width="1600" height="690" fill="url(#wall)"/>
+<path d="M0 690L1600 570V1000H0Z" fill="url(#floor)"/>
+<path d="M0 0H1600V95H0Z" fill="#EAF5F1" opacity=".75"/>
+<path d="M90 145H610V620H90Z" fill="url(#glass)" stroke="#F4FFFF" stroke-width="18"/>
+<path d="M350 145V620M90 380H610" stroke="#F4FFFF" stroke-width="14" opacity=".8"/>
+<path d="M1000 145H1510V570H1000Z" fill="url(#glass)" stroke="#F4FFFF" stroke-width="18"/>
+<path d="M1255 145V570M1000 355H1510" stroke="#F4FFFF" stroke-width="14" opacity=".8"/>
+<rect x="680" y="175" width="230" height="360" rx="8" fill="#EAF5F1" opacity=".55"/>
+<rect x="715" y="205" width="160" height="300" rx="4" fill="#7FAEB6" opacity=".48"/>
+<rect x="735" y="225" width="120" height="260" rx="3" fill="#D6EFEB" opacity=".6"/>
+<path d="M0 650L1600 565" stroke="#D9EEEE" stroke-width="8" opacity=".35"/>
+<ellipse cx="820" cy="810" rx="600" ry="100" fill="#183B4B" opacity=".24" filter="url(#blur)"/>
+<!-- reception desk -->
+<path d="M485 600H1165L1250 755H400Z" fill="url(#desk)" stroke="#E8F8F4" stroke-width="10"/>
+<path d="M400 755H1250V805H400Z" fill="#2C7180" opacity=".8"/>
+<rect x="705" y="570" width="245" height="80" rx="10" fill="#F4FBF8" opacity=".9"/>
+<path d="M827 584V636M801 610H853" stroke="#259B76" stroke-width="13" stroke-linecap="round"/>
+<!-- wall cross and wayfinding -->
+<rect x="748" y="275" width="100" height="100" rx="18" fill="#F8FFFF" opacity=".9"/>
+<path d="M798 294V356M767 325H829" stroke="#2BA579" stroke-width="17" stroke-linecap="round"/>
+<!-- clinician silhouette -->
+<circle cx="275" cy="570" r="43" fill="#264D60"/>
+<path d="M212 650Q275 600 338 650L370 835H180Z" fill="#F1FAF8"/>
+<path d="M226 670L210 840M323 670L343 840" stroke="#D0E8E3" stroke-width="16"/>
+<path d="M244 638L275 685L306 638" stroke="#2D8C78" stroke-width="10"/>
+<rect x="252" y="710" width="48" height="65" rx="7" fill="#D9EFEB"/>
+<!-- seated patient silhouette -->
+<circle cx="1370" cy="610" r="37" fill="#684D43"/>
+<path d="M1314 680Q1370 645 1425 680L1450 810H1290Z" fill="#D7A76C"/>
+<path d="M1305 795H1450V825H1305Z" fill="#315E6B"/>
+<!-- plants -->
+<path d="M90 825H210L195 940H105Z" fill="#2B6670"/>
+<path d="M150 825Q65 735 80 675Q160 710 150 825ZM155 825Q180 700 255 675Q245 770 155 825ZM150 825Q115 700 150 645Q200 740 150 825Z" fill="#398D70"/>
+<path d="M1450 815H1555L1540 930H1465Z" fill="#2B6670"/>
+<path d="M1500 815Q1415 730 1440 670Q1510 710 1500 815ZM1500 815Q1530 700 1600 680Q1580 770 1500 815Z" fill="#398D70"/>
+<g opacity=".35" stroke="#FFFFFF" stroke-width="5"><path d="M0 920L1600 790"/><path d="M0 970L1600 840"/></g>
+</svg>
