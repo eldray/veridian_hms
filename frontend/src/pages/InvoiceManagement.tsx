@@ -113,6 +113,7 @@ export default function InvoiceManagement() {
   // Match API permissions: Pharmacy/Admin may create or edit; only Admin may delete.
   const canManageInvoices = hasRole(['super_admin', 'admin', 'pharmacist']);
   const canDeleteInvoices = hasRole(['super_admin', 'admin']);
+  const canViewStaffDirectory = hasRole(['super_admin', 'admin', 'hr_officer']);
   const [searchTerm, setSearchTerm] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -130,8 +131,17 @@ export default function InvoiceManagement() {
 
   useEffect(() => { loadData(); }, []);
   const loadData = async () => {
-    try { await Promise.all([getPurchaseInvoices(), getStockItems(), getDepartments(), getWards(), getAllUsers()]); }
-    catch (err) { console.error('Failed to load data:', err); toastError('Load failed', 'Could not load invoice data'); }
+    try {
+      // Pharmacy and Records can read purchase invoices but are not allowed to
+      // browse the staff directory. Do not make invoice loading depend on that
+      // separately protected HR endpoint.
+      const requests = [getPurchaseInvoices(), getStockItems(), getDepartments(), getWards()];
+      if (canViewStaffDirectory) requests.push(getAllUsers());
+      await Promise.all(requests);
+    } catch (err) {
+      console.error('Failed to load purchase invoice data:', err);
+      toastError('Load failed', 'Could not load purchase invoice data');
+    }
   };
 
   // Created By — resolve id to name when User is not embedded.
