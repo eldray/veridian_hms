@@ -9,8 +9,7 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useWardStore } from '../store/wardStore';
 import {
   ArrowLeft, Calendar, Activity, FileText, Loader2,
-  AlertCircle, Stethoscope,
-  , ClipboardList, Pill, FlaskConical, Scissors, Hospital, Moon, Sun, Building2, LogOut, ChevronRight, TrendingUp, Baby, Heart,
+  AlertCircle, Stethoscope, ClipboardList, Pill, FlaskConical, Scissors, Hospital, Moon, Sun, Building2, LogOut, ChevronRight, TrendingUp, Baby, Heart,
   ShieldCheck, BedDouble, CircleDot, BarChart3,
   AlertTriangle, FileSignature, Stethoscope as Steth, Printer,
 } from 'lucide-react';
@@ -245,7 +244,7 @@ export default function AdmissionDetails() {
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex items-center gap-3">
         <button onClick={goBack} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-card)]"><ArrowLeft className="h-3.5 w-3.5" /> Back to Admissions</button>
-        <div><h1 className="text-lg font-bold text-[var(--text-primary)]">Admission Details</h1><p className="text-xs text-[var(--text-secondary)]">{admissionTypeDisplay.label} · #{admission?.admissionNumber || attendance?.attendanceNumber || 'N/A'}</p></div>
+        <div><h1 className="text-lg font-bold text-[var(--text-primary)]">Admission Details</h1><p className="text-xs text-[var(--text-secondary)]">Admission record and inpatient care overview</p></div>
       </div>
       <PatientVisitHeader
         patient={patient}
@@ -255,8 +254,6 @@ export default function AdmissionDetails() {
           { label: 'Admission No.', value: admission?.admissionNumber || attendance?.attendanceNumber || '—', mono: true },
           { label: 'Admitted', value: formatDateOnly(admission?.admissionDate || attendance?.dateTime) },
           { label: 'Length of Stay', value: `${lengthOfStay} day${lengthOfStay !== 1 ? 's' : ''}` },
-          { label: 'Ward', value: attendance?.Ward?.wardName || attendance?.ward?.wardName || '—' },
-          { label: 'Bed', value: attendance?.Bed?.bedNumber || attendance?.bed?.bedNumber || '—', mono: true },
         ]}
         aside={<>{getTypeBadge()}{getStatusBadge()}</>}
       />
@@ -434,7 +431,7 @@ export default function AdmissionDetails() {
           <section className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
             <div className="flex items-center gap-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3"><BarChart3 className="h-4 w-4 text-teal-600" /><h2 className="text-sm font-bold text-[var(--text-primary)]">Stay overview</h2></div>
             <div className="grid grid-cols-2 gap-3 p-4">
-              <div className="rounded-lg bg-[var(--bg-main)] p-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Status</p><p className={`mt-1 text-sm font-bold ${isActive ? 'text-green-600' : 'text-[var(--text-secondary)]'}`}>{admission?.status === 'cancelled' ? 'Cancelled' : isActive ? 'Active' : 'Discharged'}</p></div>
+              <div className="rounded-lg bg-[var(--bg-main)] p-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Status</p><p className={`mt-1 text-sm font-bold ${admission?.status === 'cancelled' ? 'text-red-600' : isActive ? 'text-green-600' : 'text-[var(--text-secondary)]'}`}>{admission?.status === 'cancelled' ? 'Cancelled' : isActive ? 'Active' : 'Discharged'}</p></div>
               <div className="rounded-lg bg-[var(--bg-main)] p-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Length of stay</p><p className="mt-1 text-sm font-bold text-[var(--text-primary)]">{lengthOfStay} day{lengthOfStay !== 1 ? 's' : ''}</p></div>
               <div className="col-span-2 flex items-center justify-between gap-3 border-t border-[var(--border-color)] pt-3"><span className="text-xs text-[var(--text-secondary)]">Admission number</span><span className="font-mono text-xs font-semibold text-[var(--text-primary)]">{admission?.admissionNumber || attendance?.attendanceNumber || '—'}</span></div>
               <div className="col-span-2 flex items-center justify-between gap-3"><span className="text-xs text-[var(--text-secondary)]">Attendance number</span><span className="font-mono text-xs font-semibold text-[var(--text-primary)]">{attendance?.attendanceNumber || '—'}</span></div>
