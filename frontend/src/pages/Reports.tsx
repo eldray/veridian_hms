@@ -211,7 +211,9 @@ export default function Reports() {
   const [monthlyOverview, setMonthlyOverview] = useState<Record<string, any> | null>(null);
   const [epiReport, setEpiReport] = useState<any>(null);
   const [registerPage, setRegisterPage] = useState(1);
-  const [registerPageSize] = useState(50);
+  const [registerPageSize, setRegisterPageSize] = useState(50);
+  const [deliveryPage, setDeliveryPage] = useState(1);
+  const [deliveryPageSize, setDeliveryPageSize] = useState(10);
   // FIX #50 — remember whether the user has deliberately picked a category, so the
   // fallback effect does not bounce them back out of an empty one.
   const userPickedCategory = useRef(false);
@@ -294,7 +296,7 @@ export default function Reports() {
   }, [runLoadReport]);
 
   useEffect(() => { loadReport(); return () => { if (loadDebounce.current) clearTimeout(loadDebounce.current); }; }, [loadReport]);
-  useEffect(() => { setRegisterPage(1); }, [reportType, dateRange.start, dateRange.end]);
+  useEffect(() => { setRegisterPage(1); setDeliveryPage(1); }, [reportType, dateRange.start, dateRange.end]);
   // FIX #34 — write safePage back so Pagination and the raw state cannot drift.
   // (The drift only happens when a report shrank under the current page.)
   useEffect(() => {
@@ -425,7 +427,7 @@ export default function Reports() {
             </div>
           </div>
         </Card>
-        <Pagination page={safePage} totalPages={totalPages} itemsPerPage={registerPageSize} totalItems={entries.length} noun="entries" onChange={setRegisterPage} />
+        <Pagination page={safePage} totalPages={totalPages} itemsPerPage={registerPageSize} totalItems={entries.length} noun="entries" onChange={setRegisterPage} pageSizeOptions={[10, 25, 50, 100]} onPageSizeChange={(size) => { setRegisterPageSize(size); setRegisterPage(1); }} />
       </div>
     );
   };
@@ -830,6 +832,9 @@ export default function Reports() {
       </Card>
     );
     const deliveries = Array.isArray(report.deliveries) ? report.deliveries : [];
+    const deliveryTotalPages = Math.max(1, Math.ceil(deliveries.length / deliveryPageSize));
+    const safeDeliveryPage = Math.min(deliveryPage, deliveryTotalPages);
+    const paginatedDeliveries = deliveries.slice((safeDeliveryPage - 1) * deliveryPageSize, safeDeliveryPage * deliveryPageSize);
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -853,7 +858,7 @@ export default function Reports() {
                 <th className={TEXT_TH}>Date</th><th className={TEXT_TH}>Folder</th><th className={TEXT_TH}>Type</th><th className={TEXT_TH}>Outcome</th><th className={NUM_TH}>Weight (g)</th><th className={TEXT_TH}>Attendant</th><th className={TEXT_TH}>Maternal outcome</th>
               </tr></thead>
               <tbody className="divide-y divide-[var(--border-color)]">
-                {deliveries.map((d: any, index: number) => (
+                {paginatedDeliveries.map((d: any, index: number) => (
                   <tr key={d.id || index} className="hover:bg-[var(--bg-main)]">
                     <td className={TEXT_TD}>{d.deliveryDate ? new Date(d.deliveryDate).toLocaleDateString() : "—"}</td>
                     <td className={TEXT_TD}>{d.patient?.folderNumber || "—"}</td>
@@ -869,9 +874,11 @@ export default function Reports() {
             </table>
           </div>
         </Card>
+        <Pagination page={safeDeliveryPage} totalPages={deliveryTotalPages} itemsPerPage={deliveryPageSize} totalItems={deliveries.length} noun="delivery records" onChange={setDeliveryPage} pageSizeOptions={[10, 25, 50, 100]} onPageSizeChange={(size) => { setDeliveryPageSize(size); setDeliveryPage(1); }} />
       </div>
     );
   };
+
 
   // -------------------------------------------------------------------------
   // Family Planning
