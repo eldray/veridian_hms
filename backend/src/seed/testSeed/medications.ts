@@ -72,8 +72,7 @@ export const replenishShelfStock = (
       ledger.balance(stockItemId, departmentId),
       ledger.aggregateQuantity(stockItemId),
     );
-    // A quarter spare, so the courses the requisitions and transfers take later in the run
-    // do not turn the shelf short again.
+    // A 50% spare reserve, so courses and dispensing variation do not turn the shelf short again.
     // Keep a 50% buffer at the main Pharmacy so the demo can absorb normal dispensing variation.
     const target = Math.ceil(entry.quantity * 1.5);
     const shortfall = target - onTheShelf;
