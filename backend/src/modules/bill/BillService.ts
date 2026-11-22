@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { ValidationError } from '../../utils/errors';
 import { BaseService } from '../../shared/base/BaseService';
 import { BillRepository } from './BillRepository';
 import { BillingService } from '../billing/BillingService';
@@ -31,7 +32,7 @@ export class BillService extends BaseService {
   async createBill(data: CreateBillInput, createdBy: string) {
     this.logInfo('Creating new bill', { patientId: data.patientId, itemCount: data.items.length });
     if (data.paymentMode === 'private_insurance' || data.paymentMode === 'corporate') {
-      throw new Error('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+      throw new ValidationError('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
     }
     if (!data.items || data.items.length === 0) throw new Error('At least one line item is required');
 
@@ -152,7 +153,7 @@ export class BillService extends BaseService {
     });
     if (!attendance) throw new Error('Encounter not found');
     if (attendance.paymentMode === 'private_insurance' || attendance.paymentMode === 'corporate') {
-      throw new Error('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+      throw new ValidationError('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
     }
     return this.billRepository.generateFromEncounter(encounterId, createdBy);
   }
