@@ -1,5 +1,4 @@
 // src/components/nursing/MarPrintModal.tsx
-import { useHospitalStore } from '../../store/hospitalStore';
 import { openPrintWindow } from '../../utils/pdfGenerator';
 import type { MarDose, DoseStatus } from '../../api/nursing';
 
