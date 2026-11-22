@@ -2645,6 +2645,7 @@ export default function MedicalEntries() {
                   {treatmentNotes.length > 0 ? (
                     [...treatmentNotes].reverse().map((note, i) => (
                       <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
+                        editedBy={note.editedBy} editedAt={note.editedAt}
                         onEdit={() => handleEditNote('treatment', treatmentNotes.length - 1 - i)}
                         onDelete={() => handleDeleteNote('treatment', treatmentNotes.length - 1 - i)} />
                     ))
@@ -2750,7 +2751,7 @@ export default function MedicalEntries() {
 }
 
 // ─── Note display helpers ─────────────────────────────────────────────────────
-const NoteCard: React.FC<{ author: string; date?: string; text?: string; children?: React.ReactNode; onEdit?: () => void; onDelete?: () => void }> = ({ author, date, text, children, onEdit, onDelete }) => (
+const NoteCard: React.FC<{ author: string; date?: string; text?: string; editedBy?: string; editedAt?: string; children?: React.ReactNode; onEdit?: () => void; onDelete?: () => void }> = ({ author, date, text, editedBy, editedAt, children, onEdit, onDelete }) => (
   <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
     <div className="flex items-center justify-between mb-1.5">
       <span className="text-[10px] font-bold text-[var(--icon-cyan-text)]">{author}</span>
@@ -2758,6 +2759,7 @@ const NoteCard: React.FC<{ author: string; date?: string; text?: string; childre
       {(onEdit || onDelete) && <span className="flex items-center gap-1">{onEdit && <button onClick={onEdit} title="Edit note" className="p-1 rounded hover:bg-[var(--icon-cyan-bg)] hover:text-[var(--icon-cyan-text)]"><Edit className="w-3 h-3" /></button>}{onDelete && <button onClick={onDelete} title="Delete note" className="p-1 rounded hover:bg-[var(--icon-red-bg)] hover:text-[var(--icon-red-text)]"><Trash2 className="w-3 h-3" /></button>}</span>}
     </div>
     {text && <p className="text-[11px] text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{text}</p>}
+    {editedBy && <p className="mt-1 text-[9px] text-[var(--text-tertiary)]">Edited by {editedBy}{editedAt ? ` · ${new Date(editedAt).toLocaleString()}` : ''}</p>}
     {children}
   </div>
 );
