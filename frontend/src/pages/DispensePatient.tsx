@@ -1104,6 +1104,8 @@ export default function DispensePatient() {
                 <div className="divide-y divide-[var(--border-color)]">
                   {dispensedHistory.map((med: any) => {
                     const qty = toNum(med.dispensedQuantity, toNum(med.quantity, 1));
+                    const prescribedQty = toNum(med.quantity, qty);
+                    const remainingQty = Math.max(0, prescribedQty - qty);
                     const unitCost = toNum(med.dispensedUnitCost);
                     const total = unitCost * qty;
                     const dispenserName =
@@ -1146,8 +1148,9 @@ export default function DispensePatient() {
                           </Col>
 
                           {/* 3. Qty */}
-                          <Col label="Qty">
-                            <p className="text-sm font-bold text-[var(--text-primary)]">{qty}</p>
+                          <Col label="Dispensed / Prescribed">
+                            <p className="text-sm font-bold text-[var(--text-primary)]">{qty} / {prescribedQty}</p>
+                            {remainingQty > 0 && <p className="text-[10px] text-[var(--icon-yellow-text)]">{remainingQty} remaining</p>}
                           </Col>
 
                           {/* 4. Unit Cost */}
@@ -1225,8 +1228,9 @@ export default function DispensePatient() {
                           </p>
 
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            <Col label="Qty">
-                              <p className="text-sm font-bold text-[var(--text-primary)]">{qty}</p>
+                            <Col label="Dispensed / Prescribed">
+                              <p className="text-sm font-bold text-[var(--text-primary)]">{qty} / {prescribedQty}</p>
+                              {remainingQty > 0 && <p className="text-[10px] text-[var(--icon-yellow-text)]">{remainingQty} remaining</p>}
                             </Col>
                             <Col label="Unit Cost">
                               <p className="text-xs font-semibold text-[var(--text-primary)]">
