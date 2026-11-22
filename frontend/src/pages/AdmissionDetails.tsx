@@ -8,10 +8,10 @@ import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useWardStore } from '../store/wardStore';
 import {
-  ArrowLeft, User, Calendar, Activity, FileText, Loader2,
-  AlertCircle, Stethoscope, Clock, MapPin,
-  CheckCircle, ClipboardList, Pill, FlaskConical, Scissors, Hospital, Moon, Sun, Building2, LogOut, ChevronRight, TrendingUp, Baby, Heart,
-  ShieldCheck, BedDouble, CalendarClock, CircleDot, BarChart3,
+  ArrowLeft, Calendar, Activity, FileText, Loader2,
+  AlertCircle, Stethoscope,
+  , ClipboardList, Pill, FlaskConical, Scissors, Hospital, Moon, Sun, Building2, LogOut, ChevronRight, TrendingUp, Baby, Heart,
+  ShieldCheck, BedDouble, CircleDot, BarChart3,
   AlertTriangle, FileSignature, Stethoscope as Steth, Printer,
 } from 'lucide-react';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
