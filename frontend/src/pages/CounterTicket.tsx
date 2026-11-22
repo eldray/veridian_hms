@@ -498,7 +498,11 @@ export default function CounterTicket() {
                       variant="secondary"
                       icon={Printer}
                       onClick={() => print('Print dispensing slip', 'Dispensing slip not printed', () => generatePDF('thermalPrescription', {
-                        medications,
+                        medications: medications.map((med: any) => ({
+                          ...med,
+                          User_Medication_prescribedByIdToUser: med.User_Medication_prescribedByIdToUser || med.user_Medication_prescribedByIdToUser,
+                          User_Medication_dispensedByIdToUser: med.User_Medication_dispensedByIdToUser || med.user_Medication_dispensedByIdToUser,
+                        })),
                         patient: printPatient,
                         attendance: ticket,
                         prescriberName: '',
@@ -685,7 +689,16 @@ export default function CounterTicket() {
                       disabled={!!working || !hasLabResults}
                       title={hasLabResults ? 'Print completed laboratory results using the standard lab report' : 'No laboratory results have been completed yet'}
                       onClick={() => print('Print lab results', 'Lab report not printed', () => generatePDF('labResults', {
-                        labTests: labs,
+                        labTests: labs.map((lab: any) => ({
+                          ...lab,
+                          LabTestTemplate: lab.LabTestTemplate || lab.labTestTemplate,
+                          ServiceCatalog: lab.ServiceCatalog || lab.serviceCatalog,
+                          User_LabTest_orderedByIdToUser: lab.User_LabTest_orderedByIdToUser || lab.user_LabTest_orderedByIdToUser,
+                          User_LabTest_performedByIdToUser: lab.User_LabTest_performedByIdToUser || lab.user_LabTest_performedByIdToUser,
+                          User_LabTest_verifiedByIdToUser: lab.User_LabTest_verifiedByIdToUser || lab.user_LabTest_verifiedByIdToUser,
+                          performedByName: lab.performedByName || lab.performedBy?.fullName || lab.user_LabTest_performedByIdToUser?.fullName,
+                          verifiedByName: lab.verifiedByName || lab.verifiedBy?.fullName || lab.user_LabTest_verifiedByIdToUser?.fullName,
+                        })),
                         patient: printPatient,
                         attendance: ticket,
                       }, hospitalInfo), `counter_${ticket.attendanceNumber}_lab_results`)}
@@ -700,7 +713,13 @@ export default function CounterTicket() {
                       disabled={!!working || !hasScanResults}
                       title={hasScanResults ? 'Print completed imaging reports using the standard scan report' : 'No scan report has been completed yet'}
                       onClick={() => print('Print scan report', 'Scan report not printed', () => generatePDF('scanReport', {
-                        scans,
+                        scans: scans.map((scan: any) => ({
+                          ...scan,
+                          ScanTemplate: scan.ScanTemplate || scan.scanTemplate,
+                          ServiceCatalog: scan.ServiceCatalog || scan.serviceCatalog,
+                          User_Scan_performedByIdToUser: scan.User_Scan_performedByIdToUser || scan.user_Scan_performedByIdToUser,
+                          performedByName: scan.performedByName || scan.performedBy?.fullName || scan.user_Scan_performedByIdToUser?.fullName,
+                        })),
                         patient: printPatient,
                         attendance: ticket,
                       }, hospitalInfo), `counter_${ticket.attendanceNumber}_scan_report`)}
