@@ -1008,8 +1008,8 @@ export default function Referrals() {
                     onChange={e => setFormData(p => ({ ...p, referralNotes: e.target.value }))}
                     placeholder="Anything the receiving facility should know that does not fit the form…"
                     className={`${INPUT} resize-none`} />
-                )}
                 </div>
+                )}
 
                   </>
                 )}
