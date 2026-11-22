@@ -300,7 +300,7 @@ export default function AdmissionDetails() {
           className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3.5 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 hover:bg-[var(--bg-main)] transition-colors"
         >
           <Activity className="w-3.5 h-3.5" />
-          Observations
+          Vitals
         </button>
         <button
           onClick={() => navigate(`/dashboard/billing?attendanceId=${attendanceId}`)}
