@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma, BillStatus } from '@prisma/client';
+import { PrismaClient, Prisma, BillStatus, PaymentMode } from '@prisma/client';
 import { ValidationError } from '../../utils/errors';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilters } from './BillingTypes';
@@ -10,7 +10,7 @@ import { latestSubmissionEvent, withSubmissionDate } from '../insuranceClaim/hel
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
-const CLAIMS_ONLY_PAYMENT_MODES = ['private_insurance', 'corporate'];
+const CLAIMS_ONLY_PAYMENT_MODES: PaymentMode[] = [PaymentMode.private_insurance, PaymentMode.corporate];
 
 /**
  * The bill shape the cashbook needs to allocate money to the services it bought.
