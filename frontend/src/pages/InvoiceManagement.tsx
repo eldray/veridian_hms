@@ -401,7 +401,7 @@ export default function InvoiceManagement() {
             <form onSubmit={handleSubmit} className="px-5 md:px-8 py-5 space-y-4 bg-[var(--bg-main)] overflow-y-auto min-h-0">
               <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 pb-3 border-b border-[var(--border-color)]"><Building className="w-4 h-4 text-[var(--icon-cyan-text)]" /><h3 className="text-sm font-bold text-[var(--text-primary)]">Invoice Information</h3></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[1fr_1.2fr_2.1fr_1fr] gap-3 items-end">
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Invoice Number *</label><input type="text" required disabled={!!editingInvoice} placeholder="INV-001" value={formData.invoiceNumber} onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })} className={cn(INPUT, 'w-full disabled:opacity-75')} /></div>
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Supplier Name *</label><input type="text" required placeholder="Supplier Name" value={formData.supplierName} onChange={e => setFormData({ ...formData, supplierName: e.target.value })} className={cn(INPUT, 'w-full')} /></div>
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Received At Department/Store or Ward *</label>
@@ -423,7 +423,7 @@ export default function InvoiceManagement() {
               <div>
                 <div className="flex items-center justify-between mb-3 pb-3 border-b border-[var(--border-color)]">
                   <h3 className="font-semibold text-[var(--text-primary)] text-sm">Invoice Items *</h3>
-                  {!editingInvoice && (<Button size="sm" variant="outline" icon={Plus} onClick={addInvoiceItem}>Add Item</Button>)}
+                  {!editingInvoice && (<Button type="button" size="sm" variant="outline" icon={Plus} onClick={addInvoiceItem}>Add Item</Button>)}
                 </div>
                 {editingInvoice && (
                   <div className="mb-4 flex items-start gap-2.5 p-3 bg-[var(--icon-yellow-bg)]/20 border border-[var(--icon-yellow-bg)]/30 rounded-lg text-xs text-[var(--text-secondary)]">
