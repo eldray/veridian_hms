@@ -31,6 +31,7 @@ import { useDocumentStore } from '../store/documentStore';
 import type { GeneratedDocument } from '../types/documents';
 import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import ImmunizationPanel from '../components/patients/ImmunizationPanel';
+import PatientIdCardPrint from '../components/patients/PatientIdCardPrint';
 
 // ============ HELPERS ============
 const formatCurrency = (amount: unknown): string => {
@@ -118,6 +119,7 @@ export default function PatientDetails() {
   const [returnToImmunizations, setReturnToImmunizations] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [showPatientIdCard, setShowPatientIdCard] = useState(false);
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
@@ -335,6 +337,7 @@ export default function PatientDetails() {
         backTo="/dashboard/patients"
         actions={(
           <>
+            <Button size="sm" variant="soft" accent="purple" icon={Printer} onClick={() => setShowPatientIdCard(true)}><span className="hidden sm:inline">Print ID card</span></Button>
             <Button size="sm" icon={RefreshCw} loading={refreshing} onClick={loadData}><span className="hidden sm:inline">Refresh</span></Button>
             {canCreateAttendance && (<Button size="sm" variant="soft" accent="green" icon={Calendar} onClick={handleNewAttendance}><span className="hidden sm:inline">New Visit</span></Button>)}
             {canEdit && (<Button size="sm" variant="soft" accent="cyan" icon={Edit} onClick={handleEdit}><span className="hidden sm:inline">Edit</span></Button>)}
@@ -827,7 +830,8 @@ export default function PatientDetails() {
           </div>
         </div>
       )}
-{showAttendanceModal && (<NewAttendanceModal patientId={patient.id} onSuccess={handleAttendanceSuccess} onClose={() => setShowAttendanceModal(false)} />)}
+{showPatientIdCard && (<PatientIdCardPrint patient={patient} onClose={() => setShowPatientIdCard(false)} />)}
+      {showAttendanceModal && (<NewAttendanceModal patientId={patient.id} onSuccess={handleAttendanceSuccess} onClose={() => setShowAttendanceModal(false)} />)}
     </div>
   );
 }
