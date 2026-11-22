@@ -9,6 +9,7 @@ import { latestSubmissionEvent, withSubmissionDate } from '../insuranceClaim/hel
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
+const CLAIMS_ONLY_PAYMENT_MODES = ['private_insurance', 'corporate'];
 
 /**
  * The bill shape the cashbook needs to allocate money to the services it bought.
@@ -57,7 +58,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     // Visit summaries aggregate all non-cancelled bills attached to this attendance.
     if (typeof tx.bill.aggregate !== 'function') {
       // Lightweight unit-test doubles may omit Prisma aggregate; real Prisma supports it.
-      if (fallback && tx.attendance?.update) {
+      if (fallback && tx.attendance?.update && !CLAIMS_ONLY_PAYMENT_MODES.includes(fallback.paymentMode)) {
         await tx.attendance.update({ where: { id: attendanceId }, data: {
           totalBill: toNumber(fallback.totalAmount),
           paidAmount: toNumber(fallback.paidAmount),
@@ -67,7 +68,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       return;
     }
     const totals = await tx.bill.aggregate({
-      where: { attendanceId, status: { not: 'cancelled' } },
+      where: { attendanceId, status: { not: 'cancelled' }, paymentMode: { notIn: CLAIMS_ONLY_PAYMENT_MODES } },
       _sum: { totalAmount: true, paidAmount: true, balance: true }
     });
     await tx.attendance.update({ where: { id: attendanceId }, data: {
@@ -159,7 +160,22 @@ export class BillingRepository extends BaseRepository<any, any, any> {
   }
 
   async create(data: any, items: any[]) {
+    if (CLAIMS_ONLY_PAYMENT_MODES.includes(data.paymentMode)) {
+      throw new Error('Private Insurance and Corporate visits are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+    }
     return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: data.attendanceId },
+        select: { id: true, paymentMode: true, patientId: true }
+      });
+      if (!attendance) throw new Error('Attendance not found');
+      if (CLAIMS_ONLY_PAYMENT_MODES.includes(attendance.paymentMode)) {
+        throw new Error('Private Insurance and Corporate attendances are Claims-only. Generate the claim from Insurance Claims; do not create a bill.');
+      }
+      if (attendance.paymentMode !== data.paymentMode || attendance.patientId !== data.patientId) {
+        throw new Error('The bill payer and patient must match the selected attendance.');
+      }
+
       if (data.paymentMode === 'nhis' || data.paymentMode === 'private_insurance') {
         if (!data.insuranceProviderId) throw new Error('Insurance Provider ID is required');
         const provider = await tx.insuranceProvider.findUnique({ where: { id: data.insuranceProviderId } });
@@ -435,8 +451,12 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     search?: string;
     limit: number;
   }) {
-    const billWhere: any = { billDate: { gte: filters.dateFrom, lte: filters.dateTo } };
-    if (filters.paymentMode) billWhere.paymentMode = filters.paymentMode;
+    const billWhere: any = {
+      billDate: { gte: filters.dateFrom, lte: filters.dateTo },
+      paymentMode: filters.paymentMode
+        ? { equals: filters.paymentMode, notIn: CLAIMS_ONLY_PAYMENT_MODES }
+        : { notIn: CLAIMS_ONLY_PAYMENT_MODES }
+    };
     if (filters.billStatus) billWhere.status = filters.billStatus;
 
     const where: any = { isVoided: false, bill: billWhere };
@@ -495,7 +515,8 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     return this.prisma.payment.findMany({
       where: {
         transactionDate: { gte: dateFrom, lte: dateTo },
-        amount: { gt: 0 }
+        amount: { gt: 0 },
+        Bill: { is: { paymentMode: { notIn: CLAIMS_ONLY_PAYMENT_MODES } } }
       },
       orderBy: { transactionDate: 'desc' },
       include: {
@@ -512,7 +533,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
    */
   async findRefunds(dateFrom: Date, dateTo: Date) {
     return this.prisma.refund.findMany({
-      where: { refundedAt: { gte: dateFrom, lte: dateTo } },
+      where: {
+        refundedAt: { gte: dateFrom, lte: dateTo },
+        bill: { is: { paymentMode: { notIn: CLAIMS_ONLY_PAYMENT_MODES } } }
+      },
       orderBy: { refundedAt: 'desc' },
       include: {
         processedBy: { select: { id: true, fullName: true, username: true } },
