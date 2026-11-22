@@ -727,6 +727,15 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     }
     console.log(`✅ ${departments.length} departments configured`);
 
+    // System administrators are facility-wide members, not tied to one primary department.
+    // Reconcile on every intentional seed so departments added later are included too.
+    const activeDepartmentIds = (await prisma.department.findMany({ where: { isActive: true }, select: { id: true } })).map((department) => ({ id: department.id }));
+    await Promise.all([
+      prisma.user.update({ where: { id: superAdminUser.id }, data: { departments: { set: activeDepartmentIds } } }),
+      prisma.user.update({ where: { id: adminUser.id }, data: { departments: { set: activeDepartmentIds } } }),
+    ]);
+    console.log(`✅ System administrators assigned to all ${activeDepartmentIds.length} active departments`);
+
     // ── STEP 4: Insurance providers ───────────────────────────
     const providersData = readJSON('insuranceProviders.json');
     const defaultProviders = [
