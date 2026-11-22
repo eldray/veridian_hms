@@ -776,7 +776,7 @@ export default function DispensePatient() {
                     med.dispensedUnitCost,
                     toNum(med.unitCost, toNum(stock?.costPrice, 0))
                   );
-                  const isDispensed = med.status === 'dispensed';
+                  const isDispensed = med.status === 'dispensed' || med.status === 'administered';
                   const unit = stock?.unitOfMeasure || 'units';
 
                   const prescriberName =
