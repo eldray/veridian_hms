@@ -709,6 +709,9 @@ export default function MedicalEntries() {
   const [allergyReviewNotes, setAllergyReviewNotes] = useState('');
   const [clinicalOutcome, setClinicalOutcome] = useState<'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown' | ''>('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
+  const [isEditingTreatmentPlan, setIsEditingTreatmentPlan] = useState(false);
+  const [treatmentPlanDraft, setTreatmentPlanDraft] = useState('');
+  const [savingTreatmentPlan, setSavingTreatmentPlan] = useState(false);
   // Keep the unsaved progress-note draft separate from the persistent treatment plan.
   const [treatmentNoteDraft, setTreatmentNoteDraft] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
@@ -1009,6 +1012,8 @@ export default function MedicalEntries() {
         physicalExamination: physicalExam || null,
         treatmentPlan: treatmentPlan || null,
         assessment: assessment || null,
+        treatmentPlanAudit: (currentAttendance?.clinicalNotes as any)?.treatmentPlanAudit || null,
+        clinicalNotesAudit: (currentAttendance?.clinicalNotes as any)?.clinicalNotesAudit || null,
         reviewOfSystems,
         physicalExamStructured,
       };
@@ -1032,6 +1037,68 @@ export default function MedicalEntries() {
       success('Saved', 'Clinical information updated');
       await getAttendance(selectedAttendanceId);
     } catch (err: any) { toastError('Save failed', err?.response?.data?.message || err.message); }
+  };
+
+  const handleSaveClinicalNotes = async (next: string) => {
+    if (!selectedAttendanceId || !canAddEntries || isClinicalFinalized) return;
+    const now = new Date().toISOString();
+    const audit = {
+      updatedById: user?.id || null,
+      updatedByName: user?.fullName || user?.username || 'Unknown user',
+      updatedAt: now,
+    };
+    const clinicalNotes = {
+      ...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
+        ? currentAttendance.clinicalNotes
+        : {}),
+      assessment: next || null,
+      clinicalNotesAudit: audit,
+    };
+    try {
+      await updateAttendance(selectedAttendanceId, {
+        assessment: next,
+        clinicalNotes,
+        updatedById: user?.id,
+      });
+      setAssessment(next);
+      success('Clinical notes saved', `Updated by ${audit.updatedByName}`);
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Clinical notes update failed', err?.response?.data?.message || err.message || 'Could not save clinical notes');
+    }
+  };
+
+  const handleSaveTreatmentPlan = async () => {
+    if (!selectedAttendanceId || !canAddEntries || isClinicalFinalized) return;
+    setSavingTreatmentPlan(true);
+    const now = new Date().toISOString();
+    const audit = {
+      updatedById: user?.id || null,
+      updatedByName: user?.fullName || user?.username || 'Unknown user',
+      updatedAt: now,
+    };
+    try {
+      const clinicalNotes = {
+        ...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
+          ? currentAttendance.clinicalNotes
+          : {}),
+        treatmentPlan: treatmentPlanDraft.trim() || null,
+        treatmentPlanAudit: audit,
+      };
+      await updateAttendance(selectedAttendanceId, {
+        treatmentPlan: treatmentPlanDraft.trim(),
+        clinicalNotes,
+        updatedById: user?.id,
+      });
+      setTreatmentPlan(treatmentPlanDraft.trim());
+      setIsEditingTreatmentPlan(false);
+      success('Treatment plan saved', `Updated by ${audit.updatedByName}`);
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Treatment plan update failed', err?.response?.data?.message || err.message || 'Could not save treatment plan');
+    } finally {
+      setSavingTreatmentPlan(false);
+    }
   };
 
   const handleFinalizeClinical = async () => {
@@ -1065,7 +1132,8 @@ export default function MedicalEntries() {
   const handleSaveTreatmentNote = async () => {
     if (!selectedAttendanceId || !treatmentNoteDraft.trim()) return;
     const newNote = {
-      author: user?.fullName || 'Physician',
+      author: user?.fullName || user?.username || 'Physician',
+      authorId: user?.id || null,
       date: new Date().toISOString(),
       text: treatmentNoteDraft.trim(),
     };
@@ -1094,7 +1162,8 @@ export default function MedicalEntries() {
   const handleSavePhysicianNote = async () => {
     if (!selectedAttendanceId || !physicianNoteText.trim()) return;
     const newNote = {
-      author: user?.fullName || 'Physician',
+      author: user?.fullName || user?.username || 'Physician',
+      authorId: user?.id || null,
       date: new Date().toISOString(),
       text: physicianNoteText.trim(),
     };
@@ -1312,7 +1381,13 @@ export default function MedicalEntries() {
     setSavingNote(true);
     try {
       if (editingNote.type === 'treatment') {
-        const updatedNotes = treatmentNotes.map((note, i) => i === editingNote.index ? { ...note, text: editingNoteText.trim() } : note);
+        const updatedNotes = treatmentNotes.map((note, i) => i === editingNote.index ? {
+          ...note,
+          text: editingNoteText.trim(),
+          editedById: user?.id || null,
+          editedBy: user?.fullName || user?.username || 'Unknown user',
+          editedAt: new Date().toISOString(),
+        } : note);
         const clinicalNotes = {
           ...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes) ? currentAttendance.clinicalNotes : {}),
           treatmentNotes: updatedNotes,
@@ -1320,7 +1395,13 @@ export default function MedicalEntries() {
         await updateAttendance(selectedAttendanceId, { clinicalNotes, updatedById: user?.id });
         setTreatmentNotes(updatedNotes);
       } else {
-        const updatedNotes = physicianNotes.map((note, i) => i === editingNote.index ? { ...note, text: editingNoteText.trim() } : note);
+        const updatedNotes = physicianNotes.map((note, i) => i === editingNote.index ? {
+          ...note,
+          text: editingNoteText.trim(),
+          editedById: user?.id || null,
+          editedBy: user?.fullName || user?.username || 'Unknown user',
+          editedAt: new Date().toISOString(),
+        } : note);
         await updateAttendance(selectedAttendanceId, { physicianNotes: updatedNotes, updatedById: user?.id });
         setPhysicianNotes(updatedNotes);
       }
@@ -2511,22 +2592,49 @@ export default function MedicalEntries() {
                   <div className="flex-1 h-px bg-[var(--border-color)]" />
                 </div>
 
-                {/* The persistent plan lives here; this replaces the duplicate Management Plan field. */}
+                {/* Persistent treatment plan with explicit, user-attributed editing. */}
                 <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
-                    Planned management and instructions
-                  </label>
-                  <textarea
-                    value={treatmentPlan}
-                    onChange={e => setTreatmentPlan(e.target.value)}
-                    rows={4}
-                    disabled={!canAddEntries || isClinicalFinalized}
-                    placeholder="Document the treatment strategy, investigations or interventions planned, patient instructions, referrals and follow-up…"
-                    className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-y focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] disabled:opacity-60"
-                  />
-                  <p className="mt-1 text-[9px] text-[var(--text-tertiary)]">
-                    Saved with the Save Clinical action.
-                  </p>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                      Planned management and instructions
+                    </label>
+                    {!isEditingTreatmentPlan && canAddEntries && !isClinicalFinalized && (
+                      <button type="button" onClick={() => { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(true); }}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]">
+                        <Edit className="h-3 w-3" /> Edit plan
+                      </button>
+                    )}
+                  </div>
+                  {isEditingTreatmentPlan ? (
+                    <>
+                      <textarea value={treatmentPlanDraft} onChange={e => setTreatmentPlanDraft(e.target.value)}
+                        rows={4} autoFocus
+                        placeholder="Document the treatment strategy, investigations or interventions planned, patient instructions, referrals and follow-up…"
+                        className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-y focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" />
+                      <div className="mt-2 flex gap-2">
+                        <button type="button" onClick={handleSaveTreatmentPlan} disabled={savingTreatmentPlan}
+                          className="flex-1 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-50">
+                          {savingTreatmentPlan ? 'Saving…' : 'Save plan'}
+                        </button>
+                        <button type="button" onClick={() => { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(false); }} disabled={savingTreatmentPlan}
+                          className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-[10px] font-semibold text-[var(--text-secondary)]">
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="min-h-12 whitespace-pre-wrap rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs leading-relaxed text-[var(--text-primary)]">
+                      {treatmentPlan || <span className="text-[var(--text-tertiary)]">No treatment plan recorded.</span>}
+                    </p>
+                  )}
+                  {(() => {
+                    const audit = (currentAttendance?.clinicalNotes as any)?.treatmentPlanAudit;
+                    return audit?.updatedByName ? (
+                      <p className="mt-1.5 text-[9px] text-[var(--text-tertiary)]">
+                        Last updated by {audit.updatedByName}{audit.updatedAt ? ` · ${new Date(audit.updatedAt).toLocaleString()}` : ''}
+                      </p>
+                    ) : <p className="mt-1.5 text-[9px] text-[var(--text-tertiary)]">Saved to this attendance record.</p>;
+                  })()}
                 </div>
 
                 {/* Logged treatment notes */}
@@ -2593,7 +2701,7 @@ export default function MedicalEntries() {
         onClose={() => setClinicalNotesOpen(false)}
         value={assessment}
         readOnly={!canAddEntries || isClinicalFinalized}
-        onSave={setAssessment}
+        onSave={handleSaveClinicalNotes}
       />
 
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
