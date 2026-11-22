@@ -88,7 +88,11 @@ export interface BillRecordRef {
 
 const recomputeAttendanceTotals = async (attendanceId: string): Promise<void> => {
   const totals = await prisma.bill.aggregate({
-    where: { attendanceId, status: { not: 'cancelled' } },
+    where: {
+      attendanceId,
+      status: { not: 'cancelled' },
+      paymentMode: { notIn: ['private_insurance', 'corporate'] },
+    },
     _sum: { totalAmount: true, paidAmount: true, balance: true },
   });
   await prisma.attendance.update({
@@ -133,7 +137,8 @@ export const seedBills = async (
   const outcomes: Record<string, number> = {};
   const note = (reason: string) => { outcomes[reason] = (outcomes[reason] ?? 0) + 1; };
 
-  planned['bills'] = (planned['bills'] ?? 0) + bills.length;
+  const operationalBillPlans = bills.filter((plan) => plan.paymentMode !== 'private_insurance' && plan.paymentMode !== 'corporate');
+  planned['bills'] = (planned['bills'] ?? 0) + operationalBillPlans.length;
 
   const startedAt = Date.now();
   console.log(`   billing ${bills.length} encounters - each bill is several database round trips, progress is shown every ${BILL_PROGRESS_EVERY}`);
@@ -156,6 +161,12 @@ export const seedBills = async (
 
     const encounter = encounters.get(plan.attendanceKey);
     if (!encounter) { note('skipped: no encounter'); continue; }
+    // Private insurance and corporate visits are claims-only. Do not create an
+    // operational bill or a synthetic patient balance for these attendances.
+    if (plan.paymentMode === 'private_insurance' || plan.paymentMode === 'corporate') {
+      note('skipped: claims-only payer');
+      continue;
+    }
 
     const createdById = lookups.actorId({ role: 'records', salt: hashOf(plan.billNumber) });
     let generated: any;
