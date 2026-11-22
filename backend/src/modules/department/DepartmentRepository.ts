@@ -45,6 +45,7 @@ export class DepartmentRepository {
               specialization: true
             }
           },
+          users: { select: { id: true } },
           additionalMembers: { select: { id: true } },
           _count: { select: { users: true } }
         },
