@@ -12,17 +12,17 @@ export const createGDRGRoutes = (prisma: PrismaClient) => {
   // ============================================
   // ✅ SPECIFIC ROUTES FIRST (BEFORE dynamic :code routes)
   // ============================================
-  router.get('/lookup/age', requireRole(['admin', 'accounts']), controller.lookupByAge);
-  router.get('/diagnosis/:diagnosisId', requireRole(['admin', 'doctor', 'accounts']), controller.getGDRGByDiagnosis);
-  router.get('/procedure/:procedureId', requireRole(['admin', 'doctor', 'accounts']), controller.getGDRGByProcedure);
+  router.get('/lookup/age', controller.lookupByAge);
+  router.get('/diagnosis/:diagnosisId', controller.getGDRGByDiagnosis);
+  router.get('/procedure/:procedureId', controller.getGDRGByProcedure);
 
   // ============================================
   // DYNAMIC CODE ROUTES (LAST)
   // ============================================
-  router.get('/', requireRole(['admin', 'doctor', 'accounts', 'records']), controller.getTariffs);
-  router.get('/:code', requireRole(['admin', 'doctor', 'accounts', 'records']), controller.getTariffByCode);
-  router.get('/:gdrgCode/diagnoses', requireRole(['admin', 'doctor', 'accounts']), controller.getDiagnosesByGDRG);
-  router.get('/:gdrgCode/procedures', requireRole(['admin', 'doctor', 'accounts']), controller.getProceduresByGDRG);
+  router.get('/', controller.getTariffs);
+  router.get('/:code', controller.getTariffByCode);
+  router.get('/:gdrgCode/diagnoses', controller.getDiagnosesByGDRG);
+  router.get('/:gdrgCode/procedures', controller.getProceduresByGDRG);
 
   // ============================================
   // ADMIN ONLY ROUTES (Write operations)
