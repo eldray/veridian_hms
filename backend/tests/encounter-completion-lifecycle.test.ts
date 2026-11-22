@@ -21,6 +21,9 @@ describe('encounter completion lifecycle', () => {
     const { service, prisma, tx, updated } = setup({
       id: 'encounter-1',
       status: 'pending',
+      encounterCategory: 'opd',
+      attendanceType: 'general',
+      finalizedAt: new Date(),
       Admission: null,
     });
 
@@ -60,6 +63,9 @@ describe('encounter completion lifecycle', () => {
     const { service, tx } = setup({
       id: 'encounter-1',
       status: 'pending',
+      encounterCategory: 'opd',
+      attendanceType: 'general',
+      finalizedAt: new Date(),
       Admission: null,
     }, 0);
 
