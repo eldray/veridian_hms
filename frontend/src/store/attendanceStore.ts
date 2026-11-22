@@ -80,6 +80,8 @@ interface Attendance {
   clinicalOutcome?: 'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown' | null;
   allergyReviewStatus?: 'not_reviewed' | 'no_known_allergies' | 'allergies_present' | null;
   allergyReviewNotes?: string | null;
+  referringFacility?: string | null;
+  followUpDate?: string | null;
   allergyReviewedAt?: string | null;
   allergyReviewedById?: string | null;
   providerId?: string | null;
@@ -408,6 +410,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         'allergyReviewNotes',
         'providerId',
         'followUpDate',
+        'referringFacility',
         'dateTime',
         'attendanceType',
         'paymentMode',
@@ -428,7 +431,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       ]);
 
       const cleanData = Object.entries(data).reduce((acc, [key, value]) => {
-        if (value === undefined || (value === null && key !== 'followUpDate')) return acc;
+        if (value === undefined || (value === null && key !== 'followUpDate' && key !== 'referringFacility')) return acc;
         if (key === 'updatedAt') return acc;
 
         if (legacyClinicalKeys.has(key)) {
