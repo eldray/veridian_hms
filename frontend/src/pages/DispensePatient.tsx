@@ -817,7 +817,7 @@ export default function DispensePatient() {
                                 accent="green"
                                 icon={Zap}
                                 loading={dispensingId === med.id}
-                                disabled={!canDispense || !hasStock || dispensingId === med.id || bulkDispensing}
+                                disabled={!canDispense || !hasStock || dispensingId === med.id}
                                 onClick={() => handleDispenseClick(med)}
                               >
                                 Dispense
@@ -829,7 +829,7 @@ export default function DispensePatient() {
                                 variant="soft"
                                 accent="yellow"
                                 icon={Zap}
-                                disabled={dispensingId === med.id || bulkDispensing}
+                                disabled={dispensingId === med.id}
                                 onClick={() => handleDispenseClick(med)}
                               >
                                 Partial
@@ -861,8 +861,8 @@ export default function DispensePatient() {
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          <Col label={isDispensed ? 'Dispensed Qty' : 'Prescribed Qty'}>
-                            <p className="text-sm font-bold text-[var(--text-primary)]">{isDispensed ? dispensedQty : needed}</p>
+                          <Col label={isDispensed ? 'Dispensed Qty' : 'Dispense Qty'}>
+                            <p className="text-sm font-bold text-[var(--text-primary)]">{isDispensed ? dispensedQty : 'Enter when dispensing'}</p>
                           </Col>
                           <Col label="In Stock">
                             <p className={`text-sm font-bold ${
@@ -876,9 +876,9 @@ export default function DispensePatient() {
                               GHS {unitCost.toFixed(2)}
                             </p>
                           </Col>
-                          <Col label={isDispensed ? 'Dispensed Total' : 'Estimated Cost'}>
+                          <Col label={isDispensed ? 'Dispensed Total' : 'Total'}>
                             <p className="text-xs font-bold text-[var(--icon-green-text)]">
-                              GHS {(unitCost * (isDispensed ? dispensedQty : needed)).toFixed(2)}
+                              {isDispensed ? `GHS ${(unitCost * dispensedQty).toFixed(2)}` : '—'}
                             </p>
                           </Col>
                           <Col label="Prescribed By">
@@ -915,7 +915,7 @@ export default function DispensePatient() {
                               className="flex-1"
                               icon={Zap}
                               loading={dispensingId === med.id}
-                              disabled={!canDispense || !hasStock || dispensingId === med.id || bulkDispensing}
+                              disabled={!canDispense || !hasStock || dispensingId === med.id}
                               onClick={() => handleDispenseClick(med)}
                             >
                               Dispense
@@ -928,7 +928,7 @@ export default function DispensePatient() {
                               accent="yellow"
                               className="flex-1"
                               icon={Zap}
-                              disabled={dispensingId === med.id || bulkDispensing}
+                              disabled={dispensingId === med.id}
                               onClick={() => handleDispenseClick(med)}
                             >
                               Partial ({avail})
