@@ -204,19 +204,23 @@ export default function Login() {
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         
         .login-wrapper {
+          width: 100%;
           min-height: 100vh;
+          min-height: 100svh;
+          box-sizing: border-box;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 1.5rem;
+          padding: clamp(12px, 2.5vh, 24px) clamp(12px, 2.5vw, 32px);
           position: relative;
+          overflow: hidden;
           background-color: var(--bg-main);
         }
         
         /* Hospital environment artwork behind the sign-in card */
         .login-bg {
           position: absolute; inset: 0;
-          background: #092235 url('/images/login-background.jpg') center / cover no-repeat;
+          background: #092235 url('/images/login-background.png') center / cover no-repeat;
           opacity: 1;
           z-index: 0;
           transform: scale(1.015);
@@ -230,15 +234,16 @@ export default function Login() {
         .login-card {
           position: relative;
           z-index: 10;
-          width: 100%;
-          max-width: 1060px;
+          width: min(100%, 1000px);
+          max-width: 1000px;
           display: grid;
-          grid-template-columns: 1fr 460px;
+          grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+          left: clamp(-64px, -3.5vw, -20px);
           border-radius: 20px;
           overflow: hidden;
           border: 1px solid rgba(255,255,255,0.08);
           box-shadow: 0 28px 72px rgba(0,0,0,0.34), 0 0 0 1px rgba(255,255,255,0.06);
-          max-height: 92vh;
+          max-height: calc(100svh - 32px);
           animation: fadeUp 0.4s ease both;
         }
 
@@ -247,11 +252,11 @@ export default function Login() {
           color-scheme: dark;
           background:
             linear-gradient(155deg, rgba(5, 24, 40, 0.94), rgba(4, 19, 34, 0.96)),
-            url('/images/login-background.jpg') center / cover no-repeat;
+            url('/images/login-background.png') center / cover no-repeat;
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
           border-right: 1px solid rgba(190, 225, 235, 0.12);
-          padding: 40px;
+          padding: clamp(24px, 3vw, 38px);
           display: flex;
           flex-direction: column;
           overflow-y: auto;
@@ -357,7 +362,7 @@ export default function Login() {
           display: flex;
           flex-direction: column;
           justify-content: center;
-          padding: 40px;
+          padding: clamp(24px, 3vw, 36px);
           box-sizing: border-box;
           min-height: 100%;
         }
@@ -493,7 +498,8 @@ export default function Login() {
 
         /* ── Responsive ── */
         @media (max-width: 900px) {
-          .login-card { grid-template-columns: 1fr !important; max-width: 460px !important; max-height: none !important; }
+          .login-wrapper { min-height: 100svh; height: auto; overflow-y: auto; overflow-x: hidden; }
+          .login-card { width: 100%; grid-template-columns: 1fr !important; max-width: 460px !important; max-height: none !important; left: 0; margin: auto; }
           .login-brand { display: flex !important; padding: 20px 24px 16px !important; overflow: visible !important; }
           .brand-inner { gap: 0 !important; }
           .brand-middle, .brand-copyright { display: none !important; }
@@ -502,7 +508,7 @@ export default function Login() {
           .form-panel-scroll { padding: 28px 24px 30px !important; justify-content: flex-start !important; }
         }
         @media (max-width: 420px) {
-          .login-wrapper { padding: 12px !important; }
+          .login-wrapper { min-height: 100svh; padding: 12px !important; }
           .login-brand { padding: 18px 20px 12px !important; }
           .form-panel-scroll { padding: 24px 20px !important; }
         }
