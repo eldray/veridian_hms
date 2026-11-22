@@ -27,10 +27,13 @@ export class StockTransactionService extends BaseService {
     if (!validTypes.includes(data.transactionType)) {
       throw new ValidationError(`Invalid transaction type. Must be one of: ${validTypes.join(', ')}`);
     }
+    const isAdmin = ['admin', 'super_admin'].includes(String(data.role || '').toLowerCase());
+    if (data.transactionType === 'write_off' && !isAdmin) {
+      throw new ValidationError('Only an administrator may dispose of stock');
+    }
     if (data.transactionType === 'write_off' && !String(data.notes || '').trim()) {
       throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
     }
-    const isAdmin = ['admin', 'super_admin'].includes(String(data.role || '').toLowerCase());
     if (data.transactionType === 'adjustment' && !isAdmin) {
       throw new ValidationError('Only an administrator may record a stock adjustment. Include an audit note explaining the reason.');
     }
