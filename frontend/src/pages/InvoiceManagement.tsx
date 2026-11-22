@@ -415,7 +415,7 @@ export default function InvoiceManagement() {
                   <div className="flex justify-between items-center mb-2"><span className="text-sm text-[var(--text-secondary)]">Subtotal:</span><span className="text-sm font-medium text-[var(--text-primary)]">${calculateTotal().toFixed(2)}</span></div>
                   <div className="flex justify-between items-center pt-2 border-t border-[var(--border-color)]"><span className="text-base font-bold text-[var(--text-primary)]">Total:</span><span className="text-xl font-bold text-[var(--icon-cyan-text)]">${calculateTotal().toFixed(2)}</span></div>
                 </div>
-              </div>
+              </section>
               <div className="flex gap-3 pt-5 border-t border-[var(--border-color)]">
                 <Button variant="secondary" className="flex-1" onClick={() => { setShowForm(false); resetForm(); }}>Cancel</Button>
                 <Button type="submit" variant="soft" accent="cyan" className="flex-1" disabled={formData.invoiceItems.length === 0}>{editingInvoice ? 'Update Invoice' : 'Create Invoice'}</Button>
