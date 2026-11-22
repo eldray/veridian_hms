@@ -12,6 +12,7 @@ import routes from './app';
 import { serveUploadFile } from './middleware/fileAccess';
 import { requestId } from './middleware/requestId';
 import { runDailyWardChargeJob } from './cron/wardChargeCron';
+import { runOpdAttendanceAutoCloseJob } from './cron/opdAttendanceClosureCron';
 import { initCounterService } from './services/CounterService';
 import prisma from './core/database/prisma.client';
 import { toHttpError } from './utils/httpError';
@@ -279,6 +280,16 @@ const startServer = async () => {
 
   console.log('✅ Daily ward charge cron job scheduled for midnight UTC');
 
+  // Close only clinically signed OPD attendances from prior Ghana calendar days.
+  // Unfinalised visits remain open for staff review; active admissions are never touched.
+  const opdAttendanceCloseTask = cron.schedule('0 2 * * *', async () => {
+    console.log('⏰ Running 2:00 AM OPD attendance auto-closure...');
+    await runOpdAttendanceAutoCloseJob(prisma);
+  }, {
+    timezone: 'Africa/Accra'
+  });
+  console.log('✅ OPD attendance auto-closure scheduled daily at 2:00 AM Africa/Accra');
+
   // Drain connections and close Prisma before exiting so scheduled work and
   // in-flight database queries are not killed mid-write.
   let shuttingDown = false;
@@ -287,6 +298,7 @@ const startServer = async () => {
     shuttingDown = true;
     console.log(`\n${signal} received: shutting down the API...`);
     wardChargeTask.stop();
+    opdAttendanceCloseTask.stop();
     const forceExit = setTimeout(() => {
       console.error('Shutdown timed out after 10 seconds; exiting forcefully.');
       process.exit(1);
