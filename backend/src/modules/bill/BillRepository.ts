@@ -10,7 +10,7 @@ import { computeLineTax, loadTaxConfiguration, mergeTaxBreakdowns, type TaxBreak
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
-const CLAIMS_ONLY_PAYMENT_MODES = ['private_insurance', 'corporate'];
+const CLAIMS_ONLY_PAYMENT_MODES: PaymentMode[] = [PaymentMode.private_insurance, PaymentMode.corporate];
 
 export class BillRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
