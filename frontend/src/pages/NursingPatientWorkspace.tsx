@@ -14,7 +14,7 @@ import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
 import { NursingTaskList, type NursingTask as UiNursingTask } from '../components/nursing/NursingTaskList';
 import { MarChart } from '../components/nursing/MarChart';
 import { MarGrid } from '../components/nursing/MarGrid';
-import { MarPrintModal } from '../components/nursing/MarPrintModal';
+import { openMarPrint } from '../components/nursing/MarPrintModal';
 import { NursingNotesPanel } from '../components/nursing/NursingNotesPanel';
 import { promptDialog } from '../context/PromptDialog';
 import { getPatientName } from '../utils/patient';
@@ -118,7 +118,6 @@ export default function NursingPatientWorkspace() {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [marView, setMarView] = useState<'list' | 'grid'>('list');
   const [showVitalsModal, setShowVitalsModal] = useState(false);
-  const [showMarPrint, setShowMarPrint] = useState(false);
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [latestVitals, setLatestVitals] = useState<any>(null);
   const [administeringId, setAdministeringId] = useState<string | null>(null);
@@ -426,7 +425,14 @@ export default function NursingPatientWorkspace() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => setShowMarPrint(true)}
+            onClick=() => openMarPrint(
+              doses,
+              patientName,
+              selectedPatient.folderNumber || '—',
+              new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString(),
+              new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString(),
+              hospital,
+            )
             disabled={doses.length === 0}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
           >
@@ -1016,17 +1022,6 @@ export default function NursingPatientWorkspace() {
         attendanceType={selectedAtt?.attendanceType}
       />
 
-      {showMarPrint && (
-        <MarPrintModal
-          isOpen={showMarPrint}
-          onClose={() => setShowMarPrint(false)}
-          doses={doses}
-          patientName={patientName}
-          patientFolder={selectedPatient.folderNumber || '—'}
-          dateFrom={new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString()}
-          dateTo={new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString()}
-        />
-      )}
     </div>
   );
 }
