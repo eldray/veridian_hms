@@ -110,7 +110,7 @@ export default function InvoiceManagement() {
   const { users, getAllUsers } = useUserStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
-  // Match API permissions: Accounts/Admin may create or edit; only Admin may delete.
+  // Match API permissions: Pharmacy/Admin may create or edit; only Admin may delete.
   const canManageInvoices = hasRole(['super_admin', 'admin', 'pharmacist']);
   const canDeleteInvoices = hasRole(['super_admin', 'admin']);
   const [searchTerm, setSearchTerm] = useState('');
