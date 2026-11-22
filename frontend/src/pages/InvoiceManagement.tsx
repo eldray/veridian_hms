@@ -16,6 +16,7 @@ import { useToast } from '../store/toastStore';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useWardStore } from '../store/wardStore';
 import { useUserStore } from '../store/userStore';
+import { useHospitalStore } from '../store/hospitalStore';
 import {
   Plus, Search, FileText, Edit, Trash2, RefreshCw, Download, Eye, Filter, X, Package,
   Building, Calendar, DollarSign, AlertCircle, CheckCircle, Printer, ChevronDown,
@@ -122,6 +123,7 @@ export default function InvoiceManagement() {
   const { wards, getWards } = useWardStore();
   const { hasRole } = useAuthStore();
   const { users, getAllUsers } = useUserStore();
+  const { hospital } = useHospitalStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
   // Match API permissions: Pharmacy/Admin may create or edit; only Admin may delete.
@@ -258,14 +260,44 @@ export default function InvoiceManagement() {
     success('Exported', `${sortedInvoices.length} invoices exported to CSV`);
   };
   const printInvoice = (invoice: Invoice) => {
-    const printWindow = window.open('', '_blank'); if (!printWindow) return;
-    const itemsHtml = invoice.InvoiceItem?.map(item => `
-      <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">${getStockItemName(item.stockItemId)}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: center;">${item.quantity}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">$${item.unitCost.toFixed(2)}</td>
-      <td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">$${(item.quantity * item.unitCost).toFixed(2)}</td></tr>`).join('') || '<tr><td colspan="4" style="padding: 8px; text-align: center;">No items</td></tr>';
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Invoice ${invoice.invoiceNumber}</title><style>body { font-family: Arial, sans-serif; margin: 40px; }.header { text-align: center; margin-bottom: 30px; }.invoice-details { margin-bottom: 20px; }table { width: 100%; border-collapse: collapse; margin-top: 20px; }th { background-color: #f5f5f5; padding: 10px; text-align: left; border-bottom: 2px solid #ddd; }td { padding: 8px; border-bottom: 1px solid #ddd; }.total { margin-top: 20px; text-align: right; font-size: 18px; font-weight: bold; }.footer { margin-top: 50px; text-align: center; font-size: 12px; color: #666; }</style></head><body><div class="header"><h1>PURCHASE INVOICE</h1></div><div class="invoice-details"><p><strong>Invoice Number:</strong> ${invoice.invoiceNumber}</p><p><strong>Supplier:</strong> ${invoice.supplierName}</p><p><strong>Date:</strong> ${new Date(invoice.invoiceDate).toLocaleDateString()}</p>${invoice.notes ? `<p><strong>Notes:</strong> ${invoice.notes}</p>` : ''}</div><table><thead><tr><th>Item</th><th>Quantity</th><th>Unit Cost</th><th>Total</th></tr></thead><tbody>${itemsHtml}</tbody></table><div class="total">Total Amount: $${invoice.totalAmount.toFixed(2)}</div><div class="footer"><p>Generated on ${new Date().toLocaleString()}</p></div></body></html>`);
-    printWindow.document.close(); printWindow.print();
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    const escape = (value: unknown) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const items = invoice.InvoiceItem || [];
+    const total = Number(invoice.totalAmount) || items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitCost) || 0), 0);
+    const rows = items.map((item, index) => {
+      const quantity = Number(item.quantity) || 0;
+      const unitCost = Number(item.unitCost) || 0;
+      return `<tr><td class="muted">${index + 1}</td><td>${escape(getStockItemName(item.stockItemId))}</td><td class="num">${quantity.toLocaleString('en-GH')}</td><td class="num">GHS ${unitCost.toFixed(2)}</td><td class="num">GHS ${(quantity * unitCost).toFixed(2)}</td><td>${escape(item.batchNumber || '—')}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="empty">No invoice items recorded.</td></tr>';
+    const hospitalName = hospital?.name || 'Hospital';
+    const hospitalMeta = [hospital?.address, hospital?.phone && `Tel: ${hospital.phone}`, hospital?.email].filter(Boolean).map(escape).join(' · ');
+    printWindow.document.write(`<!DOCTYPE html><html lang="en-GH"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Purchase invoice ${escape(invoice.invoiceNumber)}</title>
+<style>
+:root{--ink:#17211b;--muted:#647067;--rule:#d7ded8;--wash:#f3f6f3;--accent:#14532d}
+*{box-sizing:border-box}body{margin:0;background:#e9eeea;color:var(--ink);font:10pt/1.45 "Segoe UI",Arial,sans-serif}
+.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:center;gap:8px;padding:12px;background:#fff;border-bottom:1px solid var(--rule)}
+.toolbar button{padding:8px 18px;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}.toolbar .alt{background:#fff;color:var(--accent)}
+.page{width:210mm;min-height:260mm;margin:14px auto;padding:15mm;background:#fff;box-shadow:0 1px 8px #0002}
+.letterhead{padding-bottom:10px;border-bottom:2px solid var(--accent)}.hospital{font-size:17pt;font-weight:750;color:var(--accent)}.hospital-meta{font-size:8.5pt;color:var(--muted);margin-top:3px}
+.title{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:18px 0 12px}.title h1{font-size:16pt;margin:0;letter-spacing:.04em}.ref{text-align:right;font-size:9pt;color:var(--muted)}
+.details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--rule);margin-bottom:16px}.detail{padding:8px 10px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}.label{display:block;font-size:7.5pt;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}.value{font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:9pt}th{background:var(--wash);font-size:8pt;text-transform:uppercase;letter-spacing:.04em;text-align:left}th,td{padding:8px;border:1px solid var(--rule);vertical-align:top}.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.muted{color:var(--muted)}.empty{text-align:center;color:var(--muted);padding:20px}
+.total{margin:14px 0 0 auto;width:280px;padding:12px;border:1px solid var(--rule);background:var(--wash);display:flex;justify-content:space-between;font-size:12pt;font-weight:750}
+.notes{margin-top:18px;padding:10px;border-left:3px solid var(--accent);background:var(--wash);white-space:pre-wrap}.signatures{display:flex;gap:24px;margin-top:48px}.signature{flex:1;border-top:1px solid var(--ink);padding-top:6px;font-size:8.5pt}.footer{margin-top:24px;padding-top:8px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:8pt}
+@page{size:A4;margin:0}@media print{body{background:#fff}.toolbar{display:none!important}.page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}.details,.total,table{break-inside:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body><div class="toolbar"><button onclick="window.print()">Print invoice</button><button class="alt" onclick="window.close()">Close</button></div><main class="page">
+<header class="letterhead"><div class="hospital">${escape(hospitalName)}</div><div class="hospital-meta">${hospitalMeta}</div></header>
+<div class="title"><h1>PURCHASE INVOICE</h1><div class="ref">Supplier invoice record<br><b>${escape(invoice.invoiceNumber)}</b></div></div>
+<section class="details"><div class="detail"><span class="label">Invoice number</span><span class="value">${escape(invoice.invoiceNumber)}</span></div><div class="detail"><span class="label">Supplier</span><span class="value">${escape(invoice.supplierName)}</span></div><div class="detail"><span class="label">Invoice date</span><span class="value">${escape(new Date(invoice.invoiceDate).toLocaleDateString('en-GB'))}</span></div><div class="detail"><span class="label">Received at</span><span class="value">${escape(getReceivedAt(invoice))}</span></div><div class="detail"><span class="label">Recorded by</span><span class="value">${escape(getCreator(invoice))}</span></div><div class="detail"><span class="label">Items recorded</span><span class="value">${items.length}</span></div></section>
+<table><thead><tr><th style="width:5%">#</th><th>Item description</th><th class="num">Qty</th><th class="num">Unit cost</th><th class="num">Line total</th><th>Batch</th></tr></thead><tbody>${rows}</tbody></table>
+<div class="total"><span>Total amount</span><span>GHS ${total.toFixed(2)}</span></div>
+${invoice.notes ? `<div class="notes"><span class="label">Notes</span>${escape(invoice.notes)}</div>` : ''}
+<div class="signatures"><div class="signature">Received / checked by</div><div class="signature">Authorised by</div></div>
+<footer class="footer"><span>${escape(hospitalName)} · Purchase invoice ${escape(invoice.invoiceNumber)}</span><span>Printed ${escape(new Date().toLocaleString('en-GB'))}</span></footer>
+</main></body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
   };
   const clearFilters = () => {
     setSearchTerm('');
