@@ -59,7 +59,7 @@ export default function CounterTicket() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, hasRole } = useAuthStore();
-  const { hospital, getHospital } = useSettingsStore();
+  const { hospital, getHospitalDetails } = useSettingsStore();
   const { success, error: toastError } = useToast();
 
   const [ticket, setTicket] = useState<any | null>(null);
@@ -103,8 +103,8 @@ export default function CounterTicket() {
   const hasStore = !!user?.departmentId;
 
   useEffect(() => {
-    if (!hospital) void getHospital().catch(() => undefined);
-  }, [hospital, getHospital]);
+    if (!hospital) void getHospitalDetails().catch(() => undefined);
+  }, [hospital, getHospitalDetails]);
 
   const detailRequest = useRef(0);
 
