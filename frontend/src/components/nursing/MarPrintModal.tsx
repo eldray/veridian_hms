@@ -109,10 +109,10 @@ function buildHtml(
   .page-container { max-width: 1400px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; }
   .header {
     background: #fff; color: #17211b; border-bottom: 2px solid #14532d;
-    color: #17211b; padding: 18px 24px;
+    padding: 18px 24px;
     display: flex; justify-content: space-between; align-items: center;
   }
-  .hospital-info h1 { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+  .hospital-info h1 { font-size: 18px; font-weight: 700; margin-bottom: 2px; color: #14532d; }
   .hospital-info p { font-size: 10.5px; opacity: 0.9; line-height: 1.35; }
   .badge { background: #f3f6f3; color: #14532d; border: 1px solid #d7ded8; padding: 4px 14px; border-radius: 20px; font-weight: 600; font-size: 11px; letter-spacing: 0.4px; }
   .patient-range { font-size: 12.5px; font-weight: 600; margin-top: 6px; opacity: 0.95; text-align: right; }
@@ -127,10 +127,10 @@ function buildHtml(
   .meta-item .label { font-size: 9px; font-weight: 700; color: #647067; text-transform: uppercase; letter-spacing: 0.5px; }
   .meta-item .value { font-size: 12.5px; font-weight: 600; color: #17211b; margin-top: 1px; }
 
-  table.mar { width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; font-size: 10.5px; }
-  table.mar th { background: #f3f6f3; color: #34443a; font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 2px; border-bottom: 2px solid #cbd5e1; text-align: center; }
+  table.mar { width: 100%; border-collapse: collapse; border: 1px solid #d7ded8; font-size: 10.5px; }
+  table.mar th { background: #f3f6f3; color: #34443a; font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 2px; border-bottom: 2px solid #d7ded8; text-align: center; }
   table.mar th.med-col { text-align: left; padding-left: 12px; min-width: 200px; }
-  table.mar td { padding: 6px 2px; border-bottom: 1px solid #e2e8f0; border-left: 1px solid #f1f5f9; text-align: center; vertical-align: middle; }
+  table.mar td { padding: 6px 2px; border-bottom: 1px solid #e1e7e2; border-left: 1px solid #eef2ee; text-align: center; vertical-align: middle; }
   table.mar td.med-cell { text-align: left; padding: 6px 12px; background: #fbfcfb; border-left: none; }
   table.mar td.med-cell .med-name { font-weight: 600; color: #0f172a; font-size: 11px; }
   table.mar td.med-cell .med-meta { font-size: 9.5px; color: #64748b; margin-top: 1px; }
@@ -155,7 +155,7 @@ function buildHtml(
 
   .no-print { padding: 18px 40px; background: #f3f6f3; border-top: 1px solid #d7ded8; text-align: center; display: flex; justify-content: center; gap: 12px; }
   .print-btn { background: #14532d; color: #fff; border: none; padding: 11px 28px; border-radius: 10px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
-  .close-btn { background: #fff; color: #34443a; border: 1px solid #d7ded8; border: none; padding: 11px 28px; border-radius: 10px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+  .close-btn { background: #fff; color: #34443a; border: 1px solid #d7ded8; padding: 11px 28px; border-radius: 10px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 
   @media print {
     body { background: #fff; padding: 0; }
