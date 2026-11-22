@@ -43,7 +43,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     const attendanceIds = [...new Set(result.data.map((tx: any) => {
       const match = String(tx.reference || '').match(/^Encounter\s+(.+)$/i);
       return match?.[1]?.trim();
-    }).filter(Boolean))];
+    }).filter((id): id is string => Boolean(id)))];
     if (attendanceIds.length) {
       const attendances = await this.prisma.attendance.findMany({
         where: { id: { in: attendanceIds } },
