@@ -20,7 +20,7 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   const FINANCIAL_READERS = ['admin', 'accounts'];
 
   // Get all bills with filtering and pagination
-  router.get('/invoices', controller.getAll.bind(controller));
+  router.get('/invoices', requireRole(FINANCIAL_READERS), controller.getAll.bind(controller));
 
   // Get billing statistics (includes corporate breakdown)
   router.get('/statistics', requireRole(FINANCIAL_READERS), controller.getStatistics.bind(controller));
