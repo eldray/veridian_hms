@@ -216,7 +216,7 @@ export default function Login() {
         /* Hospital environment artwork behind the sign-in card */
         .login-bg {
           position: absolute; inset: 0;
-          background: #092235 url('/images/login-background.jpg') center / cover no-repeat;
+          background: #092235 url('/images/login-background.png') center / cover no-repeat;
           opacity: 1;
           z-index: 0;
           transform: scale(1.015);
@@ -247,7 +247,7 @@ export default function Login() {
           color-scheme: dark;
           background:
             linear-gradient(155deg, rgba(5, 24, 40, 0.94), rgba(4, 19, 34, 0.96)),
-            url('/images/login-background.jpg') center / cover no-repeat;
+            url('/images/login-background.png') center / cover no-repeat;
           backdrop-filter: blur(18px);
           -webkit-backdrop-filter: blur(18px);
           border-right: 1px solid rgba(190, 225, 235, 0.12);
