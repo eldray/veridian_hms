@@ -213,7 +213,6 @@ export default function Referrals() {
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [referralWizardStep, setReferralWizardStep] = useState(0);
   const [referralSectionPage, setReferralSectionPage] = useState(0);
-
   const [detailReferral, setDetailReferral] = useState<Referral | null>(null);
   const [acceptTarget, setAcceptTarget] = useState<Referral | null>(null);
   const [acceptPartII, setAcceptPartII] = useState<Record<string, string>>(() => emptyPartII());
@@ -807,214 +806,6 @@ export default function Referrals() {
               </div>
 
               <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5" style={{ scrollbarWidth: 'thin' }}>
-                {/* 1 — Patient: pick once, everything below auto-fills */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Patient Information</h3>
-                    {selectedPatient && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">Details auto-filled from register</span>}
-                  </div>
-                  <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                    <PatientAttendanceSelector
-                      patients={patients}
-                      attendances={prefilledAttendance && !attendances.some((item: any) => String(item.id || item._id) === String(prefilledAttendance.id || prefilledAttendance._id))
-                        ? [...attendances, prefilledAttendance] : attendances}
-                      selectedPatientId={selectedPatientId}
-                      selectedAttendanceId={selectedAttendanceId}
-                      onPatientSelect={setSelectedPatientId}
-                      onPatientRecordSelect={setSelectedPatientRecord}
-                      onAttendanceSelect={setSelectedAttendanceId}
-                      onClearSelection={() => { setSelectedPatientId(''); setSelectedPatientRecord(null); setSelectedAttendanceId(''); }}
-                      autoSelectMostRecent={!searchParams.get('attendanceId')}
-                    />
-                  </div>
-                  {/* Auto-filled patient summary — read-only, so the desk can verify
-                      at a glance instead of re-typing name / folder / age / sex. */}
-                  {selectedPatient && (
-                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-xl px-4 py-3">
-                      <div><span className="text-[var(--text-tertiary)] block">Patient</span><b className="text-[var(--text-primary)]">{getPatientName(selectedPatient)}</b></div>
-                      <div><span className="text-[var(--text-tertiary)] block">Folder #</span><b className="text-[var(--text-primary)]">{selectedPatient.folderNumber || '—'}</b></div>
-                      <div><span className="text-[var(--text-tertiary)] block">Age / Sex</span><b className="text-[var(--text-primary)]">{(selectedPatient.ageDisplay || selectedPatient.age || ageFromDob(selectedPatient.dateOfBirth || selectedPatient.dob)) || '—'} · {selectedPatient.gender || selectedPatient.sex || '—'}</b></div>
-                      <div><span className="text-[var(--text-tertiary)] block">Contact</span><b className="text-[var(--text-primary)]">{selectedPatient.contact || selectedPatient.phone || selectedPatient.phoneNumber || '—'}</b></div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Current visit info */}
-                {selectedPatientId && selectedAttendance && (
-                  <div className="px-4 py-3 bg-[var(--icon-cyan-bg)]/50 border border-[var(--border-color)] rounded-lg">
-                    <p className="text-xs font-semibold text-[var(--icon-cyan-text)] mb-2 flex items-center gap-1.5"><Stethoscope className="w-3.5 h-3.5" /> Current Visit</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                      <div><span className="text-[var(--text-tertiary)] block">Visit #</span><b className="text-[var(--text-primary)]">{selectedAttendance.attendanceNumber}</b></div>
-                      <div><span className="text-[var(--text-tertiary)] block">Date</span><b className="text-[var(--text-primary)]">{new Date(selectedAttendance.dateTime).toLocaleDateString()}</b></div>
-                      <div><span className="text-[var(--text-tertiary)] block">Type</span><b className="text-[var(--text-primary)] capitalize">{selectedAttendance.attendanceType}</b></div>
-                      <div><span className="text-[var(--text-tertiary)] block">Status</span><b className="text-[var(--text-primary)] capitalize">{selectedAttendance.status}</b></div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 2 — Transfer details */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Building className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">{referralType === 'outgoing' ? 'Refer To' : 'Referred From'}</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {referralType === 'outgoing' ? (
-                      <>
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Facility <span className="text-[var(--icon-red-text)]">*</span></label>
-                          <div className="relative">
-                            <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                            <input type="text" required value={formData.referredToFacility}
-                              onChange={e => setFormData(p => ({ ...p, referredToFacility: e.target.value }))}
-                              placeholder="e.g., Korle Bu Teaching Hospital" className={`${INPUT} pl-10`} />
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Doctor</label>
-                            <div className="relative">
-                              <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                              <input type="text" value={formData.referredToDoctor}
-                                onChange={e => setFormData(p => ({ ...p, referredToDoctor: e.target.value }))}
-                                placeholder="Doctor's name" className={`${INPUT} pl-10`} />
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Department</label>
-                            <div className="relative">
-                              <Target className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                              <input type="text" value={formData.referredToDepartment}
-                                onChange={e => setFormData(p => ({ ...p, referredToDepartment: e.target.value }))}
-                                placeholder="e.g., Cardiology" className={`${INPUT} pl-10`} />
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Facility <span className="text-[var(--icon-red-text)]">*</span></label>
-                          <div className="relative">
-                            <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                            <input type="text" required value={formData.referredFromFacility}
-                              onChange={e => setFormData(p => ({ ...p, referredFromFacility: e.target.value }))}
-                              placeholder="e.g., Ridge Hospital" className={`${INPUT} pl-10`} />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Referring Doctor</label>
-                          <div className="relative">
-                            <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                            <input type="text" value={formData.referredFromDoctor}
-                              onChange={e => setFormData(p => ({ ...p, referredFromDoctor: e.target.value }))}
-                              placeholder="Doctor's name" className={`${INPUT} pl-10`} />
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* 3 — Urgency */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Urgency</h3>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {[
-                      { value: 'routine', label: 'Routine', description: 'Standard timeframe', tone: 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]' },
-                      { value: 'urgent', label: 'Urgent', description: 'Within 24 hours', tone: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-text)]/40' },
-                      { value: 'stat', label: 'STAT', description: 'Immediate attention', tone: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]/40' },
-                    ].map(opt => {
-                      const isActive = formData.urgency === opt.value;
-                      return (
-                        <button key={opt.value} type="button"
-                          onClick={() => setFormData(p => ({ ...p, urgency: opt.value as any }))}
-                          className={`p-3 rounded-lg border-2 text-left transition-all ${isActive ? opt.tone + ' shadow-sm' : 'border-[var(--border-color)] bg-[var(--bg-main)] hover:border-[var(--icon-cyan-text)]/40'}`}>
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className={`text-sm font-bold ${isActive ? '' : 'text-[var(--text-primary)]'}`}>{opt.label}</span>
-                            {isActive && <BadgeCheck className="w-3.5 h-3.5" />}
-                          </div>
-                          <p className="text-[10px] text-[var(--text-secondary)]">{opt.description}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 4 — The referral document: Part I when sending, Part II when receiving.
-                       Identity fields inside it are already auto-filled above. */}
-                <div className="border-t border-[var(--border-color)] pt-4 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                      <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                        {referralType === 'outgoing' ? 'Part I — Referral by the health worker' : 'Part II — Report back by the receiving facility'}
-                      </h3>
-                    </div>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${referralType === 'outgoing' ? 'text-[var(--icon-blue-text)] bg-[var(--icon-blue-bg)] border-[var(--border-color)]' : 'text-[var(--icon-green-text)] bg-[var(--icon-green-bg)] border-[var(--border-color)]'}`}>
-                      {referralType === 'outgoing' ? 'Travels with the patient' : 'Filed against the referral'}
-                    </span>
-                  </div>
-                  {referralType === 'outgoing' ? (
-                    <ReferralPartFields sections={PART_I_SECTIONS} values={partI as unknown as Record<string, string>}
-                      onChange={(key, value) => setPartI(prev => ({ ...prev, [key]: value }))} tone="cyan" />
-                  ) : (
-                    <ReferralPartFields sections={PART_II_SECTIONS} values={partII as unknown as Record<string, string>}
-                      onChange={(key, value) => setPartII(prev => ({ ...prev, [key]: value }))} tone="green" />
-                  )}
-                  {formErrors.length > 0 && (
-                    <div className="rounded-lg border border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)] px-3 py-2.5">
-                      <p className="text-xs font-semibold text-[var(--icon-red-text)]">Complete these before submitting</p>
-                      <ul className="text-xs text-[var(--icon-red-text)] mt-1 list-disc list-inside space-y-0.5">
-                        {formErrors.map(label => <li key={label}>{label}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {referralSectionPage === (referralType === 'outgoing' ? PART_I_SECTIONS.length : PART_II_SECTIONS.length) - 1 && (
-                <div className="border-t border-[var(--border-color)] pt-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Additional Notes</h3>
-                  </div>
-                  <textarea rows={2} value={formData.referralNotes}
-                    onChange={e => setFormData(p => ({ ...p, referralNotes: e.target.value }))}
-                    placeholder="Anything the receiving facility should know that does not fit the form…"
-                    className={`${INPUT} resize-none`} />
-                </div>
-                )}
-              </form>
-
-              <div className="px-5 py-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3 flex-shrink-0">
-                <Button variant="secondary" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</Button>
-                <div className="flex items-center gap-2">
-                  {referralWizardStep > 0 && <Button variant="secondary" onClick={() => setReferralWizardStep(s => s - 1)}>Back</Button>}
-                  {referralWizardStep < 2 ? (
-                    <Button variant="soft" accent="cyan" onClick={() => {
-                      if (referralWizardStep === 0 && !selectedPatientId) { toastError('Patient required', 'Select a patient before continuing.'); return; }
-                      if (referralWizardStep === 1 && !(referralType === 'outgoing' ? formData.referredToFacility : formData.referredFromFacility).trim()) { toastError('Facility required', 'Enter the referral facility before continuing.'); return; }
-                      setReferralWizardStep(s => s + 1);
-                    }}>Continue <span className="ml-1">→</span></Button>
-                  ) : (
-                    <Button variant="soft" accent={referralType === 'outgoing' ? 'cyan' : 'green'} icon={Send} loading={isLoading}
-                      disabled={isLoading || !selectedPatientId} onClick={handleSubmit as any}>
-                      {isLoading ? 'Creating…' : `Create ${referralType === 'outgoing' ? 'Outgoing' : 'Incoming'} Referral`}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5" style={{ scrollbarWidth: 'thin' }}>
                 <div className="sticky top-0 z-10 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 shadow-sm">
                   <div className="flex items-center justify-between gap-2 text-xs font-semibold">
                     <span className={referralWizardStep === 0 ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-tertiary)]'}>1. Patient</span>
@@ -1207,23 +998,6 @@ export default function Referrals() {
                   )}
                 </div>
 
-                {/* Section pager for the structured referral document */}
-                {(() => {
-                  const sectionCount = referralType === 'outgoing' ? PART_I_SECTIONS.length : PART_II_SECTIONS.length;
-                  const section = (referralType === 'outgoing' ? PART_I_SECTIONS : PART_II_SECTIONS)[referralSectionPage];
-                  return (
-                    <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-[var(--text-primary)]">{section?.title || 'Referral form'}</p>
-                        <p className="text-[10px] text-[var(--text-secondary)]">Form section {referralSectionPage + 1} of {sectionCount} · Fill one section at a time</p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Button size="sm" variant="secondary" disabled={referralSectionPage === 0} onClick={() => setReferralSectionPage(p => Math.max(0, p - 1))}>Previous section</Button>
-                        <Button size="sm" variant="secondary" disabled={referralSectionPage >= sectionCount - 1} onClick={() => setReferralSectionPage(p => Math.min(sectionCount - 1, p + 1))}>Next section</Button>
-                      </div>
-                    </div>
-                  );
-                })()}
 {referralSectionPage === (referralType === 'outgoing' ? PART_I_SECTIONS.length : PART_II_SECTIONS.length) - 1 && (
                 <div className="border-t border-[var(--border-color)] pt-4">
                   <div className="flex items-center gap-2 mb-3">
@@ -1234,8 +1008,8 @@ export default function Referrals() {
                     onChange={e => setFormData(p => ({ ...p, referralNotes: e.target.value }))}
                     placeholder="Anything the receiving facility should know that does not fit the form…"
                     className={`${INPUT} resize-none`} />
-                </div>
                 )}
+                </div>
 
                   </>
                 )}
