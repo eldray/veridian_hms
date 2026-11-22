@@ -31,7 +31,6 @@ import {
   PageHeader,
   Pagination,
   SearchInput,
-  StatCard,
   statusTone,
   TD,
   TD_MONO,
@@ -194,13 +193,13 @@ export default function Pharmacy() {
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
-          { label: 'Patients', value: stats.patients, Icon: Users, tone: 'cyan' },
-          { label: 'Open Prescriptions', value: stats.openItems, Icon: Pill, tone: 'purple' },
-          { label: 'Dispensed', value: stats.dispensedItems, Icon: CheckCircle, tone: 'green' },
-          { label: 'Urgent / Critical', value: stats.urgent, Icon: AlertTriangle, tone: 'red' },
-        ].map(({ label, value, Icon, tone }) => (
+          { label: 'Patients', value: stats.patients, Icon: Users, color: 'text-[var(--icon-cyan-text)]' },
+          { label: 'Open Prescriptions', value: stats.openItems, Icon: Pill, color: 'text-[var(--icon-purple-text)]' },
+          { label: 'Dispensed', value: stats.dispensedItems, Icon: CheckCircle, color: 'text-[var(--icon-green-text)]' },
+          { label: 'Urgent / Critical', value: stats.urgent, Icon: AlertTriangle, color: 'text-[var(--icon-red-text)]' },
+        ].map(({ label, value, Icon, color }) => (
           <div key={label} className="flex min-w-0 items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-2 sm:px-3">
-            <Icon className={`h-4 w-4 shrink-0 text-[var(--icon-${tone}-text)]`} />
+            <Icon className={`h-4 w-4 shrink-0 ${color}`} />
             <span className="min-w-0">
               <span className="block text-lg font-bold leading-none tabular-nums text-[var(--text-primary)]">{value}</span>
               <span className="mt-1 block truncate text-[10px] leading-tight text-[var(--text-secondary)] sm:text-[11px]">{label}</span>
