@@ -15,8 +15,9 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   // Image files are handled by the dedicated upload-image endpoint.
   const parseMultipartFields = multer().none();
 
-  // ✅ ADDED: Apply authentication and authorization to ALL patient routes
-  router.use(protect, requirePatientManagement);
+  // Any signed-in staff member may read patient/clinical context needed for their workflow.
+  // Mutating patient demographics and EMR records remains role-restricted below.
+  router.use(protect);
 
   // Search and list patients
   router.get('/', controller.searchPatients);
@@ -26,11 +27,11 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   router.get('/nhis/:nhisNumber', controller.getPatientByNHIS);
   router.get('/:id/corporate-summary', controller.getPatientCorporateSummary);
   router.get('/:id', controller.getPatientById);
-  router.post('/', parseMultipartFields, controller.createPatient);
-  router.post('/generate-ccc', controller.generateCCC);
-  router.put('/:id', parseMultipartFields, controller.updatePatient);
-  router.post('/:id/upload-image', uploadPatientPhoto, handleUploadError, controller.uploadImage);
-  router.post('/:id/upload-image-base64', controller.uploadImageBase64);
+  router.post('/', requirePatientManagement, parseMultipartFields, controller.createPatient);
+  router.post('/generate-ccc', requirePatientManagement, controller.generateCCC);
+  router.put('/:id', requirePatientManagement, parseMultipartFields, controller.updatePatient);
+  router.post('/:id/upload-image', requirePatientManagement, uploadPatientPhoto, handleUploadError, controller.uploadImage);
+  router.post('/:id/upload-image-base64', requirePatientManagement, controller.uploadImageBase64);
   // Hard delete removes the whole record; docs and clinical history go with it,
   // so it is reserved for administrators even though records staff may edit patients.
   router.delete('/:id', requireAdmin, controller.deletePatient);
@@ -38,9 +39,9 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   // ==========================================
   // NEW: EMR (Allergies & Histories) Routes
   // ==========================================
-  router.post('/:id/allergies', validateBody(createAllergySchema), controller.addAllergy);
+  router.post('/:id/allergies', requirePatientManagement, validateBody(createAllergySchema), controller.addAllergy);
   router.get('/:id/allergies', controller.getAllergies);
-  router.post('/:id/medical-history', validateBody(createMedicalHistorySchema), controller.addMedicalHistory);
+  router.post('/:id/medical-history', requirePatientManagement, validateBody(createMedicalHistorySchema), controller.addMedicalHistory);
   router.get('/:id/medical-history', controller.getMedicalHistories);
 
   return router;
