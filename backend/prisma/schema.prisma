@@ -2248,6 +2248,7 @@ model Department {
   Requisitions        Requisition[] @relation("Requisition_requestingDepartment")
   suppliedRequisitions Requisition[] @relation("Requisition_supplyingDepartment")
   users               User[]        @relation("DepartmentUsers")
+  additionalMembers   User[]        @relation("UserAdditionalDepartments")
   appointments Appointment[]
   head         User?         @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
 
@@ -2384,6 +2385,8 @@ model User {
 
   // Dynamic RBAC
   roles Role[]
+  // Additional department memberships; departmentId remains the primary department for legacy workflows.
+  departments Department[] @relation("UserAdditionalDepartments")
 
   // Password reset
   resetToken  String?
