@@ -33,15 +33,6 @@ function escapeHtml(s: any): string {
   return div.innerHTML;
 }
 
-function fmtHour(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
-function fmtDay(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
 function buildHtml(
   doses: MarDose[],
   patientName: string,
@@ -55,47 +46,35 @@ function buildHtml(
   const hospitalPhone = hospital?.phone || '';
   const hospitalEmail = hospital?.email || '';
 
-  // Build rows + cols
-  const rowKey = (d: MarDose) => `${d.medication.id}::${d.doseNumber}`;
-  const rowsMap = new Map<string, { label: string; meta: string; key: string }>();
-  const colsSet = new Set<string>();
-  const cells = new Map<string, MarDose>();
-
-  for (const d of doses) {
-    const key = rowKey(d);
-    if (!rowsMap.has(key)) {
-      rowsMap.set(key, {
-        key,
-        label: d.medication.name,
-        meta: `${d.dose ?? d.medication.dosage ?? ''}${d.route ? ` · ${d.route}` : ''} · #${d.doseNumber}`,
-      });
-    }
-    const colKey = d.scheduledAt.slice(0, 13);
-    colsSet.add(colKey);
-    cells.set(`${key}|${colKey}`, d);
+  // Split the chart by calendar day so long admission periods never create one very wide table.
+  const dayMap = new Map<string, MarDose[]>();
+  for (const dose of doses) {
+    const day = dose.scheduledAt.slice(0, 10);
+    if (!dayMap.has(day)) dayMap.set(day, []);
+    dayMap.get(day)!.push(dose);
   }
-  const cols = Array.from(colsSet).sort();
-  const rows = Array.from(rowsMap.values()).sort((a, b) => a.label.localeCompare(b.label));
-
-  const colHeaders = cols.map((c) => `
-    <th>
-      <div style="font-family:monospace;">${fmtHour(c + ':00:00Z')}</div>
-      <div style="font-size:8.5px;font-weight:400;color:#64748b;">${fmtDay(c + ':00:00Z')}</div>
-    </th>`).join('');
-
-  const bodyRows = rows.map((row) => `
-    <tr>
-      <td class="med-cell">
-        <div class="med-name">${escapeHtml(row.label)}</div>
-        <div class="med-meta">${escapeHtml(row.meta)}</div>
-      </td>
-      ${cols.map((c) => {
-        const cell = cells.get(`${row.key}|${c}`);
-        if (!cell) return `<td class="cell-empty">·</td>`;
-        const conf = STATUS_GLYPH[cell.status];
-        return `<td><span class="glyph" style="background:${conf.bg};color:${conf.fg};" title="${escapeHtml(conf.label)}">${conf.ch}</span></td>`;
-      }).join('')}
-    </tr>`).join('');
+  const daySections = Array.from(dayMap.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([day, dayDoses]) => {
+    const timeSlots = Array.from(new Set(dayDoses.map(d => d.scheduledAt.slice(11, 16)))).sort();
+    const medicationMap = new Map<string, { name: string; meta: string; doses: Map<string, MarDose> }>();
+    for (const dose of dayDoses) {
+      const doseLabel = dose.dose ?? dose.medication.dosage ?? '';
+      const routeLabel = dose.route ? ` · ${dose.route}` : '';
+      const key = `${dose.medication.id}::${doseLabel}::${dose.route ?? ''}`;
+      if (!medicationMap.has(key)) medicationMap.set(key, { name: dose.medication.name, meta: `${doseLabel}${routeLabel}`, doses: new Map() });
+      medicationMap.get(key)!.doses.set(dose.scheduledAt.slice(11, 16), dose);
+    }
+    const medicationRows = Array.from(medicationMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const headers = timeSlots.map(time => `<th>${escapeHtml(time)}</th>`).join('');
+    const body = medicationRows.map(row => `<tr><td class="med-cell"><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.meta)}</small></td>${timeSlots.map(time => {
+      const dose = row.doses.get(time);
+      if (!dose) return '<td class="cell-empty">—</td>';
+      const conf = STATUS_GLYPH[dose.status];
+      const detail = dose.status === 'administered' ? `<small>${escapeHtml(dose.administeredBy?.fullName || '')}</small>` : dose.varianceReason ? `<small>${escapeHtml(dose.varianceReason)}</small>` : '';
+      return `<td><span class="glyph" style="background:${conf.bg};color:${conf.fg};">${conf.ch}</span>${detail}</td>`;
+    }).join('')}</tr>`).join('');
+    const dateLabel = new Date(`${day}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    return `<section class="day-section"><h2 class="day-heading">${escapeHtml(dateLabel)} <span>${dayDoses.length} scheduled dose${dayDoses.length === 1 ? '' : 's'}</span></h2><table class="mar"><thead><tr><th class="med-col">Medication / Dose</th>${headers}</tr></thead><tbody>${body}</tbody></table></section>`;
+  }).join('');
 
   return `<!DOCTYPE html>
 <html>
@@ -104,8 +83,8 @@ function buildHtml(
 <title>MAR — ${escapeHtml(patientName)}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  @page { size: A4 landscape; margin: 10mm; }
-  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2ee; padding: 20px; color: #17211b; }
+  @page { size: A4 landscape; margin: 8mm; }
+  body { font-family: Arial, Helvetica, sans-serif; background: #eef2ee; padding: 20px; color: #17211b; }
   .page-container { max-width: 1400px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; }
   .header {
     background: #fff; color: #17211b; border-bottom: 2px solid #14532d;
@@ -127,20 +106,20 @@ function buildHtml(
   .meta-item .label { font-size: 9px; font-weight: 700; color: #647067; text-transform: uppercase; letter-spacing: 0.5px; }
   .meta-item .value { font-size: 12.5px; font-weight: 600; color: #17211b; margin-top: 1px; }
 
-  table.mar { width: 100%; border-collapse: collapse; border: 1px solid #d7ded8; font-size: 10.5px; }
+  .day-section { margin: 0 0 18px; }
+  .day-heading { display:flex; justify-content:space-between; gap:12px; margin:0 0 7px; padding:7px 9px; background:#edf4ef; border-left:3px solid #14532d; color:#14532d; font-size:12px; break-after:avoid; page-break-after:avoid; }
+  .day-heading span { color:#647067; font-size:9px; font-weight:500; }
+  table.mar { width:100%; table-layout:fixed; border-collapse:collapse; border:1px solid #d7ded8; font-size:9px; }
   table.mar th { background: #f3f6f3; color: #34443a; font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; padding: 6px 2px; border-bottom: 2px solid #d7ded8; text-align: center; }
-  table.mar th.med-col { text-align: left; padding-left: 12px; min-width: 200px; }
-  table.mar td { padding: 6px 2px; border-bottom: 1px solid #e1e7e2; border-left: 1px solid #eef2ee; text-align: center; vertical-align: middle; }
+  table.mar th.med-col { text-align:left; padding-left:8px; width:28%; }
+  table.mar td { padding:4px 2px; border-bottom:1px solid #e1e7e2; border-left:1px solid #eef2ee; text-align:center; vertical-align:middle; overflow-wrap:anywhere; }
   table.mar td.med-cell { text-align: left; padding: 6px 12px; background: #fbfcfb; border-left: none; }
-  table.mar td.med-cell .med-name { font-weight: 600; color: #0f172a; font-size: 11px; }
-  table.mar td.med-cell .med-meta { font-size: 9.5px; color: #64748b; margin-top: 1px; }
+  table.mar td.med-cell strong { display:block; font-weight:700; color:#0f172a; font-size:9px; }
+  table.mar td.med-cell small { display:block; font-size:8px; color:#64748b; margin-top:2px; }
+  table.mar td small { display:block; font-size:7px; color:#475569; margin-top:2px; overflow-wrap:anywhere; }
   table.mar td.cell-empty { color: #cbd5e1; }
 
-  .glyph {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 22px; height: 22px; border-radius: 50%;
-    font-size: 11px; font-weight: 700;
-  }
+  .glyph { display:inline-flex; align-items:center; justify-content:center; width:19px; height:19px; border-radius:50%; font-size:10px; font-weight:700; }
 
   .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; font-size: 10px; color: #475569; }
   .legend-item { display: flex; align-items: center; gap: 5px; }
@@ -159,11 +138,20 @@ function buildHtml(
 
   @media print {
     body { background: #fff; padding: 0; }
-    .page-container { box-shadow: none; border-radius: 0; max-width: 100%; }
+    .page-container { box-shadow:none; border-radius:0; max-width:100%; overflow:visible; }
+    .content { padding:10px 0 0; }
+    .day-section { margin-bottom:12px; }
+    .day-heading { break-after:avoid; page-break-after:avoid; }
+    table.mar thead { display:table-header-group; }
+    table.mar tr { break-inside:avoid; page-break-inside:avoid; }
+    table.mar th, table.mar td { padding:3px 2px; }
+    .meta-strip { margin-bottom:12px; padding:7px 10px; gap:14px; }
+    .signatures { margin-top:18px; padding-top:12px; }
+    .footer { margin-top:12px; padding-top:8px; }
     .no-print { display: none !important; }
     .header, .glyph, .badge { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    table.mar { font-size: 9.5px; }
-    .glyph { width: 18px; height: 18px; font-size: 9.5px; }
+    table.mar { font-size:8px; }
+    .glyph { width:16px; height:16px; font-size:9px; }
   }
 </style>
 </head>
@@ -210,15 +198,7 @@ function buildHtml(
       </div>
     </div>
 
-    <table class="mar">
-      <thead>
-        <tr>
-          <th class="med-col">Medication</th>
-          ${colHeaders}
-        </tr>
-      </thead>
-      <tbody>${bodyRows}</tbody>
-    </table>
+    ${daySections || '<p class="empty">No medication doses in the selected period.</p>'}
 
     <div class="legend">
       ${Object.entries(STATUS_GLYPH).map(([, conf]) => `
