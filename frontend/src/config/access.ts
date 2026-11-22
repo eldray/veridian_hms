@@ -111,7 +111,7 @@ export const PAGES: PageDef[] = [
   { key: 'requisitions', paths: ['/dashboard/requisitions', '/dashboard/requisitions/create'], patterns: ['/dashboard/requisitions/:id'], roles: ['pharmacist', 'nurse', 'midwife', 'doctor', 'lab_tech', 'sonographer', 'records'], navRoles: ['pharmacist', 'nurse', 'midwife'], label: 'Requisitions', icon: ClipboardList, group: 'Pharmacy' },
 
   // ── Revenue ────────────────────────────────────────────────────────────────
-  { key: 'invoices', paths: ['/dashboard/invoices', '/dashboard/invoices/create'], patterns: ['/dashboard/invoices/:id'], roles: ['pharmacist', 'accounts', 'records'], label: 'Purchase Invoices', icon: FileText, group: 'Pharmacy' },
+  { key: 'invoices', paths: ['/dashboard/invoices', '/dashboard/invoices/create'], patterns: ['/dashboard/invoices/:id'], roles: ['pharmacist', 'records'], label: 'Purchase Invoices', icon: FileText, group: 'Pharmacy' },
   { key: 'billing', paths: ['/dashboard/billing'], patterns: ['/dashboard/patients/:patientId/billing', '/dashboard/billing/:billId/payment'], roles: ['accounts', 'doctor'], navRoles: ['accounts'], label: 'Billing', icon: DollarSign, group: 'Revenue' },
   // Insurance is a single sidebar entry. The payer family and the section live in the URL
   // (/dashboard/insurance/<family>/<section>), so each tab is a deep link the guard can name.
