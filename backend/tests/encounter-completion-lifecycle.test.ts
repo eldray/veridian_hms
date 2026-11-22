@@ -9,6 +9,10 @@ function setup(encounter: any, transitionCount = 1) {
       updateMany: vi.fn().mockResolvedValue({ count: transitionCount }),
       findUniqueOrThrow: vi.fn().mockResolvedValue(updated),
     },
+    labTest: { count: vi.fn().mockResolvedValue(0) },
+    scan: { count: vi.fn().mockResolvedValue(0) },
+    medication: { count: vi.fn().mockResolvedValue(0) },
+    procedure: { count: vi.fn().mockResolvedValue(0) },
   };
   const prisma: any = {
     $transaction: vi.fn(async (callback: any) => callback(tx)),
