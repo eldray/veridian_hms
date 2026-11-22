@@ -18,7 +18,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
   }
 
   private async syncAttendanceFinancials(tx: any, attendanceId: string, fallback?: any) {
-    // Visit summaries aggregate all non-cancelled bills attached to this attendance.
+    // Operational attendance totals: totalBill is gross billed, paidAmount is actual cash collected,
+    // and outstandingBalance is the remaining patient liability. Insurer claim values are separate.
     if (typeof tx.bill.aggregate !== 'function') {
       // Lightweight unit-test doubles may omit Prisma aggregate; real Prisma supports it.
       if (fallback && tx.attendance?.update && !CLAIMS_ONLY_PAYMENT_MODES.includes(fallback.paymentMode)) {
