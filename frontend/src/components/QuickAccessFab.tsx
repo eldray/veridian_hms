@@ -110,6 +110,7 @@ export function QuickAccessFab() {
 
   const close = useCallback(() => {
     setOpen(false);
+    setRadialOpen(false);
     setQuery('');
   }, []);
 
@@ -130,13 +131,14 @@ export function QuickAccessFab() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setOpen((v) => !v);
+        setRadialOpen(false);
         return;
       }
-      if (e.key === 'Escape' && open) close();
+      if (e.key === 'Escape' && (open || radialOpen)) close();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [close, open]);
+  }, [close, open, radialOpen]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -170,7 +172,7 @@ export function QuickAccessFab() {
             <button type="button" aria-label="Close quick actions" onClick={() => setRadialOpen(false)} className="fixed inset-0 z-0 cursor-default" style={{ background: 'rgba(3,12,24,.10)' }} />
             {radialItems.map((item, index) => {
               const Icon = item.icon;
-              const angles = [-90, -130, -170, -210, -250, -290];
+              const angles = [-90, -110, -130, -150, -170, -190];
               const radians = angles[index] * Math.PI / 180;
               const distance = 104;
               const x = Math.cos(radians) * distance;
