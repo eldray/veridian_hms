@@ -27,7 +27,7 @@ import { ProcedureModal } from '../components/medical-entries/modals/ProcedureMo
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
-import { deleteEncounterConsumableUse, getEncounterConsumableUses, finalizeEncounterClinicalRecord, dischargeFromEncounter } from '../api';
+import { deleteEncounterConsumableUse, getEncounterConsumableUses, finalizeEncounterClinicalRecord, dischargeFromEncounter, completeEncounter } from '../api';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
 import { MedicalEntryEditModal, type MedicalEntryEditType } from '../components/medical-entries/MedicalEntryEditModal';
 
@@ -1158,6 +1158,26 @@ export default function MedicalEntries() {
     }
   };
 
+  const handleCompleteAttendance = async () => {
+    if (!selectedAttendanceId || !currentAttendance) return;
+    const confirmed = await confirmDialog({
+      title: 'Complete OPD attendance',
+      message: 'The clinical record has been signed. Close this OPD attendance now? Any outstanding laboratory, scan or pharmacy work will remain visible in its respective worklist.',
+      confirmText: 'Complete attendance',
+      type: 'info',
+    });
+    if (!confirmed) return;
+    try {
+      await completeEncounter(selectedAttendanceId);
+      success('Attendance completed', 'This OPD visit has been closed.');
+      await getAttendance(selectedAttendanceId);
+      await getAttendances();
+    } catch (err: any) {
+      toastError('Could not complete attendance',
+        err?.response?.data?.message || err.message || 'Please refresh and try again.');
+    }
+  };
+
   // Add this function alongside handleSaveClinical
   const handleSaveTreatmentNote = async () => {
     if (!selectedAttendanceId || !treatmentNoteDraft.trim()) return;
@@ -2093,6 +2113,13 @@ export default function MedicalEntries() {
                     className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold border border-emerald-600 text-emerald-700 disabled:opacity-50">
                     <CheckCircle className="w-3.5 h-3.5" /> {(currentAttendance as any)?.finalizedAt ? 'Finalized' : 'Finalize & Sign'}
                   </button>
+                  {currentAttendance?.encounterCategory === 'opd' &&
+                    currentAttendance?.status === 'pending' && isClinicalFinalized && (
+                    <button type="button" onClick={handleCompleteAttendance}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
+                      <CheckCircle className="w-3.5 h-3.5" /> Complete Attendance
+                    </button>
+                  )}
                   <button
                     onClick={handleSaveClinical} disabled={isClinicalFinalized}
                     className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50

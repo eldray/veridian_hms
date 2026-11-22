@@ -9,6 +9,10 @@ function setup(encounter: any, transitionCount = 1) {
       updateMany: vi.fn().mockResolvedValue({ count: transitionCount }),
       findUniqueOrThrow: vi.fn().mockResolvedValue(updated),
     },
+    labTest: { count: vi.fn().mockResolvedValue(0) },
+    scan: { count: vi.fn().mockResolvedValue(0) },
+    medication: { count: vi.fn().mockResolvedValue(0) },
+    procedure: { count: vi.fn().mockResolvedValue(0) },
   };
   const prisma: any = {
     $transaction: vi.fn(async (callback: any) => callback(tx)),
@@ -21,6 +25,9 @@ describe('encounter completion lifecycle', () => {
     const { service, prisma, tx, updated } = setup({
       id: 'encounter-1',
       status: 'pending',
+      encounterCategory: 'opd',
+      attendanceType: 'general_consultation',
+      finalizedAt: new Date(),
       Admission: null,
     });
 
@@ -31,6 +38,40 @@ describe('encounter completion lifecycle', () => {
       where: { id: 'encounter-1', status: 'pending' },
       data: { status: 'completed', bedId: null, updatedById: 'staff-1' },
     });
+  });
+
+  it('requires a signed clinical record before completing a registered OPD attendance', async () => {
+    const { service, tx } = setup({
+      id: 'encounter-1',
+      status: 'pending',
+      encounterCategory: 'opd',
+      attendanceType: 'general_consultation',
+      finalizedAt: null,
+      Admission: null,
+    });
+
+    await expect(service.completeEncounter('encounter-1', 'staff-1'))
+      .rejects.toThrow(/finalize and sign/i);
+    expect(tx.attendance.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses to complete an OPD visit while tests, scans, prescriptions or procedures remain open', async () => {
+    const { service, tx } = setup({
+      id: 'encounter-1',
+      status: 'pending',
+      encounterCategory: 'opd',
+      attendanceType: 'general_consultation',
+      finalizedAt: new Date(),
+      Admission: null,
+    });
+    tx.labTest.count.mockResolvedValue(1);
+    tx.scan.count.mockResolvedValue(1);
+    tx.medication.count.mockResolvedValue(1);
+    tx.procedure.count.mockResolvedValue(1);
+
+    await expect(service.completeEncounter('encounter-1', 'staff-1'))
+      .rejects.toThrow(/clinical work remains outstanding/i);
+    expect(tx.attendance.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses to complete an encounter with an active admission', async () => {
@@ -60,6 +101,9 @@ describe('encounter completion lifecycle', () => {
     const { service, tx } = setup({
       id: 'encounter-1',
       status: 'pending',
+      encounterCategory: 'opd',
+      attendanceType: 'general_consultation',
+      finalizedAt: new Date(),
       Admission: null,
     }, 0);
 

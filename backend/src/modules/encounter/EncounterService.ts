@@ -595,6 +595,37 @@ export class EncounterService extends BaseService {
           'Cannot complete while an admission is active. Discharge, refer, or mark absconded first.',
         );
       }
+      // A registered OPD consultation must be clinically signed before it can be closed.
+      // Counter walk-ins remain on their existing counter workflow and do not require a signature.
+      if (
+        encounter.encounterCategory === 'opd' &&
+        encounter.attendanceType !== 'walk_in' &&
+        !encounter.finalizedAt
+      ) {
+        throw new ValidationError('Finalize and sign the clinical record before completing this OPD attendance.');
+      }
+
+      // A registered OPD visit cannot be closed while ordered clinical work is still open.
+      // Cancelled orders count as resolved; prescribed medicines must be dispensed/administered
+      // or explicitly cancelled by an authorised user before the visit can be closed.
+      if (encounter.encounterCategory === 'opd' && encounter.attendanceType !== 'walk_in') {
+        const [pendingLabs, pendingScans, pendingMedications, pendingProcedures] = await Promise.all([
+          tx.labTest.count({ where: { attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } } }),
+          tx.scan.count({ where: { attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } } }),
+          tx.medication.count({ where: { attendanceId: encounterId, status: 'prescribed' } }),
+          tx.procedure.count({ where: { attendanceId: encounterId, status: { in: ['scheduled', 'in_progress'] } } }),
+        ]);
+        const outstanding: string[] = [];
+        if (pendingLabs) outstanding.push(`${pendingLabs} laboratory test(s)`);
+        if (pendingScans) outstanding.push(`${pendingScans} scan(s)`);
+        if (pendingMedications) outstanding.push(`${pendingMedications} prescribed medicine(s) awaiting dispensing`);
+        if (pendingProcedures) outstanding.push(`${pendingProcedures} procedure(s)`);
+        if (outstanding.length) {
+          throw new ValidationError(
+            `Cannot complete attendance while clinical work remains outstanding: ${outstanding.join(', ')}. Complete or cancel each order first.`,
+          );
+        }
+      }
 
       // Claim completion conditionally to avoid a stale request completing an encounter
       // after another staff member has already changed its lifecycle state.
