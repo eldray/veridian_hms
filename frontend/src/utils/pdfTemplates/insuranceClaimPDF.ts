@@ -21,6 +21,7 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
   const h = resolveHospital(hospital);
   const att = claim?.Attendance || {};
   const diagnoses = diagnosesOf(att);
+  const claimDiagnoses = [...diagnoses, ...(Array.isArray(claim?.items) ? claim.items.filter((item: any) => String(item.itemCategory || "").toLowerCase() === "diagnosis").map((item: any) => ({ name: String(item.description || item.name || "").trim(), code: String(item.code || item.icd10 || "").trim(), type: String(item.diagnosisType || item.type || "").replace(/_/g, " ").trim() })) : [])].filter((d: any, index: number, list: any[]) => list.findIndex((x: any) => x.code === d.code && x.name === d.name) === index);
   const labTests: any[] = att.LabTest || [];
   const scans: any[] = att.Scan || [];
   const medications: any[] = att.Medication || [];
@@ -83,6 +84,7 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
   const procTotal = procItems.reduce((s, p) => s + p.total, 0);
   const svcTotal = svcItems.reduce((s, x) => s + x.total, 0);
   const gdrgAmount = totalClaim - medTotal - invTotal - procTotal - svcTotal;
+  const itemizedSubtotal = Math.max(0, gdrgAmount) + medTotal + invTotal + procTotal + svcTotal;
   const approved = n(claim?.approvedAmount);
   const paid = n(claim?.paidAmount);
 
@@ -136,20 +138,22 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
       4,
     ), { keepTogether: true })}
 
-    ${section('Diagnoses', table({
+    ${section('G-DRG package', kvGrid([[ 'Principal G-DRG', principalGDRG ? `<b>${esc(principalGDRG)}</b>` : '<span class="muted">—</span>' ], [ 'Package amount (GHS)', `<b>${esc(amt(Math.max(0, gdrgAmount)))}</b>` ]], 2), { keepTogether: true })}
+
+    ${section('Diagnoses (not separately priced)', table({
       head: ['#', 'ICD-10', 'Diagnosis', 'Type'],
       widths: ['5%', '14%', '61%', '20%'],
       align: ['c'],
-      rows: diagnoses.map((d, i) => [String(i + 1), orDash(d.code), esc(d.name), orDash(d.type)]),
+      rows: claimDiagnoses.map((d, i) => [String(i + 1), orDash(d.code), esc(d.name), orDash(d.type)]),
       empty: 'No diagnosis recorded',
     }), { keepTogether: true })}
 
-    ${medItems.length ? section('Medicines', table({
-      head: ['Code', 'Medicine', 'Qty', 'Unit price', 'Amount'],
-      widths: ['14%', '46%', '8%', '16%', '16%'],
-      align: [undefined, undefined, 'c', 'r', 'r'],
-      rows: medItems.map((m) => [orDash(m.code), `<b>${esc(m.name)}</b>${m.detail ? `<div class="muted" style="font-size:8pt">${esc(m.detail)}</div>` : ''}`, String(m.qty), esc(amt(m.unit)), esc(amt(m.total))]),
-      foot: [['', '', '', 'Subtotal', esc(amt(medTotal))]],
+    ${procItems.length ? section('Procedures (G-DRG related)', table({
+      head: ['Code', 'Procedure', 'Amount (GHS)'],
+      widths: ['16%', '58%', '26%'],
+      align: [undefined, undefined, 'r'],
+      rows: procItems.map((p) => [orDash(p.code), esc(p.name), esc(amt(p.total))]),
+      foot: [['', 'Procedures subtotal', esc(amt(procTotal))]],
     })) : ''}
 
     ${investigations.length ? section('Investigations', table({
@@ -159,13 +163,12 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
       rows: investigations.map((i) => [orDash(i.code), esc(i.name), esc(fmtDate(i.date)), esc(amt(i.total))]),
       foot: [['', '', 'Subtotal', esc(amt(invTotal))]],
     })) : ''}
-
-    ${procItems.length ? section('Procedures', table({
-      head: ['Code', 'Procedure', 'Amount'],
-      widths: ['16%', '68%', '16%'],
-      align: [undefined, undefined, 'r'],
-      rows: procItems.map((p) => [orDash(p.code), esc(p.name), esc(amt(p.total))]),
-      foot: [['', 'Subtotal', esc(amt(procTotal))]],
+    ${medItems.length ? section('Medicines', table({
+      head: ['Code', 'Medicine', 'Qty', 'Unit price', 'Amount'],
+      widths: ['14%', '46%', '8%', '16%', '16%'],
+      align: [undefined, undefined, 'c', 'r', 'r'],
+      rows: medItems.map((m) => [orDash(m.code), `<b>${esc(m.name)}</b>${m.detail ? `<div class="muted" style="font-size:8pt">${esc(m.detail)}</div>` : ''}`, String(m.qty), esc(amt(m.unit)), esc(amt(m.total))]),
+      foot: [['', '', '', 'Subtotal', esc(amt(medTotal))]],
     })) : ''}
 
     ${svcItems.length ? section('Other services', table({
@@ -181,14 +184,15 @@ export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: a
       widths: ['70%', '30%'],
       align: [undefined, 'r'],
       rows: [
-        ['G-DRG tariff (consultation, bed, nursing and other bundled services)', esc(amt(Math.max(0, gdrgAmount)))],
-        ['Medicines', esc(amt(medTotal))],
-        ['Investigations', esc(amt(invTotal))],
+        ['G-DRG package', esc(amt(Math.max(0, gdrgAmount)))],
         ['Procedures', esc(amt(procTotal))],
+        ['Investigations', esc(amt(invTotal))],
+        ['Medicines', esc(amt(medTotal))],
         ['Other services', esc(amt(svcTotal))],
       ],
       foot: [
-        ['Total claim amount', esc(amt(totalClaim))],
+        ['Subtotal', esc(amt(itemizedSubtotal))],
+        ['Grand total', `<b>${esc(amt(totalClaim))}</b>`],
         ...(approved > 0 || paid > 0
           ? [['Approved by insurer', esc(amt(approved))], ['Paid by insurer', esc(amt(paid))], ['Outstanding', esc(amt(Math.max(0, (approved || totalClaim) - paid)))]]
           : []),
