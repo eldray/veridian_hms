@@ -789,7 +789,10 @@ export class BillRepository extends BaseRepository<any, any, any> {
         await pushItem(pr.ServiceCatalog, 'Procedure', 'procedure', 1, `procedure:${pr.id}`);
       }
       for (const med of attendance.Medication || []) {
-        await pushItem(med.ServiceCatalog, med.name || 'Medication', 'medication', med.quantity, `medication:${med.id}`);
+        if (med.status === 'dispensed' || med.status === 'administered') {
+          const dispensedQuantity = Number(med.dispensedQuantity ?? med.quantity ?? 0);
+          if (dispensedQuantity > 0) await pushItem(med.ServiceCatalog, med.name || 'Medication', 'medication', dispensedQuantity, `medication:${med.id}`);
+        }
       }
 
       // Ward charges are already priced and recorded per attendance/day by the ward workflow.
