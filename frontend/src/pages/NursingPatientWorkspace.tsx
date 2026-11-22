@@ -903,7 +903,14 @@ export default function NursingPatientWorkspace() {
                     </button>
                   </div>
                   <button
-                    onClick={() => setShowMarPrint(true)}
+                    onClick={() => openMarPrint(
+                      doses,
+                      patientName,
+                      selectedPatient.folderNumber || '—',
+                      new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString(),
+                      new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString(),
+                      hospital,
+                    )}
                     disabled={doses.length === 0}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors disabled:opacity-50"
                   >
