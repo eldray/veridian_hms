@@ -595,6 +595,15 @@ export class EncounterService extends BaseService {
           'Cannot complete while an admission is active. Discharge, refer, or mark absconded first.',
         );
       }
+      // A registered OPD consultation must be clinically signed before it can be closed.
+      // Counter walk-ins remain on their existing counter workflow and do not require a signature.
+      if (
+        encounter.encounterCategory === 'opd' &&
+        encounter.attendanceType !== 'walk_in' &&
+        !encounter.finalizedAt
+      ) {
+        throw new ValidationError('Finalize and sign the clinical record before completing this OPD attendance.');
+      }
 
       // Claim completion conditionally to avoid a stale request completing an encounter
       // after another staff member has already changed its lifecycle state.
