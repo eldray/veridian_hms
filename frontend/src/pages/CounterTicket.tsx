@@ -863,7 +863,8 @@ export default function CounterTicket() {
                           <Button
                             variant="secondary"
                             icon={Printer}
-                            disabled={!!working}
+                            disabled={!!working || Number(bill.paidAmount || 0) <= 0}
+                            title={Number(bill.paidAmount || 0) > 0 ? 'Print a receipt for the latest recorded payment' : 'A receipt is available after a payment is recorded'}
                             onClick={() => print('Print receipt', 'Receipt not printed', async () => {
                               const fullBill: any = await getBillingInvoice(bill.id);
                               if (!fullBill) throw new Error('Bill details could not be loaded.');
