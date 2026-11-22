@@ -24,7 +24,7 @@ import {
   Plus, CheckCircle, Activity, User,
   AlertTriangle, ClipboardList, ListTodo, StickyNote,
   Moon, Sun, Printer, LayoutGrid, List, Info,
-  Heart, Phone, MapPin, Shield, Calendar, Syringe,
+  Heart, Phone, Calendar, Syringe,
   TrendingUp, ChevronRight,
 } from 'lucide-react';
 
@@ -724,11 +724,11 @@ export default function NursingPatientWorkspace() {
                 </div>
               </div>
 
-              {/* ─── ROW 3: Tasks (2/3) | Patient info (1/3) ─── */}
+              {/* ─── ROW 3: Tasks ─── */}
               <div className="grid grid-cols-1 gap-4">
 
                 {/* Tasks — full width */}
-                <div className=" rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden flex flex-col">
+                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden flex flex-col">
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
                     <ListTodo className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                     <span className="text-xs font-semibold text-[var(--text-primary)]">Today's Tasks</span>
