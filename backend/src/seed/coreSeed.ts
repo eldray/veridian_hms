@@ -1306,8 +1306,9 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     //   "stockLocations": [{ "department": "Pharmacy", "quantity": 30 }, { "department": "Main Store", "quantity": 70 }]
     // The department quantities always add up to the item's currentStock.
     const DEFAULT_STOCK_SPLIT = [
-      { department: 'Pharmacy', share: 0.4 },
-      { department: 'Main Store', share: 0.6 },
+      // Put most default medicine stock at the dispensing point; retain a warehouse reserve.
+      { department: 'Pharmacy', share: 0.8 },
+      { department: 'Main Store', share: 0.2 },
     ];
     const deptByName = new Map<string, any>();
     const getDept = async (name: string) => {
