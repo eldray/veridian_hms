@@ -103,9 +103,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       where, page, limit: Math.min(limit, 1000), orderBy: { name: 'asc' },
       include: {
         StockBatch: {
-          where: {
+          where: includeAllStockLocations ? {} : {
             isActive: true,
-            ...(!includeAllStockLocations ? { departmentId: departmentId ?? null, wardId: null } : {}),
+            departmentId: departmentId ?? null,
+            wardId: null,
           },
           include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
           orderBy: { expiryDate: 'asc' },
