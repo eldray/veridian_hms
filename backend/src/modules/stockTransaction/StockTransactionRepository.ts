@@ -40,10 +40,11 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     });
     // Older clinical stock movements store the attendance's internal ID in
     // reference as "Encounter <id>". Resolve it to the user-facing attendance number.
-    const attendanceIds = [...new Set(result.data.map((tx: any) => {
-      const match = String(tx.reference || '').match(/^Encounter\s+(.+)$/i);
-      return match?.[1]?.trim();
-    }).filter(Boolean))];
+    const attendanceIds: string[] = Array.from(new Set<string>(result.data.flatMap((tx: any): string[] => {
+      const match = String(tx.reference || '').match(/^Encounter\\s+(.+)$/i);
+      const id = match?.[1]?.trim();
+      return id ? [id] : [];
+    })));
     if (attendanceIds.length) {
       const attendances = await this.prisma.attendance.findMany({
         where: { id: { in: attendanceIds } },
