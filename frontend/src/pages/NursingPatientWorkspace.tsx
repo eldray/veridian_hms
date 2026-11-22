@@ -23,8 +23,8 @@ import {
   ChevronLeft, Pill, Hospital, Bed,
   Plus, CheckCircle, Activity, User,
   AlertTriangle, ClipboardList, ListTodo, StickyNote,
-  Moon, Sun, Printer, LayoutGrid, List, Info,
-  Heart, Phone, Calendar, Syringe,
+  Printer, LayoutGrid, List, Info,
+  Heart, Syringe,
   TrendingUp, ChevronRight,
 } from 'lucide-react';
 
