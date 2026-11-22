@@ -26,7 +26,7 @@ import { pickVisit } from '../utils/visitSelection';
 import {
   Pill, CheckCircle, Package, Printer, RefreshCw,
   AlertCircle, User, X, Plus, FileText, Zap, History,
-  Calendar, Clock, MessageSquare,
+  Clock, MessageSquare,
 } from 'lucide-react';
 import SendDocumentModal from '../components/SendDocumentModal';
 import {
