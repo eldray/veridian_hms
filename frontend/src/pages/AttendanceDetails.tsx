@@ -952,6 +952,10 @@ export default function AttendanceDetails() {
 
   return (
     <div className="space-y-6 p-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={() => navigate('/dashboard/attendance')} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] text-sm font-medium"><ArrowLeft className="w-4 h-4" /> Back to Attendances</button>
+        {patient?.id && <button onClick={() => navigate(`/dashboard/patients/${patient.id}`)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] text-sm font-medium"><User className="w-4 h-4" /> Back to Patient</button>}
+      </div>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
