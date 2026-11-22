@@ -18,6 +18,10 @@ describe('OPD attendance auto-closure', () => {
         finalizedAt: { not: null },
         dateTime: { lt: new Date('2026-11-22T00:00:00.000Z') },
         Admission: { is: null },
+        LabTest: { none: { status: { in: ['requested', 'in_progress'] } } },
+        Scan: { none: { status: { in: ['requested', 'in_progress'] } } },
+        Medication: { none: { status: 'prescribed' } },
+        Procedure: { none: { status: { in: ['scheduled', 'in_progress'] } } },
       },
       data: {
         status: 'completed',
