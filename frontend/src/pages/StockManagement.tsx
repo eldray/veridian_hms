@@ -103,6 +103,10 @@ export default function StockManagement() {
   };
   const handleTransactionSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); if (!selectedItem) return;
+    if (transactionData.transactionType === 'write_off') {
+      const approved = await confirmDialog({ title: 'Confirm stock disposal', message: `You are disposing ${transactionData.quantity} ${selectedItem.unitOfMeasure} of ${selectedItem.name}. This will reduce stock and create an audit write-off record. Continue?`, confirmText: 'Dispose Stock' });
+      if (!approved) return;
+    }
     try {
       await createStockTransaction({ stockItemId: selectedItem.id, ...transactionData, quantity: transactionData.transactionType === 'adjustment' && transactionData.adjustmentDirection === 'decrease' ? -Math.abs(transactionData.quantity) : transactionData.quantity, departmentId: transactionData.departmentId || (user as any)?.departmentId || undefined, ...(transactionData.transactionType === 'write_off' ? { batchNumber: transactionData.batchNumber.trim() } : {}) } as Parameters<typeof createStockTransaction>[0]);
       success('Recorded', 'Transaction completed successfully'); setShowTransactionForm(false); setSelectedItem(null); resetTransactionForm(); await loadAllData();
@@ -119,7 +123,7 @@ export default function StockManagement() {
       setBulkDisposeReason('');
       setBulkDisposeConfirmation('');
       if (result.failedCount > 0) {
-        toastError('Bulk disposal partially completed', `${result.disposedQuantity} units disposed in ${result.disposedMovements} movements; ${result.failedCount} item/location(s) need review. ${result.note || ''}`);
+        toastError('Bulk disposal partially completed', `${result.disposedQuantity} units disposed in ${result.disposedMovements} movements; ${result.failedCount} item/location(s) need review. ${(result.failures || []).slice(0, 3).map((f: any) => `${f.item}: ${f.reason}`).join(' | ')} ${result.note || ''}`);
       } else {
         success('Bulk disposal completed', `${result.disposedQuantity} units disposed across ${result.disposedMovements} audited stock movements. ${result.note || ''}`);
       }
@@ -396,7 +400,7 @@ export default function StockManagement() {
       {showTransactionForm && selectedItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleTransactionCancel}>
           <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between"><h2 className="text-lg font-bold text-[var(--text-primary)]">Stock Transaction</h2><Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close transaction form" onClick={handleTransactionCancel} /></div>
+            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between"><h2 className="text-lg font-bold text-[var(--text-primary)]">{transactionData.transactionType === 'write_off' ? 'Dispose Stock' : 'Stock Transaction'}</h2><Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close transaction form" onClick={handleTransactionCancel} /></div>
             <form onSubmit={handleTransactionSubmit} className="p-6 space-y-4">
               <div className="bg-[var(--bg-main)] rounded-lg p-3 mb-2"><p className="text-sm text-[var(--text-secondary)]">Selected Item</p><p className="font-semibold text-[var(--text-primary)]">{selectedItem.name}</p><p className="text-xs text-[var(--text-tertiary)]">Current stock: {selectedItem.currentStock} {selectedItem.unitOfMeasure}</p></div>
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Transaction Type *</label><select required value={transactionData.transactionType} onChange={e => setTransactionData({ ...transactionData, transactionType: e.target.value as any })} className={cn(SELECT, 'w-full')}><option value="purchase">Purchase (Add Stock)</option><option value="sale">Sale (Remove Stock)</option><option value="adjustment">Adjustment (Manual)</option><option value="requisition">Requisition (Remove Stock)</option>{canDisposeStock && <option value="write_off">Dispose / Write-off (Remove Stock)</option>}</select></div>
@@ -406,7 +410,7 @@ export default function StockManagement() {
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity *</label><input type="number" min="1" required value={transactionData.quantity} onChange={e => setTransactionData({ ...transactionData, quantity: parseInt(e.target.value) || 0 })} className={cn(INPUT, 'w-full')} /></div>
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Reference (Optional)</label><input type="text" placeholder="e.g., PO-123, INV-456" value={transactionData.reference} onChange={e => setTransactionData({ ...transactionData, reference: e.target.value })} className={cn(INPUT, 'w-full')} /></div>
               <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">{['write_off', 'adjustment'].includes(transactionData.transactionType) ? 'Reason *' : 'Notes'}</label><textarea rows={2} required={['write_off', 'adjustment'].includes(transactionData.transactionType)} value={transactionData.notes} onChange={e => setTransactionData({ ...transactionData, notes: e.target.value })} className={cn(INPUT, 'w-full resize-none')} placeholder="Optional notes" /></div>
-              <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]"><Button type="button" variant="secondary" className="flex-1" onClick={handleTransactionCancel}>Cancel</Button><Button type="submit" variant="soft" className="flex-1">Record Transaction</Button></div>
+              <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]"><Button type="button" variant="secondary" className="flex-1" onClick={handleTransactionCancel}>Cancel</Button><Button type="submit" variant={transactionData.transactionType === 'write_off' ? 'danger' : 'soft'} className="flex-1">{transactionData.transactionType === 'write_off' ? 'Confirm Disposal' : 'Record Transaction'}</Button></div>
             </form>
           </div>
         </div>
