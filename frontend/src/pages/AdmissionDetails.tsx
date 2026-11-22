@@ -9,10 +9,8 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useWardStore } from '../store/wardStore';
 import {
   ArrowLeft, User, Calendar, Activity, FileText, Loader2,
-  AlertCircle, Phone, Stethoscope, Clock, MapPin,
-  CheckCircle, UserCircle, ClipboardList, Pill, FlaskConical, Scissors,
-  Eye, Hospital, Moon, Sun, Building2, LogOut, RefreshCw,
-  Hash, ChevronRight, TrendingUp, Baby, Heart,
+  AlertCircle, Stethoscope, Clock, MapPin,
+  CheckCircle, ClipboardList, Pill, FlaskConical, Scissors, Hospital, Moon, Sun, Building2, LogOut, ChevronRight, TrendingUp, Baby, Heart,
   ShieldCheck, BedDouble, CalendarClock, CircleDot, BarChart3,
   AlertTriangle, FileSignature, Stethoscope as Steth, Printer,
 } from 'lucide-react';
@@ -167,17 +165,6 @@ export default function AdmissionDetails() {
       return <span className={`${base} bg-cyan-100 text-cyan-700 border-cyan-200`}><Baby className="w-3 h-3" />POSTPARTUM OBS</span>;
     }
     return <span className={`${base} bg-green-100 text-green-700 border-green-200`}><Hospital className="w-3 h-3" />IPD ADMISSION</span>;
-  };
-
-  const getStatusBadge = () => {
-    if (admission?.status === 'cancelled') {
-      return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200"><AlertCircle className="w-3 h-3" />CANCELLED</span>;
-    }
-    const isDischarged = Boolean(admission?.dischargeDate) || attendance?.status === 'discharged';
-    if (isDischarged) {
-      return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200"><CheckCircle className="w-3 h-3" />DISCHARGED</span>;
-    }
-    return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-200"><CircleDot className="w-3 h-3 animate-pulse" />ACTIVE</span>;
   };
 
   const getLengthOfStay = () => {
@@ -338,7 +325,7 @@ export default function AdmissionDetails() {
       {/* ── PATIENT BANNER — shared Medical Entries header ── */}
       <PatientVisitHeader
         patient={patient}
-        attendance={attendance}
+        attendance={{ ...attendance, status: admission?.status === 'cancelled' ? 'cancelled' : admission?.dischargeDate ? 'discharged' : attendance?.status }}
         icon={Hospital}
         accent="teal"
         fields={[
@@ -351,7 +338,6 @@ export default function AdmissionDetails() {
         aside={
           <>
             {getTypeBadge()}
-            {getStatusBadge()}
           </>
         }
       />
