@@ -2536,7 +2536,7 @@ export default function MedicalEntries() {
                       label: 'Follow-up Date',
                       content: (
                         <input type="datetime-local" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
-                          disabled={!canAddEntries}
+                          disabled={!canAddEntries || isClinicalFinalized}
                           className="w-full px-3 py-1.5 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
                       ),
                     },
