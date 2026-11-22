@@ -720,6 +720,7 @@ export default function PatientRegistration() {
 // Drop this in place of your existing return() — all logic above stays unchanged.
 
 return (
+  <>
   <div className="space-y-4 p-6">
 
     {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -953,5 +954,6 @@ return (
   {showIdCard && idCardPatient && (
     <PatientIdCardPrint patient={idCardPatient} onClose={() => setShowIdCard(false)} />
   )}
+  </>
 );
 }
