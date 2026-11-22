@@ -43,7 +43,7 @@ export default function NewAttendanceModal({
   const [attendanceType, setAttendanceType] = useState<AttendanceType>(initialAttendanceType || 'emergency_acute');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(initialPaymentMode || 'cash');
   const [nhisCCC, setNhisCCC] = useState('');
-  const [corporateAccountId, setResolvedCorporateAccountId] = useState(corporateAccountId || '');
+  const [selectedCorporateAccountId, setResolvedCorporateAccountId] = useState(corporateAccountId || '');
   const [complaints, setComplaints] = useState('');
   const [status, setStatus] = useState<AttendanceStatus>('pending');
   const [patient, setPatient] = useState<any>(null);
@@ -174,10 +174,10 @@ export default function NewAttendanceModal({
     }
 
     if (paymentMode === 'corporate') {
-      if (!corporateAccountId) errors.push('Corporate account is required for corporate patients');
-      const account = corporateAccounts.find((a: any) => a.id === corporateAccountId);
-      if (corporateAccountId && account && account.isActive !== true) errors.push('Corporate account is inactive');
-      if (corporateAccountId && !account) errors.push('Corporate account could not be verified or is still loading');
+      if (!selectedCorporateAccountId) errors.push('Corporate account is required for corporate patients');
+      const account = corporateAccounts.find((a: any) => a.id === selectedCorporateAccountId);
+      if (selectedCorporateAccountId && account && account.isActive !== true) errors.push('Corporate account is inactive');
+      if (selectedCorporateAccountId && !account) errors.push('Corporate account could not be verified or is still loading');
     }
 
     // Routine vaccination check-ins do not require an illness complaint.
@@ -230,7 +230,7 @@ export default function NewAttendanceModal({
       ...(paymentMode === 'private_insurance' && insuranceProviderId && {
         insuranceProviderId
       }),
-      ...(paymentMode === 'corporate' && corporateAccountId && { corporateAccountId }),
+      ...(paymentMode === 'corporate' && selectedCorporateAccountId && { corporateAccountId: selectedCorporateAccountId }),
       complaints: complaints.trim() || (attendanceType === 'immunization' ? 'Routine immunization / vaccination' : 'No complaints recorded'),
       createdById: isEditMode ? attendanceData.createdById : user.id,
       ...(isEditMode && { updatedById: user.id }),
@@ -310,7 +310,7 @@ export default function NewAttendanceModal({
   const resolvedNhisNumber = resolvedPatient?.nhisNumber || resolvedPatient?.insuranceDetails?.memberId || resolvedPatient?.insuranceDetails?.insuranceNumber || nhisCCC;
   const resolvedNhisActive = resolvedPatient?.nhisActive ?? resolvedPatient?.insuranceDetails?.isActive;
   const resolvedNhisExpiry = resolvedPatient?.nhisExpiryDate || resolvedPatient?.insuranceDetails?.endDate;
-  const selectedCorporateAccount = corporateAccounts.find((a: any) => a.id === corporateAccountId);
+  const selectedCorporateAccount = corporateAccounts.find((a: any) => a.id === selectedCorporateAccountId);
 
   const currentInsuranceProvider = paymentMode === 'private_insurance'
     ? (
@@ -627,7 +627,7 @@ export default function NewAttendanceModal({
                   <p className="text-xs font-medium">{selectedCorporateAccount.companyName}</p>
                   <p className={`text-xs ${selectedCorporateAccount.isActive ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}`}>Status: {selectedCorporateAccount.isActive ? 'Active' : 'Inactive'}</p>
                   <p className="text-xs text-[var(--text-secondary)]">Account: {selectedCorporateAccount.id}</p>
-                </> : <p className="text-xs text-[var(--icon-red-text)]">{corporateAccountId ? 'Account could not be verified' : 'No corporate account assigned to patient'}</p>}
+                </> : <p className="text-xs text-[var(--icon-red-text)]">{selectedCorporateAccountId ? 'Account could not be verified' : 'No corporate account assigned to patient'}</p>}
               </div>
             )}
 
