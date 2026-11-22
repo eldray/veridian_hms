@@ -11,7 +11,7 @@ import {
   ArrowLeft, Calendar, Activity, FileText, Loader2,
   AlertCircle, Stethoscope, ClipboardList, Pill, FlaskConical, Scissors, Hospital, Moon, Sun, Building2, LogOut, ChevronRight, TrendingUp, Baby, Heart,
   ShieldCheck, BedDouble, CircleDot, BarChart3,
-  AlertTriangle, FileSignature, Stethoscope as Steth, Printer,
+  AlertTriangle, FileSignature, Printer,
 } from 'lucide-react';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { useHospitalStore } from '../store/hospitalStore';
