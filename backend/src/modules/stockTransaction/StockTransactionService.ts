@@ -58,7 +58,7 @@ export class StockTransactionService extends BaseService {
    * Administrator-only bulk disposal. Each item/location/batch is written as an
    * ordinary write_off transaction so stock balances, batches and audit history
    * stay aligned. Individual movements are atomic; failures are reported per lot.
-   * Ward-managed stock is intentionally excluded from this facility-store action.
+   * Department, ward and unassigned stock are all included in the facility-wide action.
    */
   async disposeAllStock(data: { role?: string; performedBy?: string; notes?: string; reference?: string }) {
     const isAdmin = ['admin', 'super_admin'].includes(String(data.role || '').toLowerCase());
