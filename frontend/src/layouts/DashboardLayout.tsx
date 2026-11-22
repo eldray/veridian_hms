@@ -422,7 +422,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="relative ml-1" ref={dropdownRef}>
               <button
                 onClick={() => setUserDropdownOpen(v => !v)}
-                aria-label={`User menu for ${displayName}`}\n                title="Open your profile and account options"
+                aria-label={`User menu for ${displayName}`}
+                title="Open your profile and account options"
                 aria-expanded={userDropdownOpen}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-lg border transition-all"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
