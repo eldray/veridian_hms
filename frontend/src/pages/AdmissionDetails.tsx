@@ -426,7 +426,7 @@ export default function AdmissionDetails() {
         </div>
 
         {/* ── Sidebar column ── */}
-        <div className="space-y-4">
+        <div className="space-y-5 xl:col-span-4">
 
           <section className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
             <div className="flex items-center gap-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3"><BarChart3 className="h-4 w-4 text-teal-600" /><h2 className="text-sm font-bold text-[var(--text-primary)]">Stay overview</h2></div>
