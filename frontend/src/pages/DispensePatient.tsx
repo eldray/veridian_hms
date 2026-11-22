@@ -91,7 +91,7 @@ const DispenseModal: React.FC<{
   medication: any; stockItem: any;
   onConfirm: (qty: number) => void; onClose: () => void; isProcessing: boolean;
 }> = ({ medication, stockItem, onConfirm, onClose, isProcessing }) => {
-  const [quantity, setQuantity] = useState(toNum(medication.quantity, 1));
+  const [quantity, setQuantity] = useState(1);
   const max = Math.max(0, toNum(stockItem?.dispenseAvailable, 0));
   const unitCost = toNum(medication.unitCost, toNum(stockItem?.costPrice, 0));
 
@@ -361,6 +361,10 @@ export default function DispensePatient() {
 
   const handleDispenseClick = (med: any) => {
     const stock = getStockFor(med);
+    if (!user?.departmentId) {
+      toastError('Pharmacy department not assigned', 'Assign your user account to the pharmacy/issuing department before dispensing.');
+      return;
+    }
     const available = getDepartmentAvailable(stock);
     if (!stock || available < 1) {
       toastError('No pharmacy stock', `${med.name} has no stock balance in your assigned issuing department. Check the stock allocation before dispensing.`);
