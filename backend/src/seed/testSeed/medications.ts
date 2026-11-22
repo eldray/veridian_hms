@@ -74,7 +74,8 @@ export const replenishShelfStock = (
     );
     // A quarter spare, so the courses the requisitions and transfers take later in the run
     // do not turn the shelf short again.
-    const target = Math.ceil(entry.quantity * 1.25);
+    // Keep a 50% buffer at the main Pharmacy so the demo can absorb normal dispensing variation.
+    const target = Math.ceil(entry.quantity * 1.5);
     const shortfall = target - onTheShelf;
     if (shortfall <= 0) continue;
     const receivedAt = new Date(entry.firstAt.getTime() - 86_400_000);
