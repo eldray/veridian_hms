@@ -21,6 +21,10 @@ export async function runOpdAttendanceAutoCloseJob(prisma: PrismaClient, now = n
       finalizedAt: { not: null },
       dateTime: { lt: startOfTodayInGhana },
       Admission: { is: null },
+      LabTest: { none: { status: { in: ['requested', 'in_progress'] } } },
+      Scan: { none: { status: { in: ['requested', 'in_progress'] } } },
+      Medication: { none: { status: 'prescribed' } },
+      Procedure: { none: { status: { in: ['scheduled', 'in_progress'] } } },
     },
     data: {
       status: 'completed',
