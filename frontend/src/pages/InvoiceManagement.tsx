@@ -16,6 +16,7 @@ import { useToast } from '../store/toastStore';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useWardStore } from '../store/wardStore';
 import { useUserStore } from '../store/userStore';
+import { useHospitalStore } from '../store/hospitalStore';
 import {
   Plus, Search, FileText, Edit, Trash2, RefreshCw, Download, Eye, Filter, X, Package,
   Building, Calendar, DollarSign, AlertCircle, CheckCircle, Printer, ChevronDown,
@@ -122,6 +123,7 @@ export default function InvoiceManagement() {
   const { wards, getWards } = useWardStore();
   const { hasRole } = useAuthStore();
   const { users, getAllUsers } = useUserStore();
+  const { hospital } = useHospitalStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
   // Match API permissions: Pharmacy/Admin may create or edit; only Admin may delete.
@@ -268,7 +270,6 @@ export default function InvoiceManagement() {
       const unitCost = Number(item.unitCost) || 0;
       return `<tr><td class="muted">${index + 1}</td><td>${escape(getStockItemName(item.stockItemId))}</td><td class="num">${quantity.toLocaleString('en-GH')}</td><td class="num">GHS ${unitCost.toFixed(2)}</td><td class="num">GHS ${(quantity * unitCost).toFixed(2)}</td><td>${escape(item.batchNumber || '—')}</td></tr>`;
     }).join('') || '<tr><td colspan="6" class="empty">No invoice items recorded.</td></tr>';
-    const hospital = useHospitalStore.getState?.().hospital;
     const hospitalName = hospital?.name || 'Hospital';
     const hospitalMeta = [hospital?.address, hospital?.phone && `Tel: ${hospital.phone}`, hospital?.email].filter(Boolean).map(escape).join(' · ');
     printWindow.document.write(`<!DOCTYPE html><html lang="en-GH"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Purchase invoice ${escape(invoice.invoiceNumber)}</title>
