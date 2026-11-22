@@ -10,7 +10,7 @@ export const createPurchaseInvoiceRoutes = () => {
   router.use(protect);
 
   // ── Central role lists ──
-  const READERS: UserRole[] = ['super_admin', 'admin', 'accounts', 'pharmacist'];
+  const READERS: UserRole[] = ['super_admin', 'admin', 'accounts', 'pharmacist', 'records'];
   const WRITERS: UserRole[] = ['super_admin', 'admin', 'accounts'];
   const DELETERS: UserRole[] = ['super_admin', 'admin'];
 
