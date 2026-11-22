@@ -715,6 +715,9 @@ export default function MedicalEntries() {
   // Keep the unsaved progress-note draft separate from the persistent treatment plan.
   const [treatmentNoteDraft, setTreatmentNoteDraft] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
+  const [referringFacility, setReferringFacility] = useState('');
+  const [referralDirection, setReferralDirection] = useState<'from' | 'to'>('from');
+  const [savingGeneralInfo, setSavingGeneralInfo] = useState(false);
   const [treatmentNotes, setTreatmentNotes] = useState<{ author: string; date: string; text: string }[]>([]);
   const [physicianNoteText, setPhysicianNoteText] = useState('');
   const [physicianNotes, setPhysicianNotes] = useState<{ author: string; date: string; text: string }[]>([]);
@@ -893,6 +896,8 @@ export default function MedicalEntries() {
         setClinicalOutcome(att.clinicalOutcome || '');
         const followUp = (att as any).followUpDate ? new Date((att as any).followUpDate) : null;
         setFollowUpDate(followUp && Number.isFinite(followUp.getTime()) ? followUp.toISOString().slice(0, 16) : '');
+        setReferringFacility(att.referringFacility || '');
+        setReferralDirection(clinicalNotes.referralDirection === 'to' ? 'to' : 'from');
         setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
         setPhysicianNotes(clinicalNotes.physicianNotes || (att as any).physicianNotes || []);
         setTreatmentPlan((att as any).treatmentPlan ?? clinicalNotes.treatmentPlan ?? '');
@@ -996,8 +1001,31 @@ export default function MedicalEntries() {
     setPhysicalExam(''); setAssessment(''); setReviewOfSystems({}); setPhysicalExamStructured({});
     setAllergyReviewStatus('not_reviewed'); setAllergyReviewNotes(''); setClinicalOutcome('');
     setTreatmentPlan(''); setTreatmentNoteDraft(''); setFollowUpDate('');
+    setReferringFacility(''); setReferralDirection('from');
     setTreatmentNotes([]); setPhysicianNotes([]);
     setPhysicianNoteText('');
+  };
+
+  const handleSaveGeneralInfo = async () => {
+    if (!selectedAttendanceId || !canAddEntries || isClinicalFinalized) return;
+    setSavingGeneralInfo(true);
+    try {
+      const existingClinicalNotes = currentAttendance?.clinicalNotes && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
+        ? currentAttendance.clinicalNotes as Record<string, any>
+        : {};
+      await updateAttendance(selectedAttendanceId, {
+        followUpDate: followUpDate ? new Date(followUpDate) : null,
+        referringFacility: referringFacility.trim() || null,
+        clinicalNotes: { ...existingClinicalNotes, referralDirection },
+        updatedById: user?.id,
+      });
+      success('Saved', 'Follow-up and referral details updated');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Save failed', err?.response?.data?.message || err.message || 'Could not save follow-up and referral details');
+    } finally {
+      setSavingGeneralInfo(false);
+    }
   };
 
   const handleSaveClinical = async () => {
@@ -1016,6 +1044,7 @@ export default function MedicalEntries() {
         clinicalNotesAudit: (currentAttendance?.clinicalNotes as any)?.clinicalNotesAudit || null,
         reviewOfSystems,
         physicalExamStructured,
+        referralDirection,
       };
 
       await updateAttendance(selectedAttendanceId, {
@@ -1032,6 +1061,7 @@ export default function MedicalEntries() {
         providerId: user?.id,
         clinicalNotes,
         followUpDate: followUpDate ? new Date(followUpDate) : null,
+        referringFacility: referringFacility.trim() || null,
         updatedById: user?.id,
       });
       success('Saved', 'Clinical information updated');
@@ -2512,7 +2542,18 @@ export default function MedicalEntries() {
                     },
                     {
                       label: 'Referred To/From',
-                      content: <div className="px-3 py-1.5 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)]">{currentAttendance?.referringFacility || '—'}</div>,
+                      content: (
+                        <div className="space-y-1.5">
+                          <select value={referralDirection} onChange={e => setReferralDirection(e.target.value as 'from' | 'to')} disabled={!canAddEntries || isClinicalFinalized}
+                            className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] disabled:opacity-60">
+                            <option value="from">Referred from</option>
+                            <option value="to">Referred to</option>
+                          </select>
+                          <input type="text" value={referringFacility} onChange={e => setReferringFacility(e.target.value)} disabled={!canAddEntries || isClinicalFinalized}
+                            placeholder={referralDirection === 'from' ? 'Referring facility / clinician' : 'Receiving facility / clinician'}
+                            className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] disabled:opacity-60" />
+                        </div>
+                      ),
                     },
                     {
                       label: 'Admission Status',
@@ -2543,6 +2584,12 @@ export default function MedicalEntries() {
                       {f.content}
                     </div>
                   ))}
+                </div>
+                <div className="flex justify-end border-t border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-2.5">
+                  <button type="button" onClick={handleSaveGeneralInfo} disabled={!canAddEntries || isClinicalFinalized || savingGeneralInfo}
+                    className="rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                    {savingGeneralInfo ? 'Saving…' : 'Save follow-up & referral'}
+                  </button>
                 </div>
               </div>
               )}
