@@ -13,6 +13,7 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVisits';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
+import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
@@ -25,7 +26,7 @@ import { pickVisit } from '../utils/visitSelection';
 import {
   Pill, CheckCircle, Package, Printer, RefreshCw,
   AlertCircle, User, X, Plus, FileText, Zap, History,
-  Calendar, Clock, MessageSquare,
+  Clock, MessageSquare,
 } from 'lucide-react';
 import SendDocumentModal from '../components/SendDocumentModal';
 import {
@@ -532,19 +533,8 @@ export default function DispensePatient() {
     [dispensedHistory]
   );
 
-  const calcAge = (dob: string) => {
-    if (!dob) return 0;
-    const today = new Date(), b = new Date(dob);
-    let age = today.getFullYear() - b.getFullYear();
-    if (today.getMonth() < b.getMonth() || (today.getMonth() === b.getMonth() && today.getDate() < b.getDate())) age--;
-    return age;
-  };
-
   const paymentLabel = attendance?.paymentMode === 'nhis' ? 'NHIS'
     : attendance?.paymentMode === 'private_insurance' ? 'Private Ins.' : 'Cash';
-  const paymentTone: BadgeTone = attendance?.paymentMode === 'nhis' ? 'green'
-    : attendance?.paymentMode === 'private_insurance' ? 'purple' : 'cyan';
-
   const handleBack = useSmartBack('/dashboard/pharmacy');
 
   if (isLoading) return (
@@ -664,42 +654,20 @@ export default function DispensePatient() {
         onClearSelection={() => { setSelectedAttendanceId(''); setAttendance(null); setPrescriptions([]); }}
       />
 
-      {/* ── PATIENT BANNER ──────────────────────────────────────────────── */}
-      {patient && (
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4" style={{ boxShadow: 'var(--shadow-sm)' }}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <PatientAvatar imageUrl={patient.imageUrl} name={patientName} size="md" className="rounded-xl bg-[var(--icon-green-bg)]" fallbackClassName="text-[var(--icon-green-text)]" />
-            <div>
-              <h2 className="text-sm font-bold text-[var(--text-primary)]">{patientName}</h2>
-              <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                {[
-                  patient.folderNumber,
-                  // A queue-row summary carries the age but no date of birth.
-                  `${patient.age ?? (patient.dateOfBirth ? calcAge(patient.dateOfBirth) : '—')}y`,
-                  patient.gender,
-                  patient.contact,
-                ].filter(Boolean).join(' · ')}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {attendance && (
-              <>
-                <Badge tone={paymentTone} dot size="sm">{paymentLabel}</Badge>
-                <span className="text-[10px] font-mono text-[var(--text-tertiary)] bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
-                  #{attendance.attendanceNumber || '—'}
-                </span>
-                <span className="text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)] flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {new Date(attendance.dateTime || attendance.createdAt).toLocaleDateString()}
-                </span>
-                <StatusBadge status={attendance.status} />
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Shared patient/visit banner used by Medical Entries and diagnostic workflows. */}
+      {patient && attendance && (
+        <PatientVisitHeader
+          patient={patient}
+          attendance={attendance}
+          accent="green"
+          fields={[
+            { label: 'Payment Mode', value: paymentLabel },
+            { label: 'Balance', value: `GHS ${toNum(attendance.outstandingBalance).toFixed(2)}` },
+          ]}
+          aside={canDispense ? (
+            <Badge tone="green" dot size="sm">Ready to dispense</Badge>
+          ) : undefined}
+        />
       )}
 
       <div className="flex flex-wrap items-stretch gap-2">
