@@ -479,7 +479,8 @@ export default function PatientRegistration() {
         if (image && result.id) {
           const imageUrl = await handleImageUpload(image, result.id);
           if (imageUrl) {
-            await updatePatient(result.id, { ...patientData, imageUrl });
+            savedImageUrl = imageUrl;
+            result = await updatePatient(result.id, { ...patientData, imageUrl });
           }
         }
         success('Registered', 'New patient added');
