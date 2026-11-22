@@ -7,7 +7,7 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
-import { getVitalsForEncounters } from '../api';
+import { getBills, getVitalsForEncounters } from '../api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { CompactAdditionalInfo } from '../components/patients/CompactAdditionalInfo';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
@@ -121,6 +121,8 @@ export default function PatientDetails() {
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [showPatientIdCard, setShowPatientIdCard] = useState(false);
   const [vitalsList, setVitalsList] = useState<any[]>([]);
+  const [patientBills, setPatientBills] = useState<any[]>([]);
+  const [billsLoading, setBillsLoading] = useState(false);
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const { getDocumentsByEntity, downloadDocument } = useDocumentStore();
@@ -157,6 +159,20 @@ export default function PatientDetails() {
   };
   const allDiagnoses = useMemo(() => aggregate('diagnoses'), [patientAttendances]);
   const allMedications = useMemo(() => aggregate('medications'), [patientAttendances]);
+  const medicationAttendanceGroups = useMemo(() => patientAttendances
+    .filter(att => Array.isArray(att.medications) && att.medications.length > 0)
+    .slice()
+    .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime()), [patientAttendances]);
+  const billsByAttendance = useMemo(() => {
+    const grouped = new Map<string, any[]>();
+    patientBills.forEach((bill: any) => {
+      const attendanceId = bill.attendanceId || bill.Attendance?.id || bill.attendance?.id;
+      if (!attendanceId) return;
+      if (!grouped.has(attendanceId)) grouped.set(attendanceId, []);
+      grouped.get(attendanceId)!.push(bill);
+    });
+    return grouped;
+  }, [patientBills]);
   const allLabTests = useMemo(() => aggregate('labTests'), [patientAttendances]);
   const allProcedures = useMemo(() => aggregate('procedures'), [patientAttendances]);
   const enhancedStats = useMemo(() => {
@@ -220,6 +236,19 @@ export default function PatientDetails() {
     setStats({ totalVisits, completedVisits, pendingVisits, totalMedications, totalLabTests });
   }, [patientAttendances]);
   useEffect(() => { if (patientAttendances.length > 0) loadAllVitals(); }, [patientAttendances]);
+  useEffect(() => {
+    if (!patient?.id) { setPatientBills([]); return; }
+    let cancelled = false;
+    setBillsLoading(true);
+    getBills({ patientId: patient.id, limit: 1000 })
+      .then((response: any) => {
+        const rows = Array.isArray(response) ? response : response?.bills || response?.data?.bills || response?.data?.data || response?.data || [];
+        if (!cancelled) setPatientBills(Array.isArray(rows) ? rows : []);
+      })
+      .catch((err: any) => { console.error('Patient billing history load failed', err); if (!cancelled) setPatientBills([]); })
+      .finally(() => { if (!cancelled) setBillsLoading(false); });
+    return () => { cancelled = true; };
+  }, [patient?.id]);
   useEffect(() => { if ((activeTab === 'documents' || activeTab === 'overview') && patient?.id) loadDocuments(); }, [activeTab, patient?.id]);
   const handleAttendanceSuccess = async () => {
     setShowAttendanceModal(false);
@@ -561,16 +590,32 @@ export default function PatientDetails() {
             )
           )}
           {activeTab === 'medications' && (
-            allMedications.length === 0 ? (<EmptyState icon={Pill} title="No medications prescribed" />) : (
-              <Table heads={['Medication', 'Dosage', 'Frequency', 'Duration', 'Status', '']}>
-                {allMedications.map((m, i) => (
-                  <tr key={i} className={TR}>
-                    <TdPrimary>{m.name}</TdPrimary><Td>{m.dosage || '—'}</Td><Td>{m.frequency || '—'}</Td><Td>{m.duration || '—'}</Td>
-                    <Td><StatusBadge status={m.status} /></Td>
-                    <Td><Link to={`/dashboard/attendance/${m.attendanceId}`} className="text-[var(--icon-cyan-text)] hover:underline text-[11px] font-medium">View →</Link></Td>
-                  </tr>
+            medicationAttendanceGroups.length === 0 ? (<EmptyState icon={Pill} title="No medications prescribed" />) : (
+              <div className="space-y-3">
+                {medicationAttendanceGroups.map(att => (
+                  <section key={att.id} className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                    <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2.5">
+                      <Calendar className="h-4 w-4 text-[var(--icon-cyan-text)]" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[var(--text-primary)]">{att.attendanceNumber || 'Attendance'} · {formatDate(att.dateTime || att.createdAt)}</p>
+                        <p className="text-[10px] text-[var(--text-tertiary)]">{formatDateTime(att.dateTime || att.createdAt)} · {String(att.attendanceType || 'visit').replace(/_/g, ' ')}</p>
+                      </div>
+                      <Badge tone="neutral" size="sm">{att.medications.length} medication{att.medications.length === 1 ? '' : 's'}</Badge>
+                      <Link to={`/dashboard/attendance/${att.id}`} className="ml-auto text-xs font-medium text-[var(--icon-cyan-text)] hover:underline">Open attendance →</Link>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <Table heads={['Medication', 'Dosage', 'Frequency', 'Duration', 'Status']}>
+                        {att.medications.map((m: Medication, i: number) => (
+                          <tr key={m.id || i} className={TR}>
+                            <TdPrimary>{m.name}</TdPrimary><Td>{m.dosage || '—'}</Td><Td>{m.frequency || '—'}</Td><Td>{m.duration || '—'}</Td>
+                            <Td><StatusBadge status={m.status} /></Td>
+                          </tr>
+                        ))}
+                      </Table>
+                    </div>
+                  </section>
                 ))}
-              </Table>
+              </div>
             )
           )}
           {activeTab === 'lab-tests' && (
@@ -629,12 +674,76 @@ export default function PatientDetails() {
             />
           )}
           {activeTab === 'billing' && (
-            <div className="max-w-md mx-auto space-y-3">
-              <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)] text-center"><p className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">Total Billed</p><p className="text-xl font-bold text-[var(--text-primary)] mt-1">{formatCurrency(enhancedStats.totalBilled)}</p></div>
-              <div className="bg-[var(--icon-green-bg)] rounded-lg p-4 border border-[var(--icon-green-text)]/20 text-center"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-green-text)]">Total Paid</p><p className="text-xl font-bold text-[var(--icon-green-text)] mt-1">{formatCurrency(enhancedStats.totalPaid)}</p></div>
-              <div className="bg-[var(--icon-yellow-bg)] rounded-lg p-4 border border-[var(--icon-yellow-text)]/20 text-center"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-yellow-text)]">Outstanding</p><p className="text-xl font-bold text-[var(--icon-yellow-text)] mt-1">{formatCurrency(enhancedStats.outstanding)}</p></div>
-              <Button variant="soft" accent="cyan" fullWidth icon={TrendingUp} onClick={() => navigate(`/dashboard/billing/patient/${patient.id}`)}>View Detailed Billing</Button>
-            </div>
+            billsLoading ? (
+              <div className="py-8 text-center"><Loader className="mx-auto mb-2 h-6 w-6 animate-spin text-[var(--icon-cyan-text)]" /><p className="text-xs text-[var(--text-tertiary)]">Loading billings by attendance…</p></div>
+            ) : patientAttendances.length === 0 ? (<EmptyState icon={DollarSign} title="No attendances to show" />) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <StatCard label="Total billed" value={formatCurrency(enhancedStats.totalBilled)} icon={DollarSign} accent="cyan" />
+                  <StatCard label="Total paid" value={formatCurrency(enhancedStats.totalPaid)} icon={CheckCircle} accent="green" />
+                  <StatCard label="Outstanding" value={formatCurrency(enhancedStats.outstanding)} icon={AlertCircle} accent="yellow" />
+                </div>
+                {patientAttendances.slice().sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime()).map(att => {
+                  const visitBills = billsByAttendance.get(att.id) || [];
+                  const billed = Number(att.totalBill || 0);
+                  const paid = Number(att.paidAmount || 0);
+                  const balance = Number(att.outstandingBalance ?? (billed - paid));
+                  return (
+                    <section key={att.id} className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2.5">
+                        <Calendar className="h-4 w-4 text-[var(--icon-cyan-text)]" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[var(--text-primary)]">{att.attendanceNumber || 'Attendance'} · {formatDate(att.dateTime || att.createdAt)}</p>
+                          <p className="text-[10px] text-[var(--text-tertiary)]">{formatDateTime(att.dateTime || att.createdAt)} · {String(att.attendanceType || 'visit').replace(/_/g, ' ')} · {att.paymentMode || 'Cash'}</p>
+                        </div>
+                        <StatusBadge status={att.status} />
+                        <Link to={`/dashboard/attendance/${att.id}`} className="ml-auto text-xs font-medium text-[var(--icon-cyan-text)] hover:underline">Open attendance →</Link>
+                      </div>
+                      <div className="grid grid-cols-1 divide-y divide-[var(--border-color)] sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+                        <div className="px-3 py-2"><p className="text-[10px] uppercase text-[var(--text-tertiary)]">Visit billed</p><p className="text-sm font-bold text-[var(--text-primary)]">{formatCurrency(billed)}</p></div>
+                        <div className="px-3 py-2"><p className="text-[10px] uppercase text-[var(--text-tertiary)]">Paid</p><p className="text-sm font-bold text-[var(--icon-green-text)]">{formatCurrency(paid)}</p></div>
+                        <div className="px-3 py-2"><p className="text-[10px] uppercase text-[var(--text-tertiary)]">Balance</p><p className={`text-sm font-bold ${balance > 0 ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--text-primary)]'}`}>{formatCurrency(balance)}</p></div>
+                      </div>
+                      {visitBills.length > 0 ? (
+                        <div className="divide-y divide-[var(--border-color)]">
+                          {visitBills.map((bill: any, bi: number) => {
+                            const items = bill.BillLineItem || bill.billLineItem || bill.lineItems || [];
+                            const payments = bill.Payment || bill.payment || bill.payments || [];
+                            return (
+                              <div key={bill.id || bi} className="p-3">
+                                <div className="mb-2 flex flex-wrap items-center gap-2">
+                                  <Receipt className="h-3.5 w-3.5 text-[var(--icon-purple-text)]" />
+                                  <span className="text-xs font-semibold text-[var(--text-primary)]">{bill.billNumber || `Bill ${bi + 1}`}</span>
+                                  <Badge tone={bill.status === 'paid' ? 'green' : bill.status === 'cancelled' ? 'red' : bill.status === 'partial' ? 'yellow' : 'neutral'} size="xs">{humanStatus(bill.status || 'pending')}</Badge>
+                                  <span className="ml-auto text-xs font-semibold text-[var(--text-primary)]">{formatCurrency(bill.totalAmount)}</span>
+                                </div>
+                                {items.length > 0 && (
+                                  <div className="space-y-1">
+                                    {items.map((item: any, ii: number) => (
+                                      <div key={item.id || ii} className="flex items-start justify-between gap-3 text-[11px]">
+                                        <span className="text-[var(--text-secondary)]">{item.description || item.serviceCatalog?.name || item.ServiceCatalog?.name || 'Bill item'} <span className="text-[var(--text-tertiary)]">× {item.quantity ?? 1}</span></span>
+                                        <span className="shrink-0 font-medium text-[var(--text-primary)]">{formatCurrency(item.lineTotal)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-color)] pt-2 text-[10px] text-[var(--text-tertiary)]">
+                                  <span>Bill paid: {formatCurrency(bill.paidAmount)}</span><span>Balance: {formatCurrency(bill.balance)}</span>
+                                  {payments.length > 0 && <span>{payments.filter((p: any) => !p.isVoided).length} payment record(s)</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="px-3 py-3 text-xs text-[var(--text-tertiary)]">No individual bill record is available for this attendance. Visit totals are shown above.</div>
+                      )}
+                    </section>
+                  );
+                })}
+                <Button variant="soft" accent="cyan" fullWidth icon={TrendingUp} onClick={() => navigate(`/dashboard/billing/patient/${patient.id}`)}>Open full billing history</Button>
+              </div>
+            )
           )}
           {activeTab === 'documents' && (
             <div>
