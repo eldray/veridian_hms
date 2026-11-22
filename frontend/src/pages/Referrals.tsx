@@ -976,8 +976,7 @@ export default function Referrals() {
                   )}
                 </div>
 
-                {/* 5 — Additional Notes: LAST, so the form reads top-to-bottom
-                       (patient → destination → urgency → referral document → notes). */}
+                {referralSectionPage === (referralType === 'outgoing' ? PART_I_SECTIONS.length : PART_II_SECTIONS.length) - 1 && (
                 <div className="border-t border-[var(--border-color)] pt-4">
                   <div className="flex items-center gap-2 mb-3">
                     <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
@@ -988,6 +987,7 @@ export default function Referrals() {
                     placeholder="Anything the receiving facility should know that does not fit the form…"
                     className={`${INPUT} resize-none`} />
                 </div>
+                )}
               </form>
 
               <div className="px-5 py-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3 flex-shrink-0">
@@ -1241,12 +1241,23 @@ export default function Referrals() {
                 )}
               </form>
 
-              <div className="px-6 py-4 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3 flex-shrink-0">
+              <div className="px-5 py-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3 flex-shrink-0">
                 <Button variant="secondary" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</Button>
-                <Button variant="soft" accent={referralType === 'outgoing' ? 'cyan' : 'green'} icon={Send} loading={isLoading}
-                  disabled={isLoading || !selectedPatientId} onClick={handleSubmit as any}>
-                  {isLoading ? 'Creating…' : `Create ${referralType === 'outgoing' ? 'Outgoing' : 'Incoming'} Referral`}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {referralWizardStep > 0 && <Button variant="secondary" onClick={() => setReferralWizardStep(s => s - 1)}>Back</Button>}
+                  {referralWizardStep < 2 ? (
+                    <Button variant="soft" accent="cyan" onClick={() => {
+                      if (referralWizardStep === 0 && !selectedPatientId) { toastError("Patient required", "Select a patient before continuing."); return; }
+                      if (referralWizardStep === 1 && !(referralType === "outgoing" ? formData.referredToFacility : formData.referredFromFacility).trim()) { toastError("Facility required", "Enter the referral facility before continuing."); return; }
+                      setReferralWizardStep(s => s + 1);
+                    }}>Continue →</Button>
+                  ) : (
+                    <Button variant="soft" accent={referralType === "outgoing" ? "cyan" : "green"} icon={Send} loading={isLoading}
+                      disabled={isLoading || !selectedPatientId} onClick={handleSubmit as any}>
+                      {isLoading ? "Creating…" : `Create ${referralType === "outgoing" ? "Outgoing" : "Incoming"} Referral`}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
