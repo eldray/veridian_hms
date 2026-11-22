@@ -347,13 +347,19 @@ export default function InvoiceManagement() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => { setShowForm(false); resetForm(); }}>
-          <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">{editingInvoice ? 'Edit Invoice' : 'Create Purchase Invoice'}</h2>
+          <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-6xl max-h-[94vh] overflow-y-auto shadow-2xl border border-[var(--border-color)]" onClick={e => e.stopPropagation()}>
+            <div className="sticky top-0 z-20 bg-[var(--bg-card)] border-b-[3px] border-[var(--icon-cyan-text)] px-6 md:px-10 py-5 flex items-center justify-between">
+              <div>
+                <p className="text-[15px] font-bold tracking-[3px] uppercase text-[var(--icon-cyan-text)]">Purchase Invoice</p>
+                <h2 className="text-xl font-bold text-[var(--text-primary)] mt-1">{editingInvoice ? 'Edit Invoice' : 'Create Purchase Invoice'}</h2>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">Record supplier details, received location and stock items.</p>
+              </div>
               <Button variant="ghost" iconOnly icon={X} aria-label="Close" onClick={() => { setShowForm(false); resetForm(); }} />
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <form onSubmit={handleSubmit} className="px-6 md:px-10 py-7 space-y-6 bg-[var(--bg-main)]">
+              <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-[var(--border-color)]"><Building className="w-4 h-4 text-[var(--icon-cyan-text)]" /><h3 className="text-sm font-bold text-[var(--text-primary)]">Invoice Information</h3></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Invoice Number *</label><input type="text" required disabled={!!editingInvoice} placeholder="INV-001" value={formData.invoiceNumber} onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })} className={cn(INPUT, 'w-full disabled:opacity-75')} /></div>
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Supplier Name *</label><input type="text" required placeholder="Supplier Name" value={formData.supplierName} onChange={e => setFormData({ ...formData, supplierName: e.target.value })} className={cn(INPUT, 'w-full')} /></div>
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Received At Department/Store or Ward *</label>
@@ -370,8 +376,10 @@ export default function InvoiceManagement() {
                 </div>
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Invoice Date *</label><input type="date" required value={formData.invoiceDate} onChange={e => setFormData({ ...formData, invoiceDate: e.target.value })} className={cn(INPUT, 'w-full')} /></div>
               </div>
+              </section>
+              <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 pb-3 border-b border-[var(--border-color)]">
                   <h3 className="font-semibold text-[var(--text-primary)] text-sm">Invoice Items *</h3>
                   {!editingInvoice && (<Button size="sm" variant="outline" icon={Plus} onClick={addInvoiceItem}>Add Item</Button>)}
                 </div>
@@ -400,14 +408,15 @@ export default function InvoiceManagement() {
                 </div>
                 {formData.invoiceItems.length === 0 && (<div className="text-center py-6 text-[var(--text-secondary)] text-sm border border-dashed border-[var(--border-color)] rounded-lg"><Package className="w-8 h-8 mx-auto mb-2 text-[var(--text-tertiary)]" />Click "Add Item" to add items to this invoice</div>)}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              </section>
+              <section className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Notes</label><textarea placeholder="Additional notes about this invoice..." rows={3} value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={cn(INPUT, 'w-full resize-none')} /></div>
                 <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
                   <div className="flex justify-between items-center mb-2"><span className="text-sm text-[var(--text-secondary)]">Subtotal:</span><span className="text-sm font-medium text-[var(--text-primary)]">${calculateTotal().toFixed(2)}</span></div>
                   <div className="flex justify-between items-center pt-2 border-t border-[var(--border-color)]"><span className="text-base font-bold text-[var(--text-primary)]">Total:</span><span className="text-xl font-bold text-[var(--icon-cyan-text)]">${calculateTotal().toFixed(2)}</span></div>
                 </div>
               </div>
-              <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
+              <div className="flex gap-3 pt-5 border-t border-[var(--border-color)]">
                 <Button variant="secondary" className="flex-1" onClick={() => { setShowForm(false); resetForm(); }}>Cancel</Button>
                 <Button type="submit" variant="soft" accent="cyan" className="flex-1" disabled={formData.invoiceItems.length === 0}>{editingInvoice ? 'Update Invoice' : 'Create Invoice'}</Button>
               </div>
