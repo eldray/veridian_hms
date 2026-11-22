@@ -1369,7 +1369,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       for (const field of prescriptionFields) if (data[field] !== undefined) updateData[field] = data[field];
 
       const isDispensing = data.status === 'dispensed' && med.status !== 'dispensed';
-      if (med.status === 'dispensed' && data.quantity !== undefined && data.quantity !== med.quantity) {
+      if (med.status === 'dispensed' && data.quantity !== undefined && data.quantity !== (med.dispensedQuantity ?? med.quantity)) {
         throw new ValidationError('A dispensed quantity cannot be edited directly; use a documented stock correction workflow');
       }
 
