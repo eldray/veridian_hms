@@ -66,9 +66,9 @@ const bucketTotals = (claims: any[], insuranceType: string) => {
 const isIpd = (c: any): boolean => String(c.typeOfService ?? '').toUpperCase() === 'IPD';
 
 const CSS = `
-  :root { --ink:#111827; --muted:#6b7280; --rule:#d1d5db; --accent:#0e5e6f; --wash:#f3f4f6; }
+  :root { --ink:#111827; --muted:#6b7280; --rule:#d1d5db; --accent:#14532d; --wash:#f3f6f3; }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Segoe UI',Arial,Helvetica,sans-serif; font-size:10pt; color:var(--ink); background:#e5e7eb; }
+  body { font-family:'Segoe UI',Arial,Helvetica,sans-serif; font-size:10pt; color:var(--ink); background:#eef2ee; }
   .page { width:210mm; min-height:297mm; margin:12px auto; background:#fff; padding:14mm 14mm 18mm; position:relative; }
   .page.wide { width:297mm; min-height:210mm; }
   .toolbar { position:sticky; top:0; z-index:5; display:flex; gap:8px; justify-content:center; padding:10px; background:#fff; border-bottom:1px solid var(--rule); }
