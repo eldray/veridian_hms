@@ -33,7 +33,7 @@ import { MedicalEntryEditModal, type MedicalEntryEditType } from '../components/
 
 import {
   ClinicalAssessmentModal,
-  ClinicalAssessmentSummary,
+  ClinicalAssessmentEditor,
   type ClinicalAssessmentValue,
 } from '../components/medical-entries/ClinicalAssessmentModal';
 import { ClinicalNotesModal } from '../components/medical-entries/ClinicalNotesModal';
@@ -1928,10 +1928,10 @@ export default function MedicalEntries() {
                 Responsible clinician: <span className="font-semibold text-[var(--text-primary)]">{user?.fullName || user?.username || 'Not assigned'}</span>
                 {isClinicalFinalized && <span className="ml-2 text-emerald-700 font-semibold">Signed clinical record — read-only</span>}
               </div>
-              <ClinicalAssessmentSummary
+              <ClinicalAssessmentEditor
                 value={assessmentValue}
-                onEdit={() => setAssessmentOpen(true)}
-                editDisabled={!canAddEntries || isClinicalFinalized}
+                onChange={saveAssessment}
+                readOnly={!canAddEntries || isClinicalFinalized}
               />
                 </div>
               </section>
