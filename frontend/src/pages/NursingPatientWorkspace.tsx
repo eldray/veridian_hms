@@ -363,7 +363,7 @@ export default function NursingPatientWorkspace() {
         fields={[
           ...(activeAdmission ? [
             { label: 'Admission No.', value: activeAdmission.admissionNumber || '—', mono: true },
-            { label: 'Admitted', value: new Date(admittedAt).toLocaleDateString() },
+            { label: 'Admitted', value: admittedAt ? new Date(admittedAt).toLocaleDateString() : '—' },
             { label: 'Ward Stay', value: daysOnWard ? `${daysOnWard} day${daysOnWard === 1 ? '' : 's'}` : '—' },
           ] : []),
           { label: 'Ward', value: wardName || '—' },
