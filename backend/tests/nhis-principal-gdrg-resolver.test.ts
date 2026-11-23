@@ -87,6 +87,22 @@ describe('NHIS principal G-DRG resolver', () => {
     expect(resolved.origin).toBe('procedure');
   });
 
+  it('lets a performed inpatient operation outrank a primary diagnosis even when the attendance label is not surgery', () => {
+    const resolved = resolvePrincipalGdrg({
+      caseType: 'ipd',
+      age: 45,
+      facilityLevel: 2,
+      isSurgicalCase: false,
+      links: [
+        row('MEDI31A', true),
+        { ...row('ASUR03A', false, 'procedure'), tariff: tariff('ASUR03A', { isSurgical: true }) },
+      ],
+      fallbacks: OPDC06,
+    });
+    expect(resolved.tariff.gdrgCode).toBe('ASUR03A');
+    expect(resolved.origin).toBe('procedure');
+  });
+
   it('does not select a surgical G-DRG from a diagnosis link unless the procedure was performed', () => {
     expect(() => resolvePrincipalGdrg({
       caseType: 'ipd',
