@@ -816,7 +816,7 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'K58.9', gdrgCodes: ['MEDI26A', 'PAED34C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'K58.0', gdrgCodes: ['MEDI26A', 'PAED34C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   // Non-infective gastroenteritis/colitis (K52) is explicitly included in MEDI26; pediatric mapping follows the existing non-specific abdominal links.
-  { icdCode: 'K52.9', gdrgCodes: ['MEDI26A', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI26A', notes: 'Verified adult link: Annex C lists K52 (other non-infective gastroenteritis and colitis) under MEDI26. K52 is not listed in PAED34, so no paediatric link is seeded.' }
+  { icdCode: 'K52.9', gdrgCodes: ['MEDI26A', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI26A', notes: 'Verified adult link: Annex C lists K52 (other non-infective gastroenteritis and colitis) under MEDI26. K52 is not listed in PAED34, so no paediatric link is seeded.', status: 'verified' }
 
   // Systemic conditions (general)
   { icdCode: 'E87.8', gdrgCodes: ['MEDI04A', 'PAED04C'], isPrimaryGdrg: 'MEDI04A' },
