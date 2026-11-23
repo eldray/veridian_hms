@@ -2341,7 +2341,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                     <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
                                                         {humanScanModality(scan)}
                                                     </p>
-                                                    {scan.description && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{scan.description}</p>}
+
                                                 </TdPrimary>
                                                 <Td>{scan.bodyPart || '—'}</Td>
                                                 <Td>
