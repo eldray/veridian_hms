@@ -898,6 +898,7 @@ model GDRGTariff {
   encounterCategory EncounterCategory?
   attendanceTypes   AttendanceType[]
   isAntenatal       Boolean            @default(false)
+  isSurgical        Boolean            @default(false)
   isDelivery        Boolean            @default(false)
   effectiveFrom     DateTime           @default(now())
   effectiveTo       DateTime?
@@ -3209,6 +3210,23 @@ enum MorbidityGroup {
   all_other_diseases
   re_attendances
   referrals
+  infection
+  diabetes_metabolic
+  cardiovascular
+  respiratory
+  oral_dental
+  gastrointestinal
+  liver
+  dermatology
+  musculoskeletal
+  urinary
+  gynaecology
+  pregnancy
+  newborn
+  symptoms
+  injury
+  cardiovascular_symptoms
+  family_planning
 }
 
 enum AdmissionType {

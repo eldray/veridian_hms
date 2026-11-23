@@ -444,6 +444,7 @@ export const MAPPINGS: ProcedureGDRGMapping[] = [
   { procedureCode: 'ZOOM03C', gdrgCodes: ['ZOOM03C'],             isPrimaryGdrg: 'ZOOM03C' },
   { procedureCode: 'ZOOM04A', gdrgCodes: ['ZOOM04A'],             isPrimaryGdrg: 'ZOOM04A' },
   { procedureCode: 'ZOOM04C', gdrgCodes: ['ZOOM04C'],             isPrimaryGdrg: 'ZOOM04C' },
+  // Change of dressing: can be billed from an OPD attendance as a ZOOM procedure.
   { procedureCode: 'ZOOM05A', gdrgCodes: ['ZOOM05A'],             isPrimaryGdrg: 'ZOOM05A' },
   { procedureCode: 'ZOOM05C', gdrgCodes: ['ZOOM05C'],             isPrimaryGdrg: 'ZOOM05C' },
   {
@@ -453,13 +454,14 @@ export const MAPPINGS: ProcedureGDRGMapping[] = [
     notes: 'Elective circumcision = ZOOM06A; emergency = ASUR27A'
   },
   { procedureCode: 'ZOOM06C', gdrgCodes: ['ZOOM06C'],             isPrimaryGdrg: 'ZOOM06C' },
+  // Dressing and minor suturing: use the age-appropriate ZOOM code when performed.
   { procedureCode: 'ZOOM07A', gdrgCodes: ['ZOOM07A'],             isPrimaryGdrg: 'ZOOM07A' },
   { procedureCode: 'ZOOM07C', gdrgCodes: ['ZOOM07C'],             isPrimaryGdrg: 'ZOOM07C' },
   {
     procedureCode: 'ZOOM08A',
     gdrgCodes: ['ZOOM08A'],
     isPrimaryGdrg: 'ZOOM08A',
-    notes: 'Tubal ligation — family planning'
+    notes: 'Tubal ligation — family planning; bill as ZOOM when performed during an OPD attendance'
   },
   { procedureCode: 'ZOOM09A', gdrgCodes: ['ZOOM09A'],             isPrimaryGdrg: 'ZOOM09A' },
   { procedureCode: 'ZOOM10A', gdrgCodes: ['ZOOM10A'],             isPrimaryGdrg: 'ZOOM10A' },

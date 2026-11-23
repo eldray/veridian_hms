@@ -29,6 +29,8 @@ export type ResolverTariff = {
   applicableLevels: number[] | null;
   isZoomCode: boolean | null;
   isAntenatal: boolean | null;
+  /** True for a tariff that requires a performed operation/procedure. */
+  isSurgical?: boolean | null;
   description?: string | null;
   nhisServiceCode?: string | null;
 };
@@ -134,14 +136,24 @@ function levelMatches(tariff: ResolverTariff, facilityLevel: number | null): boo
 }
 
 /** Whether this case type may bill this code at all. */
-function caseMatches(tariff: ResolverTariff, caseType: NHISCaseType): boolean {
+function caseMatches(tariff: ResolverTariff, caseType: NHISCaseType, origin?: ResolverLink['origin']): boolean {
   const family = familyOf(tariff.gdrgCode);
+  // Annex C often lists diagnoses as indications for a surgical G-DRG. That
+  // association alone does not mean the operation was performed. Only a link
+  // created from a completed procedure may select a tariff marked surgical.
+  // Non-surgical conservative-management tariffs (e.g. ASUR34 / ORTH24) remain
+  // eligible through the diagnosis link.
+  if (caseType === 'ipd' && tariff.isSurgical === true && origin !== 'procedure') return false;
   const isDayCase = tariff.isZoomCode === true || family === DAY_CASE_FAMILY;
   switch (caseType) {
     case 'anc':
       return family === OPD_SCHEME_FAMILY && tariff.isAntenatal === true;
     case 'opd':
-      return family === OPD_SCHEME_FAMILY && tariff.isAntenatal !== true;
+      // OPD attendance can include a separately tariffed minor procedure. In that
+      // situation the completed procedure carries its ZOOM code (e.g. dressing,
+      // minor suturing, or tubal ligation); diagnosis-only links remain OPDC.
+      return (family === OPD_SCHEME_FAMILY && tariff.isAntenatal !== true) ||
+        (origin === 'procedure' && isDayCase);
     case 'zoom':
       return isDayCase;
     case 'ipd':
@@ -163,8 +175,8 @@ const CASE_RULE_HINTS: Record<NHISCaseType, string> = {
   ipd: 'Only a clinical family code (MEDI, PAED, OBGY, ASUR, PSUR, ORTH, ENTH, OPHT, DENT, RSUR) can bill it — never OPDC or ZOOM.',
 };
 
-function billable(tariff: ResolverTariff, input: ResolverInput): boolean {
-  return caseMatches(tariff, input.caseType) &&
+function billable(tariff: ResolverTariff, input: ResolverInput, origin?: ResolverLink['origin']): boolean {
+  return caseMatches(tariff, input.caseType, origin) &&
     ageMatches(tariff, input.age) &&
     levelMatches(tariff, input.facilityLevel) &&
     amountOf(tariff.nhiaTariff) > 0;
@@ -190,7 +202,10 @@ export function gdrgBillsCase(
  */
 function score(link: ResolverLink, input: ResolverInput): number {
   let score = link.isPrimary ? 100 : 0;
-  if (link.origin === 'procedure' && (input.isSurgicalCase || input.caseType === 'zoom')) score += 60;
+  // A performed procedure drives the surgical G-DRG. It must outrank even a primary diagnosis link; otherwise a primary diagnosis can incorrectly win when the procedure mapping is not marked primary.
+  if (link.origin === 'procedure' && (input.isSurgicalCase || (input.caseType === 'ipd' && link.tariff.isSurgical === true))) score += 200;
+  else if (link.origin === 'procedure' && (input.caseType === 'zoom' ||
+    (input.caseType === 'opd' && (link.tariff.isZoomCode === true || familyOf(link.tariff.gdrgCode) === DAY_CASE_FAMILY)))) score += 160;
   if (link.origin === 'diagnosis' && input.caseType === 'ipd') score += 10;
   const code = link.tariff.gdrgCode.toUpperCase();
   if (code.startsWith(`${OPD_SCHEME_FAMILY}06`) || code.startsWith(`${DAY_CASE_FAMILY}02`)) score -= 25;
@@ -212,7 +227,7 @@ const describe = (tariff: ResolverTariff): string =>
 export function resolvePrincipalGdrg(input: ResolverInput): ResolvedPrincipalGdrg {
   const { caseType, links, fallbacks, age, facilityLevel } = input;
 
-  const usable = links.filter((link) => billable(link.tariff, input));
+  const usable = links.filter((link) => billable(link.tariff, input, link.origin));
   if (usable.length) {
     const best = usable.reduce((a, b) => (score(b, input) > score(a, input) ? b : a));
     return {
