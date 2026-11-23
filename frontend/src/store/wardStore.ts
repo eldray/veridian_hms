@@ -290,7 +290,7 @@ export const useWardStore = create<WardState>((set, get) => ({
       
       set({ 
         beds: transformedBeds,
-        pagination: response?.pagination || null,
+        pagination: null,
         isLoading: false 
       });
     } catch (error: unknown) {
