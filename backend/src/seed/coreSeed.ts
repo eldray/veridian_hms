@@ -956,6 +956,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
             encounterCategory,
             attendanceTypes,
             isAntenatal: tariff.isAntenatal || false,
+            isSurgical: tariff.isSurgical || false,
             isDelivery: tariff.isDelivery || false,
             // This is the tariff schedule's validity, not the patient's NHIS membership expiry.
             // Defaulting to the import time made every historical service date unpriced.
