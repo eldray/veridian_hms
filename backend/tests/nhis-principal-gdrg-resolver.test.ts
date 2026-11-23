@@ -314,6 +314,9 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
     const byIcd = new Map(diagnosisGdrgMappings.map((mapping) => [mapping.icdCode, mapping]));
     const expected: Record<string, string[]> = {
       'A04.7': ['MEDI23A', 'PAED31C', 'OPDC06A', 'OPDC06C'],
+      'A66.9': ['PAED43C'],
+      'E88.9': ['PAED07C'],
+      'K52.9': ['MEDI26A', 'OPDC06A', 'OPDC06C'],
       'I49.9': ['MEDI07A', 'OPDC06A', 'OPDC06C'],
       'K30': ['MEDI26A', 'OPDC06A', 'OPDC06C'],
       'K62.5': ['MEDI25A', 'OPDC06A', 'OPDC06C'],
