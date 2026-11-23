@@ -2130,7 +2130,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                 {medicationsList.length === 0
                                     ? <EmptyState icon={<Pill className="w-9 h-9" />} label="No medications prescribed" />
                                     : (
-                                        <Table heads={['Medication', 'Dosage', 'Frequency', 'Route', 'Days', 'Status', '']}>
+                                        <div className="w-full min-w-0 overflow-x-auto">
+                                            <Table heads={['Medication', 'Dosage', 'Frequency', 'Route', 'Days', 'Status', '']}>
                                             {medicationsList.map((med: any) => (
                                                 <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                                                     <TdPrimary>
@@ -2151,7 +2152,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                     </Td>
                                                 </tr>
                                             ))}
-                                        </Table>
+                                            </Table>
+                                        </div>
                                     )}
                             </SectionCard>
                             <SectionCard
