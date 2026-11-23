@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MAPPINGS as diagnosisGdrgMappings } from '../src/seed/diagnosisGdrgLink';
 import { MAPPINGS as procedureGdrgMappings } from '../src/seed/procedureGdrgMappings';
 import tariffData from '../src/data/gdrgTariffs.json';
+import diagnosesCatalogue from '../src/data/diagnoses.json';
 import {
   facilityLevelFromType,
   nhisCaseType,
@@ -216,6 +217,23 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
         expect(tariffCodes.has(code), `Procedure ${mapping.procedureCode} links missing tariff ${code}`).toBe(true);
       }
     }
+  });
+
+
+  it('tracks the current diagnosis catalogue mapping gaps as an explicit review list', () => {
+    // These diagnoses exist in the catalogue but have no diagnosis→G-DRG link yet.
+    // Keep the list explicit until each is checked against NHIA Annex C; do not silently
+    // assign a clinically plausible tariff without source verification.
+    const expectedUnmappedIcd = [
+      'A20.9', 'A21.9', 'A22.9', 'A23.9', 'A38.9', 'B06.9', 'B27.9', 'A66.9',
+      'H33.2', 'H00.1', 'J30.9', 'J91.8', 'J93.1', 'J96.9', 'K21.9', 'K21.0',
+      'K29.00', 'K29.50', 'K52.9', 'Z86.19', 'Z86.11', 'Z79.01', 'R99',
+    ];
+    const mappedCodes = new Set(diagnosisGdrgMappings.map((mapping) => mapping.icdCode));
+    const unmappedCodes = Array.from(new Set(diagnosesCatalogue.map((diagnosis) => diagnosis.icdCode)))
+      .filter((code) => !mappedCodes.has(code))
+      .sort();
+    expect(unmappedCodes).toEqual([...expectedUnmappedIcd].sort());
   });
 
   it('does not contain duplicate diagnosis or procedure mapping keys', () => {
