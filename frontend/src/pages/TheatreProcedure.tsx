@@ -1027,7 +1027,7 @@ export default function TheatreProcedure() {
                             onClick={() => { setSelectedProcedureId(procedure.id); setOpenTile(null); setActiveTab('record'); }}
                             className={`text-left rounded-md border p-2 transition-all ${
                               isSelected
-                                ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-500'
+                                ? 'border-purple-500 bg-purple-500/10 ring-1 ring-purple-500'
                                 : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-purple-300 hover:bg-[var(--bg-main)]'
                             }`}
                           >
@@ -1668,70 +1668,6 @@ export default function TheatreProcedure() {
                         />
                       </FormField>
                     </div>
-                  </SectionCard>
-                </div>
-              )}
-
-              {/* ── TAB: PROCEDURE HISTORY ────────────────────────── */}
-              {selectedProcedure && (
-                <div className="p-4">
-                  <SectionCard
-                    icon={<Clock className="w-4 h-4 text-purple-600" />}
-                    title={`Procedures for this visit (${procedures.length})`}
-                    maxH="max-h-none"
-                  >
-                    {procedures.length === 0 ? (
-                      <EmptySlate icon={<Scissors className="w-9 h-9" />} label="No procedures for this visit" />
-                    ) : (
-                      <table className="w-full text-xs">
-                        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                          <tr>
-                            <TH>Procedure</TH>
-                            <TH>Scheduled</TH>
-                            <TH>Performed</TH>
-                            <TH>Outcome</TH>
-                            <TH>Status</TH>
-                            <TH></TH>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[var(--border-color)]">
-                          {procedures.map((p: any) => (
-                            <tr
-                              key={p.id}
-                              className={`hover:bg-[var(--bg-main)] transition-colors ${
-                                selectedProcedureId === p.id ? 'bg-purple-50/40' : ''
-                              }`}
-                            >
-                              <TDp>{p.name}</TDp>
-                              <TD>
-                                {p.scheduledDate
-                                  ? new Date(p.scheduledDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                  : '—'}
-                              </TD>
-                              <TD>
-                                {p.performedAt
-                                  ? new Date(p.performedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                  : '—'}
-                              </TD>
-                              <TD>
-                                {p.outcome
-                                  ? (outcomeOptions.find((o) => o.value === p.outcome)?.label || p.outcome)
-                                  : '—'}
-                              </TD>
-                              <TD>{getStatusBadge(p.status)}</TD>
-                              <TD>
-                                <button
-                                  onClick={() => { setSelectedProcedureId(p.id); setActiveTab('record'); setOpenTile(null); }}
-                                  className="text-[10px] font-semibold text-purple-600 hover:underline"
-                                >
-                                  Open
-                                </button>
-                              </TD>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
                   </SectionCard>
                 </div>
               )}
