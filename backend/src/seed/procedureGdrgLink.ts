@@ -123,7 +123,7 @@ async function seedProcedureGDRGLinks(client: PrismaClient = prisma) {
   for (const item of unmappedTemplates) errors.push(`Procedure template has no G-DRG mapping: ${item.procedureCode} (${item.name})`);
   for (const item of templatesWithoutCatalog) errors.push(`Procedure template has no unique linked ServiceCatalog row: ${item.procedureCode} (${item.name})`);
   for (const item of templatesWithAmbiguousCatalog) {
-    const count = catalogIdsByTemplateId.get(item.id)?.length ?? 0;
+    const count = allCatalogs.filter(c => c.procedureTemplateId === item.id).length;
     errors.push(`Procedure template has ${count} ServiceCatalog rows linked to it; resolve the ambiguity before G-DRG seeding: ${item.procedureCode} (${item.name})`);
   }
   skipped = unmappedTemplates.length + templatesWithoutCatalog.length + templatesWithAmbiguousCatalog.length;
