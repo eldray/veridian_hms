@@ -144,3 +144,25 @@
     margin: 1.5cm;
   }
 }
+
+/* Explicit IPD banner dark-mode styling. Tailwind dark: utilities are not relied on
+   for this critical admission summary; this selector follows the themeStore's html.dark class. */
+html.dark [data-ipd-banner] {
+  background: linear-gradient(115deg, #102b35 0%, #123844 55%, #15313f 100%) !important;
+  border: 1px solid #2d7884 !important;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .38) !important;
+}
+html.dark [data-ipd-banner] h3 { color: #f8fafc !important; }
+html.dark [data-ipd-banner] p { color: #d8e9f2 !important; }
+html.dark [data-ipd-banner] span.rounded-full {
+  background: #087f8e !important;
+  color: #f0fdff !important;
+  box-shadow: inset 0 0 0 1px #4ac4d4 !important;
+}
+html.dark [data-ipd-banner] > div > div > div:first-child {
+  background: #0b7180 !important;
+  color: #ffffff !important;
+}
+html.dark [data-ipd-banner] button:not(:first-child) {
+  border-color: #397585 !nimportant;
+}
