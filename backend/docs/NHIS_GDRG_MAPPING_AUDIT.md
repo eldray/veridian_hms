@@ -142,3 +142,10 @@ The following 22 provisional diagnosis records were checked against the exact di
 **Not yet complete:** 112 diagnosis candidates remain provisional and are still excluded from automatic seeding. The other 496 legacy mapping records have not yet been individually reconciled against every Annex C indication. Structural presence in the local tariff JSON is not proof of clinical mapping correctness. No claim of 100% mapping verification is made.
 
 Source: NHIA Tariffs Operation Manual v22, Annex C, adult medicine and paediatrics (MEDI/PAED tables), and obstetrics/gynaecology (OBGY table). Official PDF: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf.
+
+
+## Surgical G-DRG activation guard
+
+A second resolver issue was identified during the audit: an Annex C diagnosis/indication link could select a surgical G-DRG even when the associated operation had not been performed. The resolver now rejects a tariff marked `isSurgical` when it arrives from a diagnosis link. It remains eligible when the tariff is linked from a completed procedure. Non-surgical inpatient conservative-management tariffs remain eligible from diagnosis links.
+
+The G-DRG tariff data already contains an explicit `isSurgical` boolean for all 444 tariff rows. The database model and seed now persist this field, with a migration adding the column. Regression tests cover both the surgical-procedure requirement and the conservative-management exception. This enforces the agreed rule: an inpatient surgical G-DRG requires an actual admission and a performed qualifying procedure.
