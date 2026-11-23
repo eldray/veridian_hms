@@ -1712,7 +1712,7 @@ Family: <strong className="text-[var(--text-primary)]">{history.relation}</stron
 </div>
 {/* ── INPATIENT CONTEXT: keep IPD work linked to this admission ── */}
 {isActiveInpatient && (
-<section className="rounded-xl border border-teal-200 dark:border-teal-900/70 bg-gradient-to-r from-teal-50/90 to-cyan-50/70 dark:from-teal-950/25 dark:to-cyan-950/15 overflow-hidden"
+<section className="rounded-xl border border-teal-200 dark:border-slate-600 bg-gradient-to-r from-teal-50/90 to-cyan-50/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 overflow-hidden shadow-sm dark:shadow-black/20"
 aria-label="Active inpatient admission">
 <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 <div className="flex items-start gap-3 min-w-0">
@@ -1721,11 +1721,11 @@ aria-label="Active inpatient admission">
 </div>
 <div className="min-w-0">
 <div className="flex flex-wrap items-center gap-2">
-<h3 className="text-sm font-bold text-[var(--text-primary)]">Active Inpatient Admission</h3>
-<span className="rounded-full bg-teal-100 dark:bg-teal-900/50 px-2 py-0.5 text-[10px] font-bold text-teal-800 dark:text-teal-200">IPD</span>
-{linkedAdmission?.admissionNumber && <span className="text-[10px] font-mono text-[var(--text-secondary)]">#{linkedAdmission.admissionNumber}</span>}
+<h3 className="text-sm font-bold text-slate-900 dark:text-white">Active Inpatient Admission</h3>
+<span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-900 ring-1 ring-inset ring-teal-300 dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-600">IPD</span>
+{linkedAdmission?.admissionNumber && <span className="text-[10px] font-mono text-slate-600 dark:text-slate-300">#{linkedAdmission.admissionNumber}</span>}
 </div>
-<p className="mt-1 text-xs text-[var(--text-secondary)]">
+<p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
 {currentAttendance?.Ward?.wardName || currentAttendance?.ward?.wardName || 'Ward not assigned'}
 {' · '}
 {currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber
@@ -1733,7 +1733,7 @@ aria-label="Active inpatient admission">
 : 'Bed not assigned'}
 {linkedAdmission?.admissionDate ? ` · Admitted ${new Date(linkedAdmission.admissionDate).toLocaleDateString()}` : ''}
 </p>
-<p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+<p className="mt-1 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
 Continue documenting progress, diagnoses, medications, investigations and treatment here. Use Admission Details for the stay overview and nursing/bed coordination.
 </p>
 </div>
