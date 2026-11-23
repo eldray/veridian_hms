@@ -203,7 +203,7 @@ export function gdrgBillsCase(
 function score(link: ResolverLink, input: ResolverInput): number {
   let score = link.isPrimary ? 100 : 0;
   // A performed procedure drives the surgical G-DRG. It must outrank even a primary diagnosis link; otherwise a primary diagnosis can incorrectly win when the procedure mapping is not marked primary.
-  if (link.origin === 'procedure' && input.isSurgicalCase) score += 200;
+  if (link.origin === 'procedure' && (input.isSurgicalCase || (input.caseType === 'ipd' && link.tariff.isSurgical === true))) score += 200;
   else if (link.origin === 'procedure' && (input.caseType === 'zoom' ||
     (input.caseType === 'opd' && (link.tariff.isZoomCode === true || familyOf(link.tariff.gdrgCode) === DAY_CASE_FAMILY)))) score += 160;
   if (link.origin === 'diagnosis' && input.caseType === 'ipd') score += 10;
