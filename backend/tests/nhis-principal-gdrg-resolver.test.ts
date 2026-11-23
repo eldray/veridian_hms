@@ -25,6 +25,7 @@ const tariff = (
   applicableLevels: [1, 2, 3, 4, 5, 6, 10],
   isZoomCode: gdrgCode.startsWith('ZOOM'),
   isAntenatal: gdrgCode === 'OPDC02A',
+  isSurgical: /^(ASUR|PSUR|ORTH|OPHT|DENT|ENTH|RSUR)/.test(gdrgCode),
   ...overrides,
 });
 
@@ -82,6 +83,33 @@ describe('NHIS principal G-DRG resolver', () => {
     });
     expect(resolved.tariff.gdrgCode).toBe('ASUR01A');
     expect(resolved.origin).toBe('procedure');
+  });
+
+  it('does not select a surgical G-DRG from a diagnosis link unless the procedure was performed', () => {
+    expect(() => resolvePrincipalGdrg({
+      caseType: 'ipd',
+      age: 45,
+      facilityLevel: 2,
+      links: [{
+        ...row('ASUR01A', true, 'diagnosis'),
+        tariff: tariff('ASUR01A', { isSurgical: true }),
+      }],
+      fallbacks: [],
+    })).toThrow(/needs a principal G-DRG/);
+  });
+
+  it('keeps non-surgical conservative-management tariffs eligible from diagnosis links', () => {
+    const resolved = resolvePrincipalGdrg({
+      caseType: 'ipd',
+      age: 45,
+      facilityLevel: 2,
+      links: [{
+        ...row('ASUR34A', true, 'diagnosis'),
+        tariff: tariff('ASUR34A', { isSurgical: false }),
+      }],
+      fallbacks: [],
+    });
+    expect(resolved.tariff.gdrgCode).toBe('ASUR34A');
   });
 
   it('bills a day case dressing under its ZOOM code and an observation stay under detention', () => {
