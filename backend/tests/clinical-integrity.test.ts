@@ -2615,3 +2615,113 @@ describe('daily notes on closed admissions', () => {
     expect(result.admission.dailyNotes).toHaveLength(1);
   });
 });
+
+
+describe('stage-aware clinical order removal', () => {
+  const buildRepository = (order: 'labTest' | 'scan' | 'procedure' | 'medication', status: string, billLine: any = null) => {
+    const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'pending' }) },
+      insuranceClaimItem: { findFirst: vi.fn().mockResolvedValue(null) },
+      billLineItem: {
+        findFirst: vi.fn().mockResolvedValue(billLine),
+        update: vi.fn().mockResolvedValue({ id: 'line-1', isVoided: true }),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      bill: { update: vi.fn().mockResolvedValue({}), aggregate: undefined },
+      [order]: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'order-1', status }),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'user-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    return { repository: new EncounterRepository(prisma), tx };
+  };
+
+  it('deletes a laboratory request that has not been started, without recording cancellation', async () => {
+    const { repository, tx } = buildRepository('labTest', 'requested');
+    const result = await repository.removeLabTest('enc-1', 'order-1', 'user-1');
+    expect(result).toEqual({ id: 'order-1', status: 'deleted' });
+    expect(tx.labTest.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'order-1', attendanceId: 'enc-1', status: 'requested' },
+    });
+    expect(tx.labTest.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('retains a laboratory order as cancelled after work has started', async () => {
+    const billLine = {
+      id: 'line-1', billId: 'bill-1', bill: {
+        attendanceId: 'enc-1', paidAmount: 0, waiverAmount: 0, totalAmount: 100,
+        paymentMode: 'cash', corporateAccountId: null,
+      },
+    };
+    const { repository, tx } = buildRepository('labTest', 'in_progress', billLine);
+    const result = await repository.removeLabTest('enc-1', 'order-1', 'user-1');
+    expect(result).toEqual({ id: 'order-1', status: 'cancelled' });
+    expect(tx.labTest.updateMany).toHaveBeenCalledWith({
+      where: { id: 'order-1', attendanceId: 'enc-1', status: 'in_progress' },
+      data: { status: 'cancelled' },
+    });
+    expect(tx.labTest.deleteMany).not.toHaveBeenCalled();
+    expect(tx.billLineItem.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'line-1' },
+      data: expect.objectContaining({ isVoided: true, voidedById: 'user-1' }),
+    }));
+    expect(tx.bill.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'bill-1' },
+      data: expect.objectContaining({ subtotal: 0, totalAmount: 0, balance: 0 }),
+    }));
+  });
+
+  it('deletes a scan request before it starts but cancels one already in progress', async () => {
+    const beforeStart = buildRepository('scan', 'requested');
+    expect(await beforeStart.repository.removeScan('enc-1', 'order-1', 'user-1'))
+      .toEqual({ id: 'order-1', status: 'deleted' });
+    expect(beforeStart.tx.scan.deleteMany).toHaveBeenCalledOnce();
+    expect(beforeStart.tx.scan.updateMany).not.toHaveBeenCalled();
+
+    const started = buildRepository('scan', 'in_progress');
+    expect(await started.repository.removeScan('enc-1', 'order-1', 'user-1'))
+      .toEqual({ id: 'order-1', status: 'cancelled' });
+    expect(started.tx.scan.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ status: 'in_progress' }),
+      data: { status: 'cancelled' },
+    }));
+  });
+
+  it('deletes a scheduled procedure before it starts but cancels one already in progress', async () => {
+    const beforeStart = buildRepository('procedure', 'scheduled');
+    expect(await beforeStart.repository.removeProcedure('enc-1', 'order-1', 'user-1'))
+      .toEqual({ id: 'order-1', status: 'deleted' });
+    expect(beforeStart.tx.procedure.deleteMany).toHaveBeenCalledOnce();
+    expect(beforeStart.tx.procedure.updateMany).not.toHaveBeenCalled();
+
+    const started = buildRepository('procedure', 'in_progress');
+    expect(await started.repository.removeProcedure('enc-1', 'order-1', 'user-1'))
+      .toEqual({ id: 'order-1', status: 'cancelled' });
+    expect(started.tx.procedure.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ status: 'in_progress' }),
+      data: { status: 'cancelled' },
+    }));
+  });
+
+  it('deletes an undispensed prescription rather than leaving a cancelled prescription', async () => {
+    const { repository, tx } = buildRepository('medication', 'prescribed');
+    expect(await repository.removeMedication('enc-1', 'order-1', 'user-1'))
+      .toEqual({ id: 'order-1', status: 'deleted' });
+    expect(tx.medication.deleteMany).toHaveBeenCalledWith({
+      where: { id: 'order-1', attendanceId: 'enc-1', status: 'prescribed' },
+    });
+    expect(tx.medication.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not delete a dispensed medication outside the stock-return workflow', async () => {
+    const { repository, tx } = buildRepository('medication', 'dispensed');
+    await expect(repository.removeMedication('enc-1', 'order-1', 'user-1'))
+      .rejects.toThrow(/dispensing return or clinical correction/i);
+    expect(tx.medication.deleteMany).not.toHaveBeenCalled();
+  });
+});
