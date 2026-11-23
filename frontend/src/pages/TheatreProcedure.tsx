@@ -7,7 +7,6 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
-import { useStockStore } from '../store/stockStore';
 import { useToast } from '../store/toastStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVisits';
@@ -15,14 +14,10 @@ import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getTheatreWorklist, removeProcedureFromEncounter } from '../api';
 import { getPatientName } from '../utils/patient';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
-import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
-import { LabTestModal } from '../components/medical-entries/modals/LabTestModal';
-import { ScanModal } from '../components/medical-entries/modals/ScanModal';
-import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import { pickVisit } from '../utils/visitSelection';
 import {
   ChevronLeft, Scissors, ClipboardList, RefreshCw, AlertCircle,
-  Syringe, FileText, CheckCircle, Clock, User, Calendar, Pill, FlaskConical, Scan, Microscope,
+  Syringe, FileText, CheckCircle, Clock, User, Calendar,
   Activity, Plus, X, Search, Edit, Trash2, Printer,
   Droplet, Heart, Info, ChevronDown, ChevronRight,
   Save, Maximize2, AlertTriangle, CircleDot, Stethoscope,
@@ -174,7 +169,6 @@ export default function TheatreProcedure() {
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [selectedProcedureId, setSelectedProcedureId] = useState<string>('');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [clinicalModal, setClinicalModal] = useState<'medication' | 'lab' | 'scan' | null>(null);
   const [openTile, setOpenTile] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TheatreTabKey>('procedures');
 
@@ -227,8 +221,7 @@ export default function TheatreProcedure() {
   } = useAttendanceStore();
   const { patients, loadPatients, fetchPatient } = usePatientStore();
   const { user } = useAuthStore();
-  const { procedureTemplates, labTestTemplates, scanTemplates, getProcedureTemplates, getLabTestTemplates, getScanTemplates } = useMedicalServicesStore();
-  const { stockItems, getStockItems } = useStockStore();
+  const { procedureTemplates, getProcedureTemplates } = useMedicalServicesStore();
 
   const [patient, setPatient] = useState<any>(null);
   const [attendance, setAttendance] = useState<any>(null);
@@ -286,7 +279,7 @@ export default function TheatreProcedure() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      await Promise.all([loadPatients().catch(() => undefined), getProcedureTemplates(false), getLabTestTemplates(false), getScanTemplates(false), getStockItems().catch(() => undefined)]);
+      await Promise.all([loadPatients().catch(() => undefined), getProcedureTemplates(false)]);
 
       const statePatient = location.state?.patient;
       const patientId = statePatient?.id || id;
@@ -389,15 +382,6 @@ export default function TheatreProcedure() {
   }, [currentAttendance]);
 
   const selectedProcedure = procedures.find((p: any) => p.id === selectedProcedureId);
-  const medications = Array.isArray(currentAttendance?.Medication) ? currentAttendance.Medication : [];
-  const prescribedMedications = medications.filter((item: any) => item?.status === 'prescribed');
-  const dispensedMedications = medications.filter((item: any) => item?.status === 'dispensed');
-  const labTests = Array.isArray(currentAttendance?.LabTest) ? currentAttendance.LabTest : [];
-  const requestedLabTests = labTests.filter((item: any) => ['requested', 'in_progress'].includes(String(item?.status || '').toLowerCase()));
-  const completedLabTests = labTests.filter((item: any) => String(item?.status || '').toLowerCase() === 'completed');
-  const scans = Array.isArray(currentAttendance?.Scan) ? currentAttendance.Scan : [];
-  const requestedScans = scans.filter((item: any) => ['requested', 'scheduled', 'in_progress'].includes(String(item?.status || '').toLowerCase()));
-  const completedScans = scans.filter((item: any) => String(item?.status || '').toLowerCase() === 'completed');
 
   const appliedInitialProcedureId = useRef<string | null>(null);
   useEffect(() => {
@@ -962,48 +946,6 @@ export default function TheatreProcedure() {
                 </div>
               );
             })}
-          </div>
-
-          {/* Independent clinical-entry sections — same grouped workflow as Medical Entries. */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              <SectionCard icon={<Pill className="w-4 h-4 text-green-600" />} title={`Prescribed Medications (${prescribedMedications.length})`} action={canAddEntries ? <AddBtn onClick={() => setClinicalModal('medication')} label="Prescribe" /> : undefined} maxH="max-h-80">
-                {prescribedMedications.length === 0 ? <EmptySlate icon={<Pill className="w-8 h-8" />} label="No prescribed medications" /> : (
-                  <div className="overflow-x-auto"><table className="w-full text-xs"><thead className="bg-[var(--bg-main)] text-[var(--text-tertiary)]"><tr><TH>Medication</TH><TH>Dosage</TH><TH>Frequency</TH><TH>Days</TH><TH>Route</TH><TH>Prescribed by / date</TH></tr></thead><tbody className="divide-y divide-[var(--border-color)]">{prescribedMedications.map((item: any) => <tr key={item.id}><TDp>{item.StockItem?.name || item.MedicationTemplate?.name || item.name || 'Medication'}</TDp><TD>{item.dosage || '—'}</TD><TD>{item.frequency || '—'}</TD><TD>{item.duration || item.days || '—'}</TD><TD>{item.route || '—'}</TD><TD>{item.User_Medication_createdByIdToUser?.fullName || item.createdBy?.fullName || 'Unknown user'}<p className="text-[10px] text-[var(--text-tertiary)]">{item.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</p></TD></tr>)}</tbody></table></div>
-                )}
-              </SectionCard>
-              <SectionCard icon={<CheckCircle className="w-4 h-4 text-green-600" />} title={`Dispensed History (${dispensedMedications.length})`} maxH="max-h-80">
-                {dispensedMedications.length === 0 ? <EmptySlate icon={<Pill className="w-8 h-8" />} label="No dispensing records yet" /> : (
-                  <div className="overflow-x-auto"><table className="w-full text-xs"><thead className="bg-[var(--bg-main)] text-[var(--text-tertiary)]"><tr><TH>Medication</TH><TH>Quantity</TH><TH>Dispensed</TH><TH>Dispensed by</TH></tr></thead><tbody className="divide-y divide-[var(--border-color)]">{dispensedMedications.map((item: any) => <tr key={item.id}><TDp>{item.StockItem?.name || item.MedicationTemplate?.name || item.name || 'Medication'}</TDp><TD>{item.quantity ?? item.dispensedQuantity ?? '—'}</TD><TD>{item.dispensedAt ? new Date(item.dispensedAt).toLocaleString() : '—'}</TD><TD>{item.User_Medication_dispensedByIdToUser?.fullName || item.dispensedBy?.fullName || '—'}</TD></tr>)}</tbody></table></div>
-                )}
-              </SectionCard>
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              <SectionCard icon={<FlaskConical className="w-4 h-4 text-purple-600" />} title={`Investigations Requested (${requestedLabTests.length})`} action={canAddEntries ? <AddBtn onClick={() => setClinicalModal('lab')} label="Request test" /> : undefined} maxH="max-h-80">
-                {requestedLabTests.length === 0 ? <EmptySlate icon={<FlaskConical className="w-8 h-8" />} label="No investigations requested" /> : (
-                  <div className="overflow-x-auto"><table className="w-full text-xs"><thead className="bg-[var(--bg-main)] text-[var(--text-tertiary)]"><tr><TH>Test</TH><TH>Priority</TH><TH>Status</TH><TH>Requested</TH><TH>Requested by</TH></tr></thead><tbody className="divide-y divide-[var(--border-color)]">{requestedLabTests.map((item: any) => <tr key={item.id}><TDp>{item.ServiceCatalog?.name || item.LabTestTemplate?.name || item.name || 'Lab test'}</TDp><TD>{item.priority || 'routine'}</TD><TD>{item.status || 'requested'}</TD><TD>{item.requestedAt || item.createdAt ? new Date(item.requestedAt || item.createdAt).toLocaleString() : '—'}</TD><TD>{item.User_LabTest_createdByIdToUser?.fullName || item.createdBy?.fullName || 'Unknown user'}</TD></tr>)}</tbody></table></div>
-                )}
-              </SectionCard>
-              <SectionCard icon={<CheckCircle className="w-4 h-4 text-green-600" />} title={`Investigation Results (${completedLabTests.length})`} maxH="max-h-80">
-                {completedLabTests.length === 0 ? <EmptySlate icon={<Microscope className="w-8 h-8" />} label="No investigation results yet" /> : (
-                  <div className="divide-y divide-[var(--border-color)]">{completedLabTests.map((item: any) => <div key={item.id} className="px-3 py-2"><p className="text-xs font-semibold text-[var(--text-primary)]">{item.ServiceCatalog?.name || item.LabTestTemplate?.name || item.name || 'Lab test'}</p><p className="mt-1 whitespace-pre-wrap text-xs text-[var(--text-secondary)]">{item.result?.summary || item.result?.value || item.result || item.notes || 'Result recorded'}</p><p className="mt-1 text-[10px] text-[var(--text-tertiary)]">{item.completedAt ? new Date(item.completedAt).toLocaleString() : '—'}{item.User_LabTest_performedByIdToUser?.fullName ? ` · ${item.User_LabTest_performedByIdToUser.fullName}` : ''}</p></div>)}</div>
-                )}
-              </SectionCard>
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-              <SectionCard icon={<Scan className="w-4 h-4 text-purple-600" />} title={`Scans Requested (${requestedScans.length})`} action={canAddEntries ? <AddBtn onClick={() => setClinicalModal('scan')} label="Request scan" /> : undefined} maxH="max-h-80">
-                {requestedScans.length === 0 ? <EmptySlate icon={<Scan className="w-8 h-8" />} label="No scans requested" /> : (
-                  <div className="overflow-x-auto"><table className="w-full text-xs"><thead className="bg-[var(--bg-main)] text-[var(--text-tertiary)]"><tr><TH>Study</TH><TH>Modality</TH><TH>Priority</TH><TH>Status</TH><TH>Requested</TH></tr></thead><tbody className="divide-y divide-[var(--border-color)]">{requestedScans.map((item: any) => <tr key={item.id}><TDp>{getScanDisplayName(item)}</TDp><TD>{humanScanModality(item)}</TD><TD>{item.priority || 'routine'}</TD><TD>{item.status || 'requested'}</TD><TD>{item.requestedAt || item.createdAt ? new Date(item.requestedAt || item.createdAt).toLocaleString() : '—'}</TD></tr>)}</tbody></table></div>
-                )}
-              </SectionCard>
-              <SectionCard icon={<CheckCircle className="w-4 h-4 text-green-600" />} title={`Scan Results (${completedScans.length})`} maxH="max-h-80">
-                {completedScans.length === 0 ? <EmptySlate icon={<Microscope className="w-8 h-8" />} label="No scan results yet" /> : (
-                  <div className="divide-y divide-[var(--border-color)]">{completedScans.map((item: any) => <div key={item.id} className="px-3 py-2"><p className="text-xs font-semibold text-[var(--text-primary)]">{getScanDisplayName(item)} <span className="font-normal text-[var(--text-tertiary)]">· {humanScanModality(item)}</span></p>{item.findings && <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--text-secondary)]">{item.findings}</p>}{item.impression && <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--text-secondary)]"><strong>Impression:</strong> {item.impression}</p>}<p className="mt-1 text-[10px] text-[var(--text-tertiary)]">{item.completedAt ? new Date(item.completedAt).toLocaleString() : '—'}</p></div>)}</div>
-                )}
-              </SectionCard>
-            </div>
           </div>
 
           {/* ── THEATRE PROCEDURES AND OPERATIVE RECORD ─────────── */}
@@ -1889,11 +1831,6 @@ export default function TheatreProcedure() {
           ) : null}
         </>
       )}
-
-      {/* Independent Medical Entries-style clinical order modals. */}
-      <MedicationModal isOpen={clinicalModal === 'medication'} onClose={() => setClinicalModal(null)} onSuccess={async () => { setClinicalModal(null); if (selectedAttendanceId) { await getAttendance(selectedAttendanceId); await calculateBill(selectedAttendanceId); } }} attendanceId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries} allergies={patient?.allergies || []} userId={user?.id} userName={user?.fullName} />
-      <LabTestModal isOpen={clinicalModal === 'lab'} onClose={() => setClinicalModal(null)} onSuccess={async () => { setClinicalModal(null); if (selectedAttendanceId) { await getAttendance(selectedAttendanceId); await calculateBill(selectedAttendanceId); } }} attendanceId={selectedAttendanceId} labTests={labTestTemplates} canAdd={canAddEntries} userId={user?.id} userName={user?.fullName} />
-      <ScanModal isOpen={clinicalModal === 'scan'} onClose={() => setClinicalModal(null)} onSuccess={async () => { setClinicalModal(null); if (selectedAttendanceId) { await getAttendance(selectedAttendanceId); await calculateBill(selectedAttendanceId); } }} attendanceId={selectedAttendanceId} scans={scanTemplates} canAdd={canAddEntries} userId={user?.id} userName={user?.fullName} />
 
       {/* ── SCHEDULE MODAL (unchanged behaviour) ───────────────── */}
       {showScheduleModal && (
