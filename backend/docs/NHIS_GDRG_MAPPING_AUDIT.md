@@ -47,7 +47,15 @@ Repeated ICD codes (catalogue entries, not mapping keys):
 
 These may be catalogue label variants or duplicates; they should be reconciled without deleting clinically meaningful entries or breaking existing references.
 
-## Confirmed procedure linkage\n\n- Thoracostomy/chest tube insertion is represented in the procedure mapping table as `ASUR03A` (adult) and `PSUR34C` (child). Both tariff entries exist in the current checked-in dataset. A focused regression test now asserts these links. NHIA manual Annex C associates pleural effusion/pneumothorax diagnoses with thoracostomy/chest tube procedure groups; the diagnosis itself must not be auto-assigned the procedure G-DRG unless the procedure was performed.\n\n## Confirmed mapping added during review\n\n- `K52.9` (Non-infective acute gastroenteritis) → `MEDI26A` (adult, Non-Specific Abdominal Conditions) and `PAED34C` (child, Non-Specific Abdominal Condition), with OPD fallback links retained. The NHIA manual explicitly includes K52 in MEDI26; paediatric grouping is aligned with existing mappings but marked for Annex C confirmation.\n\n## Implementation work in this PR
+## Confirmed procedure linkage
+
+- Thoracostomy/chest tube insertion is represented in the procedure mapping table as `ASUR03A` (adult) and `PSUR34C` (child). Both tariff entries exist in the current checked-in dataset. A focused regression test now asserts these links. NHIA manual Annex C associates pleural effusion/pneumothorax diagnoses with thoracostomy/chest tube procedure groups; the diagnosis itself must not be auto-assigned the procedure G-DRG unless the procedure was performed.
+
+## Confirmed mapping added during review
+
+- `K52.9` (Non-infective acute gastroenteritis) → `MEDI26A` (adult, Non-Specific Abdominal Conditions) and `PAED34C` (child, Non-Specific Abdominal Condition), with OPD fallback links retained. The NHIA manual explicitly includes K52 in MEDI26; paediatric grouping is aligned with existing mappings but marked for Annex C confirmation.
+
+## Implementation work in this PR
 
 - Corrected principal G-DRG scoring so a performed surgical procedure outranks a primary diagnosis mapping in surgical encounters.
 - Added a regression case for a non-primary procedure mapping outranking a primary diagnosis.
