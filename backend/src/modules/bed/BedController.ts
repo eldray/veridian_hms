@@ -37,7 +37,7 @@ export class BedController extends BaseController {
 
   createBed = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { wardId, bedNumber }: CreateBedInput = req.body;
-    if (!wardId || !bedNumber) return this.badRequest(res, 'Ward ID and bed number are required');
+    if (!wardId || !bedNumber?.trim()) return this.badRequest(res, 'Ward ID and bed number are required');
     if (!this.isValidBedNumber(bedNumber)) return this.badRequest(res, 'Bed number must be alphanumeric (e.g., BED-001, A-01, 101)');
 
     try {
