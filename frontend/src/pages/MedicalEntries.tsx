@@ -2129,17 +2129,19 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
             {/* ── ORDERS TAB ── */}
             {activeTab === 'orders' && (
                 <div className="space-y-4">
-                    {/* Medication and consumable records share one compact switcher. */}
-                    <div className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-1 w-fit">
-                        <button type="button" onClick={() => setMedicationSectionTab('medications')}
-                            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'medications' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
-                            Prescribed Medications <span className="ml-1 opacity-75">({medicationsList.length})</span>
-                        </button>
-                        <button type="button" onClick={() => setMedicationSectionTab('consumables')}
-                            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'consumables' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
-                            Consumables Issued <span className="ml-1 opacity-75">({consumableUses.length})</span>
-                        </button>
-                    </div>
+                    {/* Medication and consumable tabs live in the section header, above their content. */}
+                    <section className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                        <div className="flex min-w-0 items-center gap-1 overflow-x-auto border-b border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2">
+                            <button type="button" onClick={() => setMedicationSectionTab('medications')}
+                                className={`shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-xs font-semibold transition-colors ${medicationSectionTab === 'medications' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'}`}>
+                                Prescribed Medications <span className="ml-1 inline-block opacity-75">({medicationsList.length})</span>
+                            </button>
+                            <button type="button" onClick={() => setMedicationSectionTab('consumables')}
+                                className={`shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-xs font-semibold transition-colors ${medicationSectionTab === 'consumables' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'}`}>
+                                Consumables Issued <span className="ml-1 inline-block opacity-75">({consumableUses.length})</span>
+                            </button>
+                        </div>
+                        <div className="p-3">
 
                     {/* ── MEDICATIONS: prescription beside the dispensed record ── */}
                     {medicationSectionTab === 'medications' && (
@@ -2241,6 +2243,9 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                 onDelete={canAddEntries ? deleteConsumableUse : undefined} />
                         </SectionCard>
                     )}
+
+                        </div>
+                    </section>
 
                     {/* ── LABS: the request beside the results that came back ── */}
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
