@@ -18,7 +18,7 @@ Against the branch's checked-in tariff and catalogues:
 
 These checks only validate code/link structure. They do **not** establish that every clinical grouping is correct according to NHIA Annex C.
 
-## Diagnosis codes requiring Annex C cross-mapping (23 codes)
+## Diagnosis codes requiring Annex C cross-mapping (22 codes)
 
 The diagnosis catalogue has these ICD-10 codes with no *direct* diagnosis-to-G-DRG mapping in our seed. This is **not evidence that NHIA has no applicable G-DRG for them**. Several conditions are grouped under broader G-DRGs, and must be mapped through the exact Annex C inclusion rows and specialty/procedure rules before being considered uncovered:
 
@@ -26,7 +26,7 @@ The diagnosis catalogue has these ICD-10 codes with no *direct* diagnosis-to-G-D
 
 K52.9 (non-infective acute gastroenteritis) has now been linked to MEDI26A and PAED34C, following the NHIA manual's inclusion of K52 under MEDI26 and the existing paediatric non-specific abdominal mapping pattern. The direct mapping-gap review queue is therefore reduced to 22 codes. The paediatric link is an inferred umbrella mapping from the existing mapping convention and remains subject to Annex C verification. These codes are tracked as a review queue, not asserted to be tariff gaps. The prior regression test that asserted this list as an unmapped-gap set was removed and replaced with a catalogue-presence check. Do not assign guessed codes. Map each diagnosis to the actual Annex C grouping and its applicable age/specialty/procedure conditions. Some history/status codes and brought-in-dead records may not be claim-driving diagnoses and require separate handling.
 
-The manual explicitly confirms broader groupings—for example, Crohn's disease, ulcerative colitis and IBS in MEDI25 (Gastrointestinal Tract Bleeding); dyspepsia and chronic pancreatitis in MEDI26 (Non-Specific Abdominal Conditions); and STDs in MEDI31 (Localised Infections). These examples illustrate why absence of a direct ICD link cannot be equated with absence of a G-DRG. These group examples are not a substitute for validating each of the 23 codes.
+The manual explicitly confirms broader groupings—for example, Crohn's disease, ulcerative colitis and IBS in MEDI25 (Gastrointestinal Tract Bleeding); dyspepsia and chronic pancreatitis in MEDI26 (Non-Specific Abdominal Conditions); and STDs in MEDI31 (Localised Infections). These examples illustrate why absence of a direct ICD link cannot be equated with absence of a G-DRG. These group examples are not a substitute for validating each of the 22 remaining codes.
 
 ## Duplicate diagnosis catalogue entries
 
