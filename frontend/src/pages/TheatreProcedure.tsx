@@ -1737,6 +1737,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── COMPLETION BAR + ACTION BUTTONS ────────────── */}
+              {selectedProcedure && (
               <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)] p-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-3">
@@ -1808,6 +1809,7 @@ export default function TheatreProcedure() {
                   </div>
                 </div>
               </div>
+              )}
             </div>
           ) : procedures.length > 0 ? (
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center">
