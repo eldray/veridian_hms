@@ -52,8 +52,8 @@ export class BedController extends BaseController {
 
   updateBed = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const data: UpdateBedInput = req.body;
-    if (data.bedNumber && !this.isValidBedNumber(data.bedNumber)) {
-      return this.badRequest(res, 'Bed number must be alphanumeric (e.g., BED-001, A-01, 101)');
+    if (data.bedNumber !== undefined && (!data.bedNumber.trim() || !this.isValidBedNumber(data.bedNumber))) {
+      return this.badRequest(res, 'Bed number is required and must be alphanumeric (e.g., BED-001, A-01, 101)');
     }
 
     try {
