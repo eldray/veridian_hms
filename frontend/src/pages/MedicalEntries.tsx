@@ -2426,6 +2426,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                         </p>
                                                     )}
                                                 </TdPrimary>
+                                                <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
                                                 <Td>
                                                     <p>{proc.createdAt ? new Date(proc.createdAt).toLocaleString() : '—'}</p>
                                                     <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">{proc.User_Procedure_createdByIdToUser?.fullName || proc.createdBy?.fullName || 'Unknown user'}</p>
