@@ -1538,7 +1538,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
    * deleting the financial audit trail. This is normally a no-op for uncompleted
    * work, but also cleans up any stale/previously synchronized source line.
    */
-  private async removeLinkedClinicalBillLine(tx: any, attendanceId: string, sourceKey: string, actorId: string, reason: string) {
+  private async removeLinkedClinicalBillLine(tx: any, attendanceId: string, sourceKey: string, userId: string | undefined, reason: string) {
     const line = await tx.billLineItem.findFirst({
       where: { sourceKey, isVoided: false },
       include: { bill: true },
@@ -1550,6 +1550,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     if (Number(line.bill.paidAmount || 0) > 0) {
       throw new ConflictError('This clinical charge has payment history. Process the required refund or credit adjustment before removing the order.');
     }
+    const actorId = await this.requireActorId(userId);
 
     const now = new Date();
     await tx.billLineItem.update({
@@ -1628,7 +1629,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async removeMedication(encounterId: string, medicationId: string, userId: string) {
-    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.findFirst({
         where: { id: medicationId, attendanceId: encounterId },
@@ -1643,7 +1643,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       }
       await this.requireOpenEncounter(encounterId, tx);
       await this.ensureClinicalOrderNotClaimed(tx, 'medicationId', medicationId);
-      await this.removeLinkedClinicalBillLine(tx, encounterId, `medication:${medicationId}`, actorId, 'Undispensed prescription removed from Medical Entries');
+      await this.removeLinkedClinicalBillLine(tx, encounterId, `medication:${medicationId}`, userId, 'Undispensed prescription removed from Medical Entries');
       const deleted = await tx.medication.deleteMany({
         where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
       });
@@ -1757,7 +1757,6 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   }
 
   async removeLabTest(encounterId: string, labOrderId: string, userId: string) {
-    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.labTest.findFirst({
         where: { id: labOrderId, attendanceId: encounterId }, select: { id: true, status: true },
@@ -1768,7 +1767,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
       }
       await this.requireOpenEncounter(encounterId, tx);
       await this.ensureClinicalOrderNotClaimed(tx, 'labTestId', labOrderId);
-      await this.removeLinkedClinicalBillLine(tx, encounterId, `lab-test:${labOrderId}`, actorId, 'Laboratory order removed/cancelled from Medical Entries');
+      await this.removeLinkedClinicalBillLine(tx, encounterId, `lab-test:${labOrderId}`, userId, 'Laboratory order removed/cancelled from Medical Entries');
       if (current.status === 'requested') {
         const deleted = await tx.labTest.deleteMany({ where: { id: labOrderId, attendanceId: encounterId, status: 'requested' } });
         if (deleted.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
@@ -1937,7 +1936,6 @@ async addScan(encounterId: string, data: any, userId: string) {
   }
 
   async removeScan(encounterId: string, scanId: string, userId: string) {
-    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.scan.findFirst({
         where: { id: scanId, attendanceId: encounterId }, select: { id: true, status: true },
@@ -1948,7 +1946,7 @@ async addScan(encounterId: string, data: any, userId: string) {
       }
       await this.requireOpenEncounter(encounterId, tx);
       await this.ensureClinicalOrderNotClaimed(tx, 'scanId', scanId);
-      await this.removeLinkedClinicalBillLine(tx, encounterId, `scan:${scanId}`, actorId, 'Scan order removed/cancelled from Medical Entries');
+      await this.removeLinkedClinicalBillLine(tx, encounterId, `scan:${scanId}`, userId, 'Scan order removed/cancelled from Medical Entries');
       if (current.status === 'requested') {
         const deleted = await tx.scan.deleteMany({ where: { id: scanId, attendanceId: encounterId, status: 'requested' } });
         if (deleted.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
@@ -2194,7 +2192,6 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeProcedure(encounterId: string, procedureId: string, userId: string) {
-    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.procedure.findFirst({
         where: { id: procedureId, attendanceId: encounterId }, select: { id: true, status: true },
@@ -2205,7 +2202,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       }
       await this.requireOpenEncounter(encounterId, tx);
       await this.ensureClinicalOrderNotClaimed(tx, 'procedureId', procedureId);
-      await this.removeLinkedClinicalBillLine(tx, encounterId, `procedure:${procedureId}`, actorId, 'Procedure order removed/cancelled from Medical Entries');
+      await this.removeLinkedClinicalBillLine(tx, encounterId, `procedure:${procedureId}`, userId, 'Procedure order removed/cancelled from Medical Entries');
       if (current.status === 'scheduled') {
         const deleted = await tx.procedure.deleteMany({ where: { id: procedureId, attendanceId: encounterId, status: 'scheduled' } });
         if (deleted.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
