@@ -453,7 +453,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
                 ))}
               </select>
             </div>
-
+          </div>
         </div>
 
         {/* Footer */}
