@@ -75,3 +75,28 @@ These may be catalogue label variants or duplicates; they should be reconciled w
 - NHIA Downloads portal: https://www.nhis.gov.gh/downloads
 - NHIA Tariffs Operation Manual v22: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf
 - NHIA e-Claims XML standard v8.6: https://nhis.gov.gh/files/NHIA%20Standardized%20e-claims%20interface%28XML%29%20v8.6.pdf
+
+
+## Complete diagnosis catalogue mapping coverage (PR branch update)
+
+Static reconciliation of the current catalogue and mapping table:
+- Diagnosis catalogue: **631 unique ICD codes**.
+- Diagnosis-to-G-DRG mapping entries: **631 unique ICD keys** (complete catalogue coverage).
+- Missing diagnosis mapping keys: **0**.
+- Duplicate diagnosis mapping keys: **0**.
+- Obsolete mapping keys not in catalogue: **0**.
+- Invalid tariff references in diagnosis mappings: **0** (all referenced codes exist in the checked-in tariff dataset).
+
+### Verification status
+- **497 existing mapping entries** remain eligible for seed/automatic resolution, subject to the prior audit and the resolver's encounter/age/facility rules.
+- **134 newly completed candidate mappings are marked `status: 'provisional'`** with explanatory notes. They are catalogue-complete but have not been verified code-by-code against the exact NHIA Annex C rows. The diagnosis seed now deliberately skips provisional mappings so they do not silently become automatic claim tariff links.
+- This means mapping coverage is complete structurally, but tariff accuracy is **not** claimed to be 100% verified. The provisional list must be validated and status promoted only when official tariff evidence is confirmed.
+
+### Resolver rules retained
+- OPD attendance stays OPD; a completed procedure may carry its own ZOOM tariff line where the claim format supports it. Do not change the encounter principal solely because a minor ZOOM procedure was performed.
+- Routine ANC/PNC attendance remains distinct and uses OPDC02A when non-admitted.
+- Medical inpatient principal diagnosis uses the applicable medical/paediatric grouping; admitted OBGYN cases use the OBGY family where applicable.
+- Surgical inpatient G-DRG selection requires a qualifying performed procedure and actual admission. A minor outpatient procedure must not trigger inpatient surgery grouping.
+- Adult/child tariff selection follows the tariff age split and the actual available code.
+- Observation/detention is ZOOM; procedure tariffs must remain distinct from diagnosis-only links.
+
