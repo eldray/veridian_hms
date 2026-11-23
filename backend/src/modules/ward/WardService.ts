@@ -92,10 +92,11 @@ export class WardService extends BaseService {
 
   async deleteWard(id: string): Promise<void> {
     const ward = await this.getWardById(id);
-    if (ward.occupiedBeds > 0 || ward.Bed?.some((bed: any) => bed.isOccupied)) {
+    const wardDetails = ward as any;
+    if (ward.occupiedBeds > 0 || wardDetails.Bed?.some((bed: any) => bed.isOccupied)) {
       throw new Error('Cannot delete ward with occupied beds');
     }
-    if ((ward._count?.Bed || 0) > 0) {
+    if ((wardDetails._count?.Bed || 0) > 0) {
       throw new Error('Remove all registered beds before deleting this ward');
     }
     if ((ward.currentAdmissions || 0) > 0) {
