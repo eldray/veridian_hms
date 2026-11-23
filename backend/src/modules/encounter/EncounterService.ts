@@ -770,7 +770,7 @@ export class EncounterService extends BaseService {
     });
   }
 
-  async getVitalsByEncounter(id: string) { return this.prisma.vitals.findMany({ where: { attendanceId: id }, orderBy: { recordedAt: 'desc' } }); }
+  async getVitalsByEncounter(id: string) { return this.prisma.vitals.findMany({ where: { attendanceId: id }, include: { User: { select: { fullName: true } } }, orderBy: { recordedAt: 'desc' } }); }
 
   /**
    * Every vitals reading for many encounters in ONE query. The patient history tab used to
