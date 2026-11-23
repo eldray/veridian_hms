@@ -41,6 +41,9 @@ export interface CreateWardDTO {
   dailyNHISRate?: number;
   dailyInsuranceRate?: number;
   dailyCorporateRate?: number;
+  description?: string | null;
+  location?: string | null;
+  floor?: string | null;
   isNHISCovered?: boolean;
   nhisRequiresAuth?: boolean;
   isPrivateInsExempted?: boolean;
