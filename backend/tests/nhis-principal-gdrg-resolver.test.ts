@@ -166,6 +166,19 @@ describe('NHIS principal G-DRG resolver', () => {
     expect(nhisCaseType({ attendanceType: 'delivery', encounterCategory: 'ipd', hasAdmission: true })).toBe('ipd');
   });
 
+  it('prioritizes a performed surgical procedure even when its link is not primary', () => {
+    const resolved = resolvePrincipalGdrg({
+      caseType: 'ipd',
+      age: 45,
+      facilityLevel: 2,
+      isSurgicalCase: true,
+      links: [row('MEDI31A', true), row('ASUR01A', false, 'procedure')],
+      fallbacks: OPDC06,
+    });
+    expect(resolved.tariff.gdrgCode).toBe('ASUR01A');
+    expect(resolved.origin).toBe('procedure');
+  });
+
   /**
    * A pregnancy that was admitted is an obstetric inpatient case, whatever the desk labelled the
    * visit; reading the label first priced it as the bundled antenatal OPD code on an IPD header.
