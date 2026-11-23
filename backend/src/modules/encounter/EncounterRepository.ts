@@ -1544,6 +1544,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       include: { bill: true },
     });
     if (!line || line.bill.attendanceId !== attendanceId) return;
+    if (line.bill.status === 'cancelled') {
+      throw new ConflictError('The linked bill is already cancelled; reconcile the bill before removing this clinical order.');
+    }
     if (Number(line.bill.paidAmount || 0) > 0) {
       throw new ConflictError('This clinical charge has payment history. Process the required refund or credit adjustment before removing the order.');
     }
