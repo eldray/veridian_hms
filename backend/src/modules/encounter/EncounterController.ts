@@ -287,8 +287,8 @@ export class EncounterController extends BaseController {
 
   removeMedication = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, medicationId } = req.params;
-    await this.service.removeMedication(encounterId, medicationId);
-    return this.ok(res, null, 'Medication removed successfully');
+    const result = await this.service.removeMedication(encounterId, medicationId, req.user!.id);
+    return this.ok(res, result, 'Medication removed successfully');
   });
 
   // ============================================
@@ -315,8 +315,8 @@ export class EncounterController extends BaseController {
 
   removeLabTest = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, labTestId } = req.params;
-    await this.service.removeLabTest(encounterId, labTestId);
-    return this.ok(res, null, 'Lab order removed successfully');
+    const result = await this.service.removeLabTest(encounterId, labTestId, req.user!.id);
+    return this.ok(res, result, result.status === 'cancelled' ? 'Laboratory order cancelled successfully' : 'Laboratory request deleted successfully');
   });
 
   addScan = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -352,8 +352,8 @@ export class EncounterController extends BaseController {
 
   removeScan = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, scanId } = req.params;
-    await this.service.removeScan(encounterId, scanId);
-    return this.ok(res, null, 'Scan removed successfully');
+    const result = await this.service.removeScan(encounterId, scanId, req.user!.id);
+    return this.ok(res, result, result.status === 'cancelled' ? 'Scan cancelled successfully' : 'Scan request deleted successfully');
   });
 
   // ============================================
@@ -379,8 +379,8 @@ export class EncounterController extends BaseController {
 
   removeProcedure = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, procedureId } = req.params;
-    await this.service.removeProcedure(encounterId, procedureId);
-    return this.ok(res, null, 'Procedure removed successfully');
+    const result = await this.service.removeProcedure(encounterId, procedureId, req.user!.id);
+    return this.ok(res, result, result.status === 'cancelled' ? 'Procedure cancelled successfully' : 'Procedure request deleted successfully');
   });
 
   addService = this.asyncHandler(async (req: AuthRequest, res: Response) => {

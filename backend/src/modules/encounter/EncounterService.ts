@@ -791,19 +791,19 @@ export class EncounterService extends BaseService {
   
   async addPrescription(id: string, data: AddPrescriptionDTO, userId: string) { return this.repository.addPrescription(id, data, userId); }
   async updateMedication(encounterId: string, medId: string, data: any, userId: string) { return this.repository.updateMedication(encounterId, medId, data, userId); }
-  async removeMedication(id: string, medId: string) { return this.repository.removeMedication(id, medId); }
+  async removeMedication(id: string, medId: string, userId: string) { return this.repository.removeMedication(id, medId, userId); }
   
   async addLabTest(id: string, data: AddLabTestDTO, userId: string) { return this.repository.addLabTest(id, data, userId); }
   async updateLabTestStatus(labId: string, status: string, results: any, userId: string) { return this.repository.updateLabTestStatus(labId, status, results, userId); }
-  async removeLabTest(id: string, labId: string) { return this.repository.removeLabTest(id, labId); }
+  async removeLabTest(id: string, labId: string, userId: string) { return this.repository.removeLabTest(id, labId, userId); }
   
   async addScan(id: string, data: AddScanDTO, userId: string) { return this.repository.addScan(id, data, userId); }
   async updateScanStatus(scanId: string, status: string, results: any, userId: string) { return this.repository.updateScanStatus(scanId, status, results, userId); }
-  async removeScan(id: string, scanId: string) { return this.repository.removeScan(id, scanId); }
+  async removeScan(id: string, scanId: string, userId: string) { return this.repository.removeScan(id, scanId, userId); }
   
   async addProcedure(id: string, data: AddProcedureDTO, userId: string) { return this.repository.addProcedure(id, data, userId); }
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) { return this.repository.updateProcedureStatus(procedureId, status, data, userId); }
-  async removeProcedure(id: string, procId: string) { return this.repository.removeProcedure(id, procId); }
+  async removeProcedure(id: string, procId: string, userId: string) { return this.repository.removeProcedure(id, procId, userId); }
   
   async addService(id: string, data: AddServiceDTO, userId: string) { return this.repository.addService(id, data, userId); }
   async addServices(id: string, items: any[], userId: string) { return this.repository.addServices(id, items, userId); }
