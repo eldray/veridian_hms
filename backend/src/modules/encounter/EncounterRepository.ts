@@ -1540,10 +1540,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
    */
   private async removeLinkedClinicalBillLine(tx: any, attendanceId: string, sourceKey: string, actorId: string, reason: string) {
     const line = await tx.billLineItem.findFirst({
-      where: { sourceKey, isVoided: false, bill: { attendanceId } },
+      where: { sourceKey, isVoided: false },
       include: { bill: true },
     });
-    if (!line) return;
+    if (!line || line.bill.attendanceId !== attendanceId) return;
     if (Number(line.bill.paidAmount || 0) > 0) {
       throw new ConflictError('This clinical charge has payment history. Process the required refund or credit adjustment before removing the order.');
     }
