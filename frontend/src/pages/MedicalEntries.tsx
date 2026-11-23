@@ -2072,19 +2072,25 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                     ),
                                 },
                                 {
-                                    label: 'Referred To/From',
-                                    content: (
-                                        <div className="space-y-1.5">
-                                            <select value={referralDirection} onChange={e => setReferralDirection(e.target.value as 'from' | 'to')} disabled={!canAddEntries || isClinicalFinalized}
-                                                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] disabled:opacity-60">
-                                                <option value="from">Referred from</option>
-                                                <option value="to">Referred to</option>
-                                            </select>
-                                            <input type="text" value={referringFacility} onChange={e => setReferringFacility(e.target.value)} disabled={!canAddEntries || isClinicalFinalized}
-                                                placeholder={referralDirection === 'from' ? 'Referring facility / clinician' : 'Receiving facility / clinician'}
-                                                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-2.5 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] disabled:opacity-60" />
-                                        </div>
-                                    ),
+                                    label: 'Referral',
+                                    content: (() => {
+                                        const attendanceReferral = (currentAttendance as any)?.referral;
+                                        const referralRecord = Array.isArray(attendanceReferral)
+                                            ? attendanceReferral.find((item: any) => item?.referralType === 'outgoing' || item?.referralType === 'incoming') || attendanceReferral[0]
+                                            : attendanceReferral;
+                                        const isOutgoing = referralRecord?.referralType === 'outgoing'
+                                            || (!referralRecord && referralDirection === 'to');
+                                        const facility = isOutgoing
+                                            ? referralRecord?.referredToFacility || (referralDirection === 'to' ? referringFacility : '')
+                                            : referralRecord?.referredFromFacility || referringFacility;
+                                        return (
+                                            <div className="min-h-[34px] rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)]">
+                                                {facility?.trim()
+                                                    ? <span><span className="font-semibold">{isOutgoing ? 'Referred to' : 'Referred from'}:</span> {facility}</span>
+                                                    : <span className="text-[var(--text-tertiary)]">No referral data</span>}
+                                            </div>
+                                        );
+                                    })(),
                                 },
                                 {
                                     label: 'Admission Status',
