@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MAPPINGS as diagnosisGdrgMappings } from '../src/seed/diagnosisGdrgLink';
 import { MAPPINGS as procedureGdrgMappings } from '../src/seed/procedureGdrgMappings';
+import { resolveUniqueProcedureCatalogLinks } from '../src/seed/procedureGdrgLink';
 import tariffData from '../src/data/gdrgTariffs.json';
 import diagnosesCatalogue from '../src/data/diagnoses.json';
 import {
@@ -234,6 +235,20 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
       .filter((code) => !mappedCodes.has(code))
       .sort();
     expect(unmappedCodes).toEqual([...expectedUnmappedIcd].sort());
+  });
+
+
+  it('does not silently pick a ServiceCatalog row when a procedure template has multiple links', () => {
+    const result = resolveUniqueProcedureCatalogLinks([
+      { id: 'catalog-1', procedureTemplateId: 'template-1' },
+      { id: 'catalog-2', procedureTemplateId: 'template-1' },
+      { id: 'catalog-3', procedureTemplateId: 'template-2' },
+      { id: 'catalog-4', procedureTemplateId: null },
+    ]);
+    expect(result.templateIdToCatalogId.get('template-1')).toBeUndefined();
+    expect(result.ambiguousTemplateIds.has('template-1')).toBe(true);
+    expect(result.templateIdToCatalogId.get('template-2')).toBe('catalog-3');
+    expect(result.ambiguousTemplateIds.has('template-2')).toBe(false);
   });
 
   it('does not contain duplicate diagnosis or procedure mapping keys', () => {
