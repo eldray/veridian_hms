@@ -1186,6 +1186,143 @@ setScanResultFor(null);
 } catch (err: any) { toastError('Save failed', err.message); }
 finally { setSavingResult(false); }
 };
+const handleDaySurgery = () => {
+setPendingAdmissionType('day_surgery');
+setShowBedWardModal(true);
+};
+const executeDaySurgery = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
+if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
+setIsProcessing(true);
+try {
+await updateBed(bedId, {
+isOccupied: true,
+currentPatientId: selectedPatientId
+});
+await updateAttendance(selectedAttendanceId, {
+encounterCategory: 'daycase',
+status: 'admitted',
+attendanceType: 'surgery',
+bedId: bedId,
+wardId: wardId,
+updatedById: user?.id
+});
+success('Day Surgery', `Patient assigned to Bed ${bedNumber} in ${wardName} for day surgery`);
+await refreshAttendance(selectedAttendanceId);
+setShowBedWardModal(false);
+setPendingAdmissionType(null);
+} catch (err: any) {
+toastError('Day Surgery Failed', err.response?.data?.message || err.message);
+} finally {
+setIsProcessing(false);
+}
+};
+const handleDetainPatient = () => {
+setPendingAdmissionType('detention');
+setShowBedWardModal(true);
+};
+const executeDetention = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
+if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
+setIsProcessing(true);
+try {
+await createAdmission({
+attendanceId: selectedAttendanceId,
+bedId,
+wardId,
+admissionType: 'detention_observation',
+admissionSource: 'opd',
+admissionDate: new Date().toISOString(),
+admissionNotes: [
+admissionNotes.trim(),
+`[Detention] ${detentionReason || 'Placed under observation for monitoring'}. Expected observation period: ${detentionHours} hours. Bed: ${bedNumber}, Ward: ${wardName}`,
+].filter(Boolean).join(' '),
+});
+success('Detained', `Patient placed under observation for ${detentionHours} hours in Bed ${bedNumber}, ${wardName}`);
+await refreshAttendance(selectedAttendanceId);
+setShowBedWardModal(false);
+setPendingAdmissionType(null);
+setDetentionHours(24);
+setDetentionReason('');
+} catch (err: any) {
+toastError('Detention Failed', err.response?.data?.message || err.message);
+} finally {
+setIsProcessing(false);
+}
+};
+const handleDirectAdmit = () => {
+setPendingAdmissionType('ipd');
+setShowBedWardModal(true);
+};
+const executeAdmission = async (bedId: string, wardId: string, wardName: string, bedNumber: string, admissionNotes: string) => {
+if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
+setIsProcessing(true);
+try {
+await createAdmission({
+attendanceId: selectedAttendanceId,
+bedId,
+wardId,
+admissionType: selectedAdmissionClass,
+admissionSource: selectedAdmissionSource,
+admissionDate: new Date().toISOString(),
+});
+success('Admitted', `Patient admitted to Bed ${bedNumber} in ${wardName} as formal IPD`);
+await refreshAttendance(selectedAttendanceId);
+setShowBedWardModal(false);
+setPendingAdmissionType(null);
+setAdmissionNotes('');
+setSelectedAdmissionClass('emergency');
+setSelectedAdmissionSource('opd');
+} catch (err: any) {
+toastError('Admission Failed', err.response?.data?.message || err.message);
+} finally {
+setIsProcessing(false);
+}
+};
+const handleBedWardConfirm = async (bedId: string, wardId: string, wardName: string, bedNumber: string, admissionNotes = '') => {
+switch (pendingAdmissionType) {
+case 'day_surgery':
+await executeDaySurgery(bedId, wardId, wardName, bedNumber);
+break;
+case 'detention':
+await executeDetention(bedId, wardId, wardName, bedNumber);
+break;
+case 'ipd':
+await executeAdmission(bedId, wardId, wardName, bedNumber, admissionNotes);
+break;
+default:
+break;
+}
+};
+const handleConvertToIPD = async () => {
+if (!selectedAttendanceId || !currentAttendance) return;
+try {
+await convertDetentionToIPD(selectedAttendanceId, {
+admissionType: 'emergency',
+decisionReason: 'Clinical deterioration requiring full admission',
+clinicalNotes: treatmentPlan || 'Patient requires continued care beyond observation period'
+});
+success('Converted', 'Patient converted to formal IPD admission');
+await refreshAttendance(selectedAttendanceId);
+} catch (err: any) {
+toastError('Conversion Failed', err.response?.data?.message || err.message);
+}
+};
+const handleDischargeFromObservation = async () => {
+if (!selectedAttendanceId || !currentAttendance) return;
+if (currentAttendance.status === 'discharged') {
+toastError('Already discharged', 'This encounter is already closed. Refresh the record before taking further action.');
+return;
+}
+setIsProcessing(true);
+try {
+await dischargeFromEncounter(selectedAttendanceId, { dischargeStatus: 'home' });
+success('Discharged', 'Patient discharged from observation and bed occupancy updated.');
+await refreshAttendance(selectedAttendanceId);
+} catch (err: any) {
+toastError('Discharge Failed', err.response?.data?.message || err.message || 'The patient could not be discharged.');
+} finally {
+setIsProcessing(false);
+}
+};
 const getVitalColor = (type: string, value: any) => {
 if (!value) return 'text-[var(--text-tertiary)]';
 switch (type) {
