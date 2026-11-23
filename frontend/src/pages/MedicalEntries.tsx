@@ -662,6 +662,7 @@ const [treatmentPlan, setTreatmentPlan] = useState('');
 const [isEditingTreatmentPlan, setIsEditingTreatmentPlan] = useState(false);
 const [savingTreatmentPlan, setSavingTreatmentPlan] = useState(false);
 const [treatmentNoteDraft, setTreatmentNoteDraft] = useState('');
+const [treatmentEntryMode, setTreatmentEntryMode] = useState<'plan' | 'progress'>('progress');
 const [followUpDate, setFollowUpDate] = useState('');
 const [referringFacility, setReferringFacility] = useState('');
 const [referralDirection, setReferralDirection] = useState<'from' | 'to'>('from');
@@ -1005,7 +1006,7 @@ onsetDurationQuality: odq || null,
 physicalExamination: physicalExam || null,
 treatmentPlan: treatmentPlan || null,
 assessment: assessment || null,
-treatmentPlanAudit: (currentAttendance?.clinicalNotes as any)?.treatmentPlanAudit || null,
+treatmentPlanAudit: { updatedById: user?.id || null, updatedByName: user?.fullName || user?.username || 'Unknown user', updatedAt: new Date().toISOString() },
 clinicalNotesAudit: (currentAttendance?.clinicalNotes as any)?.clinicalNotesAudit || null,
 reviewOfSystems,
 physicalExamStructured,
@@ -1110,28 +1111,36 @@ err?.response?.data?.message || err.message || 'Please refresh and try again.');
 const handleSaveTreatmentNote = async () => {
 if (!selectedAttendanceId || !treatmentNoteDraft.trim()) return;
 setSavingTreatmentPlan(true);
-const newNote = {
-author: user?.fullName || user?.username || 'Physician',
-authorId: user?.id || null,
-date: new Date().toISOString(),
-text: treatmentNoteDraft.trim(),
-};
-const updatedNotes = [...treatmentNotes, newNote];
+const now = new Date().toISOString();
+const actorName = user?.fullName || user?.username || 'Unknown user';
 try {
-const clinicalNotes = {
-...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
-? currentAttendance.clinicalNotes
-: {}),
-treatmentNotes: updatedNotes,
-};
-await updateAttendance(selectedAttendanceId, { clinicalNotes, updatedById: user?.id });
+const existingClinicalNotes = currentAttendance?.clinicalNotes && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
+? currentAttendance.clinicalNotes as Record<string, any>
+: {};
+if (treatmentEntryMode === 'plan') {
+const treatmentPlanAudit = { updatedById: user?.id || null, updatedByName: actorName, updatedAt: now };
+await updateAttendance(selectedAttendanceId, {
+treatmentPlan: treatmentNoteDraft.trim(),
+clinicalNotes: { ...existingClinicalNotes, treatmentPlanAudit },
+updatedById: user?.id,
+});
+setTreatmentPlan(treatmentNoteDraft.trim());
+success('Treatment plan saved', `Updated by ${actorName}`);
+} else {
+const newNote = { author: actorName, authorId: user?.id || null, date: now, text: treatmentNoteDraft.trim() };
+const updatedNotes = [...treatmentNotes, newNote];
+await updateAttendance(selectedAttendanceId, {
+clinicalNotes: { ...existingClinicalNotes, treatmentNotes: updatedNotes },
+updatedById: user?.id,
+});
 setTreatmentNotes(updatedNotes);
+success('Progress note added', `Entered by ${actorName}`);
+}
 setTreatmentNoteDraft('');
 setIsEditingTreatmentPlan(false);
-success('Saved', 'Planned management note added');
 await getAttendance(selectedAttendanceId);
 } catch (err: any) {
-toastError('Save failed', err?.response?.data?.message || err.message || 'Could not save the note');
+toastError('Save failed', err?.response?.data?.message || err.message || 'Could not save the entry');
 } finally {
 setSavingTreatmentPlan(false);
 }
@@ -2013,8 +2022,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                 </TdPrimary>
                                                 <Td className="font-mono">{item.icdCode || item.diagnosis?.icdCode || item.Diagnosis?.icdCode || '—'}</Td>
                                                 <Td><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></Td>
-                                                <Td>{item.user?.fullName || item.createdBy?.fullName || '—'}</Td>
-                                                <Td>{new Date(item.createdAt).toLocaleDateString()}</Td>
+                                                <Td>{item.User?.fullName || item.user?.fullName || item.createdBy?.fullName || 'Unknown user'}</Td>
+                                                <Td>{new Date(item.date || item.createdAt).toLocaleString()}</Td>
                                                 <Td>{canAddEntries && <><EditBtn onClick={() => setEditingEntry({ type: 'diagnosis', entry: item })} /><DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} /></>}</Td>
                                             </tr>
                                         );
@@ -2131,7 +2140,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                     ? <EmptyState icon={<Pill className="w-9 h-9" />} label="No medications prescribed" />
                                     : (
                                         <div className="w-full min-w-0 overflow-x-auto">
-                                            <Table heads={['Medication', 'Dosage', 'Frequency', 'Days', 'Route', 'Status', '']}>
+                                            <Table heads={['Medication', 'Dosage', 'Frequency', 'Days', 'Route', 'Status', 'Prescribed by / date', '']}>
                                             {medicationsList.map((med: any) => (
                                                 <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                                                     <TdPrimary>
@@ -2143,6 +2152,10 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                     <Td>{med.duration || '—'}</Td>
                                                     <Td>{med.route || '—'}</Td>
                                                     <Td><StatusBadge status={med.status} /></Td>
+                                                    <Td>
+                                                        <p>{med.prescribedAt ? new Date(med.prescribedAt).toLocaleString() : med.createdAt ? new Date(med.createdAt).toLocaleString() : '—'}</p>
+                                                        <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">{med.User_Medication_prescribedByIdToUser?.fullName || med.prescribedBy?.fullName || 'Unknown user'}</p>
+                                                    </Td>
                                                     <Td>
                                                         {canAddEntries && med.status === 'prescribed'
                                                             ? <><EditBtn onClick={() => setEditingEntry({ type: 'medication', entry: med })} /><DelBtn onClick={() => handleDeleteItem('medication', med.id)} /></>
@@ -2230,7 +2243,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                             {labTestsList.length === 0
                                 ? <EmptyState icon={<FlaskConical className="w-9 h-9" />} label="No lab tests requested" />
                                 : (
-                                    <Table heads={['Test', 'Priority', 'Status', 'Date', '']}>
+                                    <Table heads={['Test', 'Priority', 'Status', 'Requested', 'Requested by', '']}>
                                         {labTestsList.map((t: any) => (
                                             <tr key={t.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                                                 <TdPrimary>
@@ -2244,7 +2257,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                         }`}>{t.priority || 'routine'}</span>
                                                 </Td>
                                                 <Td><StatusBadge status={t.status} /></Td>
-                                                <Td>{t.requestedAt ? new Date(t.requestedAt).toLocaleDateString() : t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}</Td>
+                                                <Td>{t.requestedAt ? new Date(t.requestedAt).toLocaleString() : t.createdAt ? new Date(t.createdAt).toLocaleString() : '—'}</Td>
+                                                <Td>{t.User_LabTest_createdByIdToUser?.fullName || t.createdBy?.fullName || 'Unknown user'}</Td>
                                                 <Td>{canAddEntries && (t.status === 'requested' || t.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'lab', entry: t })} /><DelBtn onClick={() => handleDeleteItem('lab', t.id)} /></>}</Td>
                                             </tr>
                                         ))}
@@ -2288,7 +2302,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                             )}
                                                             <p className="text-[10px] text-[var(--text-tertiary)] mt-1">
                                                                 {test.completedAt ? new Date(test.completedAt).toLocaleString() : '—'}
-                                                                {test.User_LabTest_performedByIdToUser?.fullName && ` · ${test.User_LabTest_performedByIdToUser.fullName}`}
+                                                                {test.User_LabTest_performedByIdToUser?.fullName && ` · Result by ${test.User_LabTest_performedByIdToUser.fullName}`}
+                                                                {test.User_LabTest_createdByIdToUser?.fullName && ` · Requested by ${test.User_LabTest_createdByIdToUser.fullName}`}
                                                             </p>
                                                         </td>
                                                     </tr>
@@ -2323,7 +2338,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                             {scansList.length === 0
                                 ? <EmptyState icon={<Scan className="w-9 h-9" />} label="No scans requested" />
                                 : (
-                                    <Table heads={['Study', 'Body Part', 'Priority', 'Status', 'Requested', '']}>
+                                    <Table heads={['Study', 'Body Part', 'Priority', 'Status', 'Requested', 'Requested by', '']}>
                                         {scansList.map((scan: any) => (
                                             <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                                                 <TdPrimary>
@@ -2341,7 +2356,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                         }`}>{scan.priority || 'routine'}</span>
                                                 </Td>
                                                 <Td><StatusBadge status={scan.status} /></Td>
-                                                <Td>{new Date(scan.requestedAt).toLocaleDateString()}</Td>
+                                                <Td>{scan.requestedAt ? new Date(scan.requestedAt).toLocaleString() : scan.createdAt ? new Date(scan.createdAt).toLocaleString() : '—'}</Td>
+                                                <Td>{scan.User_Scan_createdByIdToUser?.fullName || scan.createdBy?.fullName || 'Unknown user'}</Td>
                                                 <Td>{canAddEntries && (scan.status === 'requested' || scan.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'scan', entry: scan })} /><DelBtn onClick={() => handleDeleteItem('scan', scan.id)} /></>}</Td>
                                             </tr>
                                         ))}
@@ -2371,7 +2387,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                     {scan.description && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{scan.description}</p>}
                                                     <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-1">
                                                         {scan.completedAt ? new Date(scan.completedAt).toLocaleString() : '—'}
-                                                        {scan.User_Scan_performedByIdToUser?.fullName && ` · ${scan.User_Scan_performedByIdToUser.fullName}`}
+                                                        {scan.User_Scan_performedByIdToUser?.fullName && ` · Reported by ${scan.User_Scan_performedByIdToUser.fullName}`}
+                                                        {scan.User_Scan_createdByIdToUser?.fullName && ` · Requested by ${scan.User_Scan_createdByIdToUser.fullName}`}
                                                     </p>
                                                 </TdPrimary>
                                                 <Td className="whitespace-pre-wrap">{scan.findings || scan.result || '—'}</Td>
@@ -2398,7 +2415,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                             {proceduresList.length === 0
                                 ? <EmptyState icon={<Scissors className="w-9 h-9" />} label="No procedures scheduled" />
                                 : (
-                                    <Table heads={['Procedure', 'Scheduled', 'Status', 'Notes', '']}>
+                                    <Table heads={['Procedure', 'Scheduled', 'Entered by / date', 'Status', 'Notes', '']}>
                                         {proceduresList.map((proc: any) => (
                                             <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                                                 <TdPrimary>
@@ -2409,7 +2426,10 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                         </p>
                                                     )}
                                                 </TdPrimary>
-                                                <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
+                                                <Td>
+                                                    <p>{proc.createdAt ? new Date(proc.createdAt).toLocaleString() : '—'}</p>
+                                                    <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">{proc.User_Procedure_createdByIdToUser?.fullName || proc.createdBy?.fullName || 'Unknown user'}</p>
+                                                </Td>
                                                 <Td><StatusBadge status={proc.status} /></Td>
                                                 <Td className="whitespace-pre-wrap">{proc.notes || '—'}</Td>
                                                 <Td>{canAddEntries && (proc.status === 'scheduled' || proc.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'procedure', entry: proc })} /><DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} /></>}</Td>
@@ -2467,7 +2487,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                         {allVitals.length === 0
                             ? <EmptyState icon={<Activity className="w-8 h-8" />} label="No vitals recorded for this visit" />
                             : (
-                                <Table heads={['Date / Time', 'BP', 'Temp', 'Pulse', 'Resp', 'SpO₂', 'Weight', 'Height', 'BMI', 'MUAC']}>
+                                <Table heads={['Date / Time', 'BP', 'Temp', 'Pulse', 'Resp', 'SpO₂', 'Weight', 'Height', 'BMI', 'MUAC', 'Recorded by']}>
                                     {[...allVitals].reverse().map((v: any) => (
                                         <tr key={v.id || v.recordedAt} className="hover:bg-[var(--bg-main)] transition-colors">
                                             <Td>{new Date(v.recordedAt || v.createdAt).toLocaleString()}</Td>
@@ -2480,6 +2500,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                             <Td>{v.height ? `${v.height}cm` : '—'}</Td>
                                             <Td>{v.bmi || '—'}</Td>
                                             <Td>{v.muac || '—'}</Td>
+                                            <Td>{v.User?.fullName || v.user?.fullName || 'Unknown user'}</Td>
                                         </tr>
                                     ))}
                                 </Table>
@@ -2523,46 +2544,46 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                         </p>
                     )}
                 </div>
-                {/* ── DIVIDER ── */}
-                <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
-                    <div className="flex-1 h-px bg-[var(--border-color)]" />
-                    <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
-                        <FileText className="w-3 h-3" /> Treatment Plan
-                    </span>
-                    <div className="flex-1 h-px bg-[var(--border-color)]" />
+                {/* Treatment plan is a single clinical field, not a progress-log entry. */}
+                <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                            <FileText className="h-3 w-3" /> Treatment Plan
+                        </span>
+                        {canAddEntries && !isClinicalFinalized && (
+                            <button type="button" onClick={() => { setTreatmentEntryMode('plan'); setTreatmentNoteDraft(treatmentPlan); setIsEditingTreatmentPlan(true); }}
+                                className="rounded-md border border-[var(--border-color)] px-2.5 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]">
+                                {treatmentPlan ? 'Edit plan' : 'Add plan'}
+                            </button>
+                        )}
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-[var(--text-primary)]">{treatmentPlan || 'No treatment plan recorded.'}</p>
+                    {(currentAttendance?.clinicalNotes as any)?.treatmentPlanAudit?.updatedAt && (
+                        <p className="mt-2 text-[9px] text-[var(--text-tertiary)]">
+                            Last updated by {(currentAttendance?.clinicalNotes as any).treatmentPlanAudit.updatedByName || 'Unknown user'} · {new Date((currentAttendance?.clinicalNotes as any).treatmentPlanAudit.updatedAt).toLocaleString()}
+                        </p>
+                    )}
                 </div>
-                {/* Planned management and instructions are recorded as individual, auditable notes. */}
-                <div className="flex items-center justify-between gap-2 border-b border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+                <div className="flex items-center justify-between gap-2 border-y border-[var(--border-color)] bg-[var(--bg-card)] p-3">
                     <div className="min-w-0">
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
-                            Planned management and instructions
-                        </label>
-                        <p className="mt-0.5 text-[9px] text-[var(--text-tertiary)]">Add notes to the visit log; edit individual entries when needed.</p>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Treatment Notes / Progress Log</label>
+                        <p className="mt-0.5 text-[9px] text-[var(--text-tertiary)]">Record dated clinical progress updates separately from the treatment plan.</p>
                     </div>
                     {canAddEntries && !isClinicalFinalized && (
-                        <button type="button" onClick={() => { setTreatmentNoteDraft(''); setIsEditingTreatmentPlan(true); }}
+                        <button type="button" onClick={() => { setTreatmentEntryMode('progress'); setTreatmentNoteDraft(''); setIsEditingTreatmentPlan(true); }}
                             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-[11px] font-semibold text-white hover:opacity-90">
-                            <Plus className="h-3.5 w-3.5" /> Add note
+                            <Plus className="h-3.5 w-3.5" /> Add progress note
                         </button>
                     )}
                 </div>
-                <div
-                    className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]"
-                    style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
-                >
-                    {treatmentNotes.length > 0 ? (
-                        [...treatmentNotes].reverse().map((note, i) => (
-                            <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
-                                editedBy={note.editedBy} editedAt={note.editedAt}
-                                onEdit={canAddEntries && !isClinicalFinalized ? () => handleEditNote('treatment', treatmentNotes.length - 1 - i) : undefined}
-                                onDelete={canAddEntries && !isClinicalFinalized ? () => handleDeleteNote('treatment', treatmentNotes.length - 1 - i) : undefined} />
-                        ))
-                    ) : (
-                        <div className="flex flex-col items-center justify-center py-8 text-center">
-                            <FileText className="mb-2 h-7 w-7 text-[var(--text-tertiary)] opacity-40" />
-                            <p className="text-[11px] text-[var(--text-tertiary)]">No planned management notes recorded.</p>
-                            {canAddEntries && !isClinicalFinalized && <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Use Add note to record the plan.</p>}
-                        </div>
+                <div className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]" style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}>
+                    {treatmentNotes.length > 0 ? [...treatmentNotes].reverse().map((note, i) => (
+                        <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
+                            editedBy={note.editedBy} editedAt={note.editedAt}
+                            onEdit={canAddEntries && !isClinicalFinalized ? () => handleEditNote('treatment', treatmentNotes.length - 1 - i) : undefined}
+                            onDelete={canAddEntries && !isClinicalFinalized ? () => handleDeleteNote('treatment', treatmentNotes.length - 1 - i) : undefined} />
+                    )) : (
+                        <div className="py-6 text-center text-[11px] text-[var(--text-tertiary)]">No progress notes recorded.</div>
                     )}
                 </div>
             </div>
@@ -2587,8 +2608,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                     <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-[var(--icon-cyan-text)]" />
                         <div>
-                            <h3 id="treatment-note-modal-title" className="text-sm font-bold text-[var(--text-primary)]">Add planned management note</h3>
-                            <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">This entry will be added to the attendance log with your name and timestamp.</p>
+                            <h3 id="treatment-note-modal-title" className="text-sm font-bold text-[var(--text-primary)]">{treatmentEntryMode === 'plan' ? 'Edit Treatment Plan' : 'Add Progress Note'}</h3>
+                            <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">{treatmentEntryMode === 'plan' ? 'The plan is saved in the Treatment Plan field, separately from progress notes.' : 'This progress update will be saved with your name and timestamp.'}</p>
                         </div>
                     </div>
                     <button type="button" aria-label="Close add note" disabled={savingTreatmentPlan}
@@ -2598,10 +2619,10 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                     </button>
                 </div>
                 <div className="max-h-[70vh] space-y-2 overflow-y-auto p-5">
-                    <label htmlFor="treatment-note-draft" className="block text-xs font-semibold text-[var(--text-secondary)]">Planned management and instructions</label>
+                    <label htmlFor="treatment-note-draft" className="block text-xs font-semibold text-[var(--text-secondary)]">{treatmentEntryMode === 'plan' ? 'Planned management and instructions' : 'Clinical progress update'}</label>
                     <textarea id="treatment-note-draft" value={treatmentNoteDraft} onChange={e => setTreatmentNoteDraft(e.target.value)}
                         rows={8} autoFocus
-                        placeholder="Enter the planned management, treatment instructions, investigations, referrals or follow-up…"
+                        placeholder={treatmentEntryMode === 'plan' ? 'Enter the planned management and patient instructions…' : 'Record clinical progress, response to treatment or changes in condition…'}
                         className="w-full resize-y rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-3 text-sm leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" />
                 </div>
                 <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] p-4 sm:flex-row sm:justify-end">
@@ -2610,7 +2631,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                         className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] disabled:opacity-50">Cancel</button>
                     <button type="button" onClick={handleSaveTreatmentNote} disabled={savingTreatmentPlan || !treatmentNoteDraft.trim()}
                         className="rounded-lg bg-[var(--icon-cyan-text)] px-5 py-2 text-xs font-semibold text-white disabled:opacity-50">
-                        {savingTreatmentPlan ? 'Saving…' : 'Save note'}
+                        {savingTreatmentPlan ? 'Saving…' : treatmentEntryMode === 'plan' ? 'Save Treatment Plan' : 'Save Progress Note'}
                     </button>
                 </div>
             </div>
@@ -2660,7 +2681,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
     {showWorklist && (
         <WorklistPanel department="medical"
             onSelectPatient={async (patientId, item) => {
-                if (treatmentNoteDraft.trim() && !(await confirmDialog({ title: 'Discard progress note?', message: 'The progress note you are typing has not been saved. Open another patient and discard it?', confirmText: 'Discard', type: 'warning' }))) return;
+                if (treatmentNoteDraft.trim() && !(await confirmDialog({ title: 'Discard unsaved entry?', message: 'The entry you are typing has not been saved. Open another patient and discard it?', confirmText: 'Discard', type: 'warning' }))) return;
                 setSelectedPatientId(patientId);
                 if (item.attendanceId) setSelectedAttendanceId(item.attendanceId);
                 setShowWorklist(false);
