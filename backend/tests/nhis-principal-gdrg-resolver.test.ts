@@ -275,6 +275,12 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
     expect(obsolete, 'Mappings for diagnosis codes absent from catalogue').toEqual([]);
   });
 
+  it('keeps provisional diagnosis links out of automatic tariff seeding until Annex C verification', () => {
+    const provisional = diagnosisGdrgMappings.filter((mapping) => mapping.status === 'provisional');
+    expect(provisional.length).toBeGreaterThan(0);
+    expect(provisional.every((mapping) => Boolean(mapping.notes))).toBe(true);
+  });
+
   it('keeps a tariff-review queue without treating catalogue gaps as absent NHIA G-DRGs', () => {
     // A diagnosis absent from our direct ICD mapping may still be included in a
     // broader NHIA G-DRG group. Annex C must be checked before declaring it uncovered.
