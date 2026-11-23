@@ -110,3 +110,31 @@ Static reconciliation of the current catalogue and mapping table:
 - CI identified three regressions in the initial resolver tests: two OPD performed-procedure ZOOM links were not being considered as billable because the resolver filtered candidates without their origin; and the catalogue integrity test incorrectly treated intentionally excluded R99 as a required diagnosis mapping.
 - Resolver fix passes the procedure link origin into the billability filter. Coverage test explicitly exempts R99. CI rerun is pending for these fixes.
 - Annex C mapping verification remains in progress; no claim is made that all 134 provisional or 496 prior links are tariff-verified. Only mappings evidenced by Annex C or exact documented tariff rules should be promoted.
+
+
+## Annex C verification pass — 23 November 2026
+
+The following 19 diagnosis records were checked against the exact diagnosis/indication rows in the official NHIA Tariffs Operation Manual v22 and promoted from provisional to verified in the seed. Where the manual only listed an adult or paediatric grouping, the unlisted age-band candidate was removed rather than inferred.
+
+| ICD-10 | Verified G-DRG link(s) | Annex C basis |
+|---|---|---|
+| A04.7 | MEDI23A, PAED31C | Diarrhoea/vomiting; necrotising enterocolitis |
+| I49.9 | MEDI07A | Other cardiac arrhythmias |
+| K30 | MEDI26A | Dyspepsia |
+| K62.5 | MEDI25A | K62 other diseases of anus and rectum |
+| K70.10 | MEDI24A | K70 alcoholic liver disease |
+| L23.9 | MEDI31A, PAED26C | Adult localised infections; paediatric skin/subcutaneous diseases |
+| L30.9 | MEDI18A, PAED26C | Adult and paediatric skin/subcutaneous diseases |
+| M25.50, M25.60, M25.40 | MEDI30A, PAED38C | M25 other joint disorders in both age-band tables |
+| R10.84 | MEDI26A, PAED34C | R10.4/R10.8 abdominal pain groupings |
+| D57.00, D57.01 | MEDI16A, PAED24C | D57.0 haemoglobinopathy with crisis |
+| N72 | OBGY09A | Inflammatory disease of cervix uteri/vulva |
+| N95.1 | OBGY09A | Menopausal disorders |
+| O12.1 | OBGY09A | Gestational oedema/proteinuria |
+| O13.9 | OBGY09A | Gestational hypertension without significant proteinuria |
+| O24.419 | OBGY09A | Diabetes in pregnancy |
+| O30.003 | OBGY09A | Multiple gestation |
+
+**Not yet complete:** 115 diagnosis candidates remain provisional and are still excluded from automatic seeding. The other 496 legacy mapping records have not yet been individually reconciled against every Annex C indication. Structural presence in the local tariff JSON is not proof of clinical mapping correctness. No claim of 100% mapping verification is made.
+
+Source: NHIA Tariffs Operation Manual v22, Annex C, adult medicine and paediatrics (MEDI/PAED tables), and obstetrics/gynaecology (OBGY table). Official PDF: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf.
