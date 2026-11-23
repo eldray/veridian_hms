@@ -162,6 +162,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     if (!selectedServiceCatalog) { error('No pricing', 'This medication has no pricing configured.'); return; }
     if (!dosage.trim()) { error('Missing dosage', 'Please enter the dosage.'); return; }
     if (!frequency) { error('Missing frequency', 'Please select a frequency.'); return; }
+    if (!duration) { error('Missing days', 'Please select the prescription duration.'); return; }
     if (isBlocked(selectedClashes)) {
       error('Allergy conflict', 'This drug clashes with an allergy recorded for this patient.');
       return;
@@ -438,7 +439,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
 
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
-                Duration
+                Days
               </label>
               <select
                 value={duration}
@@ -467,7 +468,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!canEdit || !dosage.trim() || !frequency || isSubmitting || blockingClashes.length > 0}
+            disabled={!canEdit || !dosage.trim() || !frequency || !duration || isSubmitting || blockingClashes.length > 0}
             className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
           >
             {isSubmitting
