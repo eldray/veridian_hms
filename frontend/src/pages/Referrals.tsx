@@ -458,6 +458,7 @@ export default function Referrals() {
       } else {
         await createIncomingReferral({
           patientId: selectedPatientId,
+          attendanceId: selectedAttendanceId || undefined,
           referralReason: reason,
           referralNotes: formData.referralNotes,
           urgency: formData.urgency,
