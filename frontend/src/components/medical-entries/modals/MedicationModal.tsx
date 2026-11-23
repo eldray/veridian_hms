@@ -184,7 +184,9 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
         serviceCatalogId: selectedServiceCatalog.id,
         dosage: dosage.trim(),
         frequency,
-        duration: duration.trim(),
+        duration: duration.trim()
+          ? (Number(duration) === 1 ? '24 hrs' : Number(duration) === 2 ? '48 hrs' : `${Number(duration)} days`)
+          : '',
         route,
         instructions: instructions.trim(),
       });
@@ -415,8 +417,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
             </div>
           )}
 
-          {/* Prescription row: Dosage · Frequency · Duration · Route */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Core prescription: dosage, frequency and duration only. Quantity is recorded at dispensing. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
                 Dosage
@@ -450,49 +452,38 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
 
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
-                Duration
+                Days
               </label>
               <input
                 value={duration}
-                onChange={e => setDuration(e.target.value)}
-                placeholder="7 days"
+                onChange={e => setDuration(e.target.value.replace(/[^0-9]/g, ''))}
+                type="number"
+                min="1"
+                step="1"
+                placeholder="e.g. 3"
                 className={inputCls}
                 disabled={!canEdit}
                 autoComplete="off"
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
-                Route
-              </label>
-              <select
-                value={route}
-                onChange={e => setRoute(e.target.value)}
-                className={inputCls}
-                disabled={!canEdit}
-              >
-                {ROUTES.map(r => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
+          <details className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2">
+            <summary className="cursor-pointer text-[11px] font-semibold text-[var(--text-secondary)]">Additional details (optional)</summary>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3">
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Route</label>
+                <select value={route} onChange={e => setRoute(e.target.value)} className={inputCls} disabled={!canEdit}>
+                  {ROUTES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Instructions</label>
+                <textarea value={instructions} onChange={e => setInstructions(e.target.value)} rows={2}
+                  placeholder="e.g. Take with food, avoid alcohol…" className={`${inputCls} resize-none`} disabled={!canEdit} />
+              </div>
             </div>
-          </div>
-
-          {/* Instructions */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
-              Instructions <span className="normal-case font-normal">(optional)</span>
-            </label>
-            <textarea
-              value={instructions}
-              onChange={e => setInstructions(e.target.value)}
-              rows={2}
-              placeholder="e.g. Take with food, avoid alcohol…"
-              className={`${inputCls} resize-none`}
-              disabled={!canEdit}
-            />
-          </div>
+          </details>
         </div>
 
         {/* Footer */}
