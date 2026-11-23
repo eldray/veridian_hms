@@ -1651,7 +1651,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
 async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   const actorId = await this.requireActorId(userId);
-  await this.requireOpenEncounter(encounterId, tx);
+  await this.requireOpenEncounter(encounterId);
   let templateId: string | undefined;
 
   if (data.serviceCatalogId) {
@@ -1782,7 +1782,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
 
 async addScan(encounterId: string, data: any, userId: string) {
   const actorId = await this.requireActorId(userId);
-  await this.requireOpenEncounter(encounterId, tx);
+  await this.requireOpenEncounter(encounterId);
   let templateId: string | undefined;
   const serviceCatalogId = data.serviceCatalogId as string | undefined;
 
@@ -1962,7 +1962,7 @@ async addScan(encounterId: string, data: any, userId: string) {
 
 async addProcedure(encounterId: string, data: any, userId: string) {
   const actorId = await this.requireActorId(userId);
-  await this.requireOpenEncounter(encounterId, tx);
+  await this.requireOpenEncounter(encounterId);
 
   // Validate scheduling inputs before looking up templates or writing a procedure.
   let scheduledDate: Date | null = null;
@@ -2220,7 +2220,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async addService(encounterId: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     // Service rendering is a clinical write: reject closed encounters, not merely missing IDs.
-    await this.requireOpenEncounter(encounterId, tx);
+    await this.requireOpenEncounter(encounterId);
     if (!data.serviceCatalogId) throw new ValidationError('A service catalog entry is required');
     const quantity = data.quantity === undefined ? 1 : Number(data.quantity);
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
@@ -2251,7 +2251,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
    */
   async addServices(encounterId: string, items: any[], userId: string) {
     const actorId = await this.requireActorId(userId);
-    await this.requireOpenEncounter(encounterId, tx);
+    await this.requireOpenEncounter(encounterId);
     if (!Array.isArray(items) || items.length === 0) {
       throw new ValidationError('At least one service is required');
     }
@@ -2296,7 +2296,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       select: { id: true },
     });
     if (!current) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
-    await this.requireOpenEncounter(encounterId, tx);
+    await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.serviceRendered.deleteMany({
       where: { id: serviceRenderedId, attendanceId: encounterId },
     });
