@@ -2119,25 +2119,27 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
     if (status === 'completed') updateData.performedAt = new Date();
     // Audit identity and time are authored by the server, never trusted from the browser payload.
-    const actor = await this.prisma.user.findUnique({
-      where: { id: actorId },
-      select: { id: true, fullName: true, username: true },
-    });
-    const previousClinicalRecord: any = current.clinicalRecord || {};
-    const existingAuditLog = Array.isArray(previousClinicalRecord.auditLog) ? previousClinicalRecord.auditLog : [];
-    updateData.clinicalRecord = {
-      ...previousClinicalRecord,
-      ...(data.clinicalRecord || {}),
-      auditLog: [
-        ...existingAuditLog,
-        {
-          action: status === 'completed' ? 'procedure_completed' : status === 'in_progress' ? 'procedure_started_or_updated' : `procedure_${status}`,
-          userId: actorId,
-          userLabel: actor?.fullName || actor?.username || actorId,
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    };
+    if (data.clinicalRecord !== undefined) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { id: true, fullName: true, username: true },
+      });
+      const previousClinicalRecord: any = current.clinicalRecord || {};
+      const existingAuditLog = Array.isArray(previousClinicalRecord.auditLog) ? previousClinicalRecord.auditLog : [];
+      updateData.clinicalRecord = {
+        ...previousClinicalRecord,
+        ...data.clinicalRecord,
+        auditLog: [
+          ...existingAuditLog,
+          {
+            action: status === 'completed' ? 'procedure_completed' : status === 'in_progress' ? 'procedure_documented' : `procedure_${status}`,
+            userId: actorId,
+            userLabel: actor?.fullName || actor?.username || actorId,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+    }
     if (!Object.keys(updateData).length) throw new ValidationError('No procedure changes were provided');
     const updated = await this.prisma.procedure.updateMany({
       where: { id: procedureId, status: current.status },
