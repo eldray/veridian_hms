@@ -337,7 +337,12 @@ getAvailableBeds();
 }, [isOpen]);
 useEffect(() => {
 if (selectedWardId) {
-const wardBeds = availableBeds.filter(bed => bed.wardId === selectedWardId);
+const wardBeds = availableBeds.filter(bed =>
+  bed.wardId === selectedWardId &&
+  !bed.isOccupied &&
+  !bed.currentPatient &&
+  !bed.currentPatientId
+);
 setAvailableBedsInWard(wardBeds);
 setSelectedBedId('');
 setSelectedBedNumber('');
@@ -1726,10 +1731,10 @@ aria-label="Active inpatient admission">
 {linkedAdmission?.admissionNumber && <span className="text-[10px] font-mono text-slate-600 dark:text-slate-300">#{linkedAdmission.admissionNumber}</span>}
 </div>
 <p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-{currentAttendance?.Ward?.wardName || currentAttendance?.ward?.wardName || 'Ward not assigned'}
+{currentAttendance?.Ward?.wardName || currentAttendance?.ward?.wardName || (currentAttendance as any)?.Bed?.Ward?.wardName || linkedAdmission?.attendance?.Ward?.wardName || linkedAdmission?.attendance?.ward?.wardName || linkedAdmission?.ward?.wardName || 'Ward not assigned'}
 {' · '}
-{currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber
-? `Bed ${currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber}`
+{currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber || linkedAdmission?.attendance?.Bed?.bedNumber || linkedAdmission?.attendance?.bed?.bedNumber || linkedAdmission?.bed?.bedNumber
+? `Bed ${currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber || linkedAdmission?.attendance?.Bed?.bedNumber || linkedAdmission?.attendance?.bed?.bedNumber || linkedAdmission?.bed?.bedNumber}`
 : 'Bed not assigned'}
 {linkedAdmission?.admissionDate ? ` · Admitted ${new Date(linkedAdmission.admissionDate).toLocaleDateString()}` : ''}
 </p>
