@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import { useNotificationStore } from '../store/notificationStore';
 import { useAuthStore } from '../store/authStore';
 import { isAdminLike, ALL_ROLES } from '../config/access';
-import { useSettingsStore } from '../store/settingsStore';
 import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
 import { ConfirmationModal } from '../components/ConfirmationModal';
@@ -307,7 +306,10 @@ export default function Notifications() {
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(() => { const s = localStorage.getItem('notificationsPageSize'); return s ? parseInt(s, 10) : 20; });
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = Number(localStorage.getItem('notificationsPageSize'));
+    return [10, 25, 50, 100].includes(saved) ? saved : 10;
+  });
   const isAdmin = isAdminLike(user?.role);
   useEffect(() => { if (isAdmin) getAllUsers(); }, [isAdmin]);
   useEffect(() => { loadData(); }, []);
@@ -443,17 +445,17 @@ export default function Notifications() {
               );
             })}
           </div>
-          <Pagination page={safePage} totalPages={totalPages} itemsPerPage={pageSize} totalItems={filtered.length} noun="notifications" onChange={setCurrentPage} />
+          <Pagination
+            page={safePage}
+            totalPages={totalPages}
+            itemsPerPage={pageSize}
+            totalItems={filtered.length}
+            noun="notifications"
+            onChange={setCurrentPage}
+            pageSizeOptions={[10, 25, 50, 100]}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+          />
         </>
-      )}
-      {filtered.length > 0 && (
-        <div className="flex items-center justify-between px-1 py-1 text-[10px] text-[var(--text-tertiary)]">
-          <span>Showing {paginated.length} of {filtered.length} matching · {notifications?.length || 0} total</span>
-          <div className="flex items-center gap-3">
-            <span>Unread: <strong className="text-[var(--icon-cyan-text)]">{filtered.filter(n => !n.isRead).length}</strong></span>
-            <span>Urgent: <strong className="text-[var(--icon-red-text)]">{filtered.filter(n => n.priority === 'urgent').length}</strong></span>
-          </div>
-        </div>
       )}
       <AdminMessageModal isOpen={isAdminModalOpen} onClose={() => setIsAdminModalOpen(false)} onSend={handleSendMessage} isSending={isSending} users={users} isLoadingUsers={isLoadingUsers} />
       {selectedNotif && (<NotificationDetailModal notification={selectedNotif} onClose={() => setSelectedNotif(null)} onMarkAsRead={() => { handleMarkAsRead(selectedNotif.id); setSelectedNotif(null); }} />)}
