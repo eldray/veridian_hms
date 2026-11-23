@@ -12,6 +12,8 @@ import {
   type ResolverTariff,
 } from '../src/modules/insuranceClaim/helpers/NHISPrincipalGdrgResolver';
 
+const tariffDataByCode = new Map(tariffData.gdrgTariffs.map((entry) => [entry.gdrgCode, entry]));
+
 const tariff = (
   gdrgCode: string,
   overrides: Partial<ResolverTariff> = {}
@@ -25,7 +27,7 @@ const tariff = (
   applicableLevels: [1, 2, 3, 4, 5, 6, 10],
   isZoomCode: gdrgCode.startsWith('ZOOM'),
   isAntenatal: gdrgCode === 'OPDC02A',
-  isSurgical: /^(ASUR|PSUR|ORTH|OPHT|DENT|ENTH|RSUR)/.test(gdrgCode),
+  isSurgical: tariffDataByCode.get(gdrgCode)?.isSurgical ?? false,
   ...overrides,
 });
 
