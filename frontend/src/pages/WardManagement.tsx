@@ -845,8 +845,10 @@ export default function WardManagement() {
                         </button>
                         <button
                           onClick={() => setPendingDeleteWard(ward)}
+                          disabled={getWardBeds(wardId).length > 0}
+                          title={getWardBeds(wardId).length > 0 ? 'Remove all beds before deleting this ward' : 'Delete ward'}
                           aria-label={`Delete ${ward.wardName}`}
-                          className="p-1.5 rounded-lg transition-colors"
+                          className="p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ color: 'var(--text-tertiary)' }}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -1148,8 +1150,10 @@ export default function WardManagement() {
                       </button>
                       <button
                         onClick={() => setPendingDeleteWard(ward)}
+                        disabled={getWardBeds(wardId).length > 0}
+                        title={getWardBeds(wardId).length > 0 ? 'Remove all beds before deleting this ward' : 'Delete ward'}
                         aria-label={`Delete ${ward.wardName}`}
-                        className="p-2 rounded-lg transition-colors"
+                        className="p-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         style={{ color: 'var(--text-tertiary)' }}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1240,6 +1244,7 @@ export default function WardManagement() {
                 {[
                   { label: 'Location', value: selectedWard.location || 'Not specified' },
                   { label: 'Floor', value: selectedWard.floor || 'Not specified' },
+                  { label: 'Configured Capacity', value: `${selectedWard.totalBeds || 0} beds` },
                 ].map(item => (
                   <div key={item.label} className="p-3 rounded-lg" style={{ background: 'var(--bg-main)' }}>
                     <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{item.label}</p>
@@ -1341,7 +1346,31 @@ export default function WardManagement() {
                       }
                       title={occupied ? `Occupied by ${bed.currentPatient?.fullName || 'patient'}` : 'Available'}
                     >
-                      {bed.bedNumber}
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span>{bed.bedNumber}</span>
+                        {canManageWards && !occupied && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleEditBed(bed); }}
+                              title={`Edit bed ${bed.bedNumber}`}
+                              aria-label={`Edit bed ${bed.bedNumber}`}
+                              className="p-1 rounded hover:bg-black/5"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); requestDeleteBed(bed); }}
+                              title={`Delete bed ${bed.bedNumber}`}
+                              aria-label={`Delete bed ${bed.bedNumber}`}
+                              className="p-1 rounded hover:bg-black/5"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
