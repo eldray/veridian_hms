@@ -941,9 +941,11 @@ const proceduresList = currentAttendance?.Procedure || [];
 const medicationsList = currentAttendance?.Medication || [];
 const scansList = currentAttendance?.Scan || [];
 const dispensedMeds = medicationsList.filter(m => m.status === 'dispensed');
-const requestedScans = scansList.filter(s => s.status === 'requested' || s.status === 'scheduled');
+const requestedScans = scansList.filter(s => ['requested', 'scheduled', 'in_progress'].includes(s.status));
 const completedScans = scansList.filter(s => s.status === 'completed');
-const openOrderCount = labTestsList.length + requestedScans.length + proceduresList.length
+const openOrderCount = labTestsList.filter((item: any) => ['requested', 'in_progress'].includes(item.status)).length
++ requestedScans.length
++ proceduresList.filter((item: any) => ['scheduled', 'in_progress'].includes(item.status)).length
 + medicationsList.filter((m: any) => m.status === 'prescribed').length + consumableUses.length;
 const vitalRows: any[] = (currentAttendance as any)?.Vitals?.length
 ? (currentAttendance as any).Vitals
@@ -1128,6 +1130,30 @@ toastError('Save failed', err?.response?.data?.message || err.message || 'Could 
 } finally {
 setSavingTreatmentPlan(false);
 }
+};
+const handleDeleteItem = async (type: string, id: string) => {
+if (!selectedAttendanceId) return;
+try {
+const order = type === 'lab' ? labTestsList.find((item: any) => item.id === id)
+: type === 'scan' ? scansList.find((item: any) => item.id === id)
+: type === 'procedure' ? proceduresList.find((item: any) => item.id === id)
+: type === 'medication' ? medicationsList.find((item: any) => item.id === id)
+: null;
+const willCancel = order?.status === 'in_progress';
+const fn: Record<string, () => Promise<void>> = {
+diagnosis: () => removeDiagnosis(selectedAttendanceId, id),
+lab: () => removeLabTest(selectedAttendanceId, id),
+procedure: () => removeProcedure(selectedAttendanceId, id),
+medication: () => removeMedication(selectedAttendanceId, id),
+scan: () => removeScan(selectedAttendanceId, id),
+};
+await fn[type]?.();
+success(willCancel ? 'Cancelled' : 'Deleted', willCancel
+? `${type} had already started and is now marked as cancelled`
+: `${type} entry removed because work had not started`);
+await getAttendance(selectedAttendanceId);
+await calculateBill(selectedAttendanceId);
+} catch (err: any) { toastError('Delete failed', err.message); }
 };
 const handleEditNote = (type: 'treatment' | 'physician' | 'plan', index: number) => {
 const note = (type === 'treatment' ? treatmentNotes : type === 'plan' ? treatmentPlanEntries : physicianNotes)[index];
