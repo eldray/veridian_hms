@@ -1747,7 +1747,6 @@ allergyReviewStatus={allergyReviewStatus}
 className="min-w-0 flex-1 basis-[320px]"
 />
 {(
-(selectedPatient?.allergies?.length || 0) > 0 ||
 (selectedPatient?.medicalHistories?.length || 0) > 0 ||
 (selectedPatient?.surgicalHistories?.length || 0) > 0 ||
 (selectedPatient?.familyHistories?.length || 0) > 0 ||
@@ -1764,13 +1763,7 @@ Medical history
 Blood type: <strong className="text-[var(--text-primary)]">{selectedPatient?.additionalInfo?.bloodType}</strong>
 </span>
 )}
-{selectedPatient?.allergies?.map((allergy) => (
-<span key={allergy.id || allergy.allergen} className="rounded-md bg-[var(--icon-red-bg)] px-2 py-1 text-[11px] text-[var(--icon-red-text)]">
-Allergy: <strong>{allergy.allergen}</strong>
-{allergy.reaction ? ` — ${allergy.reaction}` : ''}
-{allergy.severity ? ` (${allergy.severity})` : ''}
-</span>
-))}
+
 {selectedPatient?.medicalHistories?.map((history) => (
 <span key={history.id || history.condition} className="rounded-md bg-[var(--bg-card)] px-2 py-1 text-[11px] text-[var(--text-secondary)]">
 Condition: <strong className="text-[var(--text-primary)]">{history.condition}</strong>
