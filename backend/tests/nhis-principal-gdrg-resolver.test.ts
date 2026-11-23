@@ -233,6 +233,13 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
     for (const code of reviewCodes) expect(catalogueCodes.has(code), `Review ICD ${code} exists in catalogue`).toBe(true);
   });
 
+  it('keeps NHIA thoracostomy/chest tube G-DRGs linked for adult and paediatric procedure codes', () => {
+    expect(procedureGdrgMappings.find((mapping) => mapping.procedureCode === 'ASUR03A')?.gdrgCodes).toContain('ASUR03A');
+    expect(procedureGdrgMappings.find((mapping) => mapping.procedureCode === 'PSUR34C')?.gdrgCodes).toContain('PSUR34C');
+    expect(tariffCodes.has('ASUR03A')).toBe(true);
+    expect(tariffCodes.has('PSUR34C')).toBe(true);
+  });
+
   it('does not contain duplicate diagnosis or procedure mapping keys', () => {
     const diagnosisCodes = diagnosisGdrgMappings.map((mapping) => mapping.icdCode);
     const procedureCodes = procedureGdrgMappings.map((mapping) => mapping.procedureCode);
