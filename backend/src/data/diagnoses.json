@@ -1189,9 +1189,9 @@
   },
   {
     "name": "Basal cell carcinoma of skin",
-    "icdCode": "C44.9",
+    "icdCode": "C44.91",
     "description": "Common non-melanoma skin cancer",
-    "tariffCode": "DIAG-C449",
+    "tariffCode": "DIAG-C4491",
     "isChronic": true,
     "morbidityGroup": "all_other_cancers",
     "isActive": true,
@@ -1200,9 +1200,9 @@
   },
   {
     "name": "Squamous cell carcinoma of skin",
-    "icdCode": "C44.9",
+    "icdCode": "C44.92",
     "description": "Non-melanoma skin cancer",
-    "tariffCode": "DIAG-C449-SCC",
+    "tariffCode": "DIAG-C4492",
     "isChronic": true,
     "morbidityGroup": "all_other_cancers",
     "isActive": true,
@@ -2618,28 +2618,6 @@
     "isNHISCovered": true
   },
   {
-    "name": "Trachoma, unspecified",
-    "icdCode": "A71.9",
-    "description": "Chronic chlamydial conjunctivitis leading to blindness",
-    "tariffCode": "DIAG-A719",
-    "isChronic": true,
-    "morbidityGroup": "trachoma",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
-    "name": "Diabetic retinopathy, unspecified",
-    "icdCode": "E11.319",
-    "description": "Diabetes with nonproliferative retinopathy",
-    "tariffCode": "DIAG-E11319",
-    "isChronic": true,
-    "morbidityGroup": "diabetes_mellitus",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
     "name": "Retinal detachment",
     "icdCode": "H33.2",
     "description": "Separation of retina from underlying tissue",
@@ -3938,17 +3916,6 @@
     "isNHISCovered": true
   },
   {
-    "name": "Diabetic foot ulcer",
-    "icdCode": "E11.621",
-    "description": "Foot ulcer due to diabetes mellitus",
-    "tariffCode": "DIAG-E11621",
-    "isChronic": true,
-    "morbidityGroup": "ulcer",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
     "name": "Urticaria (Hives), unspecified",
     "icdCode": "L50.9",
     "description": "Wheals from allergic reaction",
@@ -3986,17 +3953,6 @@
     "icdCode": "A46",
     "description": "Superficial form of cellulitis with clear margins",
     "tariffCode": "DIAG-A46",
-    "isChronic": false,
-    "morbidityGroup": "skin_diseases",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
-    "name": "Herpes zoster (without complications)",
-    "icdCode": "B02.9",
-    "description": "Shingles - reactivation of varicella virus",
-    "tariffCode": "DIAG-B029",
     "isChronic": false,
     "morbidityGroup": "skin_diseases",
     "isActive": true,
@@ -4096,28 +4052,6 @@
     "icdCode": "M16.9",
     "description": "Degenerative hip joint disease",
     "tariffCode": "DIAG-M169",
-    "isChronic": true,
-    "morbidityGroup": "rheumatism_arthritis",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
-    "name": "Gout, unspecified",
-    "icdCode": "M10.9",
-    "description": "Crystal-induced arthritis",
-    "tariffCode": "DIAG-M109",
-    "isChronic": true,
-    "morbidityGroup": "rheumatism_arthritis",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
-    "name": "Gouty arthropathy",
-    "icdCode": "M1A.9",
-    "description": "Chronic gout leading to joint damage",
-    "tariffCode": "DIAG-M1A9",
     "isChronic": true,
     "morbidityGroup": "rheumatism_arthritis",
     "isActive": true,
@@ -4961,17 +4895,6 @@
     "isNHISCovered": true
   },
   {
-    "name": "Postpartum depression",
-    "icdCode": "F53.0",
-    "description": "Depression following childbirth",
-    "tariffCode": "DIAG-F530",
-    "isChronic": false,
-    "morbidityGroup": "depression",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
     "name": "Newborn suspected to have sepsis",
     "icdCode": "P36.9",
     "description": "Bacterial sepsis of newborn, unspecified",
@@ -5046,17 +4969,6 @@
     "morbidityGroup": "all_other_diseases",
     "isActive": true,
     "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
-    "name": "Neonatal tetanus",
-    "icdCode": "A33",
-    "description": "Tetanus in newborn infants",
-    "tariffCode": "DIAG-A33",
-    "isChronic": false,
-    "morbidityGroup": "neonatal_tetanus",
-    "isActive": true,
-    "requiresAuthorization": true,
     "isNHISCovered": true
   },
   {
@@ -5346,28 +5258,6 @@
     "isNHISCovered": true
   },
   {
-    "name": "Diarrhea, unspecified",
-    "icdCode": "R19.7",
-    "description": "Non-infectious diarrhea",
-    "tariffCode": "DIAG-R197",
-    "isChronic": false,
-    "morbidityGroup": "all_other_diseases",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
-    "name": "Constipation, unspecified",
-    "icdCode": "K59.00",
-    "description": "Chronic difficulty passing stool",
-    "tariffCode": "DIAG-K5900",
-    "isChronic": false,
-    "morbidityGroup": "all_other_diseases",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
     "name": "Dysuria",
     "icdCode": "R30.0",
     "description": "Painful urination",
@@ -5396,17 +5286,6 @@
     "tariffCode": "DIAG-R5600",
     "isChronic": false,
     "morbidityGroup": "epilepsy",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
-    "name": "Loss of consciousness, transient",
-    "icdCode": "R55",
-    "description": "Brief fainting episode",
-    "tariffCode": "DIAG-R55-LOC",
-    "isChronic": false,
-    "morbidityGroup": "all_other_diseases",
     "isActive": true,
     "requiresAuthorization": false,
     "isNHISCovered": true
