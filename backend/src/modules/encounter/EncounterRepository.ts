@@ -1533,7 +1533,99 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
-  async removeMedication(encounterId: string, medicationId: string) {
+  /**
+   * Remove a clinical order's linked charge from the attendance bill without
+   * deleting the financial audit trail. This is normally a no-op for uncompleted
+   * work, but also cleans up any stale/previously synchronized source line.
+   */
+  private async removeLinkedClinicalBillLine(tx: any, attendanceId: string, sourceKey: string, actorId: string, reason: string) {
+    const line = await tx.billLineItem.findFirst({
+      where: { sourceKey, isVoided: false, bill: { attendanceId } },
+      include: { bill: true },
+    });
+    if (!line) return;
+    if (Number(line.bill.paidAmount || 0) > 0) {
+      throw new ConflictError('This clinical charge has payment history. Process the required refund or credit adjustment before removing the order.');
+    }
+
+    const now = new Date();
+    await tx.billLineItem.update({
+      where: { id: line.id },
+      data: { isVoided: true, voidReason: reason, voidedAt: now, voidedById: actorId },
+    });
+
+    const activeLines = await tx.billLineItem.findMany({
+      where: { billId: line.billId, isVoided: false },
+      select: { lineTotal: true, vatAmount: true, patientPayableAmount: true, insuranceCoveredAmount: true, pricingBasis: true },
+    });
+    const asNumber = (value: any) => value == null ? 0 : Number(value.toString());
+    const subtotal = activeLines.reduce((sum: number, item: any) => sum + asNumber(item.lineTotal), 0);
+    const taxAmount = activeLines.reduce((sum: number, item: any) => sum + asNumber(item.vatAmount), 0);
+    const insuranceCovered = activeLines.reduce((sum: number, item: any) => sum + asNumber(item.insuranceCoveredAmount), 0);
+    const grossPatientLiability = activeLines.reduce((sum: number, item: any) => {
+      const patientAmount = asNumber(item.patientPayableAmount);
+      const insuranceAmount = asNumber(item.insuranceCoveredAmount);
+      return sum + (item.pricingBasis === 'cash' && patientAmount === 0 && insuranceAmount === 0
+        ? asNumber(item.lineTotal)
+        : patientAmount);
+    }, 0);
+    const patientPayable = Math.max(0, grossPatientLiability - asNumber(line.bill.waiverAmount)) + taxAmount;
+    const totalAmount = subtotal + taxAmount;
+    const paidAmount = asNumber(line.bill.paidAmount);
+    const balance = Math.max(0, patientPayable - paidAmount);
+
+    await tx.bill.update({
+      where: { id: line.billId },
+      data: {
+        subtotal,
+        taxAmount,
+        totalAmount,
+        insuranceCovered,
+        patientPayable,
+        balance,
+        updatedById: actorId,
+        status: balance <= 0 ? 'paid' : paidAmount > 0 ? 'partial' : 'pending',
+      },
+    });
+
+    if (line.bill.paymentMode === 'corporate' && line.bill.corporateAccountId) {
+      const removedCharge = Math.max(0, asNumber(line.bill.totalAmount) - totalAmount);
+      if (removedCharge > 0) {
+        await tx.corporateAccount.update({
+          where: { id: line.bill.corporateAccountId },
+          data: { currentBalance: { decrement: removedCharge } },
+        });
+      }
+    }
+
+    if (typeof tx.bill.aggregate === 'function' && tx.attendance?.update) {
+      const totals = await tx.bill.aggregate({
+        where: { attendanceId, status: { not: 'cancelled' }, paymentMode: { notIn: ['private_insurance', 'corporate'] } },
+        _sum: { totalAmount: true, paidAmount: true, balance: true },
+      });
+      await tx.attendance.update({
+        where: { id: attendanceId },
+        data: {
+          totalBill: asNumber(totals._sum.totalAmount),
+          paidAmount: asNumber(totals._sum.paidAmount),
+          outstandingBalance: asNumber(totals._sum.balance),
+        },
+      });
+    }
+  }
+
+  private async ensureClinicalOrderNotClaimed(tx: any, relationField: 'labTestId' | 'scanId' | 'procedureId' | 'medicationId', id: string) {
+    const claimItem = await tx.insuranceClaimItem.findFirst({
+      where: { [relationField]: id },
+      select: { id: true },
+    });
+    if (claimItem) {
+      throw new ConflictError('This clinical order is already linked to an insurance claim. Correct the claim first before removing the order.');
+    }
+  }
+
+  async removeMedication(encounterId: string, medicationId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.findFirst({
         where: { id: medicationId, attendanceId: encounterId },
@@ -1541,42 +1633,19 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       });
       if (!medication) throw new NotFoundError('Medication', medicationId);
       if (medication.status === 'dispensed' || medication.status === 'administered') {
-        throw new ConflictError('A dispensed or administered medication cannot be removed as an ordinary cancellation; document a dispensing return or clinical correction');
-      }
-      if (medication.status === 'cancelled') {
-        throw new ConflictError('This medication is already cancelled');
+        throw new ConflictError('A dispensed or administered medication cannot be removed as an ordinary deletion; document a dispensing return or clinical correction');
       }
       if (medication.status !== 'prescribed') {
-        throw new ConflictError('Only a prescribed, not-yet-dispensed medication can be cancelled');
+        throw new ConflictError('Only an undispensed prescription can be removed');
       }
-
-      const existing = await tx.medication.findUnique({
-        where: { id: medication.id },
-        select: { status: true },
+      await this.requireOpenEncounter(encounterId);
+      await this.ensureClinicalOrderNotClaimed(tx, 'medicationId', medicationId);
+      await this.removeLinkedClinicalBillLine(tx, encounterId, `medication:${medicationId}`, actorId, 'Undispensed prescription removed from Medical Entries');
+      const deleted = await tx.medication.deleteMany({
+        where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
       });
-      if (!existing) throw new NotFoundError('Medication', medicationId);
-      if (existing.status !== 'prescribed') {
-        throw new ValidationError('Only an undispensed prescription can be cancelled here; dispensed medication requires the documented return/correction workflow');
-      }
-
-      const cancellation = await tx.medication.updateMany({
-        where: { id: medication.id, attendanceId: encounterId, status: 'prescribed' },
-        data: { status: 'cancelled' },
-      });
-      if (cancellation.count !== 1) {
-        throw new ConflictError('This prescription has changed; refresh before cancelling');
-      }
-      const cancelled = await tx.medication.findUnique({ where: { id: medication.id } });
-
-      await tx.medicationDose.updateMany({
-        where: {
-          medicationId: medication.id,
-          status: { in: ['scheduled', 'due', 'late'] },
-        },
-        data: { status: 'discontinued' },
-      });
-
-      return cancelled;
+      if (deleted.count !== 1) throw new ConflictError('Prescription status changed; refresh and try again');
+      return { id: medicationId, status: 'deleted' as const };
     });
   }
 
@@ -1684,22 +1753,31 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     return this.prisma.labTest.findUnique({ where: { id: labOrderId } });
   }
 
-  async removeLabTest(encounterId: string, labOrderId: string) {
-    // Scope by encounter and only cancel orders that have not been completed.
-    const current = await this.prisma.labTest.findFirst({
-      where: { id: labOrderId, attendanceId: encounterId }, select: { id: true, status: true },
+  async removeLabTest(encounterId: string, labOrderId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.labTest.findFirst({
+        where: { id: labOrderId, attendanceId: encounterId }, select: { id: true, status: true },
+      });
+      if (!current) throw new NotFoundError('Lab order in encounter', labOrderId);
+      if (current.status === 'completed' || current.status === 'cancelled') {
+        throw new ConflictError('A completed or already cancelled laboratory order cannot be removed');
+      }
+      await this.requireOpenEncounter(encounterId);
+      await this.ensureClinicalOrderNotClaimed(tx, 'labTestId', labOrderId);
+      await this.removeLinkedClinicalBillLine(tx, encounterId, `lab-test:${labOrderId}`, actorId, 'Laboratory order removed/cancelled from Medical Entries');
+      if (current.status === 'requested') {
+        const deleted = await tx.labTest.deleteMany({ where: { id: labOrderId, attendanceId: encounterId, status: 'requested' } });
+        if (deleted.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+        return { id: labOrderId, status: 'deleted' as const };
+      }
+      const cancelled = await tx.labTest.updateMany({
+        where: { id: labOrderId, attendanceId: encounterId, status: 'in_progress' },
+        data: { status: 'cancelled' },
+      });
+      if (cancelled.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+      return { id: labOrderId, status: 'cancelled' as const };
     });
-    if (!current) throw new NotFoundError('Lab order in encounter', labOrderId);
-    if (current.status === 'completed' || current.status === 'cancelled') {
-      throw new ConflictError('A completed or cancelled laboratory order cannot be cancelled again');
-    }
-    await this.requireOpenEncounter(encounterId);
-    const result = await this.prisma.labTest.updateMany({
-      where: { id: labOrderId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
-      data: { status: 'cancelled' },
-    });
-    if (result.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
-    return { id: labOrderId, status: 'cancelled' };
   }
 
 async addScan(encounterId: string, data: any, userId: string) {
@@ -1855,21 +1933,31 @@ async addScan(encounterId: string, data: any, userId: string) {
     return this.prisma.scan.findUnique({ where: { id: scanId } });
   }
 
-  async removeScan(encounterId: string, scanId: string) {
-    const current = await this.prisma.scan.findFirst({
-      where: { id: scanId, attendanceId: encounterId }, select: { id: true, status: true },
+  async removeScan(encounterId: string, scanId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.scan.findFirst({
+        where: { id: scanId, attendanceId: encounterId }, select: { id: true, status: true },
+      });
+      if (!current) throw new NotFoundError('Scan in encounter', scanId);
+      if (current.status === 'completed' || current.status === 'cancelled') {
+        throw new ConflictError('A completed or already cancelled scan order cannot be removed');
+      }
+      await this.requireOpenEncounter(encounterId);
+      await this.ensureClinicalOrderNotClaimed(tx, 'scanId', scanId);
+      await this.removeLinkedClinicalBillLine(tx, encounterId, `scan:${scanId}`, actorId, 'Scan order removed/cancelled from Medical Entries');
+      if (current.status === 'requested') {
+        const deleted = await tx.scan.deleteMany({ where: { id: scanId, attendanceId: encounterId, status: 'requested' } });
+        if (deleted.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
+        return { id: scanId, status: 'deleted' as const };
+      }
+      const cancelled = await tx.scan.updateMany({
+        where: { id: scanId, attendanceId: encounterId, status: 'in_progress' },
+        data: { status: 'cancelled' },
+      });
+      if (cancelled.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
+      return { id: scanId, status: 'cancelled' as const };
     });
-    if (!current) throw new NotFoundError('Scan in encounter', scanId);
-    if (current.status === 'completed' || current.status === 'cancelled') {
-      throw new ConflictError('A completed or cancelled scan order cannot be cancelled again');
-    }
-    await this.requireOpenEncounter(encounterId);
-    const result = await this.prisma.scan.updateMany({
-      where: { id: scanId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
-      data: { status: 'cancelled' },
-    });
-    if (result.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
-    return { id: scanId, status: 'cancelled' };
   }
 
 async addProcedure(encounterId: string, data: any, userId: string) {
@@ -2102,21 +2190,31 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return this.prisma.procedure.findUnique({ where: { id: procedureId } });
   }
 
-  async removeProcedure(encounterId: string, procedureId: string) {
-    const current = await this.prisma.procedure.findFirst({
-      where: { id: procedureId, attendanceId: encounterId }, select: { id: true, status: true },
+  async removeProcedure(encounterId: string, procedureId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.procedure.findFirst({
+        where: { id: procedureId, attendanceId: encounterId }, select: { id: true, status: true },
+      });
+      if (!current) throw new NotFoundError('Procedure in encounter', procedureId);
+      if (current.status === 'completed' || current.status === 'cancelled') {
+        throw new ConflictError('A completed or already cancelled procedure cannot be removed');
+      }
+      await this.requireOpenEncounter(encounterId);
+      await this.ensureClinicalOrderNotClaimed(tx, 'procedureId', procedureId);
+      await this.removeLinkedClinicalBillLine(tx, encounterId, `procedure:${procedureId}`, actorId, 'Procedure order removed/cancelled from Medical Entries');
+      if (current.status === 'scheduled') {
+        const deleted = await tx.procedure.deleteMany({ where: { id: procedureId, attendanceId: encounterId, status: 'scheduled' } });
+        if (deleted.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
+        return { id: procedureId, status: 'deleted' as const };
+      }
+      const cancelled = await tx.procedure.updateMany({
+        where: { id: procedureId, attendanceId: encounterId, status: 'in_progress' },
+        data: { status: 'cancelled' },
+      });
+      if (cancelled.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
+      return { id: procedureId, status: 'cancelled' as const };
     });
-    if (!current) throw new NotFoundError('Procedure in encounter', procedureId);
-    if (current.status === 'completed' || current.status === 'cancelled') {
-      throw new ConflictError('A completed or cancelled procedure cannot be cancelled again');
-    }
-    await this.requireOpenEncounter(encounterId);
-    const result = await this.prisma.procedure.updateMany({
-      where: { id: procedureId, attendanceId: encounterId, status: { in: ['scheduled', 'in_progress'] } },
-      data: { status: 'cancelled' },
-    });
-    if (result.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
-    return { id: procedureId, status: 'cancelled' };
   }
 
   async addService(encounterId: string, data: any, userId: string) {
