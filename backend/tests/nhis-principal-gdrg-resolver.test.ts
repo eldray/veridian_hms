@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { MAPPINGS as diagnosisGdrgMappings } from '../src/seed/diagnosisGdrgLink';
+import { MAPPINGS as procedureGdrgMappings } from '../src/seed/procedureGdrgMappings';
+import tariffData from '../src/data/gdrgTariffs.json';
 import {
   facilityLevelFromType,
   nhisCaseType,
@@ -188,5 +191,37 @@ describe('NHIS principal G-DRG resolver', () => {
     expect(nhisCaseType({ attendanceType: 'postnatal', encounterCategory: 'ipd', admissionType: 'emergency', hasAdmission: true })).toBe('ipd');
     expect(nhisCaseType({ attendanceType: 'antenatal', encounterCategory: 'daycase', hasAdmission: true })).toBe('zoom');
     expect(nhisCaseType({ attendanceType: 'postnatal', encounterCategory: 'opd' })).toBe('anc');
+  });
+});
+
+
+describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
+  const tariffCodes = new Set(tariffData.gdrgTariffs.map((entry) => entry.gdrgCode));
+
+  it('keeps every mapped diagnosis G-DRG in the facility tariff dataset and its primary in its mapping', () => {
+    for (const mapping of diagnosisGdrgMappings) {
+      expect(mapping.gdrgCodes.length, `ICD ${mapping.icdCode} has no G-DRG links`).toBeGreaterThan(0);
+      expect(mapping.gdrgCodes, `ICD ${mapping.icdCode} primary is not one of its links`).toContain(mapping.isPrimaryGdrg);
+      for (const code of mapping.gdrgCodes) {
+        expect(tariffCodes.has(code), `ICD ${mapping.icdCode} links missing tariff ${code}`).toBe(true);
+      }
+    }
+  });
+
+  it('keeps every mapped procedure G-DRG in the facility tariff dataset and its primary in its mapping', () => {
+    for (const mapping of procedureGdrgMappings) {
+      expect(mapping.gdrgCodes.length, `Procedure ${mapping.procedureCode} has no G-DRG links`).toBeGreaterThan(0);
+      expect(mapping.gdrgCodes, `Procedure ${mapping.procedureCode} primary is not one of its links`).toContain(mapping.isPrimaryGdrg);
+      for (const code of mapping.gdrgCodes) {
+        expect(tariffCodes.has(code), `Procedure ${mapping.procedureCode} links missing tariff ${code}`).toBe(true);
+      }
+    }
+  });
+
+  it('does not contain duplicate diagnosis or procedure mapping keys', () => {
+    const diagnosisCodes = diagnosisGdrgMappings.map((mapping) => mapping.icdCode);
+    const procedureCodes = procedureGdrgMappings.map((mapping) => mapping.procedureCode);
+    expect(new Set(diagnosisCodes).size).toBe(diagnosisCodes.length);
+    expect(new Set(procedureCodes).size).toBe(procedureCodes.length);
   });
 });
