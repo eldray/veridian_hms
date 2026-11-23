@@ -2113,7 +2113,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                     <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
                                                         {humanScanModality(scan)}
                                                     </p>
-                                                    {scan.description && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{scan.description}</p>}
+
                                                 </TdPrimary>
                                                 <Td>{scan.bodyPart || '—'}</Td>
                                                 <Td>
@@ -2182,24 +2182,17 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                             {proceduresList.length === 0
                                 ? <EmptyState icon={<Scissors className="w-9 h-9" />} label="No procedures scheduled" />
                                 : (
-                                    <Table heads={['Procedure', 'Scheduled', 'Entered by / date', 'Status', 'Notes', '']}>
+                                    <Table heads={['Procedure', '', 'Entered date', 'Status', '', 'Entered by USER', '']}>
                                         {proceduresList.map((proc: any) => (
                                             <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                                                 <TdPrimary>
                                                     {proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}
-                                                    {(proc.User_Procedure_performedByIdToUser?.fullName || proc.createdBy?.fullName) && (
-                                                        <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
-                                                            {proc.User_Procedure_performedByIdToUser?.fullName || proc.createdBy?.fullName}
-                                                        </p>
-                                                    )}
                                                 </TdPrimary>
-                                                <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
-                                                <Td>
-                                                    <p>{proc.createdAt ? new Date(proc.createdAt).toLocaleString() : '—'}</p>
-                                                    <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">{proc.User_Procedure_createdByIdToUser?.fullName || proc.createdBy?.fullName || 'Unknown user'}</p>
-                                                </Td>
+                                                <Td />
+                                                <Td>{proc.createdAt ? new Date(proc.createdAt).toLocaleDateString() : '—'}</Td>
                                                 <Td><StatusBadge status={proc.status} /></Td>
-                                                <Td className="whitespace-pre-wrap">{proc.notes || '—'}</Td>
+                                                <Td />
+                                                <Td>{proc.User_Procedure_createdByIdToUser?.fullName || proc.createdBy?.fullName || 'Unknown user'}</Td>
                                                 <Td>{canAddEntries && (proc.status === 'scheduled' || proc.status === 'in_progress') && <><EditBtn onClick={() => setEditingEntry({ type: 'procedure', entry: proc })} /><DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} /></>}</Td>
                                             </tr>
                                         ))}
