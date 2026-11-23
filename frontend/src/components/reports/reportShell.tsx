@@ -655,7 +655,7 @@ export const Pager = ({
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
         {pageNumbers.map((number, index) => (
-          <React.Fragment key={number}>
+          <span key={number} className="contents">
             {index > 0 && pageNumbers[index - 1] !== number - 1 && (
               <span className="px-1 text-xs text-[var(--text-tertiary)]" aria-hidden="true">…</span>
             )}
@@ -669,7 +669,7 @@ export const Pager = ({
             >
               {number}
             </button>
-          </React.Fragment>
+          </span>
         ))}
         <button
           type="button"
