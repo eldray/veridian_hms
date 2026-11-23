@@ -106,25 +106,42 @@ export const ClinicalAssessmentModal: React.FC<ClinicalAssessmentModalProps> = (
   readOnly = false,
 }) => {
   const [draft, setDraft] = useState<ClinicalAssessmentValue>(value);
+  const [activeTab, setActiveTab] = useState<'history' | 'systems' | 'examination'>('history');
 
   useEffect(() => {
-    if (isOpen) setDraft(value);
+    if (isOpen) {
+      setDraft(value);
+      setActiveTab('history');
+    }
     // The draft seeds once per open; later value changes are the draft itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  // Persist changes to the parent draft after a short pause in typing. The page
+  // performs the actual attendance autosave; this modal never signs/finalizes.
+  useEffect(() => {
+    if (!isOpen || readOnly || JSON.stringify(draft) === JSON.stringify(value)) return;
+    const timer = window.setTimeout(() => onSave(draft), 650);
+    return () => window.clearTimeout(timer);
+  }, [draft, isOpen, onSave, readOnly, value]);
+
+  const handleClose = () => {
+    if (!readOnly) onSave(draft);
+    onClose();
+  };
+
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
 
       <div
         role="dialog"
@@ -159,6 +176,23 @@ export const ClinicalAssessmentModal: React.FC<ClinicalAssessmentModalProps> = (
             </p>
           )}
 
+          <div className="mb-4 flex flex-wrap gap-2 border-b border-[var(--border-color)] pb-3" role="tablist" aria-label="Clinical assessment sections">
+            {([
+              { key: 'history', label: 'History', hint: 'Complaints, history and ODQ' },
+              { key: 'systems', label: 'Systems Review', hint: 'Review of systems' },
+              { key: 'examination', label: 'Examination', hint: 'Physical examination findings' },
+            ] as const).map((tab) => (
+              <button key={tab.key} type="button" role="tab" aria-selected={activeTab === tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-lg border px-3 py-2 text-left transition-colors ${activeTab === tab.key
+                  ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
+                <span className="block text-xs font-semibold">{tab.label}</span>
+                <span className="mt-0.5 block text-[10px] opacity-75">{tab.hint}</span>
+              </button>
+            ))}
+          </div>
+          {activeTab === 'history' && <div className="space-y-4">
           <div>
             <SectionLabel icon={<FileText className="w-3 h-3" />}>Presented complaints</SectionLabel>
             <ComplaintInput
@@ -189,7 +223,19 @@ export const ClinicalAssessmentModal: React.FC<ClinicalAssessmentModalProps> = (
               disabled={readOnly}
             />
           </div>
-
+          </div>}
+          {activeTab === 'systems' && <div className="space-y-4">
+          <SystemGrid
+            title="Structured review of systems"
+            icon={<ClipboardList className="w-3 h-3" />}
+            systems={REVIEW_SYSTEMS}
+            values={draft.reviewOfSystems}
+            placeholder="Not assessed / symptoms and findings"
+            disabled={readOnly}
+            onChange={(reviewOfSystems) => setDraft((prev) => ({ ...prev, reviewOfSystems }))}
+          />
+          </div>}
+          {activeTab === 'examination' && <div className="space-y-4">
           <div>
             <SectionLabel icon={<ScanLine className="w-3 h-3" />}>Physical examination</SectionLabel>
             <textarea
@@ -201,17 +247,6 @@ export const ClinicalAssessmentModal: React.FC<ClinicalAssessmentModalProps> = (
               className={inputCls}
             />
           </div>
-
-          <SystemGrid
-            title="Structured review of systems"
-            icon={<ClipboardList className="w-3 h-3" />}
-            systems={REVIEW_SYSTEMS}
-            values={draft.reviewOfSystems}
-            placeholder="Not assessed / symptoms and findings"
-            disabled={readOnly}
-            onChange={(reviewOfSystems) => setDraft((prev) => ({ ...prev, reviewOfSystems }))}
-          />
-
           <SystemGrid
             title="Structured physical examination"
             icon={<Stethoscope className="w-3 h-3" />}
@@ -221,21 +256,21 @@ export const ClinicalAssessmentModal: React.FC<ClinicalAssessmentModalProps> = (
             disabled={readOnly}
             onChange={(physicalExamStructured) => setDraft((prev) => ({ ...prev, physicalExamStructured }))}
           />
+          </div>}
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-[var(--border-color)] bg-[var(--bg-main)] px-5 py-4 flex-shrink-0">
           <p className="text-[10px] text-[var(--text-tertiary)]">
-            Changes stay on the page until you press Save Clinical.
+            Changes autosave to this visit as you work. Closing this window does not finalize the record.
           </p>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={onClose}
+            <button type="button" onClick={handleClose}
               className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors">
-              Cancel
+              Close
             </button>
-            <button type="button" disabled={readOnly}
-              onClick={() => { onSave(draft); onClose(); }}
-              className="rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40 transition-all">
-              Save assessment
+            <button type="button" onClick={handleClose}
+              className="rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition-all">
+              Done
             </button>
           </div>
         </div>

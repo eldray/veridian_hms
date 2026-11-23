@@ -2,7 +2,7 @@ import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/MedicalEntries.tsx - UPDATED with Tab View like Antenatal
 import { useLiveRefresh } from '../api/realtime';
 import { confirmDialog } from '../context/ConfirmDialog';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -31,7 +31,7 @@ import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUse
 import { MedicalEntryEditModal, type MedicalEntryEditType } from '../components/medical-entries/MedicalEntryEditModal';
 import {
 ClinicalAssessmentModal,
-ClinicalAssessmentEditor,
+ClinicalAssessmentSummary,
 type ClinicalAssessmentValue,
 } from '../components/medical-entries/ClinicalAssessmentModal';
 import { ClinicalNotesModal } from '../components/medical-entries/ClinicalNotesModal';
@@ -683,6 +683,8 @@ setActiveTab(tab);
 window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${tab}`);
 };
 const [assessmentOpen, setAssessmentOpen] = useState(false);
+const [assessmentDirty, setAssessmentDirty] = useState(false);
+const [assessmentSaveStatus, setAssessmentSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
 const [consumableUses, setConsumableUses] = useState<any[]>([]);
 const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
@@ -691,6 +693,8 @@ const [savingEntry, setSavingEntry] = useState(false);
 const [editingNote, setEditingNote] = useState<{ type: 'treatment' | 'physician'; index: number } | null>(null);
 const [editingNoteText, setEditingNoteText] = useState('');
 const [savingNote, setSavingNote] = useState(false);
+const currentAttendanceRef = useRef(currentAttendance);
+currentAttendanceRef.current = currentAttendance;
 const assessmentValue: ClinicalAssessmentValue = {
 complaints: presentedComplaints,
 history: hpc,
@@ -699,14 +703,16 @@ examination: physicalExam,
 reviewOfSystems,
 physicalExamStructured,
 };
-const saveAssessment = (next: ClinicalAssessmentValue) => {
+const saveAssessment = useCallback((next: ClinicalAssessmentValue) => {
 setPresentedComplaints(next.complaints);
 setHpc(next.history);
 setOdq(next.odq);
 setPhysicalExam(next.examination);
 setReviewOfSystems(next.reviewOfSystems);
 setPhysicalExamStructured(next.physicalExamStructured);
-};
+setAssessmentDirty(true);
+setAssessmentSaveStatus('idle');
+}, []);
 const loadConsumableUses = async (id: string) => {
 const response = await getEncounterConsumableUses(id);
 const data = response?.data;
@@ -870,6 +876,54 @@ openPrintWindow(html, `Medical-Record-${attendanceRecord.attendanceNumber || sel
 };
 const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
 const isClinicalFinalized = Boolean((currentAttendance as any)?.finalizedAt);
+const assessmentSignature = JSON.stringify(assessmentValue);
+useEffect(() => {
+if (!assessmentDirty || !selectedAttendanceId || !canAddEntries || isClinicalFinalized) return;
+let cancelled = false;
+const timer = window.setTimeout(async () => {
+if (cancelled) return;
+setAssessmentSaveStatus('saving');
+try {
+const clinicalNotes = {
+...(currentAttendanceRef.current && typeof currentAttendanceRef.current.clinicalNotes === 'object' && !Array.isArray(currentAttendanceRef.current.clinicalNotes)
+? currentAttendanceRef.current.clinicalNotes
+: {}),
+historyPresentingComplaint: hpc || null,
+onsetDurationQuality: odq || null,
+physicalExamination: physicalExam || null,
+reviewOfSystems,
+physicalExamStructured,
+assessmentDraftAudit: {
+updatedById: user?.id || null,
+updatedByName: user?.fullName || user?.username || 'Unknown user',
+updatedAt: new Date().toISOString(),
+},
+};
+await updateAttendance(selectedAttendanceId, {
+complaints: presentedComplaints,
+historyPresentingComplaint: hpc,
+onsetDurationQuality: odq,
+reviewOfSystems,
+physicalExamination: physicalExam,
+physicalExamStructured,
+clinicalNotes,
+updatedById: user?.id,
+});
+if (!cancelled) {
+setAssessmentDirty(false);
+setAssessmentSaveStatus('saved');
+}
+} catch (error) {
+if (!cancelled) {
+setAssessmentDirty(false);
+setAssessmentSaveStatus('error');
+toastError('Clinical draft autosave failed', (error as any)?.response?.data?.message || (error as Error)?.message || 'Please reopen the assessment and make a small edit to retry.');
+}
+}
+}, 900);
+return () => { cancelled = true; window.clearTimeout(timer); };
+}, [assessmentDirty, assessmentSignature, selectedAttendanceId, canAddEntries, isClinicalFinalized, hpc, odq, physicalExam, reviewOfSystems, physicalExamStructured, presentedComplaints, user?.id, user?.fullName, user?.username, updateAttendance, toastError]);
+
 const linkedAdmission = (currentAttendance as any)?.Admission || (currentAttendance as any)?.admission || null;
 const isActiveInpatient = currentAttendance?.encounterCategory === 'ipd'
 && currentAttendance?.status === 'admitted'
@@ -1041,6 +1095,10 @@ setSavingTreatmentPlan(false);
 };
 const handleFinalizeClinical = async () => {
 if (!selectedAttendanceId) return;
+if (assessmentDirty || assessmentSaveStatus === 'saving') {
+toastError('Draft still saving', 'Wait for the clinical assessment draft to finish saving before signing the record.');
+return;
+}
 try {
 await updateAttendance(selectedAttendanceId, {
 complaints: presentedComplaints,
@@ -1880,15 +1938,17 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                     </div>
                                     <span className="text-[10px] text-[var(--text-tertiary)]">1 · Clinical assessment</span>
                                 </div>
-                                <div className="p-3">
-                                    <div className="text-[10px] text-[var(--text-secondary)] mb-3">
-                                        Responsible clinician: <span className="font-semibold text-[var(--text-primary)]">{user?.fullName || user?.username || 'Not assigned'}</span>
-                                        {isClinicalFinalized && <span className="ml-2 text-emerald-700 font-semibold">Signed clinical record — read-only</span>}
+                                <div className="p-3 space-y-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-[var(--text-secondary)]">
+                                        <span>Responsible clinician: <span className="font-semibold text-[var(--text-primary)]">{user?.fullName || user?.username || 'Not assigned'}</span></span>
+                                        <span className={assessmentSaveStatus === 'error' ? 'font-semibold text-[var(--icon-red-text)]' : 'text-[var(--text-tertiary)]'}>
+                                            {isClinicalFinalized ? 'Signed clinical record — read-only' : assessmentSaveStatus === 'saving' ? 'Saving draft…' : assessmentSaveStatus === 'saved' ? 'Draft saved' : assessmentSaveStatus === 'error' ? 'Autosave failed — edit to retry' : 'Draft not yet changed'}
+                                        </span>
                                     </div>
-                                    <ClinicalAssessmentEditor
+                                    <ClinicalAssessmentSummary
                                         value={assessmentValue}
-                                        onChange={saveAssessment}
-                                        readOnly={!canAddEntries || isClinicalFinalized}
+                                        onEdit={() => setAssessmentOpen(true)}
+                                        editDisabled={!canAddEntries || isClinicalFinalized}
                                     />
                                 </div>
                             </section>
