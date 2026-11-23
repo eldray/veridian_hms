@@ -114,11 +114,14 @@ Static reconciliation of the current catalogue and mapping table:
 
 ## Annex C verification pass — 23 November 2026
 
-The following 19 diagnosis records were checked against the exact diagnosis/indication rows in the official NHIA Tariffs Operation Manual v22 and promoted from provisional to verified in the seed. Where the manual only listed an adult or paediatric grouping, the unlisted age-band candidate was removed rather than inferred.
+The following 21 diagnosis records were checked against the exact diagnosis/indication rows in the official NHIA Tariffs Operation Manual v22 and promoted from provisional to verified in the seed. Where the manual only listed an adult or paediatric grouping, the unlisted age-band candidate was removed rather than inferred.
 
 | ICD-10 | Verified G-DRG link(s) | Annex C basis |
 |---|---|---|
 | A04.7 | MEDI23A, PAED31C | Diarrhoea/vomiting; necrotising enterocolitis |
+| A66.9 | PAED43C | Yaws (paediatric) |
+| E88.9 | PAED07C | Metabolic diseases (paediatric neonatal group) |
+| K52.9 | MEDI26A | Other non-infective gastroenteritis/colitis; no PAED34 link is listed |
 | I49.9 | MEDI07A | Other cardiac arrhythmias |
 | K30 | MEDI26A | Dyspepsia |
 | K62.5 | MEDI25A | K62 other diseases of anus and rectum |
@@ -135,6 +138,6 @@ The following 19 diagnosis records were checked against the exact diagnosis/indi
 | O24.419 | OBGY09A | Diabetes in pregnancy |
 | O30.003 | OBGY09A | Multiple gestation |
 
-**Not yet complete:** 115 diagnosis candidates remain provisional and are still excluded from automatic seeding. The other 496 legacy mapping records have not yet been individually reconciled against every Annex C indication. Structural presence in the local tariff JSON is not proof of clinical mapping correctness. No claim of 100% mapping verification is made.
+**Not yet complete:** 113 diagnosis candidates remain provisional and are still excluded from automatic seeding. The other 496 legacy mapping records have not yet been individually reconciled against every Annex C indication. Structural presence in the local tariff JSON is not proof of clinical mapping correctness. No claim of 100% mapping verification is made.
 
 Source: NHIA Tariffs Operation Manual v22, Annex C, adult medicine and paediatrics (MEDI/PAED tables), and obstetrics/gynaecology (OBGY table). Official PDF: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf.
