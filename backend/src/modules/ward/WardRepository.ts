@@ -92,6 +92,10 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
     };
   }
 
+  async countBedsForWard(wardId: string): Promise<number> {
+    return this.prisma.bed.count({ where: { wardId } });
+  }
+
   async findByName(name: string, excludeId?: string) {
     return this.getModel().findFirst({
       where: { wardName: { equals: name, mode: 'insensitive' }, ...(excludeId ? { id: { not: excludeId } } : {}) }
