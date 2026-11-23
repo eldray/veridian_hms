@@ -43,7 +43,7 @@ export class WardController extends BaseController {
       const ward = await this.service.createWard(req.body, req.user?.id || 'system');
       return this.created(res, ward, 'Ward created successfully');
     } catch (e: any) {
-      if (e.message.includes('already exists') || e.message.includes('Total beds') || e.message.includes('Daily cash rate')) {
+      if (e.message.includes('already exists') || e.message.includes('Ward name') || e.message.includes('Ward type') || e.message.includes('Total beds') || e.message.includes('Daily cash rate')) {
         return this.badRequest(res, e.message);
       }
       throw e;
@@ -56,7 +56,7 @@ export class WardController extends BaseController {
       return this.ok(res, ward, 'Ward updated successfully');
     } catch (e: any) {
       if (e.message.includes('not found')) return this.notFound(res, 'Ward');
-      if (e.message.includes('already exists') || e.message.includes('Total beds') || e.message.includes('Daily cash rate') || e.message.includes('Capacity cannot be lower')) {
+      if (e.message.includes('already exists') || e.message.includes('Ward name') || e.message.includes('Ward type') || e.message.includes('Total beds') || e.message.includes('Daily cash rate') || e.message.includes('Capacity cannot be lower')) {
         return this.badRequest(res, e.message);
       }
       throw e;
