@@ -129,7 +129,7 @@ const TDp: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <td className="px-3 py-2 text-[var(--text-primary)] text-xs font-medium">{children}</td>
 );
 
-type TheatreTabKey = 'record' | 'narrative' | 'handover' | 'history';
+type TheatreTabKey = 'procedures' | 'record' | 'narrative' | 'handover' | 'history';
 
 // ─────────────────────────────────────────────────────────────
 // Main page
@@ -148,7 +148,7 @@ export default function TheatreProcedure() {
   const [selectedProcedureId, setSelectedProcedureId] = useState<string>('');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [openTile, setOpenTile] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TheatreTabKey>('record');
+  const [activeTab, setActiveTab] = useState<TheatreTabKey>('procedures');
 
   // Theatre form state
   const [anesthesiaNotes, setAnesthesiaNotes] = useState('');
@@ -697,6 +697,7 @@ export default function TheatreProcedure() {
   const filledCount = sections.filter(s => s.filled).length;
 
   const tabs: Array<{ key: TheatreTabKey; label: string; icon: React.ReactNode; count?: number }> = [
+    { key: 'procedures', label: 'Procedures', icon: <Scissors className="w-3.5 h-3.5" />, count: procedures.length },
     { key: 'record', label: 'Peri-operative record', icon: <ClipboardList className="w-3.5 h-3.5" /> },
     { key: 'narrative', label: 'Narrative notes', icon: <FileText className="w-3.5 h-3.5" />, count: [anesthesiaNotes, intraOperativeNotes, postOperativeNotes].filter(Boolean).length },
     { key: 'handover', label: 'Handover', icon: <Save className="w-3.5 h-3.5" /> },
@@ -845,79 +846,11 @@ export default function TheatreProcedure() {
             })}
           </div>
 
-          {/* ── PROCEDURE LIST (full-width card above tabs) ───── */}
-          <SectionCard
-            icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
-            title={`Procedures for this visit (${procedures.length})`}
-            action={canAddEntries ? <AddBtn onClick={() => setShowScheduleModal(true)} label="Schedule" /> : undefined}
-            maxH="max-h-none"
-          >
-            {procedures.length === 0 ? (
-              <EmptySlate
-                icon={<Scissors className="w-9 h-9" />}
-                label="No procedures scheduled for this visit"
-                action={canAddEntries ? (
-                  <button
-                    onClick={() => setShowScheduleModal(true)}
-                    className="mt-1 inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-700 hover:text-white transition-all"
-                  >
-                    <Plus className="w-3 h-3" /> Schedule first procedure
-                  </button>
-                ) : undefined}
-              />
-            ) : (
-              <div className="divide-y divide-[var(--border-color)]">
-                {groupedProcedures.map(group => (
-                  <div key={group.key}>
-                    <div className="px-4 py-2 bg-[var(--bg-main)]/60 border-y border-[var(--border-color)] first:border-t-0 flex items-center justify-between">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
-                        {group.label} ({group.items.length})
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3">
-                      {group.items.map((procedure: any) => {
-                        const isSelected = selectedProcedureId === procedure.id;
-                        return (
-                          <button
-                            key={procedure.id}
-                            onClick={() => { setSelectedProcedureId(procedure.id); setOpenTile(null); setActiveTab('record'); }}
-                            className={`text-left rounded-lg border p-3 transition-all ${
-                              isSelected
-                                ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-500'
-                                : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-purple-300 hover:bg-[var(--bg-main)]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              {getStatusDot(procedure.status)}
-                              <span className="font-semibold text-xs text-[var(--text-primary)] truncate flex-1">
-                                {procedure.name}
-                              </span>
-                            </div>
-                            {procedure.scheduledDate && (
-                              <p className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1">
-                                <Calendar className="w-2.5 h-2.5" />
-                                {new Date(procedure.scheduledDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                            )}
-                            {procedure.performedAt && procedure.status === 'completed' && (
-                              <p className="text-[10px] text-green-600 flex items-center gap-1 mt-0.5">
-                                <CheckCircle className="w-2.5 h-2.5" />
-                                {new Date(procedure.performedAt).toLocaleDateString()}
-                              </p>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </SectionCard>
-
           {/* ── WORKSPACE CARD WITH TABS ──────────────────────── */}
-          {selectedProcedure ? (
+          {selectedProcedure || activeTab === 'procedures' ? (
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              {selectedProcedure && (
+                <>
               {/* Procedure header strip */}
               <div className="px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
@@ -950,10 +883,11 @@ export default function TheatreProcedure() {
                   )}
                 </div>
               </div>
-
+                </>
+              )}
               {/* Tab bar */}
               <div className="flex items-center border-b border-[var(--border-color)] px-1 overflow-x-auto">
-                {tabs.map(tab => {
+                {tabs.filter(tab => tab.key === 'procedures' || !!selectedProcedure).map(tab => {
                   const isActive = activeTab === tab.key;
                   return (
                     <button
@@ -977,8 +911,79 @@ export default function TheatreProcedure() {
                 })}
               </div>
 
+              {activeTab === 'procedures' && (
+          <SectionCard
+            icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
+            title={`Procedures for this visit (${procedures.length})`}
+            action={canAddEntries ? <AddBtn onClick={() => setShowScheduleModal(true)} label="Schedule" /> : undefined}
+            maxH="max-h-none"
+          >
+            {procedures.length === 0 ? (
+              <EmptySlate
+                icon={<Scissors className="w-9 h-9" />}
+                label="No procedures scheduled for this visit"
+                action={canAddEntries ? (
+                  <button
+                    onClick={() => setShowScheduleModal(true)}
+                    className="mt-1 inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-700 hover:text-white transition-all"
+                  >
+                    <Plus className="w-3 h-3" /> Schedule first procedure
+                  </button>
+                ) : undefined}
+              />
+            ) : (
+              <div className="divide-y divide-[var(--border-color)]">
+                {groupedProcedures.map(group => (
+                  <div key={group.key}>
+                    <div className="px-3 py-1.5 bg-[var(--bg-main)]/60 border-y border-[var(--border-color)] first:border-t-0 flex items-center justify-between">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                        {group.label} ({group.items.length})
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 p-2">
+                      {group.items.map((procedure: any) => {
+                        const isSelected = selectedProcedureId === procedure.id;
+                        return (
+                          <button
+                            key={procedure.id}
+                            onClick={() => { setSelectedProcedureId(procedure.id); setOpenTile(null); setActiveTab('record'); }}
+                            className={`text-left rounded-md border p-2 transition-all ${
+                              isSelected
+                                ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-500'
+                                : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-purple-300 hover:bg-[var(--bg-main)]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1">
+                              {getStatusDot(procedure.status)}
+                              <span className="font-semibold text-xs text-[var(--text-primary)] truncate flex-1">
+                                {procedure.name}
+                              </span>
+                            </div>
+                            {procedure.scheduledDate && (
+                              <p className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1">
+                                <Calendar className="w-2.5 h-2.5" />
+                                {new Date(procedure.scheduledDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            )}
+                            {procedure.performedAt && procedure.status === 'completed' && (
+                              <p className="text-[10px] text-green-600 flex items-center gap-1 mt-0.5">
+                                <CheckCircle className="w-2.5 h-2.5" />
+                                {new Date(procedure.performedAt).toLocaleDateString()}
+                              </p>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+              )}
+
               {/* ── TAB: PERI-OPERATIVE RECORD ─────────────────── */}
-              {activeTab === 'record' && (
+              {selectedProcedure && activeTab === 'record' && (
                 <div className="p-4 space-y-4">
                   {/* Allergy reminder inside record */}
                   <div className={`rounded-lg border p-3 ${Array.isArray(patient.allergies) && patient.allergies.length ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
@@ -1376,7 +1381,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: NARRATIVE NOTES ─────────────────────────── */}
-              {activeTab === 'narrative' && (
+              {selectedProcedure && activeTab === 'narrative' && (
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Complications */}
                   <SectionCard
@@ -1448,7 +1453,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: HANDOVER ─────────────────────────────────── */}
-              {activeTab === 'handover' && (
+              {selectedProcedure && activeTab === 'handover' && (
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <SectionCard
                     icon={<Save className="w-4 h-4 text-purple-600" />}
@@ -1494,7 +1499,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: PROCEDURE HISTORY ────────────────────────── */}
-              {activeTab === 'history' && (
+              {selectedProcedure && activeTab === 'history' && (
                 <div className="p-4">
                   <SectionCard
                     icon={<Clock className="w-4 h-4 text-purple-600" />}
