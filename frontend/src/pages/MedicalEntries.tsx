@@ -2156,23 +2156,16 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                 {medicationsList.length === 0
                                     ? <EmptyState icon={<Pill className="w-9 h-9" />} label="No medications prescribed" />
                                     : (
-                                        <Table heads={['Medication', 'Dosage', 'Frequency', 'Qty', 'Status', '']}>
+                                        <Table heads={['Medication', 'Dosage', 'Frequency', 'Days', 'Status', '']}>
                                             {medicationsList.map((med: any) => (
                                                 <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                                                     <TdPrimary>
                                                         {med.name}
-                                                        {med.instructions && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{med.instructions}</p>}
+                                                        
                                                     </TdPrimary>
                                                     <Td>{med.dosage || '—'}</Td>
-                                                    <Td>
-                                                        {med.frequency || '—'}
-                                                        {(med.duration || med.route) && (
-                                                            <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
-                                                                {[med.duration, med.route].filter(Boolean).join(' · ')}
-                                                            </p>
-                                                        )}
-                                                    </Td>
-                                                    <Td>{med.quantity ?? '—'}</Td>
+                                                    <Td>{med.frequency || '—'}</Td>
+                                                    <Td>{med.duration || '—'}</Td>
                                                     <Td><StatusBadge status={med.status} /></Td>
                                                     <Td>
                                                         {canAddEntries && med.status === 'prescribed'
