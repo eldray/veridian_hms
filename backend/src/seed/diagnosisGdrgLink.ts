@@ -816,7 +816,7 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'K58.9', gdrgCodes: ['MEDI26A', 'PAED34C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   { icdCode: 'K58.0', gdrgCodes: ['MEDI26A', 'PAED34C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A' },
   // Non-infective gastroenteritis/colitis (K52) is explicitly included in MEDI26; pediatric mapping follows the existing non-specific abdominal links.
-  { icdCode: 'K52.9', gdrgCodes: ['MEDI26A', 'PAED34C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'NHIA Tariffs Operation Manual v22 lists K52 under MEDI26. Pediatric grouping follows existing GI mappings; Annex C cross-check required.' },
+  { icdCode: 'K52.9', gdrgCodes: ['MEDI26A', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI26A', notes: 'Verified adult link: Annex C lists K52 (other non-infective gastroenteritis and colitis) under MEDI26. K52 is not listed in PAED34, so no paediatric link is seeded.' }
 
   // Systemic conditions (general)
   { icdCode: 'E87.8', gdrgCodes: ['MEDI04A', 'PAED04C'], isPrimaryGdrg: 'MEDI04A' },
@@ -838,7 +838,7 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'A38.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Communicable umbrella provisional; named/systemic infection may map to different family.', status: 'provisional' },
   { icdCode: 'B06.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Communicable umbrella provisional; named/systemic infection may map to different family.', status: 'provisional' },
   { icdCode: 'B27.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Communicable umbrella provisional; named/systemic infection may map to different family.', status: 'provisional' },
-  { icdCode: 'A66.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Communicable umbrella provisional; named/systemic infection may map to different family.', status: 'provisional' },
+  { icdCode: 'A66.9', gdrgCodes: ['PAED43C'], isPrimaryGdrg: 'PAED43C', notes: 'Verified paediatric link: Annex C lists A66 (yaws) under PAED43 (ulcer of skin). No adult A66 link added because the adult row does not list it.', status: 'verified' }
   { icdCode: 'H33.2', gdrgCodes: ['OPHT12A', 'OPHT12C', 'OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPHT12A', notes: 'Eye specialty grouping provisional; procedure/pathology may alter group.', status: 'provisional' },
   { icdCode: 'H00.1', gdrgCodes: ['OPHT12A', 'OPHT12C', 'OPDC05A', 'OPDC05C'], isPrimaryGdrg: 'OPHT12A', notes: 'Eye specialty grouping provisional; procedure/pathology may alter group.', status: 'provisional' },
   { icdCode: 'J30.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Respiratory/allergy umbrella provisional; validate Annex C.', status: 'provisional' },
@@ -866,7 +866,7 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'D63.8', gdrgCodes: ['MEDI06A', 'PAED06C'], isPrimaryGdrg: 'MEDI06A', notes: 'Provisional anaemia grouping; validate Annex C.', status: 'provisional' },
   { icdCode: 'E16.2', gdrgCodes: ['MEDI02A', 'PAED02C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI02A', notes: 'Provisional metabolic grouping; validate Annex C.', status: 'provisional' },
   { icdCode: 'E78.5', gdrgCodes: ['MEDI04A', 'PAED04C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI04A', notes: 'Provisional metabolic umbrella; validate Annex C.', status: 'provisional' },
-  { icdCode: 'E88.9', gdrgCodes: ['MEDI04A', 'PAED04C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI04A', notes: 'Provisional metabolic umbrella; validate Annex C.', status: 'provisional' },
+  { icdCode: 'E88.9', gdrgCodes: ['PAED07C'], isPrimaryGdrg: 'PAED07C', notes: 'Verified paediatric link: Annex C lists E88.9 (metabolic diseases) under PAED07 other neonatal diseases. No adult MEDI04 link added.', status: 'verified' }
   { icdCode: 'I49.9', gdrgCodes: ['MEDI07A', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI07A', notes: 'Verified adult link: Annex C lists I49 (other cardiac arrhythmias) under MEDI07. No paediatric I49 link added.', status: 'verified' }
   { icdCode: 'I47.9', gdrgCodes: ['MEDI07A', 'PAED15C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI07A', notes: 'Cardiac provisional; hypertension/stroke/arrhythmia/acute cardiac conditions require specific group.', status: 'provisional' },
   { icdCode: 'I95.9', gdrgCodes: ['MEDI07A', 'PAED15C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI07A', notes: 'Cardiac provisional; hypertension/stroke/arrhythmia/acute cardiac conditions require specific group.', status: 'provisional' },
