@@ -134,14 +134,18 @@ function levelMatches(tariff: ResolverTariff, facilityLevel: number | null): boo
 }
 
 /** Whether this case type may bill this code at all. */
-function caseMatches(tariff: ResolverTariff, caseType: NHISCaseType): boolean {
+function caseMatches(tariff: ResolverTariff, caseType: NHISCaseType, origin?: ResolverLink['origin']): boolean {
   const family = familyOf(tariff.gdrgCode);
   const isDayCase = tariff.isZoomCode === true || family === DAY_CASE_FAMILY;
   switch (caseType) {
     case 'anc':
       return family === OPD_SCHEME_FAMILY && tariff.isAntenatal === true;
     case 'opd':
-      return family === OPD_SCHEME_FAMILY && tariff.isAntenatal !== true;
+      // OPD attendance can include a separately tariffed minor procedure. In that
+      // situation the completed procedure carries its ZOOM code (e.g. dressing,
+      // minor suturing, or tubal ligation); diagnosis-only links remain OPDC.
+      return (family === OPD_SCHEME_FAMILY && tariff.isAntenatal !== true) ||
+        (origin === 'procedure' && isDayCase);
     case 'zoom':
       return isDayCase;
     case 'ipd':
@@ -164,7 +168,7 @@ const CASE_RULE_HINTS: Record<NHISCaseType, string> = {
 };
 
 function billable(tariff: ResolverTariff, input: ResolverInput): boolean {
-  return caseMatches(tariff, input.caseType) &&
+  return caseMatches(tariff, input.caseType, input.origin) &&
     ageMatches(tariff, input.age) &&
     levelMatches(tariff, input.facilityLevel) &&
     amountOf(tariff.nhiaTariff) > 0;
@@ -192,7 +196,8 @@ function score(link: ResolverLink, input: ResolverInput): number {
   let score = link.isPrimary ? 100 : 0;
   // A performed procedure drives the surgical G-DRG. It must outrank even a primary diagnosis link; otherwise a primary diagnosis can incorrectly win when the procedure mapping is not marked primary.
   if (link.origin === 'procedure' && input.isSurgicalCase) score += 200;
-  else if (link.origin === 'procedure' && input.caseType === 'zoom') score += 60;
+  else if (link.origin === 'procedure' && (input.caseType === 'zoom' ||
+    (input.caseType === 'opd' && (link.tariff.isZoomCode === true || familyOf(link.tariff.gdrgCode) === DAY_CASE_FAMILY)))) score += 160;
   if (link.origin === 'diagnosis' && input.caseType === 'ipd') score += 10;
   const code = link.tariff.gdrgCode.toUpperCase();
   if (code.startsWith(`${OPD_SCHEME_FAMILY}06`) || code.startsWith(`${DAY_CASE_FAMILY}02`)) score -= 25;
