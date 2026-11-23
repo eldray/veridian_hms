@@ -254,6 +254,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         dateTime: new Date(), 
       },
       include: {
+        // Medical Entries needs the active stay's bed/ward and admission
+        // summary; without these relations the IPD banner incorrectly reports
+        // that no ward or bed has been assigned.
+        Ward: { select: { id: true, wardName: true, wardType: true } },
+        Bed: { select: { id: true, bedNumber: true, wardId: true } },
+        Admission: { select: { id: true, admissionNumber: true, admissionDate: true, status: true, dischargeDate: true, admissionType: true } },
         Patient: { select: {
           id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, dateOfBirth: true, gender: true,
           allergies: { select: { id: true, allergen: true, reaction: true, severity: true, notes: true } },
