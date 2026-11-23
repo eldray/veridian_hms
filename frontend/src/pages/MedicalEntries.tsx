@@ -1717,7 +1717,7 @@ Family: <strong className="text-[var(--text-primary)]">{history.relation}</stron
 </div>
 {/* ── INPATIENT CONTEXT: keep IPD work linked to this admission ── */}
 {isActiveInpatient && (
-<section className="rounded-xl border border-teal-200 dark:border-slate-600 bg-gradient-to-r from-teal-50/90 to-cyan-50/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 overflow-hidden shadow-sm dark:shadow-black/20"
+<section data-ipd-banner className="rounded-xl border border-teal-200 dark:border-slate-600 bg-gradient-to-r from-teal-50/90 to-cyan-50/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 overflow-hidden shadow-sm dark:shadow-black/20"
 aria-label="Active inpatient admission">
 <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 <div className="flex items-start gap-3 min-w-0">
