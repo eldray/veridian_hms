@@ -164,5 +164,5 @@ html.dark [data-ipd-banner] > div > div > div:first-child {
   color: #ffffff !important;
 }
 html.dark [data-ipd-banner] button:not(:first-child) {
-  border-color: #397585 !nimportant;
+  border-color: #397585 !important;
 }
