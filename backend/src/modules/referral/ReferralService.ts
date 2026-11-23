@@ -120,6 +120,17 @@ export class ReferralService extends BaseService {
     });
     if (!patient) throw new NotFoundError('Patient', data.patientId);
 
+    if (data.attendanceId) {
+      const attendance = await this.prisma.attendance.findUnique({
+        where: { id: data.attendanceId },
+        select: { id: true, patientId: true }
+      });
+      if (!attendance) throw new NotFoundError('Attendance', data.attendanceId);
+      if (attendance.patientId !== data.patientId) {
+        throw new ValidationError('The selected attendance does not belong to the selected patient');
+      }
+    }
+
     return this.repository.createIncoming({
       ...data,
       referralReason,
