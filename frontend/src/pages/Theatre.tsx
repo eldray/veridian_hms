@@ -199,7 +199,7 @@ export default function Theatre() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="w-full min-w-0 max-w-full min-h-0 overflow-x-hidden space-y-4 p-4 sm:p-6">
       {queueHeader}
 
       {worklistError && (
@@ -265,9 +265,12 @@ export default function Theatre() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className={TH_ROW}>
+          <div
+            className="max-h-[calc(100dvh-22rem)] min-h-0 overflow-auto overscroll-contain"
+            style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}
+          >
+            <table className="w-full min-w-[980px] text-sm">
+              <thead className={cn(TH_ROW, 'sticky top-0 z-10')}>
                 <tr>
                   <th className={TH}>Patient</th>
                   <th className={TH}>Folder #</th>
