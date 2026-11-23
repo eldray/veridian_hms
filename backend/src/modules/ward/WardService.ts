@@ -79,6 +79,7 @@ export class WardService extends BaseService {
   async updateWard(id: string, data: UpdateWardDTO): Promise<Ward> {
     const existingWard = await this.getWardById(id);
     if (data.wardName !== undefined && !data.wardName.trim()) throw new Error('Ward name is required');
+    if (data.wardType !== undefined && !data.wardType.trim()) throw new Error('Ward type is required');
     if (data.dailyCashRate !== undefined && data.dailyCashRate <= 0) throw new Error('Daily cash rate must be positive');
     if (data.wardName) data.wardName = data.wardName.trim();
     if (data.wardName && data.wardName !== existingWard.wardName) {
