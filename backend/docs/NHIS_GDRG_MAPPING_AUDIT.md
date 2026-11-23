@@ -106,10 +106,9 @@ Static reconciliation of the current catalogue and mapping table:
 
 - The diagnosis catalogue contains **631 unique codes**.
 - The mapping table contains **630 active mapping records** plus one intentionally commented exclusion for **R99 (brought-in-dead)**. R99 is not a claim-driving diagnosis and should not be treated as a missing mapping.
-- **134 mapping records remain provisional**. The other **496 mapping records are currently seed-eligible**, which is not the same as confirming every older link against Annex C.
-- CI identified three regressions in the initial resolver tests: two OPD performed-procedure ZOOM links were not being considered as billable because the resolver filtered candidates without their origin; and the catalogue integrity test incorrectly treated intentionally excluded R99 as a required diagnosis mapping.
-- Resolver fix passes the procedure link origin into the billability filter. Coverage test explicitly exempts R99. CI rerun is pending for these fixes.
-- Annex C mapping verification remains in progress; no claim is made that all 134 provisional or 496 prior links are tariff-verified. Only mappings evidenced by Annex C or exact documented tariff rules should be promoted.
+- **112 candidate mapping records remain provisional** after 22 were verified against Annex C. One pre-existing K52.9 link was also corrected and marked verified. The other **496 legacy mapping records remain seed-eligible**, which is not the same as confirming every older link against Annex C.
+- Initial CI identified three regressions: two OPD performed-procedure ZOOM links lost their origin during billability filtering, and the catalogue test treated intentionally excluded R99 as required. Those fixes were committed. A later resolver safeguard now also requires a completed procedure-origin link for surgical tariffs; full CI validation of the latest branch head remains outstanding.
+- Annex C mapping verification remains in progress; no claim is made that all 112 remaining provisional or 496 legacy links are tariff-verified. Only mappings evidenced by Annex C or exact documented tariff rules should be promoted.
 
 
 ## Annex C verification pass — 23 November 2026
