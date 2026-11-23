@@ -20,9 +20,9 @@ const DURATION_OPTIONS = Array.from({ length: 30 }, (_, index) => {
 const durationValue = (value: unknown) => {
   const raw = String(value ?? '').trim();
   if (!raw) return '';
-  const hours = raw.match(/^(\\d+)\\s*(?:h|hr|hrs|hours?)$/i);
+  const hours = raw.match(/^(\d+)\s*(?:h|hr|hrs|hours?)$/i);
   if (hours) return `${Number(hours[1])} hours`;
-  const days = raw.match(/^(\\d+)\\s*(?:d|day|days)$/i);
+  const days = raw.match(/^(\d+)\s*(?:d|day|days)$/i);
   if (days) return Number(days[1]) === 1 ? '24 hours' : Number(days[1]) === 2 ? '48 hours' : `${Number(days[1])} days`;
   return raw;
 };
