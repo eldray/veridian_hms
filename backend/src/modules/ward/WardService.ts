@@ -55,7 +55,10 @@ export class WardService extends BaseService {
 
   async createWard(data: CreateWardDTO, userId: string): Promise<Ward> {
     this.logInfo('Creating new ward', { wardName: data.wardName });
-    if (await this.repository.findByName(data.wardName)) throw new Error('A ward with this name already exists');
+    if (!data.wardName?.trim()) throw new Error('Ward name is required');
+    if (!data.wardType?.trim()) throw new Error('Ward type is required');
+    if (await this.repository.findByName(data.wardName.trim())) throw new Error('A ward with this name already exists');
+    data.wardName = data.wardName.trim();
     if (!Number.isInteger(data.totalBeds) || data.totalBeds < 1) throw new Error('Total beds must be a positive whole number');
     if (data.dailyCashRate <= 0) throw new Error('Daily cash rate must be positive');
     
@@ -75,6 +78,9 @@ export class WardService extends BaseService {
 
   async updateWard(id: string, data: UpdateWardDTO): Promise<Ward> {
     const existingWard = await this.getWardById(id);
+    if (data.wardName !== undefined && !data.wardName.trim()) throw new Error('Ward name is required');
+    if (data.dailyCashRate !== undefined && data.dailyCashRate <= 0) throw new Error('Daily cash rate must be positive');
+    if (data.wardName) data.wardName = data.wardName.trim();
     if (data.wardName && data.wardName !== existingWard.wardName) {
       if (await this.repository.findByName(data.wardName, id)) throw new Error('Another ward with this name already exists');
     }
