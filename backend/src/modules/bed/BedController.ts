@@ -61,7 +61,7 @@ export class BedController extends BaseController {
       return this.ok(res, bed, 'Bed updated successfully');
     } catch (error: any) {
       if (error.message === 'Bed not found') return this.notFound(res, 'Bed');
-      if (error.message.includes('already exists')) return this.badRequest(res, error.message);
+      if (error.message.includes('already exists') || error.message.includes('Cannot rename')) return this.badRequest(res, error.message);
       throw error;
     }
   });
