@@ -309,4 +309,36 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
     expect(new Set(diagnosisCodes).size).toBe(diagnosisCodes.length);
     expect(new Set(procedureCodes).size).toBe(procedureCodes.length);
   });
+
+  it('keeps the Annex C-confirmed diagnosis mappings exact and marked verified', () => {
+    const byIcd = new Map(diagnosisGdrgMappings.map((mapping) => [mapping.icdCode, mapping]));
+    const expected: Record<string, string[]> = {
+      'A04.7': ['MEDI23A', 'PAED31C', 'OPDC06A', 'OPDC06C'],
+      'I49.9': ['MEDI07A', 'OPDC06A', 'OPDC06C'],
+      'K30': ['MEDI26A', 'OPDC06A', 'OPDC06C'],
+      'K62.5': ['MEDI25A', 'OPDC06A', 'OPDC06C'],
+      'K70.10': ['MEDI24A', 'OPDC06A', 'OPDC06C'],
+      'L23.9': ['MEDI31A', 'PAED26C', 'OPDC06A', 'OPDC06C'],
+      'L30.9': ['MEDI18A', 'PAED26C', 'OPDC06A', 'OPDC06C'],
+      'M25.50': ['MEDI30A', 'PAED38C', 'OPDC06A', 'OPDC06C'],
+      'M25.60': ['MEDI30A', 'PAED38C', 'OPDC06A', 'OPDC06C'],
+      'M25.40': ['MEDI30A', 'PAED38C', 'OPDC06A', 'OPDC06C'],
+      'R10.84': ['MEDI26A', 'PAED34C', 'OPDC06A', 'OPDC06C'],
+      'D57.00': ['MEDI16A', 'PAED24C'],
+      'D57.01': ['MEDI16A', 'PAED24C'],
+      'N72': ['OBGY09A', 'OPDC08A'],
+      'N95.1': ['OBGY09A', 'OPDC08A'],
+      'O12.1': ['OBGY09A', 'OPDC02A'],
+      'O13.9': ['OBGY09A', 'OPDC02A'],
+      'O24.419': ['OBGY09A', 'OPDC02A'],
+      'O30.003': ['OBGY09A', 'OPDC02A'],
+    };
+    for (const [icdCode, codes] of Object.entries(expected)) {
+      const mapping = byIcd.get(icdCode);
+      expect(mapping, `Missing verified mapping for ${icdCode}`).toBeDefined();
+      expect(mapping?.status, `${icdCode} verification status`).toBe('verified');
+      expect(mapping?.gdrgCodes, `${icdCode} Annex C links`).toEqual(codes);
+    }
+  });
+
 });
