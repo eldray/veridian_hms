@@ -125,17 +125,17 @@ export const ClinicalAssessmentModal: React.FC<ClinicalAssessmentModalProps> = (
     return () => window.clearTimeout(timer);
   }, [draft, isOpen, onSave, readOnly, value]);
 
+  const handleClose = () => {
+    if (!readOnly) onSave(draft);
+    onClose();
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [isOpen, handleClose]);
-
-  const handleClose = () => {
-    if (!readOnly) onSave(draft);
-    onClose();
-  };
 
   if (!isOpen) return null;
 
