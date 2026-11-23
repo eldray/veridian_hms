@@ -1027,7 +1027,7 @@ export default function TheatreProcedure() {
                             onClick={() => { setSelectedProcedureId(procedure.id); setOpenTile(null); setActiveTab('record'); }}
                             className={`text-left rounded-md border p-2 transition-all ${
                               isSelected
-                                ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-500'
+                                ? 'border-purple-500 bg-purple-500/10 ring-1 ring-purple-500'
                                 : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-purple-300 hover:bg-[var(--bg-main)]'
                             }`}
                           >
