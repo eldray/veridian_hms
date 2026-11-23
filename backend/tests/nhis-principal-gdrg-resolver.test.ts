@@ -105,6 +105,51 @@ describe('NHIS principal G-DRG resolver', () => {
     expect(observation.origin).toBe('fallback');
   });
 
+  it('bills OPD dressing and minor suturing through their ZOOM procedure tariffs', () => {
+    const dressing = resolvePrincipalGdrg({
+      caseType: 'opd',
+      age: 34,
+      facilityLevel: 2,
+      links: [row('OPDC06A', true), row('ZOOM05A', true, 'procedure')],
+      fallbacks: OPDC06,
+    });
+    expect(dressing.tariff.gdrgCode).toBe('ZOOM05A');
+    expect(dressing.origin).toBe('procedure');
+
+    const suturing = resolvePrincipalGdrg({
+      caseType: 'opd',
+      age: 34,
+      facilityLevel: 2,
+      links: [row('OPDC06A', true), row('ZOOM07A', true, 'procedure')],
+      fallbacks: OPDC06,
+    });
+    expect(suturing.tariff.gdrgCode).toBe('ZOOM07A');
+    expect(suturing.origin).toBe('procedure');
+  });
+
+  it('bills an OPD family-planning tubal-ligation procedure under its ZOOM tariff', () => {
+    const resolved = resolvePrincipalGdrg({
+      caseType: 'opd',
+      age: 30,
+      facilityLevel: 2,
+      links: [row('OPDC06A', true), row('ZOOM08A', true, 'procedure')],
+      fallbacks: OPDC06,
+    });
+    expect(resolved.tariff.gdrgCode).toBe('ZOOM08A');
+    expect(resolved.origin).toBe('procedure');
+  });
+
+  it('does not let diagnosis-only ZOOM links replace the ordinary OPDC attendance tariff', () => {
+    const resolved = resolvePrincipalGdrg({
+      caseType: 'opd',
+      age: 34,
+      facilityLevel: 2,
+      links: [row('ZOOM05A', true), row('OPDC06A')],
+      fallbacks: OPDC06,
+    });
+    expect(resolved.tariff.gdrgCode).toBe('OPDC06A');
+  });
+
   it('bills an antenatal visit under the bundled antenatal code', () => {
     const resolved = resolvePrincipalGdrg({
       caseType: 'anc',
