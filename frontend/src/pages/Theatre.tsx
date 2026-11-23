@@ -188,7 +188,7 @@ export default function Theatre() {
 
   if (isLoading || worklistLoading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="w-full min-w-0 max-w-full overflow-x-hidden space-y-6 p-4 sm:p-6">
         {queueHeader}
         <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
           <div className="w-12 h-12 border-4 border-[var(--icon-purple-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
