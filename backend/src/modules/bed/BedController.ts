@@ -45,7 +45,7 @@ export class BedController extends BaseController {
       return this.created(res, bed, 'Bed created successfully');
     } catch (error: any) {
       if (error.message === 'Ward not found') return this.notFound(res, 'Ward');
-      if (error.message.includes('already exists')) return this.badRequest(res, error.message);
+      if (error.message.includes('already exists') || error.message.includes('capacity') || error.message.includes('inactive')) return this.badRequest(res, error.message);
       throw error;
     }
   });
@@ -72,7 +72,7 @@ export class BedController extends BaseController {
       return this.ok(res, null, 'Bed deleted successfully');
     } catch (error: any) {
       if (error.message === 'Bed not found') return this.notFound(res, 'Bed');
-      if (error.message.includes('Cannot delete occupied bed')) return this.badRequest(res, error.message);
+      if (error.message.includes('Cannot delete')) return this.badRequest(res, error.message);
       throw error;
     }
   });
