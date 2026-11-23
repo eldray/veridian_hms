@@ -453,7 +453,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
                 {DURATION_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </div>
-
+          </div>
         </div>
 
         {/* Footer */}
