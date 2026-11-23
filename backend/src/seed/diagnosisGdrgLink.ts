@@ -959,6 +959,11 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'O99.413', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.' },
   { icdCode: 'O98.413', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.' },
   { icdCode: 'O99.013', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.' },
+  { icdCode: 'C44.91', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC06A'], isPrimaryGdrg: 'MEDI18A', notes: 'Provisional skin disease umbrella; carcinoma subtype validation required.' },
+  { icdCode: 'C44.92', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC06A'], isPrimaryGdrg: 'MEDI18A', notes: 'Provisional skin disease umbrella; carcinoma subtype validation required.' },
+  { icdCode: 'N30.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Provisional urinary infection grouping; validate exact Annex C.' },
+  { icdCode: 'N39.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Provisional genitourinary grouping; validate exact Annex C.' },
+  { icdCode: 'K59.09', gdrgCodes: ['MEDI23A', 'PAED31C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Provisional GI grouping; validate exact Annex C.' },
 
 ];
 
