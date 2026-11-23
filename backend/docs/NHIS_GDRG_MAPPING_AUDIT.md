@@ -22,9 +22,9 @@ These checks only validate code/link structure. They do **not** establish that e
 
 The diagnosis catalogue has these ICD-10 codes with no *direct* diagnosis-to-G-DRG mapping in our seed. This is **not evidence that NHIA has no applicable G-DRG for them**. Several conditions are grouped under broader G-DRGs, and must be mapped through the exact Annex C inclusion rows and specialty/procedure rules before being considered uncovered:
 
-`A20.9, A21.9, A22.9, A23.9, A38.9, A66.9, B06.9, B27.9, H00.1, H33.2, J30.9, J91.8, J93.1, J96.9, K21.0, K21.9, K29.00, K29.50, K52.9, R99, Z79.01, Z86.11, Z86.19`
+`A20.9, A21.9, A22.9, A23.9, A38.9, A66.9, B06.9, B27.9, H00.1, H33.2, J30.9, J91.8, J93.1, J96.9, K21.0, K21.9, K29.00, K29.50, R99, Z79.01, Z86.11, Z86.19`
 
-These 23 codes are now tracked as a review queue, not asserted to be tariff gaps. The prior regression test that asserted this list as an unmapped-gap set was removed and replaced with a catalogue-presence check. Do not assign guessed codes. Map each diagnosis to the actual Annex C grouping and its applicable age/specialty/procedure conditions. Some history/status codes and brought-in-dead records may not be claim-driving diagnoses and require separate handling.
+K52.9 (non-infective acute gastroenteritis) has now been linked to MEDI26A and PAED34C, following the NHIA manual's inclusion of K52 under MEDI26 and the existing paediatric non-specific abdominal mapping pattern. The direct mapping-gap review queue is therefore reduced to 22 codes. The paediatric link is an inferred umbrella mapping from the existing mapping convention and remains subject to Annex C verification. These codes are tracked as a review queue, not asserted to be tariff gaps. The prior regression test that asserted this list as an unmapped-gap set was removed and replaced with a catalogue-presence check. Do not assign guessed codes. Map each diagnosis to the actual Annex C grouping and its applicable age/specialty/procedure conditions. Some history/status codes and brought-in-dead records may not be claim-driving diagnoses and require separate handling.
 
 The manual explicitly confirms broader groupings—for example, Crohn's disease, ulcerative colitis and IBS in MEDI25 (Gastrointestinal Tract Bleeding); dyspepsia and chronic pancreatitis in MEDI26 (Non-Specific Abdominal Conditions); and STDs in MEDI31 (Localised Infections). These examples illustrate why absence of a direct ICD link cannot be equated with absence of a G-DRG. These group examples are not a substitute for validating each of the 23 codes.
 
@@ -47,12 +47,12 @@ Repeated ICD codes (catalogue entries, not mapping keys):
 
 These may be catalogue label variants or duplicates; they should be reconciled without deleting clinically meaningful entries or breaking existing references.
 
-## Implementation work in this PR
+## Confirmed mapping added during review\n\n- `K52.9` (Non-infective acute gastroenteritis) → `MEDI26A` (adult, Non-Specific Abdominal Conditions) and `PAED34C` (child, Non-Specific Abdominal Condition), with OPD fallback links retained. The NHIA manual explicitly includes K52 in MEDI26; paediatric grouping is aligned with existing mappings but marked for Annex C confirmation.\n\n## Implementation work in this PR
 
 - Corrected principal G-DRG scoring so a performed surgical procedure outranks a primary diagnosis mapping in surgical encounters.
 - Added a regression case for a non-primary procedure mapping outranking a primary diagnosis.
 - Added structural integrity tests for diagnosis/procedure mapping tariff references and primary codes.
-- Added a test that pins the current list of diagnosis mapping gaps for explicit manual review.
+- Replaced the direct-mapping gap test with a review-queue presence check; the queue now excludes K52.9 after its mapping was added.
 
 ## Next verification stages
 
