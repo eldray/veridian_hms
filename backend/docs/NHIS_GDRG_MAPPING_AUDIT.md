@@ -100,3 +100,13 @@ Static reconciliation of the current catalogue and mapping table:
 - Adult/child tariff selection follows the tariff age split and the actual available code.
 - Observation/detention is ZOOM; procedure tariffs must remain distinct from diagnosis-only links.
 
+
+
+## Follow-up audit status — 23 November 2026
+
+- The diagnosis catalogue contains **631 unique codes**.
+- The mapping table contains **630 active mapping records** plus one intentionally commented exclusion for **R99 (brought-in-dead)**. R99 is not a claim-driving diagnosis and should not be treated as a missing mapping.
+- **134 mapping records remain provisional**. The other **496 mapping records are currently seed-eligible**, which is not the same as confirming every older link against Annex C.
+- CI identified three regressions in the initial resolver tests: two OPD performed-procedure ZOOM links were not being considered as billable because the resolver filtered candidates without their origin; and the catalogue integrity test incorrectly treated intentionally excluded R99 as a required diagnosis mapping.
+- Resolver fix passes the procedure link origin into the billability filter. Coverage test explicitly exempts R99. CI rerun is pending for these fixes.
+- Annex C mapping verification remains in progress; no claim is made that all 134 provisional or 496 prior links are tariff-verified. Only mappings evidenced by Annex C or exact documented tariff rules should be promoted.
