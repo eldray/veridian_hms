@@ -1075,10 +1075,8 @@ useEffect(() => {
           icon={activeTab === 'delivery' ? Hospital : activeTab === 'postnatal' ? Heart : Baby}
           accent={activeTab === 'delivery' ? 'green' : activeTab === 'postnatal' ? 'cyan' : 'purple'}
           fields={[
-            // EDD and risk belong to the pregnancy, not to one tab: hiding them
-            // when the midwife moves to Clinical or Delivery removes the two
-            // facts that change how she reads everything else on the screen.
-            ...(currentRecord?.edd ? [{ label: 'EDD', value: getEDDDisplay() }] : []),
+            // Keep the patient banner compact so patient and attendance details
+            // remain on one line. EDD remains available in the ANC details below.
             ...(hasActiveBooking
               ? [{ label: 'Risk', value: <RiskBadge risk={currentRecord?.riskLevel || 'low'} /> }]
               : []),
