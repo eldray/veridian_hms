@@ -1092,20 +1092,16 @@ export default function TheatreProcedure() {
               </div>
 
               {/* ── TAB: PERI-OPERATIVE RECORD ─────────────────── */}
-              {selectedProcedure && activeTab === 'record' && isTheatreRequiredProcedure(selectedProcedure) && (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4">
-                  <div className="absolute inset-0" onClick={() => setActiveTab('procedures')} />
-                  <div className="relative z-10 flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl">
-                    <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3">
+              {selectedProcedure && isTheatreRequiredProcedure(selectedProcedure) && (
+                <div className="space-y-4">
+                  <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                    <div className="flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3">
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-[var(--text-primary)]">Theatre documentation</p>
                         <p className="truncate text-xs text-[var(--text-secondary)]">{selectedProcedure.name}</p>
                       </div>
-                      <button type="button" onClick={() => setActiveTab('procedures')} className="rounded-lg p-2 text-[var(--text-secondary)] hover:bg-[var(--border-color)]" aria-label="Close theatre documentation">
-                        <X className="h-4 w-4" />
-                      </button>
                     </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+                    <div className="p-3 sm:p-4 space-y-4">
                   {/* Allergy reminder inside record */}
                   <div className={`rounded-lg border p-3 ${Array.isArray(patient.allergies) && patient.allergies.length ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
                     <p className={`text-xs font-bold ${Array.isArray(patient.allergies) && patient.allergies.length ? 'text-red-800' : 'text-amber-800'}`}>
@@ -1684,7 +1680,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: PROCEDURE HISTORY ────────────────────────── */}
-              {selectedProcedure && activeTab === 'history' && (
+              {selectedProcedure && (
                 <div className="p-4">
                   <SectionCard
                     icon={<Clock className="w-4 h-4 text-purple-600" />}
