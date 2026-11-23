@@ -2,7 +2,7 @@ import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/MedicalEntries.tsx - UPDATED with Tab View like Antenatal
 import { useLiveRefresh } from '../api/realtime';
 import { confirmDialog } from '../context/ConfirmDialog';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -701,7 +701,7 @@ examination: physicalExam,
 reviewOfSystems,
 physicalExamStructured,
 };
-const saveAssessment = (next: ClinicalAssessmentValue) => {
+const saveAssessment = useCallback((next: ClinicalAssessmentValue) => {
 setPresentedComplaints(next.complaints);
 setHpc(next.history);
 setOdq(next.odq);
@@ -710,54 +710,7 @@ setReviewOfSystems(next.reviewOfSystems);
 setPhysicalExamStructured(next.physicalExamStructured);
 setAssessmentDirty(true);
 setAssessmentSaveStatus('idle');
-};
-const assessmentSignature = JSON.stringify(assessmentValue);
-useEffect(() => {
-if (!assessmentDirty || !selectedAttendanceId || !canAddEntries || isClinicalFinalized) return;
-let cancelled = false;
-const timer = window.setTimeout(async () => {
-if (cancelled) return;
-setAssessmentSaveStatus('saving');
-try {
-const clinicalNotes = {
-...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
-? currentAttendance.clinicalNotes
-: {}),
-historyPresentingComplaint: hpc || null,
-onsetDurationQuality: odq || null,
-physicalExamination: physicalExam || null,
-reviewOfSystems,
-physicalExamStructured,
-assessmentDraftAudit: {
-updatedById: user?.id || null,
-updatedByName: user?.fullName || user?.username || 'Unknown user',
-updatedAt: new Date().toISOString(),
-},
-};
-await updateAttendance(selectedAttendanceId, {
-complaints: presentedComplaints,
-historyPresentingComplaint: hpc,
-onsetDurationQuality: odq,
-reviewOfSystems,
-physicalExamination: physicalExam,
-physicalExamStructured,
-clinicalNotes,
-updatedById: user?.id,
-});
-if (!cancelled) {
-setAssessmentDirty(false);
-setAssessmentSaveStatus('saved');
-}
-} catch (error) {
-if (!cancelled) {
-setAssessmentDirty(false);
-setAssessmentSaveStatus('error');
-toastError('Clinical draft autosave failed', (error as any)?.response?.data?.message || (error as Error)?.message || 'Please reopen the assessment and make a small edit to retry.');
-}
-}
-}, 900);
-return () => { cancelled = true; window.clearTimeout(timer); };
-}, [assessmentDirty, assessmentSignature, selectedAttendanceId, canAddEntries, isClinicalFinalized, currentAttendance, hpc, odq, physicalExam, reviewOfSystems, physicalExamStructured, presentedComplaints, user?.id, user?.fullName, user?.username, updateAttendance, toastError]);
+}, []);
 const loadConsumableUses = async (id: string) => {
 const response = await getEncounterConsumableUses(id);
 const data = response?.data;
@@ -921,6 +874,54 @@ openPrintWindow(html, `Medical-Record-${attendanceRecord.attendanceNumber || sel
 };
 const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
 const isClinicalFinalized = Boolean((currentAttendance as any)?.finalizedAt);
+const assessmentSignature = JSON.stringify(assessmentValue);
+useEffect(() => {
+if (!assessmentDirty || !selectedAttendanceId || !canAddEntries || isClinicalFinalized) return;
+let cancelled = false;
+const timer = window.setTimeout(async () => {
+if (cancelled) return;
+setAssessmentSaveStatus('saving');
+try {
+const clinicalNotes = {
+...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
+? currentAttendance.clinicalNotes
+: {}),
+historyPresentingComplaint: hpc || null,
+onsetDurationQuality: odq || null,
+physicalExamination: physicalExam || null,
+reviewOfSystems,
+physicalExamStructured,
+assessmentDraftAudit: {
+updatedById: user?.id || null,
+updatedByName: user?.fullName || user?.username || 'Unknown user',
+updatedAt: new Date().toISOString(),
+},
+};
+await updateAttendance(selectedAttendanceId, {
+complaints: presentedComplaints,
+historyPresentingComplaint: hpc,
+onsetDurationQuality: odq,
+reviewOfSystems,
+physicalExamination: physicalExam,
+physicalExamStructured,
+clinicalNotes,
+updatedById: user?.id,
+});
+if (!cancelled) {
+setAssessmentDirty(false);
+setAssessmentSaveStatus('saved');
+}
+} catch (error) {
+if (!cancelled) {
+setAssessmentDirty(false);
+setAssessmentSaveStatus('error');
+toastError('Clinical draft autosave failed', (error as any)?.response?.data?.message || (error as Error)?.message || 'Please reopen the assessment and make a small edit to retry.');
+}
+}
+}, 900);
+return () => { cancelled = true; window.clearTimeout(timer); };
+}, [assessmentDirty, assessmentSignature, selectedAttendanceId, canAddEntries, isClinicalFinalized, currentAttendance, hpc, odq, physicalExam, reviewOfSystems, physicalExamStructured, presentedComplaints, user?.id, user?.fullName, user?.username, updateAttendance, toastError]);
+
 const linkedAdmission = (currentAttendance as any)?.Admission || (currentAttendance as any)?.admission || null;
 const isActiveInpatient = currentAttendance?.encounterCategory === 'ipd'
 && currentAttendance?.status === 'admitted'
