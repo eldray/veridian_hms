@@ -852,7 +852,7 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'Z86.19', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'History/status code; OPD fallback only, not automatically principal inpatient diagnosis.', status: 'provisional' },
   { icdCode: 'Z86.11', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'History/status code; OPD fallback only, not automatically principal inpatient diagnosis.', status: 'provisional' },
   { icdCode: 'Z79.01', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'History/status code; OPD fallback only, not automatically principal inpatient diagnosis.', status: 'provisional' },
-  { icdCode: 'A04.7', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Communicable umbrella provisional; named/systemic infection may map to different family.', status: 'provisional' },
+  { icdCode: 'A04.7', gdrgCodes: ['MEDI23A', 'PAED31C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI23A', notes: 'Verified: Annex C lists A04.7 under MEDI23 and PAED31 (diarrhoea/vomiting).', status: 'verified' }
   { icdCode: 'A05.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Communicable umbrella provisional; named/systemic infection may map to different family.', status: 'provisional' },
   { icdCode: 'A16.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Communicable umbrella provisional; named/systemic infection may map to different family.', status: 'provisional' },
   { icdCode: 'A17.9', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Communicable umbrella provisional; named/systemic infection may map to different family.', status: 'provisional' },
@@ -867,7 +867,7 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'E16.2', gdrgCodes: ['MEDI02A', 'PAED02C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI02A', notes: 'Provisional metabolic grouping; validate Annex C.', status: 'provisional' },
   { icdCode: 'E78.5', gdrgCodes: ['MEDI04A', 'PAED04C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI04A', notes: 'Provisional metabolic umbrella; validate Annex C.', status: 'provisional' },
   { icdCode: 'E88.9', gdrgCodes: ['MEDI04A', 'PAED04C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI04A', notes: 'Provisional metabolic umbrella; validate Annex C.', status: 'provisional' },
-  { icdCode: 'I49.9', gdrgCodes: ['MEDI07A', 'PAED15C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI07A', notes: 'Cardiac provisional; hypertension/stroke/arrhythmia/acute cardiac conditions require specific group.', status: 'provisional' },
+  { icdCode: 'I49.9', gdrgCodes: ['MEDI07A', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI07A', notes: 'Verified adult link: Annex C lists I49 (other cardiac arrhythmias) under MEDI07. No paediatric I49 link added.', status: 'verified' }
   { icdCode: 'I47.9', gdrgCodes: ['MEDI07A', 'PAED15C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI07A', notes: 'Cardiac provisional; hypertension/stroke/arrhythmia/acute cardiac conditions require specific group.', status: 'provisional' },
   { icdCode: 'I95.9', gdrgCodes: ['MEDI07A', 'PAED15C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI07A', notes: 'Cardiac provisional; hypertension/stroke/arrhythmia/acute cardiac conditions require specific group.', status: 'provisional' },
   { icdCode: 'J11.1', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Respiratory/allergy umbrella provisional; validate Annex C.', status: 'provisional' },
@@ -876,15 +876,15 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'J90', gdrgCodes: ['MEDI22A', 'PAED30C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI22A', notes: 'Respiratory group provisional; severity/pleural procedures may change group. Validate Annex C.', status: 'provisional' },
   { icdCode: 'K11.7', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Provisional localized disease/OPD group; validate specialty mapping.', status: 'provisional' },
   { icdCode: 'K12.1', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Provisional localized disease/OPD group; validate specialty mapping.', status: 'provisional' },
-  { icdCode: 'K30', gdrgCodes: ['MEDI26A', 'PAED34C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI26A', notes: 'GI grouping; v22 lists dyspepsia under MEDI26. Exact Annex C mapping pending.', status: 'provisional' },
-  { icdCode: 'K62.5', gdrgCodes: ['MEDI31A', 'PAED39C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Provisional localized disease/OPD group; validate specialty mapping.', status: 'provisional' },
-  { icdCode: 'K70.10', gdrgCodes: ['MEDI24A', 'PAED32C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI24A', notes: 'Liver disease family; validate Annex C.', status: 'provisional' },
+  { icdCode: 'K30', gdrgCodes: ['MEDI26A', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI26A', notes: 'Verified adult link: Annex C explicitly lists K30 (dyspepsia) under MEDI26. No paediatric K30 link added.', status: 'verified' }
+  { icdCode: 'K62.5', gdrgCodes: ['MEDI25A', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI25A', notes: 'Verified adult link: Annex C includes K62 (other diseases of anus and rectum) under MEDI25 gastrointestinal tract bleeding.', status: 'verified' }
+  { icdCode: 'K70.10', gdrgCodes: ['MEDI24A', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI24A', notes: 'Verified adult link: Annex C lists K70 (alcoholic liver disease) under MEDI24. K70 is not listed in PAED32.', status: 'verified' }
   { icdCode: 'K76.89', gdrgCodes: ['MEDI24A', 'PAED32C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI24A', notes: 'Liver disease family; validate Annex C.', status: 'provisional' },
-  { icdCode: 'L23.9', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI18A', notes: 'Skin disease umbrella; validate Annex C.', status: 'provisional' },
-  { icdCode: 'L30.9', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI18A', notes: 'Skin disease umbrella; validate Annex C.', status: 'provisional' },
-  { icdCode: 'M25.50', gdrgCodes: ['ORTH24A', 'ORTH24C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'ORTH24A', notes: 'Musculoskeletal provisional; injuries/procedures may require specific ORTH/ASUR/PSUR group.', status: 'provisional' },
-  { icdCode: 'M25.60', gdrgCodes: ['ORTH24A', 'ORTH24C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'ORTH24A', notes: 'Musculoskeletal provisional; injuries/procedures may require specific ORTH/ASUR/PSUR group.', status: 'provisional' },
-  { icdCode: 'M25.40', gdrgCodes: ['ORTH24A', 'ORTH24C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'ORTH24A', notes: 'Musculoskeletal provisional; injuries/procedures may require specific ORTH/ASUR/PSUR group.', status: 'provisional' },
+  { icdCode: 'L23.9', gdrgCodes: ['MEDI31A', 'PAED26C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI31A', notes: 'Verified: Annex C lists L23.9 under MEDI31 (adult localised infections) and PAED26 (paediatric skin/subcutaneous diseases).', status: 'verified' }
+  { icdCode: 'L30.9', gdrgCodes: ['MEDI18A', 'PAED26C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI18A', notes: 'Verified: Annex C lists L30.9 under MEDI18 and PAED26 (skin/subcutaneous diseases).', status: 'verified' }
+  { icdCode: 'M25.50', gdrgCodes: ['MEDI30A', 'PAED38C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI30A', notes: 'Verified: Annex C lists M25 (other joint disorders) under MEDI30 and PAED38 severe/systemic infections; not ORTH24.', status: 'verified' }
+  { icdCode: 'M25.60', gdrgCodes: ['MEDI30A', 'PAED38C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI30A', notes: 'Verified: Annex C lists M25 (other joint disorders) under MEDI30 and PAED38; not ORTH24.', status: 'verified' }
+  { icdCode: 'M25.40', gdrgCodes: ['MEDI30A', 'PAED38C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI30A', notes: 'Verified: Annex C lists M25 (other joint disorders) under MEDI30 and PAED38; not ORTH24.', status: 'verified' }
   { icdCode: 'M54.9', gdrgCodes: ['ORTH24A', 'ORTH24C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'ORTH24A', notes: 'Musculoskeletal provisional; injuries/procedures may require specific ORTH/ASUR/PSUR group.', status: 'provisional' },
   { icdCode: 'M79.9', gdrgCodes: ['ORTH24A', 'ORTH24C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'ORTH24A', notes: 'Musculoskeletal provisional; injuries/procedures may require specific ORTH/ASUR/PSUR group.', status: 'provisional' },
   { icdCode: 'N93.9', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
@@ -895,7 +895,7 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'P70.4', gdrgCodes: ['PAED07C'], isPrimaryGdrg: 'PAED07C', notes: 'Neonatal grouping provisional; exact diagnosis may select another PAED tariff.', status: 'provisional' },
   { icdCode: 'R07.89', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
   { icdCode: 'R09.89', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
-  { icdCode: 'R10.84', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
+  { icdCode: 'R10.84', gdrgCodes: ['MEDI26A', 'PAED34C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI26A', notes: 'Verified: Annex C includes R10.4 abdominal pain under MEDI26 and R10.8 abdominal pain under PAED34; R10.84 is an R10.8 code.', status: 'verified' }
   { icdCode: 'R19.8', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
   { icdCode: 'R23.8', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
   { icdCode: 'R25.9', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
@@ -910,8 +910,8 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'T14.90XA', gdrgCodes: ['ORTH24A', 'ORTH24C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'ORTH24A', notes: 'Injury provisional; region/severity/procedure determines final ORTH/ASUR/PSUR group.', status: 'provisional' },
   { icdCode: 'R03.0', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
   { icdCode: 'E78.0', gdrgCodes: ['MEDI04A', 'PAED04C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI04A', notes: 'Provisional metabolic umbrella; validate Annex C.', status: 'provisional' },
-  { icdCode: 'D57.00', gdrgCodes: ['MEDI16A', 'PAED24C'], isPrimaryGdrg: 'MEDI16A', notes: 'Sickle-cell umbrella; crisis/complication severity may alter group. Validate Annex C.', status: 'provisional' },
-  { icdCode: 'D57.01', gdrgCodes: ['MEDI16A', 'PAED24C'], isPrimaryGdrg: 'MEDI16A', notes: 'Sickle-cell umbrella; crisis/complication severity may alter group. Validate Annex C.', status: 'provisional' },
+  { icdCode: 'D57.00', gdrgCodes: ['MEDI16A', 'PAED24C'], isPrimaryGdrg: 'MEDI16A', notes: 'Verified: Annex C lists D57.0 haemoglobinopathy with crisis under MEDI16 and PAED24.', status: 'verified' }
+  { icdCode: 'D57.01', gdrgCodes: ['MEDI16A', 'PAED24C'], isPrimaryGdrg: 'MEDI16A', notes: 'Verified: Annex C lists D57.0 haemoglobinopathy with crisis under MEDI16 and PAED24.', status: 'verified' }
   { icdCode: 'R12', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
   { icdCode: 'R73.03', gdrgCodes: ['MEDI04A', 'PAED04C', 'OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'MEDI04A', notes: 'Provisional metabolic umbrella; validate Annex C.', status: 'provisional' },
   { icdCode: 'R11.0', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
@@ -919,7 +919,7 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'R53.1', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'Symptom/sign mapped to OPD fallback; not automatically a principal inpatient diagnosis.', status: 'provisional' },
   { icdCode: 'N76.0', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'N76.1', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
-  { icdCode: 'N72', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
+  { icdCode: 'N72', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Verified: Annex C lists N72 under OBGY09 expectant management/medical treatment.', status: 'verified' }
   { icdCode: 'N75.1', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'N81.4', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'N81.1', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
@@ -927,7 +927,7 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'N91.2', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'N92.6', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'N95.0', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
-  { icdCode: 'N95.1', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
+  { icdCode: 'N95.1', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Verified: Annex C lists N95.1 menopausal disorders under OBGY09.', status: 'verified' }
   { icdCode: 'N95.2', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'N84', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'N93.0', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
@@ -941,11 +941,11 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'Z32.00', gdrgCodes: ['OPDC06A', 'OPDC06C'], isPrimaryGdrg: 'OPDC06A', notes: 'History/status code; OPD fallback only, not automatically principal inpatient diagnosis.', status: 'provisional' },
   { icdCode: 'N96', gdrgCodes: ['OBGY09A', 'OPDC08A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional gynaecology grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'O10.919', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.', status: 'provisional' },
-  { icdCode: 'O13.9', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.', status: 'provisional' },
+  { icdCode: 'O13.9', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Verified: Annex C lists O13 gestational hypertension without significant proteinuria under OBGY09.', status: 'verified' }
   { icdCode: 'O11.9', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.', status: 'provisional' },
-  { icdCode: 'O12.1', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.', status: 'provisional' },
-  { icdCode: 'O24.419', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.', status: 'provisional' },
-  { icdCode: 'O30.003', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.', status: 'provisional' },
+  { icdCode: 'O12.1', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Verified: Annex C lists O12 gestational oedema/proteinuria under OBGY09.', status: 'verified' }
+  { icdCode: 'O24.419', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Verified: Annex C lists O24.9 diabetes in pregnancy under OBGY09; this code is within O24.', status: 'verified' }
+  { icdCode: 'O30.003', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Verified: Annex C lists O30.9 multiple gestation under OBGY09; this code is within O30.', status: 'verified' }
   { icdCode: 'O32.1', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'O41.03', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.', status: 'provisional' },
   { icdCode: 'O36.593', gdrgCodes: ['OBGY09A', 'OPDC02A'], isPrimaryGdrg: 'OBGY09A', notes: 'Provisional OBGY grouping; exact Annex C validation needed.', status: 'provisional' },
