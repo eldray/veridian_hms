@@ -1565,7 +1565,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: NARRATIVE NOTES ─────────────────────────── */}
-              {selectedProcedure && activeTab === 'narrative' && (
+              {selectedProcedure && (
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Complications */}
                   <SectionCard
@@ -1637,7 +1637,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: HANDOVER ─────────────────────────────────── */}
-              {selectedProcedure && activeTab === 'handover' && (
+              {selectedProcedure && (
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <SectionCard
                     icon={<Save className="w-4 h-4 text-purple-600" />}
