@@ -114,7 +114,7 @@ Static reconciliation of the current catalogue and mapping table:
 
 ## Annex C verification pass — 23 November 2026
 
-The following 21 provisional diagnosis records were checked against the exact diagnosis/indication rows in the official NHIA Tariffs Operation Manual v22 and promoted to verified. One additional pre-existing K52.9 record was corrected: its unsupported paediatric link was removed and its adult MEDI26 link was explicitly marked verified. Where the manual only listed an adult or paediatric grouping, the unlisted age-band candidate was removed rather than inferred.
+The following 22 provisional diagnosis records were checked against the exact diagnosis/indication rows in the official NHIA Tariffs Operation Manual v22 and promoted to verified. One additional pre-existing K52.9 record was corrected: its unsupported paediatric link was removed and its adult MEDI26 link was explicitly marked verified. Where the manual only listed an adult or paediatric grouping, the unlisted age-band candidate was removed rather than inferred.
 
 | ICD-10 | Verified G-DRG link(s) | Annex C basis |
 |---|---|---|
@@ -130,6 +130,7 @@ The following 21 provisional diagnosis records were checked against the exact di
 | L30.9 | MEDI18A, PAED26C | Adult and paediatric skin/subcutaneous diseases |
 | M25.50, M25.60, M25.40 | MEDI30A, PAED38C | M25 other joint disorders in both age-band tables |
 | R10.84 | MEDI26A, PAED34C | R10.4/R10.8 abdominal pain groupings |
+| S00.90XA | ORTH24A, ORTH24C | Superficial injury of head; conservative management |
 | D57.00, D57.01 | MEDI16A, PAED24C | D57.0 haemoglobinopathy with crisis |
 | N72 | OBGY09A | Inflammatory disease of cervix uteri/vulva |
 | N95.1 | OBGY09A | Menopausal disorders |
@@ -138,6 +139,6 @@ The following 21 provisional diagnosis records were checked against the exact di
 | O24.419 | OBGY09A | Diabetes in pregnancy |
 | O30.003 | OBGY09A | Multiple gestation |
 
-**Not yet complete:** 113 diagnosis candidates remain provisional and are still excluded from automatic seeding. The other 496 legacy mapping records have not yet been individually reconciled against every Annex C indication. Structural presence in the local tariff JSON is not proof of clinical mapping correctness. No claim of 100% mapping verification is made.
+**Not yet complete:** 112 diagnosis candidates remain provisional and are still excluded from automatic seeding. The other 496 legacy mapping records have not yet been individually reconciled against every Annex C indication. Structural presence in the local tariff JSON is not proof of clinical mapping correctness. No claim of 100% mapping verification is made.
 
 Source: NHIA Tariffs Operation Manual v22, Annex C, adult medicine and paediatrics (MEDI/PAED tables), and obstetrics/gynaecology (OBGY table). Official PDF: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf.
