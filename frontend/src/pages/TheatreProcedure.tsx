@@ -912,7 +912,6 @@ export default function TheatreProcedure() {
               </div>
 
               {activeTab === 'procedures' && (
-          {/* ── TAB: PROCEDURES ───── */}
           <SectionCard
             icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
             title={`Procedures for this visit (${procedures.length})`}
