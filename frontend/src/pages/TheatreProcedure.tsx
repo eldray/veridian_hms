@@ -1551,7 +1551,6 @@ export default function TheatreProcedure() {
                     <div className="flex justify-end gap-2 border-t border-[var(--border-color)] pt-3">
                       <button type="button" disabled={isSubmitting} onClick={handleSubmitMinorProcedure} className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{isSubmitting ? 'Saving…' : 'Save procedure record'}</button>
                     </div>
-                  </div>
                 </SectionCard>
               )}
 
