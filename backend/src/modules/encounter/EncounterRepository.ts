@@ -218,6 +218,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   async create(data: CreateEncounterDTO, userId: string) {
     this.validateClinicalDocumentation(data as Record<string, any>);
+    if (!userId) throw new ConflictError('A responsible user is required to remove a clinical order.');
     const actorId = await this.requireActorId(userId);
     const previousAttendance = await this.prisma.attendance.findFirst({
       where: { patientId: data.patientId, status: { not: 'cancelled' } },
