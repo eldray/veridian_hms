@@ -2223,7 +2223,16 @@ describe('theatre procedure safety documentation', () => {
       where: { id: 'procedure-1', status: 'in_progress' },
       data: expect.objectContaining({
         status: 'completed',
-        clinicalRecord: validTheatreRecord,
+        clinicalRecord: expect.objectContaining({
+          ...validTheatreRecord,
+          auditLog: expect.arrayContaining([
+            expect.objectContaining({
+              action: 'procedure_completed',
+              userId: 'nurse-1',
+              timestamp: expect.any(String),
+            }),
+          ]),
+        }),
         anesthesiaNotes: 'Spinal anaesthesia; monitoring documented',
         bloodLoss: 100,
       }),
