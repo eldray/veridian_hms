@@ -806,14 +806,6 @@ export default function TheatreProcedure() {
   ];
   const filledCount = sections.filter(s => s.filled).length;
 
-  const tabs: Array<{ key: TheatreTabKey; label: string; icon: React.ReactNode; count?: number }> = [
-    { key: 'procedures', label: 'Procedures', icon: <Scissors className="w-3.5 h-3.5" />, count: procedures.length },
-    { key: 'record', label: 'Peri-operative record', icon: <ClipboardList className="w-3.5 h-3.5" /> },
-    { key: 'narrative', label: 'Narrative notes', icon: <FileText className="w-3.5 h-3.5" />, count: [anesthesiaNotes, intraOperativeNotes, postOperativeNotes].filter(Boolean).length },
-    { key: 'handover', label: 'Handover', icon: <Save className="w-3.5 h-3.5" /> },
-    { key: 'history', label: 'Procedure history', icon: <Clock className="w-3.5 h-3.5" />, count: procedures.length },
-  ];
-
   const setCR = (patch: any) => setClinicalRecord((p: any) => ({ ...p, ...patch }));
 
   return (
@@ -997,7 +989,7 @@ export default function TheatreProcedure() {
               )}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 p-3">
               <div className="min-w-0">
-              {          <SectionCard
+                        <SectionCard
             icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
             title={`Procedures for this visit (${procedures.length})`}
             action={canAddEntries ? <AddBtn onClick={() => setShowScheduleModal(true)} label="Schedule" /> : undefined}
