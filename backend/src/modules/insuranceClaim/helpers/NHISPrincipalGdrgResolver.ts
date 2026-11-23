@@ -29,6 +29,8 @@ export type ResolverTariff = {
   applicableLevels: number[] | null;
   isZoomCode: boolean | null;
   isAntenatal: boolean | null;
+  /** True for a tariff that requires a performed operation/procedure. */
+  isSurgical?: boolean | null;
   description?: string | null;
   nhisServiceCode?: string | null;
 };
@@ -136,6 +138,12 @@ function levelMatches(tariff: ResolverTariff, facilityLevel: number | null): boo
 /** Whether this case type may bill this code at all. */
 function caseMatches(tariff: ResolverTariff, caseType: NHISCaseType, origin?: ResolverLink['origin']): boolean {
   const family = familyOf(tariff.gdrgCode);
+  // Annex C often lists diagnoses as indications for a surgical G-DRG. That
+  // association alone does not mean the operation was performed. Only a link
+  // created from a completed procedure may select a tariff marked surgical.
+  // Non-surgical conservative-management tariffs (e.g. ASUR34 / ORTH24) remain
+  // eligible through the diagnosis link.
+  if (caseType === 'ipd' && tariff.isSurgical === true && origin !== 'procedure') return false;
   const isDayCase = tariff.isZoomCode === true || family === DAY_CASE_FAMILY;
   switch (caseType) {
     case 'anc':
