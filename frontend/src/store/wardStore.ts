@@ -1,6 +1,7 @@
 // stores/wardStore.ts - FIXED to match backend response structure
 import { create } from 'zustand';
 import { 
+  fetchAllPages,
   getWards as apiGetWards,
   getWard as apiGetWard,
   createWard as apiCreateWard,
@@ -82,15 +83,18 @@ const transformWard = (ward: any): Ward => {
 
 const transformBed = (bed: any): Bed => {
   return {
-    id: bed.id,
+    id: bed.id || bed.bedId,
     bedNumber: bed.bedNumber,
     wardId: bed.wardId,
     isOccupied: bed.isOccupied,
     currentPatientId: bed.currentPatientId,
     createdAt: bed.createdAt,
     updatedAt: bed.updatedAt,
-    ward: bed.Ward || bed.ward,
-    currentPatient: bed.Patient || bed.currentPatient
+    ward: bed.Ward || bed.ward || (bed.wardName ? { id: bed.wardId, wardName: bed.wardName, wardType: bed.wardType } : undefined),
+    currentPatient: bed.Patient || bed.currentPatient || (bed.currentOccupant ? {
+      ...bed.currentOccupant,
+      fullName: [bed.currentOccupant.surname, bed.currentOccupant.otherNames].filter(Boolean).join(' ')
+    } : null)
   };
 };
 
@@ -279,24 +283,10 @@ export const useWardStore = create<WardState>((set, get) => ({
   getBeds: async (filters = {}) => {
     set({ isLoading: true });
     try {
-      const response = await apiGetBeds(filters);
-      console.log('🔍 [WardStore] Raw beds response:', response);
-      
-      let bedsArray: any[] = [];
-      
-      if (response?.data && Array.isArray(response.data)) {
-        bedsArray = response.data;
-      } else if (response?.data?.beds && Array.isArray(response.data.beds)) {
-        bedsArray = response.data.beds;
-      } else if (Array.isArray(response)) {
-        bedsArray = response;
-      } else {
-        console.warn('Unexpected beds response structure:', response);
-        bedsArray = [];
-      }
-
+      // Beds are paginated by the API. Load every page so ward totals, occupancy,
+      // capacity checks and bed deletion actions never operate on a partial list.
+      const bedsArray = await fetchAllPages<Bed>(apiGetBeds, filters);
       const transformedBeds = bedsArray.map(transformBed);
-      console.log('✅ [WardStore] Transformed beds:', transformedBeds.length);
       
       set({ 
         beds: transformedBeds,
