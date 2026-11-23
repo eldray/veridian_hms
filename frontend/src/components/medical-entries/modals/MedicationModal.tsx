@@ -41,15 +41,11 @@ const FREQUENCIES = [
   { value: 'mane',  label: 'In morning (mane)' },
 ];
 
-const ROUTES = [
-  { value: 'oral', label: 'Oral' },
-  { value: 'iv', label: 'Intravenous (IV)' },
-  { value: 'im', label: 'Intramuscular (IM)' },
-  { value: 'sc', label: 'Subcutaneous (SC)' },
-  { value: 'topical', label: 'Topical' },
-  { value: 'inhalation', label: 'Inhalation' },
-  { value: 'rectal', label: 'Rectal' },
-];
+const DURATION_OPTIONS = Array.from({ length: 30 }, (_, index) => {
+  const days = index + 1;
+  const value = days === 1 ? '24 hours' : days === 2 ? '48 hours' : `${days} days`;
+  return { value, label: value };
+});
 
 export const MedicationModal: React.FC<MedicationModalProps> = ({
   isOpen, onClose, onSuccess, attendanceId, stockItems, canAdd, allergies, onSwitchToConsumable,
@@ -60,8 +56,6 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('');
   const [duration, setDuration] = useState('');
-  const [route, setRoute] = useState('oral');
-  const [instructions, setInstructions] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -82,8 +76,6 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setDosage('');
     setFrequency('');
     setDuration('');
-    setRoute('oral');
-    setInstructions('');
     setShowDropdown(false);
     hasTriggeredCatalogLoad.current = false;
     const t = setTimeout(() => searchInputRef.current?.focus(), 60);
@@ -172,6 +164,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     if (!selectedServiceCatalog) { error('No pricing', 'This medication has no pricing configured.'); return; }
     if (!dosage.trim()) { error('Missing dosage', 'Please enter the dosage.'); return; }
     if (!frequency) { error('Missing frequency', 'Please select a frequency.'); return; }
+    if (!duration) { error('Missing days', 'Please select the prescription duration.'); return; }
     if (isBlocked(selectedClashes)) {
       error('Allergy conflict', 'This drug clashes with an allergy recorded for this patient.');
       return;
@@ -185,8 +178,6 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
         dosage: dosage.trim(),
         frequency,
         duration: duration.trim(),
-        route,
-        instructions: instructions.trim(),
       });
       success('Medication prescribed', `${selectedMed.name} has been prescribed.`);
       clearSelection();
@@ -415,8 +406,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
             </div>
           )}
 
-          {/* Prescription row: Dosage · Frequency · Duration · Route */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Prescription details: dosage, frequency and course length only. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
                 Dosage
@@ -450,49 +441,19 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
 
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
-                Duration
-              </label>
-              <input
-                value={duration}
-                onChange={e => setDuration(e.target.value)}
-                placeholder="7 days"
-                className={inputCls}
-                disabled={!canEdit}
-                autoComplete="off"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
-                Route
+                Days
               </label>
               <select
-                value={route}
-                onChange={e => setRoute(e.target.value)}
+                value={duration}
+                onChange={e => setDuration(e.target.value)}
                 className={inputCls}
                 disabled={!canEdit}
               >
-                {ROUTES.map(r => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
+                <option value="">Select days…</option>
+                {DURATION_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </div>
-          </div>
 
-          {/* Instructions */}
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
-              Instructions <span className="normal-case font-normal">(optional)</span>
-            </label>
-            <textarea
-              value={instructions}
-              onChange={e => setInstructions(e.target.value)}
-              rows={2}
-              placeholder="e.g. Take with food, avoid alcohol…"
-              className={`${inputCls} resize-none`}
-              disabled={!canEdit}
-            />
-          </div>
         </div>
 
         {/* Footer */}
@@ -507,7 +468,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!canEdit || !dosage.trim() || !frequency || isSubmitting || blockingClashes.length > 0}
+            disabled={!canEdit || !dosage.trim() || !frequency || !duration || isSubmitting || blockingClashes.length > 0}
             className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
           >
             {isSubmitting
