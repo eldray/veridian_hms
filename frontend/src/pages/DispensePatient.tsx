@@ -666,14 +666,14 @@ export default function DispensePatient() {
           {/* ═══════════════════════════════════════════════════════════
               PRESCRIBED MEDICATIONS — column-card grid
               ═══════════════════════════════════════════════════════════ */}
-          <div className="mb-3 flex items-center gap-1 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-1 w-fit">
+          <div className="mb-3 flex w-fit max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-1">
             <button type="button" onClick={() => setMedicationSectionTab('medications')}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'medications' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
-              Prescribed Medications <span className="ml-1 opacity-75">({prescriptions.length})</span>
+              className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'medications' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
+              Prescribed Medications <span className="ml-1 inline-block opacity-75">({prescriptions.length})</span>
             </button>
             <button type="button" onClick={() => setMedicationSectionTab('consumables')}
-              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'consumables' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
-              Consumables Issued <span className="ml-1 opacity-75">({consumableUses.length})</span>
+              className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${medicationSectionTab === 'consumables' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>
+              Consumables Issued <span className="ml-1 inline-block opacity-75">({consumableUses.length})</span>
             </button>
           </div>
           {medicationSectionTab === 'medications' && (
