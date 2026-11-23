@@ -288,7 +288,7 @@ export class EncounterController extends BaseController {
   removeMedication = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, medicationId } = req.params;
     const result = await this.service.removeMedication(encounterId, medicationId, req.user!.id);
-    return this.ok(res, result, result.status === 'cancelled' ? 'Medication cancelled successfully' : 'Prescription deleted successfully');
+    return this.ok(res, result, 'Medication removed successfully');
   });
 
   // ============================================
