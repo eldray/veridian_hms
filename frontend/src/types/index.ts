@@ -1046,6 +1046,9 @@ export interface Ward {
   dailyNHISRate: number;
   dailyInsuranceRate: number;
   dailyCorporateRate: number;
+  description?: string | null;
+  location?: string | null;
+  floor?: string | null;
   createdAt: string;
   updatedAt: string;
 
