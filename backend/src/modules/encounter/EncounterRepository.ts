@@ -1947,7 +1947,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       }
       data = { ...data, bloodLoss: estimatedBloodLoss };
     }
-    const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true, attendanceId: true } });
+    const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true, attendanceId: true, clinicalRecord: true } });
     if (!current) throw new NotFoundError('Procedure', procedureId);
     if (current.status === 'cancelled') throw new ConflictError('A cancelled procedure cannot be reopened or changed');
     if (current.status === 'completed') throw new ConflictError('A completed procedure record is locked; use the documented clinical correction workflow');
@@ -2052,41 +2052,60 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     }
     if (status === 'completed') {
       const record = data.clinicalRecord;
-      if (!record || record.identityConfirmed !== true || record.procedureAndSiteConfirmed !== true) {
-        throw new ValidationError('Before completing a procedure, confirm patient identity and the planned procedure/site');
-      }
-      if (record.consentConfirmed !== true && record.consentStatus !== 'emergency_exception') {
-        throw new ValidationError('Before completing a procedure, record consent or document the emergency exception');
-      }
-      if (record.consentStatus === 'emergency_exception' && !String(record.consentNotes || '').trim()) {
-        throw new ValidationError('Document the reason and circumstances for the emergency consent exception');
-      }
-      if (record.allergyStatusReviewed !== true || record.preOpAssessmentCompleted !== true) {
-        throw new ValidationError('Before completing a procedure, complete the allergy review and pre-operative assessment');
-      }
-      const countStatus = record.instrumentCountsStatus;
-      if (countStatus === 'discrepancy') {
-        throw new ValidationError('Resolve and escalate the instrument/swab/needle count discrepancy before completing the procedure');
-      }
-      if (countStatus !== 'correct' && !(countStatus === 'not_applicable' && String(record.instrumentCountNotes || '').trim())) {
-        throw new ValidationError('Confirm instrument/swab/needle counts, or document why counts are not applicable before completing the procedure');
-      }
-      if (String(record.specimens || '').trim() && record.specimenLabelled !== true) {
-        throw new ValidationError('Confirm specimen labelling when specimens are recorded');
-      }
-      if (!String(record.postOpDestination || '').trim() || !String(record.postOpPlan || '').trim()) {
-        throw new ValidationError('Before completing a procedure, record the post-operative destination and plan');
-      }
-      if (!String(record.handoverNotes || '').trim()) {
-        throw new ValidationError('Before completing a procedure, document the clinical handover to the receiving recovery or ward team');
-      }
-      if (!String(record.indication || '').trim() ||
-          !String(record.preOpDiagnosis || '').trim() ||
-          !String(record.operativeSite || '').trim()) {
-        throw new ValidationError('Before completing a procedure, document the clinical indication, pre-operative diagnosis and operative site');
-      }
-      if (!String(data.outcome || '').trim()) {
-        throw new ValidationError('Select and document the theatre procedure outcome before completing the record');
+      if (record?.workflow === 'minor') {
+        const minor = record.minorProcedure;
+        if (!minor || typeof minor !== 'object' || Array.isArray(minor) || !String(minor.procedureDetails || '').trim()) {
+          throw new ValidationError('Document the minor procedure performed before completing this record');
+        }
+        if (!String(minor.outcome || data.outcome || '').trim()) {
+          throw new ValidationError('Select and document the minor procedure outcome before completing the record');
+        }
+        for (const field of ['indication', 'site', 'findings', 'procedureDetails', 'anaesthesia', 'complications', 'aftercare']) {
+          if (minor[field] !== undefined && typeof minor[field] !== 'string') {
+            throw new ValidationError(`Minor procedure field ${field} must be text`);
+          }
+          if (typeof minor[field] === 'string' && minor[field].length > 10000) {
+            throw new ValidationError(`Minor procedure field ${field} exceeds the maximum supported length`);
+          }
+        }
+      } else {
+        if (!record || record.identityConfirmed !== true || record.procedureAndSiteConfirmed !== true) {
+          throw new ValidationError('Before completing a procedure, confirm patient identity and the planned procedure/site');
+        }
+        if (record.consentConfirmed !== true && record.consentStatus !== 'emergency_exception') {
+          throw new ValidationError('Before completing a procedure, record consent or document the emergency exception');
+        }
+        if (record.consentStatus === 'emergency_exception' && !String(record.consentNotes || '').trim()) {
+          throw new ValidationError('Document the reason and circumstances for the emergency consent exception');
+        }
+        if (record.allergyStatusReviewed !== true || record.preOpAssessmentCompleted !== true) {
+          throw new ValidationError('Before completing a procedure, complete the allergy review and pre-operative assessment');
+        }
+        const countStatus = record.instrumentCountsStatus;
+        if (countStatus === 'discrepancy') {
+          throw new ValidationError('Resolve and escalate the instrument/swab/needle count discrepancy before completing the procedure');
+        }
+        if (countStatus !== 'correct' && !(countStatus === 'not_applicable' && String(record.instrumentCountNotes || '').trim())) {
+          throw new ValidationError('Confirm instrument/swab/needle counts, or document why counts are not applicable before completing the procedure');
+        }
+        if (String(record.specimens || '').trim() && record.specimenLabelled !== true) {
+          throw new ValidationError('Confirm specimen labelling when specimens are recorded');
+        }
+        if (!String(record.postOpDestination || '').trim() || !String(record.postOpPlan || '').trim()) {
+          throw new ValidationError('Before completing a procedure, record the post-operative destination and plan');
+        }
+        if (!String(record.handoverNotes || '').trim()) {
+          throw new ValidationError('Before completing a procedure, document the clinical handover to the receiving recovery or ward team');
+        }
+        if (!String(record.indication || '').trim() ||
+            !String(record.preOpDiagnosis || '').trim() ||
+            !String(record.operativeSite || '').trim()) {
+          throw new ValidationError('Before completing a procedure, document the clinical indication, pre-operative diagnosis and operative site');
+        }
+        if (!String(data.outcome || '').trim()) {
+          throw new ValidationError('Select and document the theatre procedure outcome before completing the record');
+        }
+  
       }
     }
     if (data.scheduledDate !== undefined && data.scheduledDate !== null) {
@@ -2099,6 +2118,28 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (status !== current.status) updateData.status = status;
     if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
     if (status === 'completed') updateData.performedAt = new Date();
+    // Audit identity and time are authored by the server, never trusted from the browser payload.
+    if (data.clinicalRecord !== undefined) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { id: true, fullName: true, username: true },
+      });
+      const previousClinicalRecord: any = current.clinicalRecord || {};
+      const existingAuditLog = Array.isArray(previousClinicalRecord.auditLog) ? previousClinicalRecord.auditLog : [];
+      updateData.clinicalRecord = {
+        ...previousClinicalRecord,
+        ...data.clinicalRecord,
+        auditLog: [
+          ...existingAuditLog,
+          {
+            action: status === 'completed' ? 'procedure_completed' : status === 'in_progress' ? 'procedure_documented' : `procedure_${status}`,
+            userId: actorId,
+            userLabel: actor?.fullName || actor?.username || actorId,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+    }
     if (!Object.keys(updateData).length) throw new ValidationError('No procedure changes were provided');
     const updated = await this.prisma.procedure.updateMany({
       where: { id: procedureId, status: current.status },

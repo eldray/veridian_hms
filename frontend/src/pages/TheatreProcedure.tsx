@@ -63,6 +63,28 @@ const getStatusDot = (status: string) => {
 const countWords = (text: string) =>
   text?.trim() ? text.trim().split(/\s+/).length : 0;
 
+/**
+ * Procedure workflow is configurable per ServiceCatalog metadata:
+ * metadata.procedureWorkflow = "theatre" | "minor", or metadata.requiresTheatre = boolean.
+ * Older catalogue entries fall back to a conservative name-based classification.
+ */
+const isTheatreRequiredProcedure = (procedure: any): boolean => {
+  const metadata = procedure?.ServiceCatalog?.metadata || procedure?.metadata || {};
+  const configured = String(metadata.procedureWorkflow || metadata.workflow || '').toLowerCase();
+  if (configured === 'theatre' || configured === 'major') return true;
+  if (configured === 'minor' || configured === 'clinic') return false;
+  if (typeof metadata.requiresTheatre === 'boolean') return metadata.requiresTheatre;
+
+  const name = String(procedure?.name || procedure?.ServiceCatalog?.name || '').toLowerCase();
+  // Common bedside/minor work is explicitly kept out of the full theatre form.
+  if (/\b(dressing|wound\s+toilet|sutur(e|ing)|suture\s+removal|incision\s+and\s+drainage|abscess\s+drainage|catheterisation|catheterization|urinary\s+catheter|cannulation|venepuncture|venipuncture|injection|aspiration|nail\s+avulsion|wound\s+care|packing|simple\s+biopsy|circumcision)\b/.test(name)) return false;
+  if (/\b(laparotom|laparoscop|craniotom|thoracotom|mastectom|hysterectom|caesarean|cesarean|appendectom|cholecystectom|resection|amputation|major\s+surgery|hernia\s+repair|internal\s+fixation|open\s+reduction|thyroidectom|prostatectom|nephrectom|colostom|ileostom|thoracostom|general\s+anaesthe|general\s+anesthe)\b/.test(name)) return true;
+
+  const template = procedure?.ServiceCatalog?.ProcedureTemplate || procedure?.ProcedureTemplate || {};
+  const classification = String(template.category || procedure?.ServiceCatalog?.department || '').toLowerCase();
+  return classification.includes('surgery') || classification.includes('theatre');
+};
+
 // ─────────────────────────────────────────────────────────────
 // Shared primitives (mirroring src/pages/Antenatal.tsx)
 // ─────────────────────────────────────────────────────────────
@@ -170,6 +192,16 @@ export default function TheatreProcedure() {
     postOpDestination: '', postOpPlan: '', handoverNotes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [minorProcedureRecord, setMinorProcedureRecord] = useState({
+    indication: '',
+    site: '',
+    findings: '',
+    procedureDetails: '',
+    anaesthesia: 'local',
+    complications: '',
+    aftercare: '',
+    outcome: 'successful',
+  });
 
   // Schedule modal state
   const [scheduleSearch, setScheduleSearch] = useState('');
@@ -372,6 +404,16 @@ export default function TheatreProcedure() {
       setComplications(selectedProcedure.complications || '');
       setHasComplications(!!selectedProcedure.complications);
       setOutcome(selectedProcedure.outcome || '');
+      setMinorProcedureRecord({
+        indication: selectedProcedure.clinicalRecord?.minorProcedure?.indication || '',
+        site: selectedProcedure.clinicalRecord?.minorProcedure?.site || '',
+        findings: selectedProcedure.clinicalRecord?.minorProcedure?.findings || '',
+        procedureDetails: selectedProcedure.clinicalRecord?.minorProcedure?.procedureDetails || '',
+        anaesthesia: selectedProcedure.clinicalRecord?.minorProcedure?.anaesthesia || 'local',
+        complications: selectedProcedure.clinicalRecord?.minorProcedure?.complications || '',
+        aftercare: selectedProcedure.clinicalRecord?.minorProcedure?.aftercare || '',
+        outcome: selectedProcedure.clinicalRecord?.minorProcedure?.outcome || 'successful',
+      });
       setClinicalRecord({
         indication: '', preOpDiagnosis: '', operativeSite: '',
         identityConfirmed: false, procedureAndSiteConfirmed: false, siteMarked: false,
@@ -570,7 +612,20 @@ export default function TheatreProcedure() {
         bloodLoss: bloodLoss !== '' && bloodLoss !== null ? Number(bloodLoss) : null,
         complications: hasComplications ? complications : null,
         outcome: outcome || null,
-        clinicalRecord: { ...clinicalRecord, anesthesiaType },
+        clinicalRecord: {
+          ...clinicalRecord,
+          anesthesiaType,
+          workflow: 'theatre',
+          auditLog: [
+            ...(Array.isArray(selectedProcedure?.clinicalRecord?.auditLog) ? selectedProcedure.clinicalRecord.auditLog : []),
+            {
+              action: complete ? 'theatre_record_completed' : 'theatre_record_saved',
+              userId: user?.id || null,
+              userLabel: user?.fullName || user?.email || user?.username || user?.id || 'Clinical user',
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        },
         performedById: user?.id || '',
         performedAt: new Date().toISOString(),
       });
@@ -587,6 +642,60 @@ export default function TheatreProcedure() {
       }
     } catch (err: any) {
       toastError('Save failed', err.message || 'Could not save operation notes');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmitMinorProcedure = async () => {
+    if (!selectedProcedureId || !selectedAttendanceId || !selectedProcedure) {
+      toastError('Selection required', 'Select the minor procedure before saving.');
+      return;
+    }
+    if (!canUpdateProcedure) {
+      toastError('Access denied', 'Cannot update a completed/cancelled attendance.');
+      return;
+    }
+    if (!minorProcedureRecord.procedureDetails.trim()) {
+      toastError('Procedure details required', 'Describe the procedure performed.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const now = new Date().toISOString();
+      const previousRecord = selectedProcedure.clinicalRecord || {};
+      const auditLog = Array.isArray(previousRecord.auditLog) ? previousRecord.auditLog : [];
+      const actor = user?.fullName || user?.email || user?.username || user?.id || 'Clinical user';
+      await updateProcedureStatus(selectedAttendanceId, selectedProcedureId, {
+        status: 'completed',
+        performedById: user?.id || '',
+        performedAt: now,
+        outcome: minorProcedureRecord.outcome,
+        complications: minorProcedureRecord.complications.trim() || null,
+        clinicalRecord: {
+          ...previousRecord,
+          minorProcedure: { ...minorProcedureRecord },
+          workflow: 'minor',
+          auditLog: [...auditLog, {
+            action: 'procedure_documented',
+            userId: user?.id || null,
+            userLabel: actor,
+            timestamp: now,
+          }],
+        },
+      });
+      success('Procedure saved', 'Minor procedure documentation has been recorded.');
+      setActiveTab('procedures');
+      setSelectedProcedureId('');
+      setMinorProcedureRecord({
+        indication: '', site: '', findings: '', procedureDetails: '',
+        anaesthesia: 'local', complications: '', aftercare: '', outcome: 'successful',
+      });
+      await getAttendance(selectedAttendanceId);
+      await calculateBill(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Save failed', err.message || 'Could not save the minor procedure.');
     } finally {
       setIsSubmitting(false);
     }
@@ -983,8 +1092,20 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: PERI-OPERATIVE RECORD ─────────────────── */}
-              {selectedProcedure && activeTab === 'record' && (
-                <div className="p-4 space-y-4">
+              {selectedProcedure && activeTab === 'record' && isTheatreRequiredProcedure(selectedProcedure) && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4">
+                  <div className="absolute inset-0" onClick={() => setActiveTab('procedures')} />
+                  <div className="relative z-10 flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl">
+                    <div className="flex shrink-0 items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-[var(--text-primary)]">Theatre documentation</p>
+                        <p className="truncate text-xs text-[var(--text-secondary)]">{selectedProcedure.name}</p>
+                      </div>
+                      <button type="button" onClick={() => setActiveTab('procedures')} className="rounded-lg p-2 text-[var(--text-secondary)] hover:bg-[var(--border-color)]" aria-label="Close theatre documentation">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
                   {/* Allergy reminder inside record */}
                   <div className={`rounded-lg border p-3 ${Array.isArray(patient.allergies) && patient.allergies.length ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
                     <p className={`text-xs font-bold ${Array.isArray(patient.allergies) && patient.allergies.length ? 'text-red-800' : 'text-amber-800'}`}>
@@ -1382,6 +1503,64 @@ export default function TheatreProcedure() {
                       </p>
                     </div>
                   </SectionCard>
+                  </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── TAB: MINOR PROCEDURE DOCUMENTATION MODAL ─────── */}
+              {selectedProcedure && activeTab === 'record' && !isTheatreRequiredProcedure(selectedProcedure) && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+                  <div className="absolute inset-0" onClick={() => setActiveTab('procedures')} />
+                  <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl">
+                    <div className="flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3">
+                      <div>
+                        <p className="text-sm font-bold text-[var(--text-primary)]">Minor procedure record</p>
+                        <p className="text-xs text-[var(--text-secondary)]">{selectedProcedure.name}</p>
+                      </div>
+                      <button type="button" onClick={() => setActiveTab('procedures')} className="rounded-lg p-2 text-[var(--text-secondary)] hover:bg-[var(--border-color)]" aria-label="Close minor procedure form"><X className="h-4 w-4" /></button>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+                      <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">
+                        This procedure is documented using a short clinical record. Theatre safety, anaesthesia and operative forms are not required for this workflow.
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <FormField label="Indication / reason">
+                          <input value={minorProcedureRecord.indication} onChange={(e) => setMinorProcedureRecord((v) => ({ ...v, indication: e.target.value }))} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm" />
+                        </FormField>
+                        <FormField label="Site / location">
+                          <input value={minorProcedureRecord.site} onChange={(e) => setMinorProcedureRecord((v) => ({ ...v, site: e.target.value }))} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm" />
+                        </FormField>
+                        <FormField label="Anaesthesia / analgesia">
+                          <select value={minorProcedureRecord.anaesthesia} onChange={(e) => setMinorProcedureRecord((v) => ({ ...v, anaesthesia: e.target.value }))} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm">
+                            <option value="none">None</option><option value="local">Local</option><option value="topical">Topical</option><option value="regional">Regional</option><option value="sedation">Sedation</option>
+                          </select>
+                        </FormField>
+                        <FormField label="Outcome">
+                          <select value={minorProcedureRecord.outcome} onChange={(e) => setMinorProcedureRecord((v) => ({ ...v, outcome: e.target.value }))} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm">
+                            <option value="successful">Completed successfully</option><option value="successful_minor">Completed with minor complications</option><option value="unsuccessful">Unsuccessful</option><option value="aborted">Aborted</option>
+                          </select>
+                        </FormField>
+                      </div>
+                      <FormField label="Findings">
+                        <textarea rows={2} value={minorProcedureRecord.findings} onChange={(e) => setMinorProcedureRecord((v) => ({ ...v, findings: e.target.value }))} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm" />
+                      </FormField>
+                      <FormField label="Procedure performed *">
+                        <textarea rows={4} value={minorProcedureRecord.procedureDetails} onChange={(e) => setMinorProcedureRecord((v) => ({ ...v, procedureDetails: e.target.value }))} placeholder="Describe the technique, key steps and materials used…" className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm" />
+                      </FormField>
+                      <FormField label="Complications / events">
+                        <textarea rows={2} value={minorProcedureRecord.complications} onChange={(e) => setMinorProcedureRecord((v) => ({ ...v, complications: e.target.value }))} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm" />
+                      </FormField>
+                      <FormField label="Aftercare / advice / follow-up">
+                        <textarea rows={3} value={minorProcedureRecord.aftercare} onChange={(e) => setMinorProcedureRecord((v) => ({ ...v, aftercare: e.target.value }))} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm" />
+                      </FormField>
+                      <p className="text-[11px] text-[var(--text-tertiary)]">On save, the system records the authenticated user and exact save time in the procedure audit log.</p>
+                    </div>
+                    <div className="flex shrink-0 justify-end gap-2 border-t border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3">
+                      <button type="button" onClick={() => setActiveTab('procedures')} className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)]">Cancel</button>
+                      <button type="button" disabled={isSubmitting} onClick={handleSubmitMinorProcedure} className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{isSubmitting ? 'Saving…' : 'Save procedure record'}</button>
+                    </div>
                   </div>
                 </div>
               )}
