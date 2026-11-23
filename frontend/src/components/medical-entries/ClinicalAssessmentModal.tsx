@@ -120,23 +120,28 @@ export const ClinicalAssessmentModal: React.FC<ClinicalAssessmentModalProps> = (
   // Persist changes to the parent draft after a short pause in typing. The page
   // performs the actual attendance autosave; this modal never signs/finalizes.
   useEffect(() => {
-    if (!isOpen || readOnly) return;
+    if (!isOpen || readOnly || JSON.stringify(draft) === JSON.stringify(value)) return;
     const timer = window.setTimeout(() => onSave(draft), 650);
     return () => window.clearTimeout(timer);
-  }, [draft, isOpen, onSave, readOnly]);
+  }, [draft, isOpen, onSave, readOnly, value]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleClose]);
+
+  const handleClose = () => {
+    if (!readOnly) onSave(draft);
+    onClose();
+  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
 
       <div
         role="dialog"
@@ -259,11 +264,11 @@ export const ClinicalAssessmentModal: React.FC<ClinicalAssessmentModalProps> = (
             Changes autosave to this visit as you work. Closing this window does not finalize the record.
           </p>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={onClose}
+            <button type="button" onClick={handleClose}
               className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors">
-              Cancel
+              Close
             </button>
-            <button type="button" onClick={onClose}
+            <button type="button" onClick={handleClose}
               className="rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90 transition-all">
               Done
             </button>
