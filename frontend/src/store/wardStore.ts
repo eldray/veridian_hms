@@ -86,7 +86,7 @@ const transformBed = (bed: any): Bed => {
     id: bed.id || bed.bedId,
     bedNumber: bed.bedNumber,
     wardId: bed.wardId,
-    isOccupied: bed.isOccupied,
+    isOccupied: Boolean(bed.isOccupied || bed.currentOccupant || bed.Patient || bed.currentPatient),
     currentPatientId: bed.currentPatientId,
     createdAt: bed.createdAt,
     updatedAt: bed.updatedAt,
