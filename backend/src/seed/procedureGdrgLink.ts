@@ -107,7 +107,7 @@ async function seedProcedureGDRGLinks(client: PrismaClient = prisma) {
   // Every procedure template must have a mapping and a linked service-catalogue row.
   const mappedCodes = new Set(MAPPINGS.map(m => m.procedureCode));
   const unmappedTemplates = allTemplates.filter(t => !mappedCodes.has(t.procedureCode));
-  const templatesWithoutCatalog = allTemplates.filter(t => mappedCodes.has(t.procedureCode) && !procedureCodeToCatalogId.has(t.procedureCode));
+  const templatesWithoutCatalog = allTemplates.filter(t => mappedCodes.has(t.procedureCode) && !procedureCodeToCatalogId.has(t.procedureCode) && !ambiguousCatalogTemplateIds.has(t.id));
   const templatesWithAmbiguousCatalog = allTemplates.filter(t => mappedCodes.has(t.procedureCode) && ambiguousCatalogTemplateIds.has(t.id));
   for (const item of unmappedTemplates) errors.push(`Procedure template has no G-DRG mapping: ${item.procedureCode} (${item.name})`);
   for (const item of templatesWithoutCatalog) errors.push(`Procedure template has no unique linked ServiceCatalog row: ${item.procedureCode} (${item.name})`);
