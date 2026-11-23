@@ -849,7 +849,9 @@ export default function TheatreProcedure() {
           {/* ── WORKSPACE CARD WITH TABS ──────────────────────── */}
           {selectedProcedure || activeTab === 'procedures' ? (
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              {selectedProcedure && (                            {/* Procedure header strip */}
+              {selectedProcedure && (
+                <>
+              {/* Procedure header strip */}
               <div className="px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
                   <h2 className="text-base font-bold text-[var(--text-primary)] truncate">{selectedProcedure.name}</h2>
@@ -881,7 +883,7 @@ export default function TheatreProcedure() {
                   )}
                 </div>
               </div>
-
+                </>
               )}
               {/* Tab bar */}
               <div className="flex items-center border-b border-[var(--border-color)] px-1 overflow-x-auto">
