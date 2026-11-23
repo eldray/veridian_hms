@@ -1006,7 +1006,9 @@ onsetDurationQuality: odq || null,
 physicalExamination: physicalExam || null,
 treatmentPlan: treatmentPlan || null,
 assessment: assessment || null,
-treatmentPlanAudit: { updatedById: user?.id || null, updatedByName: user?.fullName || user?.username || 'Unknown user', updatedAt: new Date().toISOString() },
+treatmentPlanAudit: treatmentPlan !== (currentAttendance as any)?.treatmentPlan
+                ? { updatedById: user?.id || null, updatedByName: user?.fullName || user?.username || 'Unknown user', updatedAt: new Date().toISOString() }
+                : (currentAttendance?.clinicalNotes as any)?.treatmentPlanAudit || null,
 clinicalNotesAudit: (currentAttendance?.clinicalNotes as any)?.clinicalNotesAudit || null,
 reviewOfSystems,
 physicalExamStructured,
