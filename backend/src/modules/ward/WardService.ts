@@ -83,7 +83,7 @@ export class WardService extends BaseService {
         throw new Error('Total beds must be a positive whole number');
       }
       const registeredBeds = await this.repository.countBedsForWard(id);
-      if (data.totalBeds < registeredBeds) {
+      if (data.totalBeds !== existingWard.totalBeds && data.totalBeds < registeredBeds) {
         throw new Error(`Capacity cannot be lower than the ${registeredBeds} beds already registered in this ward`);
       }
     }
