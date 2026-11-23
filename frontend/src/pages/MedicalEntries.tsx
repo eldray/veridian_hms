@@ -1416,7 +1416,7 @@ if (type === 'diagnosis') await updateDiagnosis(selectedAttendanceId, entry.id, 
 else if (type === 'lab') await updateLabTestStatus(selectedAttendanceId, entry.id, { status: entry.status, priority: values.priority, notes: values.notes });
 else if (type === 'scan') await updateScanStatus(selectedAttendanceId, entry.id, { status: entry.status === 'scheduled' ? 'requested' : entry.status, priority: values.priority, notes: values.notes });
 else if (type === 'procedure') await updateProcedureStatus(selectedAttendanceId, entry.id, { status: entry.status, scheduledDate: values.scheduledDate || null, notes: values.notes });
-else if (type === 'medication') await updateMedicationStatus(selectedAttendanceId, entry.id, { status: entry.status, dosage: values.dosage, frequency: values.frequency, duration: values.duration, route: values.route, instructions: values.instructions });
+else if (type === 'medication') await updateMedicationStatus(selectedAttendanceId, entry.id, { status: entry.status, dosage: values.dosage, frequency: values.frequency, duration: values.duration });
 success('Saved', 'Medical entry updated');
 await getAttendance(selectedAttendanceId);
 await calculateBill(selectedAttendanceId);
@@ -2162,23 +2162,16 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                 {medicationsList.length === 0
                                     ? <EmptyState icon={<Pill className="w-9 h-9" />} label="No medications prescribed" />
                                     : (
-                                        <Table heads={['Medication', 'Dosage', 'Frequency', 'Qty', 'Status', '']}>
+                                        <Table heads={['Medication', 'Dosage', 'Frequency', 'Days', 'Status', '']}>
                                             {medicationsList.map((med: any) => (
                                                 <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                                                     <TdPrimary>
                                                         {med.name}
-                                                        {med.instructions && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{med.instructions}</p>}
+                                                        
                                                     </TdPrimary>
                                                     <Td>{med.dosage || '—'}</Td>
-                                                    <Td>
-                                                        {med.frequency || '—'}
-                                                        {(med.duration || med.route) && (
-                                                            <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
-                                                                {[med.duration, med.route].filter(Boolean).join(' · ')}
-                                                            </p>
-                                                        )}
-                                                    </Td>
-                                                    <Td>{med.quantity ?? '—'}</Td>
+                                                    <Td>{med.frequency || '—'}</Td>
+                                                    <Td>{med.duration || '—'}</Td>
                                                     <Td><StatusBadge status={med.status} /></Td>
                                                     <Td>
                                                         {canAddEntries && med.status === 'prescribed'
