@@ -1099,6 +1099,8 @@ export default function TheatreProcedure() {
                     </SectionCard>
                   </div>
 
+                  {/* Safety + anaesthesia: paired clinical sections, matching Antenatal layout */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Safety time-out checks */}
                   <SectionCard
                     icon={<AlertTriangle className="w-4 h-4 text-purple-600" />}
@@ -1175,7 +1177,10 @@ export default function TheatreProcedure() {
                       </FormField>
                     </div>
                   </SectionCard>
+                  </div>
 
+                  {/* Intra-operative + local protocol: paired clinical sections */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Intra-operative */}
                   <SectionCard
                     icon={<Scissors className="w-4 h-4 text-purple-600" />}
@@ -1377,6 +1382,7 @@ export default function TheatreProcedure() {
                       </p>
                     </div>
                   </SectionCard>
+                  </div>
                 </div>
               )}
 
