@@ -76,7 +76,13 @@ const isTheatreRequiredProcedure = (procedure: any): boolean => {
   if (typeof metadata.requiresTheatre === 'boolean') return metadata.requiresTheatre;
 
   const name = String(procedure?.name || procedure?.ServiceCatalog?.name || '').toLowerCase();
-  return /\b(laparotom|laparoscop|craniotom|thoracotom|mastectom|hysterectom|caesarean|cesarean|appendectom|cholecystectom|resection|amputation|major\s+surgery|hernia\s+repair|internal\s+fixation|open\s+reduction|thyroidectom|prostatectom|nephrectom|colostom|ileostom|thoracostom|general\s+anaesthe|general\s+anesthe)\b/.test(name);
+  // Common bedside/minor work is explicitly kept out of the full theatre form.
+  if (/\b(dressing|wound\s+toilet|sutur(e|ing)|suture\s+removal|incision\s+and\s+drainage|abscess\s+drainage|catheterisation|catheterization|urinary\s+catheter|cannulation|venepuncture|venipuncture|injection|aspiration|nail\s+avulsion|wound\s+care|packing|simple\s+biopsy|circumcision)\b/.test(name)) return false;
+  if (/\b(laparotom|laparoscop|craniotom|thoracotom|mastectom|hysterectom|caesarean|cesarean|appendectom|cholecystectom|resection|amputation|major\s+surgery|hernia\s+repair|internal\s+fixation|open\s+reduction|thyroidectom|prostatectom|nephrectom|colostom|ileostom|thoracostom|general\s+anaesthe|general\s+anesthe)\b/.test(name)) return true;
+
+  const template = procedure?.ServiceCatalog?.ProcedureTemplate || procedure?.ProcedureTemplate || {};
+  const classification = String(template.category || procedure?.ServiceCatalog?.department || '').toLowerCase();
+  return classification.includes('surgery') || classification.includes('theatre');
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -615,7 +621,7 @@ export default function TheatreProcedure() {
             {
               action: complete ? 'theatre_record_completed' : 'theatre_record_saved',
               userId: user?.id || null,
-              userLabel: user?.name || user?.email || user?.username || user?.id || 'Clinical user',
+              userLabel: user?.fullName || user?.email || user?.username || user?.id || 'Clinical user',
               timestamp: new Date().toISOString(),
             },
           ],
@@ -660,7 +666,7 @@ export default function TheatreProcedure() {
       const now = new Date().toISOString();
       const previousRecord = selectedProcedure.clinicalRecord || {};
       const auditLog = Array.isArray(previousRecord.auditLog) ? previousRecord.auditLog : [];
-      const actor = user?.name || user?.email || user?.username || user?.id || 'Clinical user';
+      const actor = user?.fullName || user?.email || user?.username || user?.id || 'Clinical user';
       await updateProcedureStatus(selectedAttendanceId, selectedProcedureId, {
         status: 'completed',
         performedById: user?.id || '',
