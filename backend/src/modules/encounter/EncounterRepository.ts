@@ -275,11 +275,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         } },
         CounterClient: { select: { id: true, name: true, ageYears: true, phone: true, registeredPatientId: true } },
         AttendanceDiagnosis: { include: { Diagnosis: true, User: { select: { fullName: true } } }, orderBy: { date: 'desc' } },
-        Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
+        Vitals: { include: { User: { select: { fullName: true } } }, orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } }, User_Medication_prescribedByIdToUser: { select: { fullName: true } }, User_Medication_dispensedByIdToUser: { select: { fullName: true } } } },
-        LabTest: { include: { LabTestTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } }, User_LabTest_performedByIdToUser: { select: { fullName: true } }, User_LabTest_verifiedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'desc' } },
+        LabTest: { include: { LabTestTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } }, User_LabTest_createdByIdToUser: { select: { fullName: true } }, User_LabTest_performedByIdToUser: { select: { fullName: true } }, User_LabTest_verifiedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'desc' } },
         Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } }, User_Procedure_performedByIdToUser: { select: { fullName: true } }, User_Procedure_createdByIdToUser: { select: { fullName: true } } } },
-        Scan: { include: { ScanTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } }, User_Scan_performedByIdToUser: { select: { fullName: true } }, User_Scan_verifiedByIdToUser: { select: { fullName: true } } } },
+        Scan: { include: { ScanTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } }, User_Scan_createdByIdToUser: { select: { fullName: true } }, User_Scan_performedByIdToUser: { select: { fullName: true } }, User_Scan_verifiedByIdToUser: { select: { fullName: true } } } },
         referral: { select: { id: true, referralNumber: true, referralType: true, referralReason: true, status: true } },
         ServiceRendered: { include: { ServiceCatalog: { include: { pricing: true } } } }
       }
