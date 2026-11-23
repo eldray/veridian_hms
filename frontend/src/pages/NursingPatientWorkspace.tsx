@@ -1,6 +1,5 @@
 // src/pages/NursingPatientWorkspace.tsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSmartBack } from '../utils/useSmartBack';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -18,13 +17,14 @@ import { openMarPrint } from '../components/nursing/MarPrintModal';
 import { NursingNotesPanel } from '../components/nursing/NursingNotesPanel';
 import { promptDialog } from '../context/PromptDialog';
 import { getPatientName } from '../utils/patient';
+import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import type { MarDose } from '../api/nursing';
 import {
   ChevronLeft, Pill, Hospital, Bed,
   Plus, CheckCircle, Activity, User,
   AlertTriangle, ClipboardList, ListTodo, StickyNote,
-  Moon, Sun, Printer, LayoutGrid, List, Info,
-  Heart, Phone, Calendar, Syringe,
+  Printer, LayoutGrid, List, Info,
+  Heart, Syringe,
   TrendingUp, ChevronRight,
 } from 'lucide-react';
 
@@ -34,44 +34,6 @@ import {
 
 const getEntityId = (entity: { id?: string; _id?: string } | null | undefined): string =>
   entity?.id || entity?._id || '';
-
-const PatientTypeBadge: React.FC<{ attendance: any; admission: any }> = ({ attendance, admission }) => {
-  const admType = admission?.admissionType || attendance?.admissionType;
-  const cat = attendance?.encounterCategory;
-
-  if (cat === 'daycase') return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700 border border-purple-200">
-      <Sun className="w-2.5 h-2.5" /> Day Surgery
-    </span>
-  );
-  if (admType === 'detention_observation') return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700 border border-orange-200">
-      <Moon className="w-2.5 h-2.5" /> Observation
-    </span>
-  );
-  if (cat === 'ipd') return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-      <Hospital className="w-2.5 h-2.5" /> IPD
-    </span>
-  );
-  return null;
-};
-
-const PaymentBadge: React.FC<{ mode: string | null | undefined }> = ({ mode }) => {
-  if (!mode) return null;
-  const map: Record<string, { label: string; cls: string }> = {
-    nhis:              { label: 'NHIS',    cls: 'bg-green-100 text-green-700' },
-    private_insurance: { label: 'PVT INS', cls: 'bg-purple-100 text-purple-700' },
-    corporate:         { label: 'CORP',    cls: 'bg-cyan-100 text-cyan-700' },
-    cash:              { label: 'CASH',    cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
-  };
-  const conf = map[mode] ?? map.cash;
-  return (
-    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${conf.cls}`}>
-      {conf.label}
-    </span>
-  );
-};
 
 // ─────────────────────────────────────────────
 // Vitals row
@@ -383,78 +345,65 @@ export default function NursingPatientWorkspace() {
   }
 
   const patientName = getPatientName(selectedPatient);
-  const age = selectedPatient.dateOfBirth
-    ? Math.floor((Date.now() - new Date(selectedPatient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))
+  const admittedAt = activeAdmission?.admissionDate;
+  const daysOnWard = admittedAt
+    ? Math.max(1, Math.floor((Date.now() - new Date(admittedAt).getTime()) / 86400000))
     : null;
+  const wardName = selectedAtt.Ward?.wardName || selectedAtt.Bed?.Ward?.wardName || selectedAtt.ward?.wardName;
   const bedNumber = selectedAtt.Bed?.bedNumber || selectedAtt.bed?.bedNumber;
-  const daysOnWard = activeAdmission
-    ? Math.max(1, Math.floor((Date.now() - new Date(activeAdmission.admissionDate).getTime()) / 86400000))
-    : null;
-
   const hasCritical = alerts.some((a) => a.level === 'critical');
 
   return (
     <div className="space-y-4 p-5">
-      {/* ── Compact patient header and workspace navigation ── */}
+      <PatientVisitHeader
+        patient={selectedPatient}
+        attendance={selectedAtt}
+        icon={Hospital}
+        accent="teal"
+        fields={[
+          ...(activeAdmission ? [
+            { label: 'Admission No.', value: activeAdmission.admissionNumber || '—', mono: true },
+            { label: 'Admitted', value: admittedAt ? new Date(admittedAt).toLocaleDateString() : '—' },
+            { label: 'Ward Stay', value: daysOnWard ? `${daysOnWard} day${daysOnWard === 1 ? '' : 's'}` : '—' },
+          ] : []),
+          { label: 'Ward', value: wardName || '—' },
+          { label: 'Bed', value: bedNumber || '—', mono: true },
+          ...(selectedAtt.paymentMode ? [{ label: 'Payment', value: selectedAtt.paymentMode.replace(/_/g, ' ').toUpperCase() }] : []),
+        ]}
+        aside={
+          <>
+            <button
+              onClick={goBack}
+              aria-label="Back to Nursing Station"
+              className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-[var(--border-color)] text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-colors"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Back
+            </button>
+            <button
+              onClick={() => openMarPrint(
+                doses,
+                patientName,
+                selectedPatient.folderNumber || '—',
+                new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString(),
+                new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString(),
+                hospital,
+              )}
+              disabled={doses.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-colors disabled:opacity-50"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print MAR
+            </button>
+            <button
+              onClick={() => setShowVitalsModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+            >
+              <Activity className="w-3.5 h-3.5" /> Record Vitals
+            </button>
+          </>
+        }
+      />
       <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
-        <div className="px-4 py-3 sm:px-5 sm:py-4">
-          <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
-            <div className="flex items-start sm:items-center gap-3 min-w-0">
-              <button
-                onClick={goBack}
-                className="p-2 mt-0.5 sm:mt-0 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)] transition-colors flex-shrink-0"
-                aria-label="Back to Nursing Station"
-              >
-                <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
-              <PatientAvatar patient={selectedPatient} size="lg" className="rounded-xl flex-shrink-0" />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)] truncate">{patientName}</h1>
-                  <PatientTypeBadge attendance={selectedAtt} admission={activeAdmission} />
-                  <PaymentBadge mode={selectedAtt.paymentMode} />
-                </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--text-secondary)]">
-                  <span className="font-mono">#{selectedPatient.folderNumber || '—'}</span>
-                  {selectedPatient.gender && <span className="capitalize">{selectedPatient.gender}</span>}
-                  {age != null && <span>{age} yrs</span>}
-                  {selectedPatient.contact && <span className="inline-flex items-center gap-1"><Phone className="w-3 h-3" />{selectedPatient.contact}</span>}
-                  {bedNumber && <span>Bed {bedNumber}</span>}
-                  {daysOnWard && <span>{daysOnWard}d on ward</span>}
-                </div>
-                {activeAdmission && (
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--text-tertiary)]">
-                    <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" /> Admitted {new Date(activeAdmission.admissionDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                    <span className="inline-flex items-center gap-1"><Hospital className="w-3 h-3" /> Admission #{activeAdmission.admissionNumber || '—'}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap pl-11 sm:pl-0">
-              <button
-                onClick={() => openMarPrint(
-                  doses,
-                  patientName,
-                  selectedPatient.folderNumber || '—',
-                  new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString(),
-                  new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString(),
-                  hospital,
-                )}
-                disabled={doses.length === 0}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-colors disabled:opacity-50"
-              >
-                <Printer className="w-3.5 h-3.5" /> Print MAR
-              </button>
-              <button
-                onClick={() => setShowVitalsModal(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
-              >
-                <Activity className="w-3.5 h-3.5" /> Record Vitals
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)] px-2 sm:px-4 flex gap-1 overflow-x-auto">
+        <div className="bg-[var(--bg-main)] px-2 sm:px-4 flex gap-1 overflow-x-auto">
           {([
             { key: 'overview', label: 'Overview', icon: Info },
             { key: 'mar', label: 'MAR', icon: ClipboardList },
@@ -476,7 +425,7 @@ export default function NursingPatientWorkspace() {
             </button>
           ))}
         </div>
-        {/* ── Tab content — min-h keeps the page full, no hang ── */}
+      {/* ── Tab content — min-h keeps the page full, no hang ── */}
         <div className="p-5 min-h-[calc(100vh-320px)]">
           {/* ══════════ OVERVIEW ══════════ */}
           {activeTab === 'overview' && (
