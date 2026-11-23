@@ -6,6 +6,26 @@ type Props = { type: MedicalEntryEditType; entry: any; saving?: boolean; onClose
 
 const title: Record<MedicalEntryEditType, string> = { diagnosis: 'Edit diagnosis', lab: 'Edit laboratory order', scan: 'Edit scan request', procedure: 'Edit procedure', medication: 'Edit prescription' };
 const fieldCls = 'w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]';
+const FREQUENCIES = [
+  { value: 'once', label: 'Once daily' }, { value: 'bd', label: 'Twice daily (BD)' },
+  { value: 'tds', label: 'Three times daily (TDS)' }, { value: 'qid', label: 'Four times daily (QID)' },
+  { value: 'stat', label: 'STAT (immediately)' }, { value: 'prn', label: 'As needed (PRN)' },
+  { value: 'nocte', label: 'At night (nocte)' }, { value: 'mane', label: 'In morning (mane)' },
+];
+const DURATION_OPTIONS = Array.from({ length: 30 }, (_, index) => {
+  const days = index + 1;
+  const value = days === 1 ? '24 hours' : days === 2 ? '48 hours' : `${days} days`;
+  return { value, label: value };
+});
+const durationValue = (value: unknown) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  const hours = raw.match(/^(\d+)\s*(?:h|hr|hrs|hours?)$/i);
+  if (hours) return `${Number(hours[1])} hours`;
+  const days = raw.match(/^(\d+)\s*(?:d|day|days)$/i);
+  if (days) return Number(days[1]) === 1 ? '24 hours' : Number(days[1]) === 2 ? '48 hours' : `${Number(days[1])} days`;
+  return raw;
+};
 export const MedicalEntryEditModal: React.FC<Props> = ({ type, entry, saving = false, onClose, onSave }) => {
   const [values, setValues] = useState<any>({});
   useEffect(() => {
@@ -17,9 +37,7 @@ export const MedicalEntryEditModal: React.FC<Props> = ({ type, entry, saving = f
       scheduledDate: entry?.scheduledDate ? new Date(entry.scheduledDate).toISOString().slice(0,16) : '',
       dosage: entry?.dosage || '',
       frequency: entry?.frequency || '',
-      duration: entry?.duration || '',
-      route: entry?.route || 'oral',
-      instructions: entry?.instructions || '',
+      duration: durationValue(entry?.duration),
     });
   }, [type, entry]);
   const set = (key: string, value: any) => setValues((old: any) => ({ ...old, [key]: value }));
@@ -34,8 +52,9 @@ export const MedicalEntryEditModal: React.FC<Props> = ({ type, entry, saving = f
       {(type === 'lab' || type === 'scan') && <label className="block space-y-1"><span className="text-xs font-medium text-[var(--text-secondary)]">Priority</span><select className={fieldCls} value={values.priority} onChange={e=>set('priority',e.target.value)}><option value="routine">Routine</option><option value="urgent">Urgent</option><option value="stat">STAT</option></select></label>}
       {type === 'procedure' && field('Scheduled date and time','scheduledDate',{type:'datetime-local'})}
       {type === 'medication' && <>
-        {field('Dosage','dosage')}{field('Frequency','frequency')}{field('Duration','duration')}{field('Route','route')}
-        <label className="block space-y-1"><span className="text-xs font-medium text-[var(--text-secondary)]">Instructions</span><textarea className={fieldCls} rows={3} value={values.instructions} onChange={e=>set('instructions',e.target.value)}/></label>
+        {field('Dosage','dosage')}
+        <label className="block space-y-1"><span className="text-xs font-medium text-[var(--text-secondary)]">Frequency</span><select className={fieldCls} value={values.frequency} onChange={e=>set('frequency',e.target.value)}><option value="">Select frequency</option>{FREQUENCIES.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label className="block space-y-1"><span className="text-xs font-medium text-[var(--text-secondary)]">Days</span><select className={fieldCls} value={values.duration} onChange={e=>set('duration',e.target.value)}><option value="">Select days</option>{DURATION_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </>}
       {type !== 'medication' && <label className="block space-y-1"><span className="text-xs font-medium text-[var(--text-secondary)]">Notes</span><textarea className={fieldCls} rows={4} value={values.notes} onChange={e=>set('notes',e.target.value)}/></label>}
     </div>
