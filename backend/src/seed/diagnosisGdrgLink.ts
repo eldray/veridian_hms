@@ -342,7 +342,6 @@ export const MAPPINGS: DiagnosisGDRGMapping[] = [
   { icdCode: 'C67.9', gdrgCodes: ['MEDI39A', 'OPDC06A'], isPrimaryGdrg: 'MEDI39A' },
   { icdCode: 'C64.9', gdrgCodes: ['MEDI39A', 'OPDC06A'], isPrimaryGdrg: 'MEDI39A' },
   { icdCode: 'C43.9', gdrgCodes: ['MEDI18A', 'MEDI39A', 'OPDC06A'], isPrimaryGdrg: 'MEDI18A' },
-  { icdCode: 'C44.9', gdrgCodes: ['MEDI18A', 'MEDI39A', 'OPDC06A'], isPrimaryGdrg: 'MEDI18A' },
   { icdCode: 'C73', gdrgCodes: ['MEDI39A', 'ASUR01A', 'OPDC06A'], isPrimaryGdrg: 'MEDI39A' },
   { icdCode: 'C91.00', gdrgCodes: ['PAED49C', 'MEDI39A'], isPrimaryGdrg: 'PAED49C' },
   { icdCode: 'C92.00', gdrgCodes: ['MEDI39A', 'PAED47C'], isPrimaryGdrg: 'MEDI39A' },
