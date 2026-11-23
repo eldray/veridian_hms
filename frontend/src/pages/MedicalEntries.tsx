@@ -1309,6 +1309,12 @@ setIsProcessing(false);
 const handleDeleteItem = async (type: string, id: string) => {
 if (!selectedAttendanceId) return;
 try {
+const order = type === 'lab' ? labTestsList.find((item: any) => item.id === id)
+: type === 'scan' ? scansList.find((item: any) => item.id === id)
+: type === 'procedure' ? proceduresList.find((item: any) => item.id === id)
+: type === 'medication' ? medicationsList.find((item: any) => item.id === id)
+: null;
+const willCancel = order?.status === 'in_progress';
 const fn: Record<string, () => Promise<void>> = {
 diagnosis: () => removeDiagnosis(selectedAttendanceId, id),
 lab: () => removeLabTest(selectedAttendanceId, id),
@@ -1317,7 +1323,9 @@ medication: () => removeMedication(selectedAttendanceId, id),
 scan: () => removeScan(selectedAttendanceId, id),
 };
 await fn[type]?.();
-success('Removed', `${type} entry deleted`);
+success(willCancel ? 'Cancelled' : 'Deleted', willCancel
+? `${type} had already started and is now marked as cancelled`
+: `${type} entry removed because work had not started`);
 await getAttendance(selectedAttendanceId);
 await calculateBill(selectedAttendanceId);
 } catch (err: any) { toastError('Delete failed', err.message); }
