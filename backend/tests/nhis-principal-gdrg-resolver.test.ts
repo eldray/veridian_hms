@@ -327,6 +327,7 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
       'M25.60': ['MEDI30A', 'PAED38C', 'OPDC06A', 'OPDC06C'],
       'M25.40': ['MEDI30A', 'PAED38C', 'OPDC06A', 'OPDC06C'],
       'R10.84': ['MEDI26A', 'PAED34C', 'OPDC06A', 'OPDC06C'],
+      'S00.90XA': ['ORTH24A', 'ORTH24C', 'OPDC06A', 'OPDC06C'],
       'D57.00': ['MEDI16A', 'PAED24C'],
       'D57.01': ['MEDI16A', 'PAED24C'],
       'N72': ['OBGY09A', 'OPDC08A'],
