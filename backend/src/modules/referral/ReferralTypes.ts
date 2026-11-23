@@ -83,6 +83,7 @@ export interface CreateOutgoingReferralDTO {
 
 export interface CreateIncomingReferralDTO {
   patientId: string;
+  attendanceId?: string;
   referralReason: string;
   referredFromFacility: string;
   referredFromDoctor?: string;

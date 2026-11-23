@@ -397,7 +397,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'asc' } },
         LabTest: { include: { LabTestTemplate: true }, where: { status: { not: 'cancelled' } } },
         Medication: { include: { StockItem: true }, where: { status: { not: 'cancelled' } } },
-        referral: { where: { referralType: "outgoing" }, select: { id: true, referredToFacility: true } },
+        referral: { select: { id: true, referralType: true, referredToFacility: true, referredFromFacility: true } },
         User_Attendance_createdByIdToUser: { select: { fullName: true } },
         User_Attendance_providerIdToUser: { select: { fullName: true } },
       },

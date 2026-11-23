@@ -22,6 +22,7 @@ export function createReferralRoutes(prisma: PrismaClient): Router {
     body('patientId').notEmpty().withMessage('Patient ID is required'),
     body('referralReason').optional().isString().withMessage('Referral reason must be text'),
     body('referredFromFacility').notEmpty().withMessage('Referred from facility is required'),
+    body('attendanceId').optional().isString().withMessage('Attendance ID must be text'),
     body('urgency').optional().isIn(['routine', 'urgent', 'stat']).withMessage('Valid urgency required')
   ];
 

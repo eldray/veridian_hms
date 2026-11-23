@@ -2869,6 +2869,7 @@ export const createOutgoingReferral = async (data: {
 
 export const createIncomingReferral = async (data: {
   patientId: string;
+  attendanceId?: string;
   referralReason: string;
   referredFromFacility: string;
   referredFromDoctor?: string;

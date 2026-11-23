@@ -138,7 +138,7 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
     return this.getModel().create({
       data: {
         referralNumber: getCounterService().nextReferralNumber(),
-        patientId: data.patientId, referralType: 'incoming',
+        patientId: data.patientId, attendanceId: data.attendanceId, referralType: 'incoming',
         referralReason: data.referralReason, referredFromFacility: data.referredFromFacility,
         referredFromDoctor: data.referredFromDoctor, urgency: data.urgency || 'routine',
         referralNotes: data.referralNotes, status: 'pending', createdById,
