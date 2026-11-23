@@ -1447,7 +1447,7 @@ describe('completed investigation cancellation protection', () => {
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
     await expect(repository.removeLabTest('attendance-1', 'lab-1'))
-      .rejects.toThrow(/completed or cancelled/i);
+      .rejects.toThrow(/completed or already cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
   });
 
@@ -1459,7 +1459,7 @@ describe('completed investigation cancellation protection', () => {
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
     await expect(repository.removeScan('attendance-1', 'scan-1'))
-      .rejects.toThrow(/completed or cancelled/i);
+      .rejects.toThrow(/completed or already cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
   });
 
@@ -1471,7 +1471,7 @@ describe('completed investigation cancellation protection', () => {
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
     await expect(repository.removeProcedure('attendance-1', 'procedure-1'))
-      .rejects.toThrow(/completed or cancelled/i);
+      .rejects.toThrow(/completed or already cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
   });
 });
