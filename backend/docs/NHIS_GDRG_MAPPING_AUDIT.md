@@ -114,7 +114,7 @@ Static reconciliation of the current catalogue and mapping table:
 
 ## Annex C verification pass — 23 November 2026
 
-The following 21 diagnosis records were checked against the exact diagnosis/indication rows in the official NHIA Tariffs Operation Manual v22 and promoted from provisional to verified in the seed. Where the manual only listed an adult or paediatric grouping, the unlisted age-band candidate was removed rather than inferred.
+The following 21 provisional diagnosis records were checked against the exact diagnosis/indication rows in the official NHIA Tariffs Operation Manual v22 and promoted to verified. One additional pre-existing K52.9 record was corrected: its unsupported paediatric link was removed and its adult MEDI26 link was explicitly marked verified. Where the manual only listed an adult or paediatric grouping, the unlisted age-band candidate was removed rather than inferred.
 
 | ICD-10 | Verified G-DRG link(s) | Annex C basis |
 |---|---|---|
