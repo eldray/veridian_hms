@@ -18,13 +18,15 @@ Against the branch's checked-in tariff and catalogues:
 
 These checks only validate code/link structure. They do **not** establish that every clinical grouping is correct according to NHIA Annex C.
 
-## Diagnosis catalogue gaps (23 codes)
+## Diagnosis codes requiring Annex C cross-mapping (23 codes)
 
-The diagnosis catalogue currently has these unique ICD-10 codes with no diagnosis-to-G-DRG mapping:
+The diagnosis catalogue has these ICD-10 codes with no *direct* diagnosis-to-G-DRG mapping in our seed. This is **not evidence that NHIA has no applicable G-DRG for them**. Several conditions are grouped under broader G-DRGs, and must be mapped through the exact Annex C inclusion rows and specialty/procedure rules before being considered uncovered:
 
 `A20.9, A21.9, A22.9, A23.9, A38.9, A66.9, B06.9, B27.9, H00.1, H33.2, J30.9, J91.8, J93.1, J96.9, K21.0, K21.9, K29.00, K29.50, K52.9, R99, Z79.01, Z86.11, Z86.19`
 
-They have been pinned in a regression check so future changes do not introduce additional unreviewed gaps. They should not be filled with guessed codes; each needs a manual NHIA tariff/Annex C check. Some history/status codes and 'brought in dead' may not be claim-driving diagnoses, which must be considered during validation.
+These 23 codes are now tracked as a review queue, not asserted to be tariff gaps. The prior regression test that asserted this list as an unmapped-gap set was removed and replaced with a catalogue-presence check. Do not assign guessed codes. Map each diagnosis to the actual Annex C grouping and its applicable age/specialty/procedure conditions. Some history/status codes and brought-in-dead records may not be claim-driving diagnoses and require separate handling.
+
+The manual explicitly confirms broader groupings—for example, Crohn's disease, ulcerative colitis and IBS in MEDI25 (Gastrointestinal Tract Bleeding); dyspepsia and chronic pancreatitis in MEDI26 (Non-Specific Abdominal Conditions); and STDs in MEDI31 (Localised Infections). These examples illustrate why absence of a direct ICD link cannot be equated with absence of a G-DRG. These group examples are not a substitute for validating each of the 23 codes.
 
 ## Duplicate diagnosis catalogue entries
 
@@ -54,7 +56,7 @@ These may be catalogue label variants or duplicates; they should be reconciled w
 
 ## Next verification stages
 
-1. Manually verify Annex C diagnosis and procedure groupings (starting with the unlinked diagnosis codes and procedure mappings that span multiple specialties).
+1. Manually verify Annex C diagnosis and procedure groupings for all 23 review codes, including umbrella groupings (e.g. Localised Infections, Obstructive Airway Disease, and the relevant digestive/respiratory groupings); assign only exact Annex C-backed links.
 2. Verify the code actually sent for each diagnosis/procedure in the generated e-claim payload against the NHIA XML specification.
 3. Inspect the multi-procedure and additional-procedure reimbursement logic; the tariff manual's multiple-surgery rules must not be inferred from the G-DRG mapping alone.
 4. Check specialty, case type, age, accreditation/facility level, and tariff-effective date interactions.
