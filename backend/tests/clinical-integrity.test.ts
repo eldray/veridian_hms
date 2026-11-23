@@ -553,7 +553,9 @@ describe('clinical encounter ownership', () => {
   it('does not cancel a lab order that belongs to another encounter', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({ labTest: { findFirst, updateMany } } as any);
+    const prisma: any = { labTest: { findFirst, updateMany } };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.removeLabTest('encounter-a', 'lab-from-encounter-b'))
       .rejects.toThrow(/not found/i);
@@ -568,7 +570,9 @@ describe('clinical encounter ownership', () => {
   it('does not cancel a scan that belongs to another encounter', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({ scan: { findFirst, updateMany } } as any);
+    const prisma: any = { scan: { findFirst, updateMany } };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.removeScan('encounter-a', 'scan-from-encounter-b'))
       .rejects.toThrow(/not found/i);
@@ -1437,9 +1441,11 @@ describe('primary diagnosis update atomicity', () => {
 describe('completed investigation cancellation protection', () => {
   it('does not cancel a completed laboratory order', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
+    const prisma: any = {
       labTest: { findFirst: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }), updateMany },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
     await expect(repository.removeLabTest('attendance-1', 'lab-1'))
       .rejects.toThrow(/completed or cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
@@ -1447,9 +1453,11 @@ describe('completed investigation cancellation protection', () => {
 
   it('does not cancel a completed scan', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
+    const prisma: any = {
       scan: { findFirst: vi.fn().mockResolvedValue({ id: 'scan-1', status: 'completed' }), updateMany },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
     await expect(repository.removeScan('attendance-1', 'scan-1'))
       .rejects.toThrow(/completed or cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
@@ -1457,9 +1465,11 @@ describe('completed investigation cancellation protection', () => {
 
   it('does not cancel a completed procedure', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
+    const prisma: any = {
       procedure: { findFirst: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), updateMany },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
     await expect(repository.removeProcedure('attendance-1', 'procedure-1'))
       .rejects.toThrow(/completed or cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
