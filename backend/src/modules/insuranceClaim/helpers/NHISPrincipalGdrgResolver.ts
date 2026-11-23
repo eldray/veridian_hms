@@ -167,8 +167,8 @@ const CASE_RULE_HINTS: Record<NHISCaseType, string> = {
   ipd: 'Only a clinical family code (MEDI, PAED, OBGY, ASUR, PSUR, ORTH, ENTH, OPHT, DENT, RSUR) can bill it — never OPDC or ZOOM.',
 };
 
-function billable(tariff: ResolverTariff, input: ResolverInput): boolean {
-  return caseMatches(tariff, input.caseType, input.origin) &&
+function billable(tariff: ResolverTariff, input: ResolverInput, origin?: ResolverLink['origin']): boolean {
+  return caseMatches(tariff, input.caseType, origin) &&
     ageMatches(tariff, input.age) &&
     levelMatches(tariff, input.facilityLevel) &&
     amountOf(tariff.nhiaTariff) > 0;
@@ -219,7 +219,7 @@ const describe = (tariff: ResolverTariff): string =>
 export function resolvePrincipalGdrg(input: ResolverInput): ResolvedPrincipalGdrg {
   const { caseType, links, fallbacks, age, facilityLevel } = input;
 
-  const usable = links.filter((link) => billable(link.tariff, input));
+  const usable = links.filter((link) => billable(link.tariff, input, link.origin));
   if (usable.length) {
     const best = usable.reduce((a, b) => (score(b, input) > score(a, input) ? b : a));
     return {
