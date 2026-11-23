@@ -612,7 +612,7 @@ export const EmptyRows = ({ colSpan, message }: { colSpan: number; message: stri
   </tr>
 );
 
-export const SHELL_PAGE_SIZES = [25, 50, 100, 250];
+export const SHELL_PAGE_SIZES = [10, 25, 50, 100];
 
 export const Pager = ({
   page, pageSize, total, onPage, onPageSize,
