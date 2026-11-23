@@ -47,7 +47,12 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
   }
 
   async getAvailableBeds(wardId?: string) {
-    const where: any = { isOccupied: false };
+    const where: any = {
+      isOccupied: false,
+      // A stale bed flag must never make a bed available when an active
+      // encounter is already assigned to it.
+      Attendance: { none: { status: { in: ['pending', 'admitted'] } } },
+    };
     if (wardId) where.wardId = wardId;
     
     return this.prisma.bed.findMany({
