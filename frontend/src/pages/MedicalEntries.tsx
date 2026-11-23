@@ -2,7 +2,7 @@ import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/MedicalEntries.tsx - UPDATED with Tab View like Antenatal
 import { useLiveRefresh } from '../api/realtime';
 import { confirmDialog } from '../context/ConfirmDialog';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -693,6 +693,8 @@ const [savingEntry, setSavingEntry] = useState(false);
 const [editingNote, setEditingNote] = useState<{ type: 'treatment' | 'physician'; index: number } | null>(null);
 const [editingNoteText, setEditingNoteText] = useState('');
 const [savingNote, setSavingNote] = useState(false);
+const currentAttendanceRef = useRef(currentAttendance);
+currentAttendanceRef.current = currentAttendance;
 const assessmentValue: ClinicalAssessmentValue = {
 complaints: presentedComplaints,
 history: hpc,
@@ -883,8 +885,8 @@ if (cancelled) return;
 setAssessmentSaveStatus('saving');
 try {
 const clinicalNotes = {
-...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
-? currentAttendance.clinicalNotes
+...(currentAttendanceRef.current && typeof currentAttendanceRef.current.clinicalNotes === 'object' && !Array.isArray(currentAttendanceRef.current.clinicalNotes)
+? currentAttendanceRef.current.clinicalNotes
 : {}),
 historyPresentingComplaint: hpc || null,
 onsetDurationQuality: odq || null,
@@ -920,7 +922,7 @@ toastError('Clinical draft autosave failed', (error as any)?.response?.data?.mes
 }
 }, 900);
 return () => { cancelled = true; window.clearTimeout(timer); };
-}, [assessmentDirty, assessmentSignature, selectedAttendanceId, canAddEntries, isClinicalFinalized, currentAttendance, hpc, odq, physicalExam, reviewOfSystems, physicalExamStructured, presentedComplaints, user?.id, user?.fullName, user?.username, updateAttendance, toastError]);
+}, [assessmentDirty, assessmentSignature, selectedAttendanceId, canAddEntries, isClinicalFinalized, hpc, odq, physicalExam, reviewOfSystems, physicalExamStructured, presentedComplaints, user?.id, user?.fullName, user?.username, updateAttendance, toastError]);
 
 const linkedAdmission = (currentAttendance as any)?.Admission || (currentAttendance as any)?.admission || null;
 const isActiveInpatient = currentAttendance?.encounterCategory === 'ipd'
