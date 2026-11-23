@@ -1,7 +1,7 @@
 import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/WardManagement.tsx
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useWardStore } from '../store/wardStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
@@ -95,7 +95,7 @@ const WARD_TYPES = [
 // Theme-aware style helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-const wardTypeStyle = (type: string): { bg: string; color: string; icon: JSX.Element } => {
+const wardTypeStyle = (type: string): { bg: string; color: string; icon: React.ReactNode } => {
   switch (type?.toLowerCase()) {
     case 'icu':
       return { bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)', icon: <AlertTriangle className="w-5 h-5" style={{ color: 'var(--icon-red-text)' }} /> };
@@ -182,31 +182,6 @@ function TextInput({
   );
 }
 
-function StatTile({
-  Icon, iconBg, iconColor, value, label, sub, valueColor,
-}: {
-  Icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  iconBg: string;
-  iconColor: string;
-  value: React.ReactNode;
-  label: string;
-  sub?: string;
-  valueColor?: string;
-}) {
-  return (
-    <div className="rounded-xl p-4 border" style={cardStyle}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: iconBg }}>
-          <Icon className="w-4 h-4" style={{ color: iconColor }} />
-        </div>
-        <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
-      </div>
-      <p className="text-2xl font-bold" style={{ color: valueColor || 'var(--text-primary)' }}>{value}</p>
-      {sub && <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{sub}</p>}
-    </div>
-  );
-}
-
 function ModalShell({
   isOpen, onClose, title, subtitle, Icon, children, footer, maxWidth = 'max-w-2xl',
 }: {
@@ -290,11 +265,10 @@ export default function WardManagement() {
   const goBack = useSmartBack('/dashboard');
   const {
     wards, beds, getWards, getBeds, createWard, updateWard, deleteWard,
-    createBed, deleteBed, isLoading, getAvailableBeds,
+    createBed, updateBed, deleteBed, isLoading, getAvailableBeds,
   } = useWardStore();
   const { user } = useAuthStore();
   const { success, error } = useToast();
-  const navigate = useNavigate();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -310,6 +284,8 @@ export default function WardManagement() {
   const [showWardDetails, setShowWardDetails] = useState(false);
   const [selectedWard, setSelectedWard] = useState<any>(null);
   const [editingWard, setEditingWard] = useState<any>(null);
+  const [editingBed, setEditingBed] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [wardFormData, setWardFormData] = useState<WardFormState>(EMPTY_WARD_FORM);
   const [bedFormData, setBedFormData] = useState({ bedNumber: '', wardId: '' });
 
@@ -361,6 +337,7 @@ export default function WardManagement() {
   }, [getWardBeds, getOccupiedBeds]);
 
   const totalBeds = beds.length;
+  const configuredCapacity = wards.reduce((sum, ward) => sum + (Number(ward.totalBeds) || 0), 0);
   const totalOccupied = beds.filter(b => Boolean(b.isOccupied)).length;
   const totalAvailable = totalBeds - totalOccupied;
   const overallOccupancy = totalBeds > 0 ? (totalOccupied / totalBeds) * 100 : 0;
@@ -371,6 +348,7 @@ export default function WardManagement() {
 
   const handleWardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       if (editingWard) {
         await updateWard(getEntityId(editingWard)!, wardFormData);
@@ -385,20 +363,31 @@ export default function WardManagement() {
       await loadData();
     } catch (err: any) {
       error('Save Failed', err?.response?.data?.message || err?.message || 'Failed to save ward');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleBedSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
-      await createBed(bedFormData);
-      success('Bed Created', 'Bed created successfully');
+      if (editingBed) {
+        await updateBed(getEntityId(editingBed)!, { bedNumber: bedFormData.bedNumber });
+        success('Bed Updated', 'Bed details updated successfully');
+      } else {
+        await createBed(bedFormData);
+        success('Bed Created', 'Bed created successfully');
+      }
       setShowBedForm(false);
+      setEditingBed(null);
       resetBedForm();
       setSelectedWard(null);
       await loadData();
     } catch (err: any) {
-      error('Create Failed', err?.response?.data?.message || err?.message || 'Failed to create bed');
+      error(editingBed ? 'Update Failed' : 'Create Failed', err?.response?.data?.message || err?.message || 'Failed to save bed');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -440,6 +429,18 @@ export default function WardManagement() {
     }
     setSelectedWard(ward);
     setBedFormData({ bedNumber: '', wardId });
+    setEditingBed(null);
+    setShowBedForm(true);
+  };
+
+  const handleEditBed = (bed: any) => {
+    if (bed.isOccupied) {
+      error('Bed In Use', 'A bed cannot be renamed while a patient is assigned to it.');
+      return;
+    }
+    setEditingBed(bed);
+    setBedFormData({ bedNumber: bed.bedNumber || '', wardId: bed.wardId || '' });
+    setShowWardDetails(false);
     setShowBedForm(true);
   };
 
@@ -448,6 +449,10 @@ export default function WardManagement() {
     if (!pendingDeleteWard) return;
     setIsDeleting(true);
     try {
+      if (wardDeleteBedCount > 0) {
+        error('Ward Still Has Beds', 'Remove all registered beds before deleting this ward.');
+        return;
+      }
       await deleteWard(getEntityId(pendingDeleteWard)!);
       success('Ward Deleted', 'Ward deleted successfully');
       setPendingDeleteWard(null);
@@ -516,7 +521,7 @@ export default function WardManagement() {
               Ward Management
             </h1>
             <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              Manage hospital wards and bed allocation
+              Manage ward profiles, bed capacity, occupancy and inpatient rates
             </p>
           </div>
         </div>
@@ -566,7 +571,7 @@ export default function WardManagement() {
       </div>
     </div>
     <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalBeds}</p>
-    <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>Total capacity</p>
+    <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{configuredCapacity} configured capacity</p>
   </div>
 
   {/* Available */}
@@ -840,8 +845,10 @@ export default function WardManagement() {
                         </button>
                         <button
                           onClick={() => setPendingDeleteWard(ward)}
+                          disabled={getWardBeds(wardId).length > 0}
+                          title={getWardBeds(wardId).length > 0 ? 'Remove all beds before deleting this ward' : 'Delete ward'}
                           aria-label={`Delete ${ward.wardName}`}
-                          className="p-1.5 rounded-lg transition-colors"
+                          className="p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ color: 'var(--text-tertiary)' }}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -874,8 +881,8 @@ export default function WardManagement() {
                   <div className="grid grid-cols-3 gap-2">
                     <div className="text-center p-2 rounded-lg" style={{ background: 'var(--bg-main)' }}>
                       <Bed className="w-3.5 h-3.5 mx-auto mb-1" style={{ color: 'var(--text-tertiary)' }} />
-                      <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{wardBeds.length}</p>
-                      <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Total</p>
+                      <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{wardBeds.length} / {ward.totalBeds}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Registered / capacity</p>
                     </div>
                     <div className="text-center p-2 rounded-lg" style={{ background: 'var(--icon-green-bg)' }}>
                       <UserCheck className="w-3.5 h-3.5 mx-auto mb-1" style={{ color: 'var(--icon-green-text)' }} />
@@ -937,7 +944,7 @@ export default function WardManagement() {
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-semibold text-xs flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
                       <Bed className="w-3 h-3" />
-                      Beds ({wardBeds.length})
+                      Beds ({wardBeds.length} / {ward.totalBeds})
                     </h4>
                     {canManageWards && (
                       <button
@@ -1061,7 +1068,7 @@ export default function WardManagement() {
                   <span className="lg:hidden text-xs" style={{ color: 'var(--text-secondary)' }}>Total Beds:</span>
                   <span className="text-sm font-bold flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
                     <Bed className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-                    {wardBeds.length}
+                    {wardBeds.length} / {ward.totalBeds}
                   </span>
                 </div>
 
@@ -1143,8 +1150,10 @@ export default function WardManagement() {
                       </button>
                       <button
                         onClick={() => setPendingDeleteWard(ward)}
+                        disabled={getWardBeds(wardId).length > 0}
+                        title={getWardBeds(wardId).length > 0 ? 'Remove all beds before deleting this ward' : 'Delete ward'}
                         aria-label={`Delete ${ward.wardName}`}
-                        className="p-2 rounded-lg transition-colors"
+                        className="p-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         style={{ color: 'var(--text-tertiary)' }}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1235,6 +1244,7 @@ export default function WardManagement() {
                 {[
                   { label: 'Location', value: selectedWard.location || 'Not specified' },
                   { label: 'Floor', value: selectedWard.floor || 'Not specified' },
+                  { label: 'Configured Capacity', value: `${selectedWard.totalBeds || 0} beds` },
                 ].map(item => (
                   <div key={item.label} className="p-3 rounded-lg" style={{ background: 'var(--bg-main)' }}>
                     <p className="text-[11px] mb-0.5" style={{ color: 'var(--text-tertiary)' }}>{item.label}</p>
@@ -1336,7 +1346,31 @@ export default function WardManagement() {
                       }
                       title={occupied ? `Occupied by ${bed.currentPatient?.fullName || 'patient'}` : 'Available'}
                     >
-                      {bed.bedNumber}
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span>{bed.bedNumber}</span>
+                        {canManageWards && !occupied && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleEditBed(bed); }}
+                              title={`Edit bed ${bed.bedNumber}`}
+                              aria-label={`Edit bed ${bed.bedNumber}`}
+                              className="p-1 rounded hover:bg-black/5"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); requestDeleteBed(bed); }}
+                              title={`Delete bed ${bed.bedNumber}`}
+                              aria-label={`Delete bed ${bed.bedNumber}`}
+                              className="p-1 rounded hover:bg-black/5"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1394,7 +1428,7 @@ export default function WardManagement() {
                 </select>
               </div>
               <div>
-                <FieldLabel required>Total Beds</FieldLabel>
+                <FieldLabel required>Configured Bed Capacity</FieldLabel>
                 <TextInput
                   type="number"
                   min={1}
@@ -1402,6 +1436,9 @@ export default function WardManagement() {
                   onChange={(v) => setWardFormData({ ...wardFormData, totalBeds: parseIntegerInput(v, 1) })}
                   required
                 />
+                <p className="text-[11px] mt-1" style={{ color: 'var(--text-secondary)' }}>
+                  Maximum number of beds this ward can hold. Add the individual bed records after saving.
+                </p>
               </div>
               <div>
                 <FieldLabel>Tariff Code</FieldLabel>
@@ -1570,10 +1607,11 @@ export default function WardManagement() {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+              disabled={isSaving}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
               style={{ background: 'var(--icon-cyan-text)' }}
             >
-              {editingWard ? 'Update Ward' : 'Create Ward'}
+              {isSaving ? 'Saving…' : editingWard ? 'Update Ward' : 'Create Ward'}
             </button>
           </div>
         </form>
@@ -1582,8 +1620,8 @@ export default function WardManagement() {
       {/* ═══════════ Bed Form Modal ═══════════ */}
       <ModalShell
         isOpen={showBedForm}
-        onClose={() => { setShowBedForm(false); setSelectedWard(null); resetBedForm(); }}
-        title={`Add Bed${selectedWard ? ` to ${selectedWard.wardName}` : ''}`}
+        onClose={() => { setShowBedForm(false); setSelectedWard(null); setEditingBed(null); resetBedForm(); }}
+        title={editingBed ? `Edit Bed ${editingBed.bedNumber}` : `Add Bed${selectedWard ? ` to ${selectedWard.wardName}` : ''}`}
         maxWidth="max-w-md"
         Icon={
           <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: 'var(--icon-cyan-bg)' }}>
@@ -1592,7 +1630,7 @@ export default function WardManagement() {
         }
       >
         <form onSubmit={handleBedSubmit} className="p-6 space-y-4">
-          {!selectedWard && (
+          {!selectedWard && !editingBed && (
             <div>
               <FieldLabel required>Select Ward</FieldLabel>
               <select
@@ -1612,6 +1650,11 @@ export default function WardManagement() {
             </div>
           )}
 
+          {editingBed && (
+            <div className="rounded-lg p-3 text-sm" style={{ background: 'var(--bg-main)', color: 'var(--text-secondary)' }}>
+              Ward: <strong style={{ color: 'var(--text-primary)' }}>{editingBed.ward?.wardName || selectedWard?.wardName || 'Assigned ward'}</strong>
+            </div>
+          )}
           <div>
             <FieldLabel required>Bed Number</FieldLabel>
             <TextInput
@@ -1626,7 +1669,7 @@ export default function WardManagement() {
           <div className="flex gap-3 justify-end pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
             <button
               type="button"
-              onClick={() => { setShowBedForm(false); setSelectedWard(null); resetBedForm(); }}
+              onClick={() => { setShowBedForm(false); setSelectedWard(null); setEditingBed(null); resetBedForm(); }}
               className="px-4 py-2 border rounded-lg text-sm font-medium"
               style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
             >
@@ -1634,10 +1677,11 @@ export default function WardManagement() {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg text-sm font-medium text-white"
+              disabled={isSaving}
+              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
               style={{ background: 'var(--icon-cyan-text)' }}
             >
-              Create Bed
+              {isSaving ? 'Saving…' : editingBed ? 'Save Changes' : 'Create Bed'}
             </button>
           </div>
         </form>
@@ -1651,7 +1695,7 @@ export default function WardManagement() {
         title="Delete Ward"
         message={
           wardDeleteBedCount > 0
-            ? `Ward "${pendingDeleteWard?.wardName}" has ${wardDeleteBedCount} bed(s). They will be deleted as well. This cannot be undone.`
+            ? `Remove all ${wardDeleteBedCount} registered bed(s) from "${pendingDeleteWard?.wardName}" before deleting the ward. Occupied beds must remain assigned until the patient is discharged.`
             : `Are you sure you want to delete "${pendingDeleteWard?.wardName}"? This cannot be undone.`
         }
         confirmText="Delete Ward"

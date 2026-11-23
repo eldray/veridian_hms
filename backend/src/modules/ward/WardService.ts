@@ -55,8 +55,11 @@ export class WardService extends BaseService {
 
   async createWard(data: CreateWardDTO, userId: string): Promise<Ward> {
     this.logInfo('Creating new ward', { wardName: data.wardName });
-    if (await this.repository.findByName(data.wardName)) throw new Error('A ward with this name already exists');
-    if (data.totalBeds < 1) throw new Error('Total beds must be a positive number');
+    if (!data.wardName?.trim()) throw new Error('Ward name is required');
+    if (!data.wardType?.trim()) throw new Error('Ward type is required');
+    if (await this.repository.findByName(data.wardName.trim())) throw new Error('A ward with this name already exists');
+    data.wardName = data.wardName.trim();
+    if (!Number.isInteger(data.totalBeds) || data.totalBeds < 1) throw new Error('Total beds must be a positive whole number');
     if (data.dailyCashRate <= 0) throw new Error('Daily cash rate must be positive');
     
     const wardData = {
@@ -75,15 +78,37 @@ export class WardService extends BaseService {
 
   async updateWard(id: string, data: UpdateWardDTO): Promise<Ward> {
     const existingWard = await this.getWardById(id);
+    if (data.wardName !== undefined && !data.wardName.trim()) throw new Error('Ward name is required');
+    if (data.wardType !== undefined && !data.wardType.trim()) throw new Error('Ward type is required');
+    if (data.dailyCashRate !== undefined && data.dailyCashRate <= 0) throw new Error('Daily cash rate must be positive');
+    if (data.wardName) data.wardName = data.wardName.trim();
     if (data.wardName && data.wardName !== existingWard.wardName) {
       if (await this.repository.findByName(data.wardName, id)) throw new Error('Another ward with this name already exists');
+    }
+    if (data.totalBeds !== undefined) {
+      if (!Number.isInteger(data.totalBeds) || data.totalBeds < 1) {
+        throw new Error('Total beds must be a positive whole number');
+      }
+      const registeredBeds = await this.repository.countBedsForWard(id);
+      if (data.totalBeds !== existingWard.totalBeds && data.totalBeds < registeredBeds) {
+        throw new Error(`Capacity cannot be lower than the ${registeredBeds} beds already registered in this ward`);
+      }
     }
     return this.repository.update(id, data);
   }
 
   async deleteWard(id: string): Promise<void> {
     const ward = await this.getWardById(id);
-    if (ward.occupiedBeds > 0) throw new Error('Cannot delete ward with occupied beds');
+    const wardDetails = ward as any;
+    if (ward.occupiedBeds > 0 || wardDetails.Bed?.some((bed: any) => bed.isOccupied)) {
+      throw new Error('Cannot delete ward with occupied beds');
+    }
+    if ((wardDetails._count?.Bed || 0) > 0) {
+      throw new Error('Remove all registered beds before deleting this ward');
+    }
+    if ((ward.currentAdmissions || 0) > 0) {
+      throw new Error('Cannot delete a ward with active admissions');
+    }
     await this.repository.delete(id);
   }
 

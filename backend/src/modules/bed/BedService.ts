@@ -40,6 +40,9 @@ export class BedService extends BaseService {
     if (!existingBed) throw new Error('Bed not found');
 
     if (data.bedNumber && data.bedNumber !== existingBed.bedNumber) {
+      if (existingBed.isOccupied || existingBed.currentOccupant) {
+        throw new Error('Cannot rename a bed while a patient is assigned to it');
+      }
       if (await this.bedRepository.findDuplicateInWard(existingBed.wardId, data.bedNumber, id)) {
         throw new Error(`Bed number ${data.bedNumber} already exists in this ward`);
       }

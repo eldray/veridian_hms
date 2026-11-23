@@ -39,8 +39,15 @@ export class WardController extends BaseController {
   });
 
   createWard = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const ward = await this.service.createWard(req.body, req.user?.id || 'system');
-    return this.created(res, ward, 'Ward created successfully');
+    try {
+      const ward = await this.service.createWard(req.body, req.user?.id || 'system');
+      return this.created(res, ward, 'Ward created successfully');
+    } catch (e: any) {
+      if (e.message.includes('already exists') || e.message.includes('Ward name') || e.message.includes('Ward type') || e.message.includes('Total beds') || e.message.includes('Daily cash rate')) {
+        return this.badRequest(res, e.message);
+      }
+      throw e;
+    }
   });
 
   updateWard = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -49,6 +56,9 @@ export class WardController extends BaseController {
       return this.ok(res, ward, 'Ward updated successfully');
     } catch (e: any) {
       if (e.message.includes('not found')) return this.notFound(res, 'Ward');
+      if (e.message.includes('already exists') || e.message.includes('Ward name') || e.message.includes('Ward type') || e.message.includes('Total beds') || e.message.includes('Daily cash rate') || e.message.includes('Capacity cannot be lower')) {
+        return this.badRequest(res, e.message);
+      }
       throw e;
     }
   });
@@ -59,7 +69,7 @@ export class WardController extends BaseController {
       return this.ok(res, null, 'Ward deleted successfully');
     } catch (e: any) {
       if (e.message.includes('not found')) return this.notFound(res, 'Ward');
-      if (e.message.includes('occupied beds')) return this.badRequest(res, e.message);
+      if (e.message.includes('occupied beds') || e.message.includes('registered beds') || e.message.includes('active admissions')) return this.badRequest(res, e.message);
       throw e;
     }
   });

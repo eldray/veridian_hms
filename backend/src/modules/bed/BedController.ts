@@ -37,7 +37,7 @@ export class BedController extends BaseController {
 
   createBed = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { wardId, bedNumber }: CreateBedInput = req.body;
-    if (!wardId || !bedNumber) return this.badRequest(res, 'Ward ID and bed number are required');
+    if (!wardId || !bedNumber?.trim()) return this.badRequest(res, 'Ward ID and bed number are required');
     if (!this.isValidBedNumber(bedNumber)) return this.badRequest(res, 'Bed number must be alphanumeric (e.g., BED-001, A-01, 101)');
 
     try {
@@ -45,15 +45,15 @@ export class BedController extends BaseController {
       return this.created(res, bed, 'Bed created successfully');
     } catch (error: any) {
       if (error.message === 'Ward not found') return this.notFound(res, 'Ward');
-      if (error.message.includes('already exists')) return this.badRequest(res, error.message);
+      if (error.message.includes('already exists') || error.message.includes('capacity') || error.message.includes('inactive')) return this.badRequest(res, error.message);
       throw error;
     }
   });
 
   updateBed = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const data: UpdateBedInput = req.body;
-    if (data.bedNumber && !this.isValidBedNumber(data.bedNumber)) {
-      return this.badRequest(res, 'Bed number must be alphanumeric (e.g., BED-001, A-01, 101)');
+    if (data.bedNumber !== undefined && (!data.bedNumber.trim() || !this.isValidBedNumber(data.bedNumber))) {
+      return this.badRequest(res, 'Bed number is required and must be alphanumeric (e.g., BED-001, A-01, 101)');
     }
 
     try {
@@ -61,7 +61,7 @@ export class BedController extends BaseController {
       return this.ok(res, bed, 'Bed updated successfully');
     } catch (error: any) {
       if (error.message === 'Bed not found') return this.notFound(res, 'Bed');
-      if (error.message.includes('already exists')) return this.badRequest(res, error.message);
+      if (error.message.includes('already exists') || error.message.includes('Cannot rename')) return this.badRequest(res, error.message);
       throw error;
     }
   });
@@ -72,7 +72,7 @@ export class BedController extends BaseController {
       return this.ok(res, null, 'Bed deleted successfully');
     } catch (error: any) {
       if (error.message === 'Bed not found') return this.notFound(res, 'Bed');
-      if (error.message.includes('Cannot delete occupied bed')) return this.badRequest(res, error.message);
+      if (error.message.includes('Cannot delete')) return this.badRequest(res, error.message);
       throw error;
     }
   });

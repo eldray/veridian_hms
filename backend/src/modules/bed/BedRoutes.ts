@@ -12,7 +12,7 @@ export function createBedRoutes(): Router {
   const adminRoles: UserRole[] = ['super_admin', 'admin'];
 
   // Read access for clinical and records staff
-  const readRoles: UserRole[] = ['super_admin', 'admin', 'doctor', 'nurse', 'midwife', 'records'];
+  const readRoles: UserRole[] = ['super_admin', 'admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'];
 
   router.get('/stats', requireRole(readRoles), bedController.getStats);
   router.get('/', requireRole(readRoles), bedController.getBeds);

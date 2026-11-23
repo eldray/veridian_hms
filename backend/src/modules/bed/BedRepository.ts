@@ -57,13 +57,22 @@ export class BedRepository extends BaseRepository<any, any, any> {
   async create(data: CreateBedInput) {
     // ✅ FIXED: Wrapped in transaction to prevent desynchronized ward counts
     return this.prisma.$transaction(async (tx) => {
-      const bed = await tx.bed.create({
+      const ward = await tx.ward.findUnique({
+        where: { id: data.wardId },
+        select: { id: true, wardName: true, totalBeds: true, isActive: true }
+      });
+      if (!ward) throw new Error('Ward not found');
+      if (!ward.isActive) throw new Error('Cannot add beds to an inactive ward');
+
+      const registeredBeds = await tx.bed.count({ where: { wardId: data.wardId } });
+      if (registeredBeds >= ward.totalBeds) {
+        throw new Error(`Ward has reached its configured capacity of ${ward.totalBeds} beds`);
+      }
+
+      return tx.bed.create({
         data: { wardId: data.wardId, bedNumber: data.bedNumber.trim(), isOccupied: false },
         include: { Ward: { select: { id: true, wardName: true, wardType: true } } }
       });
-
-      await tx.ward.update({ where: { id: data.wardId }, data: { totalBeds: { increment: 1 } } });
-      return bed;
     });
   }
 
@@ -85,8 +94,14 @@ export class BedRepository extends BaseRepository<any, any, any> {
       if (!bed) throw new Error('Bed not found');
       if (bed.isOccupied) throw new Error('Cannot delete occupied bed');
 
+      const activeAttendance = await tx.attendance.findFirst({
+        where: { bedId: id, status: { in: ['admitted', 'pending'] } },
+        select: { id: true }
+      });
+      if (activeAttendance) throw new Error('Cannot delete a bed assigned to an active patient');
+
+      // Ward.totalBeds is the configured capacity, not a live count of Bed rows.
       await tx.bed.delete({ where: { id } });
-      await tx.ward.update({ where: { id: bed.wardId }, data: { totalBeds: { decrement: 1 } } });
     });
   }
 

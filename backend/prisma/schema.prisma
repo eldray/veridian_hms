@@ -861,6 +861,9 @@ model Ward {
   dailyNHISRate         Decimal  @default(0) @db.Decimal(15, 2)
   dailyInsuranceRate    Decimal  @default(0) @db.Decimal(15, 2)
   dailyCorporateRate    Decimal  @default(0) @db.Decimal(15, 2) // ← add
+  description           String?  @db.Text
+  location              String?
+  floor                 String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
