@@ -627,36 +627,55 @@ export const Pager = ({
   const current = Math.min(page, pages);
   const from = total === 0 ? 0 : (current - 1) * pageSize + 1;
   const to = Math.min(total, current * pageSize);
+  const pageNumbers = Array.from(new Set([1, pages, current - 1, current, current + 1]
+    .filter(value => value >= 1 && value <= pages))).sort((a, b) => a - b);
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-t border-[var(--border-color)] bg-[var(--bg-main)]">
+    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-main)]">
       <div className="flex items-center gap-2">
-        <span className="text-[11px] text-[var(--text-tertiary)]">Rows</span>
+        <span className="text-[11px] text-[var(--text-tertiary)]">Rows per page</span>
         <select
           value={String(pageSize)}
           onChange={event => onPageSize(Number(event.target.value))}
-          className="px-2 py-1 text-[11px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none"
+          className="px-2 py-1.5 text-[11px] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none"
         >
           {SHELL_PAGE_SIZES.map(size => <option key={size} value={size}>{size}</option>)}
         </select>
       </div>
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] text-[var(--text-secondary)]">
-          {total === 0 ? 'No rows' : `${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}`}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] text-[var(--text-secondary)] mr-1">
+          {total === 0 ? 'No rows' : `Showing ${from.toLocaleString()}–${to.toLocaleString()} of ${total.toLocaleString()}`}
         </span>
         <button
           type="button"
           onClick={() => onPage(Math.max(1, current - 1))}
           disabled={current <= 1}
-          className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] disabled:opacity-30 hover:text-[var(--text-primary)]"
+          className="px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] disabled:opacity-30 hover:text-[var(--text-primary)] text-xs"
           aria-label="Previous page"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
         </button>
+        {pageNumbers.map((number, index) => (
+          <span key={number} className="contents">
+            {index > 0 && pageNumbers[index - 1] !== number - 1 && (
+              <span className="px-1 text-xs text-[var(--text-tertiary)]" aria-hidden="true">…</span>
+            )}
+            <button
+              type="button"
+              onClick={() => onPage(number)}
+              aria-current={number === current ? 'page' : undefined}
+              className={`min-w-8 px-2 py-1.5 rounded-lg border text-xs font-medium transition-colors ${number === current
+                ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'}`}
+            >
+              {number}
+            </button>
+          </span>
+        ))}
         <button
           type="button"
           onClick={() => onPage(Math.min(pages, current + 1))}
           disabled={current >= pages}
-          className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] disabled:opacity-30 hover:text-[var(--text-primary)]"
+          className="px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] disabled:opacity-30 hover:text-[var(--text-primary)] text-xs"
           aria-label="Next page"
         >
           <ChevronRight className="w-3.5 h-3.5" />
