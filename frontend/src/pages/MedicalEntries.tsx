@@ -34,7 +34,6 @@ ClinicalAssessmentModal,
 ClinicalAssessmentSummary,
 type ClinicalAssessmentValue,
 } from '../components/medical-entries/ClinicalAssessmentModal';
-import { ClinicalNotesModal } from '../components/medical-entries/ClinicalNotesModal';
 import { useAdmissionStore } from '../store/admissionStore';
 import {
 ChevronLeft, RefreshCw, Stethoscope, Pill, FlaskConical, Info, Building2,
@@ -685,7 +684,6 @@ window.history.replaceState(null, '', `${window.location.pathname}${window.locat
 const [assessmentOpen, setAssessmentOpen] = useState(false);
 const [assessmentDirty, setAssessmentDirty] = useState(false);
 const [assessmentSaveStatus, setAssessmentSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
 const [consumableUses, setConsumableUses] = useState<any[]>([]);
 const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
 const [editingEntry, setEditingEntry] = useState<{ type: MedicalEntryEditType; entry: any } | null>(null);
@@ -1034,34 +1032,6 @@ updatedById: user?.id,
 success('Saved', 'Clinical information updated');
 await getAttendance(selectedAttendanceId);
 } catch (err: any) { toastError('Save failed', err?.response?.data?.message || err.message); }
-};
-const handleSaveClinicalNotes = async (next: string) => {
-if (!selectedAttendanceId || !canAddEntries || isClinicalFinalized) return;
-const now = new Date().toISOString();
-const audit = {
-updatedById: user?.id || null,
-updatedByName: user?.fullName || user?.username || 'Unknown user',
-updatedAt: now,
-};
-const clinicalNotes = {
-...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
-? currentAttendance.clinicalNotes
-: {}),
-assessment: next || null,
-clinicalNotesAudit: audit,
-};
-try {
-await updateAttendance(selectedAttendanceId, {
-assessment: next,
-clinicalNotes,
-updatedById: user?.id,
-});
-setAssessment(next);
-success('Clinical notes saved', `Updated by ${audit.updatedByName}`);
-await getAttendance(selectedAttendanceId);
-} catch (err: any) {
-toastError('Clinical notes update failed', err?.response?.data?.message || err.message || 'Could not save clinical notes');
-}
 };
 const handleFinalizeClinical = async () => {
 if (!selectedAttendanceId) return;
@@ -2515,29 +2485,28 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                     boxShadow: 'var(--shadow-sm)',
                 }}
             >
-                {/* Clinical notes replace the separate physician-notes panel. */}
+                {/* Clinical notes are the chronological, author-attributed visit log. */}
                 <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
                     <span className="flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
                         <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                        Clinical notes
+                        Clinical Notes
+                        {treatmentNotes.length > 0 && <span className="rounded-full bg-[var(--icon-cyan-bg)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--icon-cyan-text)]">{treatmentNotes.length}</span>}
                     </span>
-                    <button
-                        type="button"
-                        onClick={() => setClinicalNotesOpen(true)}
-                        disabled={!canAddEntries || isClinicalFinalized}
-                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50"
-                    >
-                        <FileText className="w-3 h-3" />
-                        Edit notes
-                    </button>
+                    {canAddEntries && !isClinicalFinalized && (
+                        <button type="button" onClick={() => { setTreatmentEntryMode('progress'); setTreatmentNoteDraft(''); setIsEditingTreatmentPlan(true); }}
+                            className="inline-flex items-center gap-1 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-[11px] font-semibold text-white hover:opacity-90">
+                            <Plus className="h-3.5 w-3.5" /> Add note
+                        </button>
+                    )}
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 bg-[var(--bg-card)]" style={{ minHeight: 0, scrollbarWidth: 'thin' }}>
-                    {assessment.trim() ? (
-                        <p className="text-xs leading-relaxed whitespace-pre-wrap text-[var(--text-primary)]">{assessment}</p>
-                    ) : (
-                        <p className="text-center text-[11px] text-[var(--text-tertiary)] pt-6">
-                            No clinical impression recorded yet.
-                        </p>
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]" style={{ minHeight: 0, scrollbarWidth: 'thin' }}>
+                    {treatmentNotes.length > 0 ? [...treatmentNotes].map((note, i) => (
+                        <NoteCard key={`${note.date}-${i}`} author={note.author} date={note.date} text={note.text}
+                            editedBy={(note as any).editedBy} editedAt={(note as any).editedAt}
+                            onEdit={canAddEntries && !isClinicalFinalized ? () => handleEditNote('treatment', i) : undefined}
+                        />
+                    )) : (
+                        <div className="py-6 text-center text-[11px] text-[var(--text-tertiary)]">No clinical notes recorded for this visit.</div>
                     )}
                 </div>
                 {/* Treatment plan is a single clinical field, not a progress-log entry. */}
@@ -2558,28 +2527,6 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                         <p className="mt-2 text-[9px] text-[var(--text-tertiary)]">
                             Last updated by {(currentAttendance?.clinicalNotes as any).treatmentPlanAudit.updatedByName || 'Unknown user'} · {new Date((currentAttendance?.clinicalNotes as any).treatmentPlanAudit.updatedAt).toLocaleString()}
                         </p>
-                    )}
-                </div>
-                <div className="flex items-center justify-between gap-2 border-y border-[var(--border-color)] bg-[var(--bg-card)] p-3">
-                    <div className="min-w-0">
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Treatment Notes / Progress Log</label>
-                        <p className="mt-0.5 text-[9px] text-[var(--text-tertiary)]">Record dated clinical progress updates separately from the treatment plan.</p>
-                    </div>
-                    {canAddEntries && !isClinicalFinalized && (
-                        <button type="button" onClick={() => { setTreatmentEntryMode('progress'); setTreatmentNoteDraft(''); setIsEditingTreatmentPlan(true); }}
-                            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-[11px] font-semibold text-white hover:opacity-90">
-                            <Plus className="h-3.5 w-3.5" /> Add progress note
-                        </button>
-                    )}
-                </div>
-                <div className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]" style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}>
-                    {treatmentNotes.length > 0 ? [...treatmentNotes].reverse().map((note, i) => (
-                        <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
-                            editedBy={note.editedBy} editedAt={note.editedAt}
-                            onEdit={canAddEntries && !isClinicalFinalized ? () => handleEditNote('treatment', treatmentNotes.length - 1 - i) : undefined}
-                            onDelete={canAddEntries && !isClinicalFinalized ? () => handleDeleteNote('treatment', treatmentNotes.length - 1 - i) : undefined} />
-                    )) : (
-                        <div className="py-6 text-center text-[11px] text-[var(--text-tertiary)]">No progress notes recorded.</div>
                     )}
                 </div>
             </div>
@@ -2604,8 +2551,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                     <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-[var(--icon-cyan-text)]" />
                         <div>
-                            <h3 id="treatment-note-modal-title" className="text-sm font-bold text-[var(--text-primary)]">{treatmentEntryMode === 'plan' ? 'Edit Treatment Plan' : 'Add Progress Note'}</h3>
-                            <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">{treatmentEntryMode === 'plan' ? 'The plan is saved in the Treatment Plan field, separately from progress notes.' : 'This progress update will be saved with your name and timestamp.'}</p>
+                            <h3 id="treatment-note-modal-title" className="text-sm font-bold text-[var(--text-primary)]">{treatmentEntryMode === 'plan' ? 'Edit Treatment Plan' : 'Add Clinical Note'}</h3>
+                            <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">{treatmentEntryMode === 'plan' ? 'The plan is saved separately from the clinical note timeline.' : 'This note will be saved with your name and date/time.'}</p>
                         </div>
                     </div>
                     <button type="button" aria-label="Close add note" disabled={savingTreatmentPlan}
@@ -2615,10 +2562,10 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                     </button>
                 </div>
                 <div className="max-h-[70vh] space-y-2 overflow-y-auto p-5">
-                    <label htmlFor="treatment-note-draft" className="block text-xs font-semibold text-[var(--text-secondary)]">{treatmentEntryMode === 'plan' ? 'Planned management and instructions' : 'Clinical progress update'}</label>
+                    <label htmlFor="treatment-note-draft" className="block text-xs font-semibold text-[var(--text-secondary)]">{treatmentEntryMode === 'plan' ? 'Planned management and instructions' : 'Clinical note'}</label>
                     <textarea id="treatment-note-draft" value={treatmentNoteDraft} onChange={e => setTreatmentNoteDraft(e.target.value)}
                         rows={8} autoFocus
-                        placeholder={treatmentEntryMode === 'plan' ? 'Enter the planned management and patient instructions…' : 'Record clinical progress, response to treatment or changes in condition…'}
+                        placeholder={treatmentEntryMode === 'plan' ? 'Enter the planned management and patient instructions…' : 'Enter the clinical note for this visit…'}
                         className="w-full resize-y rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-3 text-sm leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" />
                 </div>
                 <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] p-4 sm:flex-row sm:justify-end">
@@ -2627,7 +2574,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                         className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] disabled:opacity-50">Cancel</button>
                     <button type="button" onClick={handleSaveTreatmentNote} disabled={savingTreatmentPlan || !treatmentNoteDraft.trim()}
                         className="rounded-lg bg-[var(--icon-cyan-text)] px-5 py-2 text-xs font-semibold text-white disabled:opacity-50">
-                        {savingTreatmentPlan ? 'Saving…' : treatmentEntryMode === 'plan' ? 'Save Treatment Plan' : 'Save Progress Note'}
+                        {savingTreatmentPlan ? 'Saving…' : treatmentEntryMode === 'plan' ? 'Save Treatment Plan' : 'Save Clinical Note'}
                     </button>
                 </div>
             </div>
@@ -2640,15 +2587,8 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
         readOnly={!canAddEntries || isClinicalFinalized}
         onSave={saveAssessment}
     />
-    <ClinicalNotesModal
-        isOpen={clinicalNotesOpen}
-        onClose={() => setClinicalNotesOpen(false)}
-        value={assessment}
-        readOnly={!canAddEntries || isClinicalFinalized}
-        onSave={handleSaveClinicalNotes}
-    />
     {/* ── MODALS ─────────────────────────────────────────────────────────── */}
-    {editingNote && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/50" onClick={() => !savingNote && setEditingNote(null)} /><div className="relative w-full max-w-lg rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl"><div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]"><h3 className="text-sm font-bold text-[var(--text-primary)]">Edit {editingNote.type === 'treatment' ? 'treatment' : 'physician'} note</h3><button disabled={savingNote} onClick={() => setEditingNote(null)} className="text-[var(--text-tertiary)]"><XCircle className="w-4 h-4" /></button></div><div className="p-4"><textarea value={editingNoteText} onChange={e => setEditingNoteText(e.target.value)} rows={6} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" /></div><div className="flex gap-2 p-4 border-t border-[var(--border-color)]"><button disabled={savingNote || !editingNoteText.trim()} onClick={handleSaveNoteEdit} className="flex-1 rounded-lg bg-[var(--icon-cyan-text)] text-white py-2 text-sm font-semibold disabled:opacity-50">{savingNote ? 'Saving…' : 'Save note'}</button><button disabled={savingNote} onClick={() => setEditingNote(null)} className="px-4 rounded-lg border border-[var(--border-color)] text-sm">Cancel</button></div></div></div>}
+    {editingNote && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/50" onClick={() => !savingNote && setEditingNote(null)} /><div className="relative w-full max-w-lg rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl"><div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]"><h3 className="text-sm font-bold text-[var(--text-primary)]">Edit Clinical Note</h3><button disabled={savingNote} onClick={() => setEditingNote(null)} className="text-[var(--text-tertiary)]"><XCircle className="w-4 h-4" /></button></div><div className="p-4"><textarea value={editingNoteText} onChange={e => setEditingNoteText(e.target.value)} rows={6} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" /></div><div className="flex gap-2 p-4 border-t border-[var(--border-color)]"><button disabled={savingNote || !editingNoteText.trim()} onClick={handleSaveNoteEdit} className="flex-1 rounded-lg bg-[var(--icon-cyan-text)] text-white py-2 text-sm font-semibold disabled:opacity-50">{savingNote ? 'Saving…' : 'Save note'}</button><button disabled={savingNote} onClick={() => setEditingNote(null)} className="px-4 rounded-lg border border-[var(--border-color)] text-sm">Cancel</button></div></div></div>}
     {editingEntry && <MedicalEntryEditModal type={editingEntry.type} entry={editingEntry.entry} saving={savingEntry} onClose={() => setEditingEntry(null)} onSave={handleSaveEntryEdit} />}
     <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} diagnoses={diagnoses} canAdd={canAddEntries}
