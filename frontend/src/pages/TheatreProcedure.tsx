@@ -1506,18 +1506,13 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: MINOR PROCEDURE DOCUMENTATION MODAL ─────── */}
-              {selectedProcedure && activeTab === 'record' && !isTheatreRequiredProcedure(selectedProcedure) && (
-                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-                  <div className="absolute inset-0" onClick={() => setActiveTab('procedures')} />
-                  <div className="relative z-10 flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl">
-                    <div className="flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3">
-                      <div>
-                        <p className="text-sm font-bold text-[var(--text-primary)]">Minor procedure record</p>
-                        <p className="text-xs text-[var(--text-secondary)]">{selectedProcedure.name}</p>
-                      </div>
-                      <button type="button" onClick={() => setActiveTab('procedures')} className="rounded-lg p-2 text-[var(--text-secondary)] hover:bg-[var(--border-color)]" aria-label="Close minor procedure form"><X className="h-4 w-4" /></button>
-                    </div>
-                    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+              {selectedProcedure && !isTheatreRequiredProcedure(selectedProcedure) && (
+                <SectionCard
+                  icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
+                  title="Minor procedure documentation"
+                >
+                  <div className="space-y-4 p-4">
+                    <p className="text-xs text-[var(--text-secondary)]">Documenting: <strong className="text-[var(--text-primary)]">{selectedProcedure.name}</strong></p>
                       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">
                         This procedure is documented using a short clinical record. Theatre safety, anaesthesia and operative forms are not required for this workflow.
                       </div>
@@ -1553,12 +1548,11 @@ export default function TheatreProcedure() {
                       </FormField>
                       <p className="text-[11px] text-[var(--text-tertiary)]">On save, the system records the authenticated user and exact save time in the procedure audit log.</p>
                     </div>
-                    <div className="flex shrink-0 justify-end gap-2 border-t border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3">
-                      <button type="button" onClick={() => setActiveTab('procedures')} className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)]">Cancel</button>
+                    <div className="flex justify-end gap-2 border-t border-[var(--border-color)] pt-3">
                       <button type="button" disabled={isSubmitting} onClick={handleSubmitMinorProcedure} className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{isSubmitting ? 'Saving…' : 'Save procedure record'}</button>
                     </div>
                   </div>
-                </div>
+                </SectionCard>
               )}
 
               {/* ── TAB: NARRATIVE NOTES ─────────────────────────── */}
