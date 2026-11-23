@@ -11,7 +11,7 @@ import { useToast } from '../store/toastStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVisits';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
-import { getTheatreWorklist } from '../api';
+import { getTheatreWorklist, removeProcedureFromEncounter } from '../api';
 import { getPatientName } from '../utils/patient';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { pickVisit } from '../utils/visitSelection';
@@ -337,6 +337,7 @@ export default function TheatreProcedure() {
 
   const canAddEntries = attendance ? canAddMedicalEntries(attendance) : false;
   const canUpdateProcedure = attendance && ['pending', 'admitted'].includes(attendance.status);
+  const canManageProcedures = ['admin', 'super_admin', 'doctor'].includes(user?.role || '');
 
   const procedures = useMemo(() => {
     if (!currentAttendance?.Procedure) return [];
@@ -592,13 +593,28 @@ export default function TheatreProcedure() {
   };
 
   const handleCancelProcedure = async (procedureId: string) => {
-    if (!(await confirmDialog({ title: 'Cancel procedure', message: 'Cancel this procedure? This action cannot be undone.', confirmText: 'Cancel procedure' }))) return;
+    if (!(await confirmDialog({ title: 'Cancel procedure', message: 'Cancel this procedure? It will remain in the clinical record as cancelled.', confirmText: 'Cancel procedure' }))) return;
     try {
       await updateProcedureStatus(selectedAttendanceId!, procedureId, { status: 'cancelled' });
       success('Procedure cancelled', 'The procedure has been cancelled');
       await getAttendance(selectedAttendanceId!);
     } catch (error: any) {
-      toastError('Cancel failed', error.message);
+      toastError('Cancel failed', error.message || 'Unable to cancel procedure');
+    }
+  };
+
+  const handleRemoveProcedure = async (procedureId: string) => {
+    if (!selectedAttendanceId || !canManageProcedures) return;
+    if (!(await confirmDialog({ title: 'Remove scheduled procedure', message: 'Remove this scheduled procedure from the attendance? This is only available before the procedure starts. Completed procedures cannot be removed.', confirmText: 'Remove procedure' }))) return;
+    try {
+      await removeProcedureFromEncounter(selectedAttendanceId, procedureId);
+      success('Procedure removed', 'The scheduled procedure was removed');
+      setSelectedProcedureId('');
+      setOpenTile(null);
+      await getAttendance(selectedAttendanceId);
+      await calculateBill(selectedAttendanceId);
+    } catch (error: any) {
+      toastError('Removal failed', error.message || 'Unable to remove procedure');
     }
   };
 
@@ -921,7 +937,18 @@ export default function TheatreProcedure() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">{getStatusBadge(selectedProcedure.status)}</div>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">{getStatusBadge(selectedProcedure.status)}</div>
+                  {selectedProcedure.status === 'scheduled' && canManageProcedures && canUpdateProcedure && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveProcedure(selectedProcedure.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Remove scheduled procedure
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Tab bar */}
