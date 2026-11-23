@@ -368,14 +368,15 @@ export default function TheatreProcedure() {
   };
 
   const canAddEntries = attendance ? canAddMedicalEntries(attendance) : false;
-  const canUpdateProcedure = attendance && ['pending', 'admitted'].includes(attendance.status);
+  const canUpdateProcedure = !!attendance && ['pending', 'admitted'].includes(String(attendance?.status || '').toLowerCase());
   const canManageProcedures = ['admin', 'super_admin', 'doctor'].includes(user?.role || '');
 
   const procedures = useMemo(() => {
-    if (!currentAttendance?.Procedure) return [];
-    return currentAttendance.Procedure.map((proc: any) => ({
+    const entries = Array.isArray(currentAttendance?.Procedure) ? currentAttendance.Procedure : [];
+    return entries.filter((proc: any) => !!proc && typeof proc === 'object').map((proc: any) => ({
       ...proc,
-      id: proc.id,
+      id: proc.id || proc._id || '',
+      status: String(proc.status || 'scheduled').toLowerCase(),
       name: proc.ServiceCatalog?.name || proc.name || 'Unknown Procedure',
     }));
   }, [currentAttendance]);
@@ -927,7 +928,7 @@ export default function TheatreProcedure() {
               <div className="min-w-0 flex-1 basis-[320px] bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-yellow-800">
-                This visit is <strong>{attendance.status}</strong>. Procedures can be viewed but not modified.
+                This visit is <strong>{attendance?.status || 'not available'}</strong>. Procedures can be viewed but not modified.
               </p>
                 </div>
             )}
@@ -994,34 +995,9 @@ export default function TheatreProcedure() {
               </div>
                 </>
               )}
-              {/* Tab bar */}
-              <div className="flex items-center border-b border-[var(--border-color)] px-1 overflow-x-auto">
-                {tabs.filter(tab => tab.key === 'procedures' || !!selectedProcedure).map(tab => {
-                  const isActive = activeTab === tab.key;
-                  return (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border-b-2 whitespace-nowrap transition-all ${
-                        isActive
-                          ? 'border-purple-500 text-purple-600'
-                          : 'border-transparent text-[var(--text-secondary)] hover:text-purple-500'
-                      }`}
-                    >
-                      {tab.icon}
-                      {tab.label}
-                      {tab.count !== undefined && tab.count > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-main)] text-[var(--text-tertiary)]">
-                          {tab.count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {activeTab === 'procedures' && (
-          <SectionCard
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 p-3">
+              <div className="min-w-0">
+              {          <SectionCard
             icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
             title={`Procedures for this visit (${procedures.length})`}
             action={canAddEntries ? <AddBtn onClick={() => setShowScheduleModal(true)} label="Schedule" /> : undefined}
@@ -1089,7 +1065,38 @@ export default function TheatreProcedure() {
               </div>
             )}
           </SectionCard>
-              )}
+              </div>
+              <div className="min-w-0">
+                <SectionCard
+                  icon={<CheckCircle className="w-4 h-4 text-green-600" />}
+                  title={`Procedure Results (${completedProcedures.length})`}
+                  maxH="max-h-none"
+                >
+                  {completedProcedures.length === 0 ? (
+                    <EmptySlate icon={<CheckCircle className="w-8 h-8" />} label="No completed procedures yet" />
+                  ) : (
+                    <div className="divide-y divide-[var(--border-color)]">
+                      {completedProcedures.map((procedure: any) => (
+                        <button
+                          key={procedure.id}
+                          type="button"
+                          onClick={() => { setSelectedProcedureId(procedure.id); setActiveTab('record'); setOpenTile(null); }}
+                          className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left hover:bg-[var(--bg-main)]"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{procedure.name}</span>
+                            <span className="mt-1 block text-[10px] text-[var(--text-secondary)]">
+                              {procedure.performedAt ? new Date(procedure.performedAt).toLocaleString() : 'Completed'}
+                            </span>
+                          </span>
+                          {getStatusBadge(procedure.status || 'completed')}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </SectionCard>
+              </div>
+              </div>
 
               {/* ── TAB: PERI-OPERATIVE RECORD ─────────────────── */}
               {selectedProcedure && activeTab === 'record' && isTheatreRequiredProcedure(selectedProcedure) && (
