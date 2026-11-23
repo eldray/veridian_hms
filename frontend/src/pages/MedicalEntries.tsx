@@ -1105,7 +1105,7 @@ clinicalNotes: { ...existingClinicalNotes, treatmentNotes: updatedNotes },
 updatedById: user?.id,
 });
 setTreatmentNotes(updatedNotes);
-success('Progress note added', `Entered by ${actorName}`);
+success('Clinical note added', `Entered by ${actorName}`);
 }
 setTreatmentNoteDraft('');
 setIsEditingTreatmentPlan(false);
