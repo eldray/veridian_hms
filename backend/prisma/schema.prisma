@@ -898,6 +898,7 @@ model GDRGTariff {
   encounterCategory EncounterCategory?
   attendanceTypes   AttendanceType[]
   isAntenatal       Boolean            @default(false)
+  isSurgical        Boolean            @default(false)
   isDelivery        Boolean            @default(false)
   effectiveFrom     DateTime           @default(now())
   effectiveTo       DateTime?
