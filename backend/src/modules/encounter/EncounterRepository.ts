@@ -1551,6 +1551,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     if (Number(line.bill.paidAmount || 0) > 0) {
       throw new ConflictError('This clinical charge has payment history. Process the required refund or credit adjustment before removing the order.');
     }
+    if (!userId) throw new ConflictError('A responsible user is required to remove a clinical order.');
     const actorId = await this.requireActorId(userId);
 
     const now = new Date();
