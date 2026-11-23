@@ -1638,7 +1638,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (medication.status !== 'prescribed') {
         throw new ConflictError('Only an undispensed prescription can be removed');
       }
-      await this.requireOpenEncounter(encounterId);
+      await this.requireOpenEncounter(encounterId, tx);
       await this.ensureClinicalOrderNotClaimed(tx, 'medicationId', medicationId);
       await this.removeLinkedClinicalBillLine(tx, encounterId, `medication:${medicationId}`, actorId, 'Undispensed prescription removed from Medical Entries');
       const deleted = await tx.medication.deleteMany({
@@ -1651,7 +1651,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
 async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   const actorId = await this.requireActorId(userId);
-  await this.requireOpenEncounter(encounterId);
+  await this.requireOpenEncounter(encounterId, tx);
   let templateId: string | undefined;
 
   if (data.serviceCatalogId) {
@@ -1763,7 +1763,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
       if (current.status === 'completed' || current.status === 'cancelled') {
         throw new ConflictError('A completed or already cancelled laboratory order cannot be removed');
       }
-      await this.requireOpenEncounter(encounterId);
+      await this.requireOpenEncounter(encounterId, tx);
       await this.ensureClinicalOrderNotClaimed(tx, 'labTestId', labOrderId);
       await this.removeLinkedClinicalBillLine(tx, encounterId, `lab-test:${labOrderId}`, actorId, 'Laboratory order removed/cancelled from Medical Entries');
       if (current.status === 'requested') {
@@ -1782,7 +1782,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
 
 async addScan(encounterId: string, data: any, userId: string) {
   const actorId = await this.requireActorId(userId);
-  await this.requireOpenEncounter(encounterId);
+  await this.requireOpenEncounter(encounterId, tx);
   let templateId: string | undefined;
   const serviceCatalogId = data.serviceCatalogId as string | undefined;
 
@@ -1943,7 +1943,7 @@ async addScan(encounterId: string, data: any, userId: string) {
       if (current.status === 'completed' || current.status === 'cancelled') {
         throw new ConflictError('A completed or already cancelled scan order cannot be removed');
       }
-      await this.requireOpenEncounter(encounterId);
+      await this.requireOpenEncounter(encounterId, tx);
       await this.ensureClinicalOrderNotClaimed(tx, 'scanId', scanId);
       await this.removeLinkedClinicalBillLine(tx, encounterId, `scan:${scanId}`, actorId, 'Scan order removed/cancelled from Medical Entries');
       if (current.status === 'requested') {
@@ -1962,7 +1962,7 @@ async addScan(encounterId: string, data: any, userId: string) {
 
 async addProcedure(encounterId: string, data: any, userId: string) {
   const actorId = await this.requireActorId(userId);
-  await this.requireOpenEncounter(encounterId);
+  await this.requireOpenEncounter(encounterId, tx);
 
   // Validate scheduling inputs before looking up templates or writing a procedure.
   let scheduledDate: Date | null = null;
@@ -2200,7 +2200,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (current.status === 'completed' || current.status === 'cancelled') {
         throw new ConflictError('A completed or already cancelled procedure cannot be removed');
       }
-      await this.requireOpenEncounter(encounterId);
+      await this.requireOpenEncounter(encounterId, tx);
       await this.ensureClinicalOrderNotClaimed(tx, 'procedureId', procedureId);
       await this.removeLinkedClinicalBillLine(tx, encounterId, `procedure:${procedureId}`, actorId, 'Procedure order removed/cancelled from Medical Entries');
       if (current.status === 'scheduled') {
@@ -2220,7 +2220,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async addService(encounterId: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     // Service rendering is a clinical write: reject closed encounters, not merely missing IDs.
-    await this.requireOpenEncounter(encounterId);
+    await this.requireOpenEncounter(encounterId, tx);
     if (!data.serviceCatalogId) throw new ValidationError('A service catalog entry is required');
     const quantity = data.quantity === undefined ? 1 : Number(data.quantity);
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
@@ -2251,7 +2251,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
    */
   async addServices(encounterId: string, items: any[], userId: string) {
     const actorId = await this.requireActorId(userId);
-    await this.requireOpenEncounter(encounterId);
+    await this.requireOpenEncounter(encounterId, tx);
     if (!Array.isArray(items) || items.length === 0) {
       throw new ValidationError('At least one service is required');
     }
@@ -2296,7 +2296,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       select: { id: true },
     });
     if (!current) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
-    await this.requireOpenEncounter(encounterId);
+    await this.requireOpenEncounter(encounterId, tx);
     const result = await this.prisma.serviceRendered.deleteMany({
       where: { id: serviceRenderedId, attendanceId: encounterId },
     });
