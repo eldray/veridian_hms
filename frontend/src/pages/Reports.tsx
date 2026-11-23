@@ -144,6 +144,8 @@ function IDSRSurveillanceRegister({ startDate, endDate, diseases }: { startDate:
   const [deaths, setDeaths] = useState('0');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const selectedDisease = diseases.find(d => d.code === diseaseCode) || diseases[0];
   const load = useCallback(async () => {
     try {
@@ -153,7 +155,7 @@ function IDSRSurveillanceRegister({ startDate, endDate, diseases }: { startDate:
     } catch (error: any) { setMessage(error?.response?.data?.message || error?.message || 'Could not load surveillance entries.'); }
   }, [startDate, endDate]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setAlertDate(startDate); }, [startDate]);
+  useEffect(() => { setAlertDate(startDate); setPage(1); }, [startDate, endDate]);
   useEffect(() => { if (!diseases.some(d => d.code === diseaseCode)) setDiseaseCode(diseases[0]?.code || ''); }, [diseases, diseaseCode]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -171,6 +173,9 @@ function IDSRSurveillanceRegister({ startDate, endDate, diseases }: { startDate:
     try { await acknowledgeIDSRAlert(id); await load(); }
     catch (error: any) { setMessage(error?.response?.data?.message || error?.message || 'Could not acknowledge record.'); }
   };
+  const totalPages = Math.max(1, Math.ceil(records.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visibleRecords = records.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   return <Card title="IDSR surveillance register" description="Record verified daily disease tallies separately from attendance-based suspected signals." icon={ClipboardList} padded={false}>
     <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-6 gap-2 p-4 border-b border-[var(--border-color)]">
       <select value={diseaseCode} onChange={e => setDiseaseCode(e.target.value)} className="md:col-span-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required>
@@ -185,10 +190,11 @@ function IDSRSurveillanceRegister({ startDate, endDate, diseases }: { startDate:
     <div className="overflow-x-auto"><table className="w-full text-xs">
       <thead className="bg-[var(--bg-main)]"><tr>{['Date','Disease','Suspected','Confirmed','Deaths','Acknowledgement','Action'].map(label => <th key={label} className="px-3 py-2 text-left text-[10px] font-bold uppercase text-[var(--text-tertiary)]">{label}</th>)}</tr></thead>
       <tbody className="divide-y divide-[var(--border-color)]">
-        {records.map(record => <tr key={record.id}><td className="px-3 py-2">{record.alertDate ? new Date(record.alertDate).toLocaleDateString() : '—'}</td><td className="px-3 py-2">{record.diseaseName} ({record.diseaseCode})</td><td className="px-3 py-2">{record.suspectedCases}</td><td className="px-3 py-2">{record.confirmedCases}</td><td className="px-3 py-2">{record.deaths}</td><td className="px-3 py-2">{record.alertAcknowledged ? 'Acknowledged' : 'Awaiting acknowledgement'}</td><td className="px-3 py-2">{!record.alertAcknowledged && <button type="button" onClick={() => acknowledge(record.id)} className="text-[var(--icon-cyan-text)] font-semibold">Acknowledge</button>}</td></tr>)}
+        {visibleRecords.map(record => <tr key={record.id}><td className="px-3 py-2">{record.alertDate ? new Date(record.alertDate).toLocaleDateString() : '—'}</td><td className="px-3 py-2">{record.diseaseName} ({record.diseaseCode})</td><td className="px-3 py-2">{record.suspectedCases}</td><td className="px-3 py-2">{record.confirmedCases}</td><td className="px-3 py-2">{record.deaths}</td><td className="px-3 py-2">{record.alertAcknowledged ? 'Acknowledged' : 'Awaiting acknowledgement'}</td><td className="px-3 py-2">{!record.alertAcknowledged && <button type="button" onClick={() => acknowledge(record.id)} className="text-[var(--icon-cyan-text)] font-semibold">Acknowledge</button>}</td></tr>)}
         {records.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-[var(--text-tertiary)]">No manual surveillance tallies recorded for this period.</td></tr>}
       </tbody>
     </table></div>
+    <Pagination page={currentPage} totalPages={totalPages} itemsPerPage={pageSize} totalItems={records.length} noun="surveillance entries" onChange={setPage} pageSizeOptions={[10, 25, 50, 100]} onPageSizeChange={size => { setPageSize(size); setPage(1); }} />
   </Card>;
 }
 
