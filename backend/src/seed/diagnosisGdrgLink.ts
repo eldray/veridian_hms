@@ -61,7 +61,7 @@ interface DiagnosisGDRGMapping {
 //   [adult GDRG, child GDRG, optional OPD code]
 //   OPDC06A/OPDC06C = General OPD (always applicable as fallback)
 // ─────────────────────────────────────────────────────────────────────────────
-const MAPPINGS: DiagnosisGDRGMapping[] = [
+export const MAPPINGS: DiagnosisGDRGMapping[] = [
 
   // ══════════════════════════════════════════════════════════════
   // SECTION 1: COMMUNICABLE — IMMUNIZABLE
