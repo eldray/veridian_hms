@@ -660,7 +660,6 @@ const [allergyReviewNotes, setAllergyReviewNotes] = useState('');
 const [clinicalOutcome, setClinicalOutcome] = useState<'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown' | ''>('');
 const [treatmentPlan, setTreatmentPlan] = useState('');
 const [isEditingTreatmentPlan, setIsEditingTreatmentPlan] = useState(false);
-const [treatmentPlanDraft, setTreatmentPlanDraft] = useState('');
 const [savingTreatmentPlan, setSavingTreatmentPlan] = useState(false);
 const [treatmentNoteDraft, setTreatmentNoteDraft] = useState('');
 const [followUpDate, setFollowUpDate] = useState('');
@@ -1061,38 +1060,6 @@ await getAttendance(selectedAttendanceId);
 toastError('Clinical notes update failed', err?.response?.data?.message || err.message || 'Could not save clinical notes');
 }
 };
-const handleSaveTreatmentPlan = async () => {
-if (!selectedAttendanceId || !canAddEntries || isClinicalFinalized) return;
-setSavingTreatmentPlan(true);
-const now = new Date().toISOString();
-const audit = {
-updatedById: user?.id || null,
-updatedByName: user?.fullName || user?.username || 'Unknown user',
-updatedAt: now,
-};
-try {
-const clinicalNotes = {
-...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
-? currentAttendance.clinicalNotes
-: {}),
-treatmentPlan: treatmentPlanDraft.trim() || null,
-treatmentPlanAudit: audit,
-};
-await updateAttendance(selectedAttendanceId, {
-treatmentPlan: treatmentPlanDraft.trim(),
-clinicalNotes,
-updatedById: user?.id,
-});
-setTreatmentPlan(treatmentPlanDraft.trim());
-setIsEditingTreatmentPlan(false);
-success('Treatment plan saved', `Updated by ${audit.updatedByName}`);
-await getAttendance(selectedAttendanceId);
-} catch (err: any) {
-toastError('Treatment plan update failed', err?.response?.data?.message || err.message || 'Could not save treatment plan');
-} finally {
-setSavingTreatmentPlan(false);
-}
-};
 const handleFinalizeClinical = async () => {
 if (!selectedAttendanceId) return;
 if (assessmentDirty || assessmentSaveStatus === 'saving') {
@@ -1142,6 +1109,7 @@ err?.response?.data?.message || err.message || 'Please refresh and try again.');
 };
 const handleSaveTreatmentNote = async () => {
 if (!selectedAttendanceId || !treatmentNoteDraft.trim()) return;
+setSavingTreatmentPlan(true);
 const newNote = {
 author: user?.fullName || user?.username || 'Physician',
 authorId: user?.id || null,
@@ -1156,16 +1124,16 @@ const clinicalNotes = {
 : {}),
 treatmentNotes: updatedNotes,
 };
-await updateAttendance(selectedAttendanceId, {
-clinicalNotes,
-updatedById: user?.id,
-});
+await updateAttendance(selectedAttendanceId, { clinicalNotes, updatedById: user?.id });
 setTreatmentNotes(updatedNotes);
-setTreatmentNoteDraft(''); 
-success('Saved', 'Treatment note added');
+setTreatmentNoteDraft('');
+setIsEditingTreatmentPlan(false);
+success('Saved', 'Planned management note added');
 await getAttendance(selectedAttendanceId);
 } catch (err: any) {
-toastError('Save failed', err.message);
+toastError('Save failed', err?.response?.data?.message || err.message || 'Could not save the note');
+} finally {
+setSavingTreatmentPlan(false);
 }
 };
 const handleSavePhysicianNote = async () => {
@@ -2162,7 +2130,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                 {medicationsList.length === 0
                                     ? <EmptyState icon={<Pill className="w-9 h-9" />} label="No medications prescribed" />
                                     : (
-                                        <Table heads={['Medication', 'Dosage', 'Frequency', 'Days', 'Status', '']}>
+                                        <Table heads={['Medication', 'Dosage', 'Frequency', 'Qty', 'Status', '']}>
                                             {medicationsList.map((med: any) => (
                                                 <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                                                     <TdPrimary>
@@ -2170,8 +2138,11 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                                         
                                                     </TdPrimary>
                                                     <Td>{med.dosage || '—'}</Td>
-                                                    <Td>{med.frequency || '—'}</Td>
-                                                    <Td>{med.duration || '—'}</Td>
+                                                    <Td>
+                                                        {med.frequency || '—'}
+                                                        {med.route && <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">{med.route}</p>}
+                                                    </Td>
+                                                    <Td>{med.quantity ?? '—'}</Td>
                                                     <Td><StatusBadge status={med.status} /></Td>
                                                     <Td>
                                                         {canAddEntries && med.status === 'prescribed'
@@ -2560,32 +2531,21 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                     </span>
                     <div className="flex-1 h-px bg-[var(--border-color)]" />
                 </div>
-                {/* Treatment plan is displayed in the sidebar and edited in a focused modal. */}
-                <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                    <div className="mb-2 flex items-center justify-between gap-2">
+                {/* Planned management and instructions are recorded as individual, auditable notes. */}
+                <div className="flex items-center justify-between gap-2 border-b border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+                    <div className="min-w-0">
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
                             Planned management and instructions
                         </label>
-                        {canAddEntries && !isClinicalFinalized && (
-                            <button type="button" onClick={() => { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(true); }}
-                                className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]">
-                                <Edit className="h-3 w-3" /> Edit plan
-                            </button>
-                        )}
+                        <p className="mt-0.5 text-[9px] text-[var(--text-tertiary)]">Add notes to the visit log; edit individual entries when needed.</p>
                     </div>
-                    <p className="min-h-12 whitespace-pre-wrap rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs leading-relaxed text-[var(--text-primary)]">
-                        {treatmentPlan || <span className="text-[var(--text-tertiary)]">No treatment plan recorded.</span>}
-                    </p>
-                    {(() => {
-                        const audit = (currentAttendance?.clinicalNotes as any)?.treatmentPlanAudit;
-                        return audit?.updatedByName ? (
-                            <p className="mt-1.5 text-[9px] text-[var(--text-tertiary)]">
-                                Last updated by {audit.updatedByName}{audit.updatedAt ? ` · ${new Date(audit.updatedAt).toLocaleString()}` : ''}
-                            </p>
-                        ) : <p className="mt-1.5 text-[9px] text-[var(--text-tertiary)]">Saved to this attendance record.</p>;
-                    })()}
+                    {canAddEntries && !isClinicalFinalized && (
+                        <button type="button" onClick={() => { setTreatmentNoteDraft(''); setIsEditingTreatmentPlan(true); }}
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-[11px] font-semibold text-white hover:opacity-90">
+                            <Plus className="h-3.5 w-3.5" /> Add note
+                        </button>
+                    )}
                 </div>
-                {/* Logged treatment notes */}
                 <div
                     className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]"
                     style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
@@ -2594,34 +2554,17 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                         [...treatmentNotes].reverse().map((note, i) => (
                             <NoteCard key={note.date || i} author={note.author} date={note.date} text={note.text}
                                 editedBy={note.editedBy} editedAt={note.editedAt}
-                                onEdit={() => handleEditNote('treatment', treatmentNotes.length - 1 - i)}
-                                onDelete={() => handleDeleteNote('treatment', treatmentNotes.length - 1 - i)} />
+                                onEdit={canAddEntries && !isClinicalFinalized ? () => handleEditNote('treatment', treatmentNotes.length - 1 - i) : undefined}
+                                onDelete={canAddEntries && !isClinicalFinalized ? () => handleDeleteNote('treatment', treatmentNotes.length - 1 - i) : undefined} />
                         ))
                     ) : (
-                        <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No treatment notes yet</p>
+                        <div className="flex flex-col items-center justify-center py-8 text-center">
+                            <FileText className="mb-2 h-7 w-7 text-[var(--text-tertiary)] opacity-40" />
+                            <p className="text-[11px] text-[var(--text-tertiary)]">No planned management notes recorded.</p>
+                            {canAddEntries && !isClinicalFinalized && <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Use Add note to record the plan.</p>}
+                        </div>
                     )}
                 </div>
-                {/* Treatment plan input */}
-                {canAddEntries && (
-                    <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                        <textarea
-                            value={treatmentNoteDraft}
-                            onChange={e => setTreatmentNoteDraft(e.target.value)}
-                            rows={3}
-                            placeholder="Add treatment note…"
-                            className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
-              focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
-              text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
-                        />
-                        <button
-                            onClick={handleSaveTreatmentNote}
-                            className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
-              bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all"
-                        >
-                            Add Note
-                        </button>
-                    </div>
-                )}
             </div>
         </div>
     </div>
@@ -2637,38 +2580,37 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
     ) : null}
     {isEditingTreatmentPlan && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-            onMouseDown={e => { if (e.target === e.currentTarget && !savingTreatmentPlan) { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(false); } }}>
-            <div role="dialog" aria-modal="true" aria-labelledby="treatment-plan-modal-title"
+            onMouseDown={e => { if (e.target === e.currentTarget && !savingTreatmentPlan) { setTreatmentNoteDraft(''); setIsEditingTreatmentPlan(false); } }}>
+            <div role="dialog" aria-modal="true" aria-labelledby="treatment-note-modal-title"
                 className="w-full max-w-2xl overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl">
                 <div className="flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-main)] px-5 py-4">
                     <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-[var(--icon-cyan-text)]" />
                         <div>
-                            <h3 id="treatment-plan-modal-title" className="text-sm font-bold text-[var(--text-primary)]">Treatment Plan</h3>
-                            <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">Planned management and instructions</p>
+                            <h3 id="treatment-note-modal-title" className="text-sm font-bold text-[var(--text-primary)]">Add planned management note</h3>
+                            <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">This entry will be added to the attendance log with your name and timestamp.</p>
                         </div>
                     </div>
-                    <button type="button" aria-label="Close treatment plan" disabled={savingTreatmentPlan}
-                        onClick={() => { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(false); }}
+                    <button type="button" aria-label="Close add note" disabled={savingTreatmentPlan}
+                        onClick={() => { setTreatmentNoteDraft(''); setIsEditingTreatmentPlan(false); }}
                         className="rounded-md p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--border-color)] disabled:opacity-50">
                         <XCircle className="h-4 w-4" />
                     </button>
                 </div>
                 <div className="max-h-[70vh] space-y-2 overflow-y-auto p-5">
-                    <label htmlFor="treatment-plan-draft" className="block text-xs font-semibold text-[var(--text-secondary)]">Planned management and instructions</label>
-                    <textarea id="treatment-plan-draft" value={treatmentPlanDraft} onChange={e => setTreatmentPlanDraft(e.target.value)}
-                        rows={10} autoFocus
-                        placeholder="Document the treatment strategy, investigations or interventions planned, patient instructions, referrals and follow-up…"
+                    <label htmlFor="treatment-note-draft" className="block text-xs font-semibold text-[var(--text-secondary)]">Planned management and instructions</label>
+                    <textarea id="treatment-note-draft" value={treatmentNoteDraft} onChange={e => setTreatmentNoteDraft(e.target.value)}
+                        rows={8} autoFocus
+                        placeholder="Enter the planned management, treatment instructions, investigations, referrals or follow-up…"
                         className="w-full resize-y rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-3 text-sm leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" />
-                    <p className="text-[10px] text-[var(--text-tertiary)]">This plan is saved against the selected attendance and records who last updated it.</p>
                 </div>
                 <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] p-4 sm:flex-row sm:justify-end">
-                    <button type="button" onClick={() => { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(false); }}
+                    <button type="button" onClick={() => { setTreatmentNoteDraft(''); setIsEditingTreatmentPlan(false); }}
                         disabled={savingTreatmentPlan}
                         className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] disabled:opacity-50">Cancel</button>
-                    <button type="button" onClick={handleSaveTreatmentPlan} disabled={savingTreatmentPlan}
+                    <button type="button" onClick={handleSaveTreatmentNote} disabled={savingTreatmentPlan || !treatmentNoteDraft.trim()}
                         className="rounded-lg bg-[var(--icon-cyan-text)] px-5 py-2 text-xs font-semibold text-white disabled:opacity-50">
-                        {savingTreatmentPlan ? 'Saving…' : 'Save treatment plan'}
+                        {savingTreatmentPlan ? 'Saving…' : 'Save note'}
                     </button>
                 </div>
             </div>
