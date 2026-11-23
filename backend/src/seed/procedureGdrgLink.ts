@@ -30,6 +30,35 @@ import { MAPPINGS } from './procedureGdrgMappings';
 
 const prisma = new PrismaClient();
 
+/**
+ * Resolve a procedure template only when exactly one ServiceCatalog row links to it.
+ * Multiple catalog records are ambiguous and must be fixed before G-DRG link seeding.
+ */
+export function resolveUniqueProcedureCatalogLinks(
+  catalogs: Array<{ id: string; procedureTemplateId: string | null }>
+): { templateIdToCatalogId: Map<string, string>; ambiguousTemplateIds: Set<string> } {
+  const catalogIdsByTemplateId = new Map<string, string[]>();
+  for (const catalog of catalogs) {
+    if (!catalog.procedureTemplateId) continue;
+    const ids = catalogIdsByTemplateId.get(catalog.procedureTemplateId) ?? [];
+    ids.push(catalog.id);
+    catalogIdsByTemplateId.set(catalog.procedureTemplateId, ids);
+  }
+  const ambiguousTemplateIds = new Set(
+    Array.from(catalogIdsByTemplateId.entries())
+      .filter(([, ids]) => ids.length > 1)
+      .map(([templateId]) => templateId)
+  );
+  const templateIdToCatalogId = new Map(
+    Array.from(catalogIdsByTemplateId.entries())
+      .filter(([, ids]) => ids.length === 1)
+      .map(([templateId, ids]) => [templateId, ids[0]])
+  );
+  return { templateIdToCatalogId, ambiguousTemplateIds };
+}
+
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SEED RUNNER
@@ -61,26 +90,8 @@ async function seedProcedureGDRGLinks(client: PrismaClient = prisma) {
     select: { id: true, procedureTemplateId: true, name: true }
   });
 
-  // Map each ProcedureTemplate to exactly one ServiceCatalog row. Multiple catalog
-  // rows for the same template are ambiguous for G-DRG linkage; do not silently
-  // select whichever row happened to be last in the query result.
-  const catalogIdsByTemplateId = new Map<string, string[]>();
-  for (const catalog of allCatalogs) {
-    if (!catalog.procedureTemplateId) continue;
-    const ids = catalogIdsByTemplateId.get(catalog.procedureTemplateId) ?? [];
-    ids.push(catalog.id);
-    catalogIdsByTemplateId.set(catalog.procedureTemplateId, ids);
-  }
-  const ambiguousCatalogTemplateIds = new Set(
-    Array.from(catalogIdsByTemplateId.entries())
-      .filter(([, ids]) => ids.length > 1)
-      .map(([templateId]) => templateId)
-  );
-  const templateIdToCatalogId = new Map(
-    Array.from(catalogIdsByTemplateId.entries())
-      .filter(([templateId, ids]) => ids.length === 1 && !ambiguousCatalogTemplateIds.has(templateId))
-      .map(([templateId, ids]) => [templateId, ids[0]])
-  );
+  const { templateIdToCatalogId, ambiguousTemplateIds: ambiguousCatalogTemplateIds } =
+    resolveUniqueProcedureCatalogLinks(allCatalogs);
 
   // ── Step 3: Build final map: procedureCode → ServiceCatalog.id ──────────
   // procedureCode → templateId → catalogId
@@ -115,7 +126,7 @@ async function seedProcedureGDRGLinks(client: PrismaClient = prisma) {
     const count = catalogIdsByTemplateId.get(item.id)?.length ?? 0;
     errors.push(`Procedure template has ${count} ServiceCatalog rows linked to it; resolve the ambiguity before G-DRG seeding: ${item.procedureCode} (${item.name})`);
   }
-  skipped = unmappedTemplates.length + templatesWithoutCatalog.length;
+  skipped = unmappedTemplates.length + templatesWithoutCatalog.length + templatesWithAmbiguousCatalog.length;
 
   // ── Main loop ─────────────────────────────────────────────────────────────
   for (const mapping of MAPPINGS) {
