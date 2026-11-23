@@ -6006,17 +6006,6 @@
     "isNHISCovered": true
   },
   {
-    "name": "Primary hypertension with urgency",
-    "icdCode": "I10.0",
-    "description": "Hypertension requiring urgent assessment",
-    "tariffCode": "DIAG-I100",
-    "isChronic": false,
-    "morbidityGroup": "hypertension",
-    "isActive": true,
-    "requiresAuthorization": false,
-    "isNHISCovered": true
-  },
-  {
     "name": "Cardiac arrhythmia, unspecified",
     "icdCode": "I49.9",
     "description": "Irregular heart rhythm",
@@ -6485,6 +6474,17 @@
     "tariffCode": "DIAG-T1490XA",
     "isChronic": false,
     "morbidityGroup": "injury",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Elevated blood-pressure reading, without diagnosis of hypertension",
+    "icdCode": "R03.0",
+    "description": "Elevated blood pressure reading without an established diagnosis of hypertension",
+    "tariffCode": "DIAG-R030",
+    "isChronic": false,
+    "morbidityGroup": "cardiovascular_symptoms",
     "isActive": true,
     "requiresAuthorization": false,
     "isNHISCovered": true
