@@ -2561,41 +2561,22 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                     </span>
                     <div className="flex-1 h-px bg-[var(--border-color)]" />
                 </div>
-                {/* Persistent treatment plan with explicit, user-attributed editing. */}
+                {/* Treatment plan is displayed in the sidebar and edited in a focused modal. */}
                 <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
                     <div className="mb-2 flex items-center justify-between gap-2">
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
                             Planned management and instructions
                         </label>
-                        {!isEditingTreatmentPlan && canAddEntries && !isClinicalFinalized && (
+                        {canAddEntries && !isClinicalFinalized && (
                             <button type="button" onClick={() => { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(true); }}
                                 className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]">
                                 <Edit className="h-3 w-3" /> Edit plan
                             </button>
                         )}
                     </div>
-                    {isEditingTreatmentPlan ? (
-                        <>
-                            <textarea value={treatmentPlanDraft} onChange={e => setTreatmentPlanDraft(e.target.value)}
-                                rows={4} autoFocus
-                                placeholder="Document the treatment strategy, investigations or interventions planned, patient instructions, referrals and follow-up…"
-                                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] resize-y focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" />
-                            <div className="mt-2 flex gap-2">
-                                <button type="button" onClick={handleSaveTreatmentPlan} disabled={savingTreatmentPlan}
-                                    className="flex-1 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-[10px] font-semibold text-white disabled:opacity-50">
-                                    {savingTreatmentPlan ? 'Saving…' : 'Save plan'}
-                                </button>
-                                <button type="button" onClick={() => { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(false); }} disabled={savingTreatmentPlan}
-                                    className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-[10px] font-semibold text-[var(--text-secondary)]">
-                                    Cancel
-                                </button>
-                            </div>
-                        </>
-                    ) : (
-                        <p className="min-h-12 whitespace-pre-wrap rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs leading-relaxed text-[var(--text-primary)]">
-                            {treatmentPlan || <span className="text-[var(--text-tertiary)]">No treatment plan recorded.</span>}
-                        </p>
-                    )}
+                    <p className="min-h-12 whitespace-pre-wrap rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs leading-relaxed text-[var(--text-primary)]">
+                        {treatmentPlan || <span className="text-[var(--text-tertiary)]">No treatment plan recorded.</span>}
+                    </p>
                     {(() => {
                         const audit = (currentAttendance?.clinicalNotes as any)?.treatmentPlanAudit;
                         return audit?.updatedByName ? (
@@ -2655,6 +2636,45 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
             </div>
         </div>
     ) : null}
+    {isEditingTreatmentPlan && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onMouseDown={e => { if (e.target === e.currentTarget && !savingTreatmentPlan) { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(false); } }}>
+            <div role="dialog" aria-modal="true" aria-labelledby="treatment-plan-modal-title"
+                className="w-full max-w-2xl overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl">
+                <div className="flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-main)] px-5 py-4">
+                    <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-[var(--icon-cyan-text)]" />
+                        <div>
+                            <h3 id="treatment-plan-modal-title" className="text-sm font-bold text-[var(--text-primary)]">Treatment Plan</h3>
+                            <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">Planned management and instructions</p>
+                        </div>
+                    </div>
+                    <button type="button" aria-label="Close treatment plan" disabled={savingTreatmentPlan}
+                        onClick={() => { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(false); }}
+                        className="rounded-md p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--border-color)] disabled:opacity-50">
+                        <XCircle className="h-4 w-4" />
+                    </button>
+                </div>
+                <div className="max-h-[70vh] space-y-2 overflow-y-auto p-5">
+                    <label htmlFor="treatment-plan-draft" className="block text-xs font-semibold text-[var(--text-secondary)]">Planned management and instructions</label>
+                    <textarea id="treatment-plan-draft" value={treatmentPlanDraft} onChange={e => setTreatmentPlanDraft(e.target.value)}
+                        rows={10} autoFocus
+                        placeholder="Document the treatment strategy, investigations or interventions planned, patient instructions, referrals and follow-up…"
+                        className="w-full resize-y rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-3 text-sm leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" />
+                    <p className="text-[10px] text-[var(--text-tertiary)]">This plan is saved against the selected attendance and records who last updated it.</p>
+                </div>
+                <div className="flex flex-col-reverse gap-2 border-t border-[var(--border-color)] p-4 sm:flex-row sm:justify-end">
+                    <button type="button" onClick={() => { setTreatmentPlanDraft(treatmentPlan); setIsEditingTreatmentPlan(false); }}
+                        disabled={savingTreatmentPlan}
+                        className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] disabled:opacity-50">Cancel</button>
+                    <button type="button" onClick={handleSaveTreatmentPlan} disabled={savingTreatmentPlan}
+                        className="rounded-lg bg-[var(--icon-cyan-text)] px-5 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                        {savingTreatmentPlan ? 'Saving…' : 'Save treatment plan'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )}
     <ClinicalAssessmentModal
         isOpen={assessmentOpen}
         onClose={() => setAssessmentOpen(false)}
