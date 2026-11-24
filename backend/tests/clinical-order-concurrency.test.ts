@@ -169,6 +169,7 @@ describe('clinical order concurrent-update guards', () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const tx: any = {
       $queryRaw: vi.fn().mockResolvedValue([]),
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', fullName: 'Staff' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       procedure: {
         findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' }),
