@@ -22,17 +22,17 @@ export class AntenatalService extends BaseService {
     return this.repo.createBooking(data);
   }
   
-  async updateBooking(id: string, data: UpdateAntenatalBookingInput, actorId: string) {
+  async updateBooking(id: string, data: UpdateAntenatalBookingInput, actorId?: string) {
     this.logInfo('Updating antenatal booking', { id });
     return this.repo.updateBooking(id, data, actorId);
   }
   
-  async closeBooking(id: string, deliveryData: any, actorId: string) {
+  async closeBooking(id: string, deliveryData: any, actorId?: string) {
     this.logInfo('Closing antenatal booking', { id });
     return this.repo.closeBooking(id, deliveryData, actorId);
   }
   
-  async deleteBooking(id: string, actorId: string) {
+  async deleteBooking(id: string, actorId?: string) {
     this.logInfo('Deleting antenatal booking', { id });
     return this.repo.deleteBooking(id, actorId);
   }
@@ -41,21 +41,21 @@ export class AntenatalService extends BaseService {
   async getVisitsByBookingId(bookingId: string) { return this.repo.getVisitsByBookingId(bookingId); }
   async getVisitById(id: string) { return this.repo.getVisitById(id); }
   async createVisit(data: CreateANCVisitInput) { return this.repo.createVisit(data); }
-  async updateVisit(id: string, data: UpdateANCVisitInput, actorId: string) { return this.repo.updateVisit(id, data, actorId); }
+  async updateVisit(id: string, data: UpdateANCVisitInput, actorId?: string) { return this.repo.updateVisit(id, data, actorId); }
   async deleteVisit(id: string) { return this.repo.deleteVisit(id); }
 
   // Deliveries
   async getDeliveryRecords(filters: DeliveryRecordFilters) { return this.repo.getDeliveryRecords(filters); }
   async getDeliveryRecordById(id: string) { return this.repo.getDeliveryRecordById(id); }
   async createDeliveryRecord(data: CreateDeliveryRecordInput) { return this.repo.createDeliveryRecord(data); }
-  async updateDeliveryRecord(id: string, data: any, actorId: string) { return this.repo.updateDeliveryRecord(id, data, actorId); }
+  async updateDeliveryRecord(id: string, data: any, actorId?: string) { return this.repo.updateDeliveryRecord(id, data, actorId); }
   async deleteDeliveryRecord(id: string) { return this.repo.deleteDeliveryRecord(id); }
 
   // Postnatals
   async getPostnatalRecords(filters: PostnatalRecordFilters) { return this.repo.getPostnatalRecords(filters); }
   async getPostnatalRecordById(id: string) { return this.repo.getPostnatalRecordById(id); }
   async createPostnatalRecord(data: CreatePostnatalRecordInput) { return this.repo.createPostnatalRecord(data); }
-  async updatePostnatalRecord(id: string, data: any, actorId: string) { return this.repo.updatePostnatalRecord(id, data, actorId); }
+  async updatePostnatalRecord(id: string, data: any, actorId?: string) { return this.repo.updatePostnatalRecord(id, data, actorId); }
   async deletePostnatalRecord(id: string) { return this.repo.deletePostnatalRecord(id); }
 
   // Stats
