@@ -5,8 +5,9 @@
  * records EVERY successful write (POST/PUT/PATCH/DELETE) made by a logged-in user, plus logins and logouts,
  * so patients, billing, stock, pharmacy, lab, admissions and the rest all appear in the log.
  *
- * It runs after the response is sent and never blocks or fails a request.
- * Passwords, tokens and similar secrets are removed from what is stored.
+ * It records the event before sending a successful JSON response. If audit storage
+ * fails, the already-committed business response is still returned. Payload snapshots
+ * are restricted to explicitly low-risk catalog/configuration topics.
  */
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, AuditAction } from '@prisma/client';
@@ -16,6 +17,12 @@ import { appendAuditLog } from '../services/auditChain';
 const SKIP_TOPICS = new Set(['events', 'uploads', 'audit', 'users', 'health', 'notifications']);
 const SECRET_KEY = /pass(word)?|token|secret|authorization|pin$|otp/i;
 const MAX_BODY_CHARS = 8000;
+
+// Only low-risk configuration/catalog resources may retain response snapshots.
+// Everything else can contain patient, clinical, financial, or staff-sensitive data.
+const SNAPSHOT_ALLOWED_TOPICS = new Set([
+  'departments', 'services', 'consultation-types', 'diagnoses', 'gdrg', 'hospital', 'settings',
+]);
 
 const ID_LIKE = /^(c[a-z0-9]{20,}|[0-9a-f]{8}-[0-9a-f-]{27,}|\d{1,12})$/i;
 
@@ -105,25 +112,24 @@ export function auditWrites(prisma: PrismaClient) {
         }
 
         const operation = segments.slice(1).filter((s) => !ID_LIKE.test(s)).join('/');
-        const responseSnapshot = action === AuditAction.login || action === AuditAction.logout || action === AuditAction.delete
-          ? undefined
-          : safeBody(body?.data ?? body);
+        const mayStoreSnapshot = SNAPSHOT_ALLOWED_TOPICS.has(topic);
+        const responseSnapshot = mayStoreSnapshot && action !== AuditAction.login && action !== AuditAction.logout && action !== AuditAction.delete
+          ? safeBody(body?.data ?? body)
+          : undefined;
 
         void appendAuditLog(prisma, {
           entityType, entityId: String(entityId), action, performedById: userId,
           ipAddress: req.ip ?? null,
           previousState: undefined,
-          // This is the successful API result, not the submitted request body.
-          // Keep the request separately in metadata so the audit UI does not
-          // mistake attempted input for the resulting record state.
+          // Full request/response payloads can contain PHI, payment details, or
+          // staff data. Retain snapshots only for explicitly low-risk catalogs.
           newState: responseSnapshot,
           metadata: {
             method: req.method,
             url: path,
             operation: operation || undefined,
             statusCode: res.statusCode,
-            snapshotSource: 'successful_api_response',
-            requestBody: safeBody(req.body),
+            snapshotSource: mayStoreSnapshot ? 'successful_api_response' : 'omitted_sensitive_or_unreviewed_topic',
             userAgent: req.headers['user-agent'] ?? undefined,
           },
         }).then(() => {
