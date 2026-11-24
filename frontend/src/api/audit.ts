@@ -103,8 +103,9 @@ export const getAuditLogs = (filters: AuditLogFilters = {}): Promise<PaginatedAu
         data: body,
         pagination: {
           page: filters.page ?? 1,
-          limit: filters.limit ?? 20,
+          limit: filters.limit ?? 25,
           total: body.length,
+          totalPages: 1,
         },
       };
     }
@@ -134,7 +135,7 @@ export const getEntityAuditLogs = (
       if (body?.success && Array.isArray(body.data)) {
         return { data: body.data, pagination: readAuditPagination(body) ?? { page: 1, limit: 25, total: body.data.length, totalPages: 1 } };
       }
-      return { data: [], pagination: { page: 1, limit: 20, total: 0 } };
+      return { data: [], pagination: { page: 1, limit: 25, total: 0, totalPages: 0 } };
     });
 
 // ── User history ────────────────────────────────────────────
@@ -147,7 +148,7 @@ export const getUserAuditLogs = (
     .then((r) => {
       const body = r.data;
       if (body?.success && Array.isArray(body.data)) {
-        return { data: body.data, pagination: body.pagination ?? { page: 1, limit: 20, total: body.data.length } };
+        return { data: body.data, pagination: readAuditPagination(body) ?? { page: 1, limit: 25, total: body.data.length, totalPages: 1 } };
       }
       return { data: [], pagination: { page: 1, limit: 20, total: 0 } };
     });
