@@ -5,7 +5,7 @@ import { protect, requireRole } from '../../middleware/authMiddleware';
 import { validateBody } from '../../middleware/validate';
 import { CreateUserSchema, ResetUserPasswordSchema, UpdateUserSchema } from './UserValidators';
 import { uploadSingleDocument, handleUploadError } from '../../middleware/uploadMiddleware';
-import { VALID_ROLES, VALID_SENIORITY, VALID_LEAVE_TYPES, VALID_SHIFT_TYPES } from './UserTypes';
+import { VALID_LEAVE_TYPES, VALID_SHIFT_TYPES } from './UserTypes';
 
 // Role groups
 const ADMIN_ONLY = ['admin', 'super_admin'] as const;
