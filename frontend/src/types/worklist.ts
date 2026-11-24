@@ -73,6 +73,7 @@ export interface LabWorklistItem extends BaseWorklistItem {
   hasPendingTests: boolean;
   hasResults: boolean;
   oldestRequestedAt: Date;
+  latestRequestedAt?: Date;
   testTypes?: string;
   nextTest?: {
     id: string;
@@ -94,6 +95,7 @@ export interface PharmacyWorklistItem extends BaseWorklistItem {
   hasPendingPrescriptions: boolean;
   hasBeenDispensed: boolean;
   oldestPrescribedAt: Date;
+  newestPrescribedAt?: Date;
   nextMedication?: {
     id: string;
     name: string;
@@ -122,6 +124,7 @@ export interface ScansWorklistItem extends BaseWorklistItem {
   hasPendingScans: boolean;
   hasResults: boolean;
   oldestRequestedAt: Date;
+  latestRequestedAt?: Date;
   scanTypes: string;
   nextScan?: {
     id: string;
@@ -140,6 +143,7 @@ export interface TheatreWorklistItem extends BaseWorklistItem {
   hasPendingProcedures: boolean;
   hasBeenPerformed: boolean;
   earliestScheduledDate: Date | null;
+  latestCreatedAt?: Date;
   procedureNames: string;
   nextProcedure?: {
     id: string;
