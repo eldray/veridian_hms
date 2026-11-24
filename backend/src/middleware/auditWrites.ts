@@ -5,8 +5,9 @@
  * records EVERY successful write (POST/PUT/PATCH/DELETE) made by a logged-in user, plus logins and logouts,
  * so patients, billing, stock, pharmacy, lab, admissions and the rest all appear in the log.
  *
- * It runs after the response is sent and never blocks or fails a request.
- * Passwords, tokens and similar secrets are removed from what is stored.
+ * It records the event before sending a successful JSON response. If audit storage
+ * fails, the already-committed business response is still returned. Payload snapshots
+ * are restricted to explicitly low-risk catalog/configuration topics.
  */
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, AuditAction } from '@prisma/client';
