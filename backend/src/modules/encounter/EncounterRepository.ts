@@ -2169,6 +2169,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       }
       data = { ...data, bloodLoss: estimatedBloodLoss };
     }
+    if (typeof tx.$queryRaw === 'function') {
+      await tx.$queryRaw`SELECT "id" FROM "Procedure" WHERE "id" = ${procedureId} FOR UPDATE`;
+    }
     const current = await tx.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true, attendanceId: true, clinicalRecord: true, scheduledDate: true, duration: true, performedById: true, performedAt: true } });
     if (!current) throw new NotFoundError('Procedure', procedureId);
     if (current.status === 'cancelled') throw new ConflictError('A cancelled procedure cannot be reopened or changed');
