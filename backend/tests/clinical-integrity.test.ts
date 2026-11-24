@@ -2289,6 +2289,9 @@ describe('theatre procedure safety documentation', () => {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
+    prisma.$queryRawUnsafe = vi.fn().mockResolvedValue([]);
+    prisma.auditLog = { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     return prisma;
   };
 
