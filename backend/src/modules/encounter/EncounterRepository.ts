@@ -12,6 +12,7 @@ import { approvedServicesCoverPrescription } from './NHISPreAuthorisation';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 import { releaseBedForAttendance } from '../bed/bedOccupancy';
 import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
+import { appendClinicalRecordAudit } from './clinicalAudit';
 import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
@@ -744,7 +745,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         });
       }
 
-      return tx.attendanceDiagnosis.create({
+      const created = await tx.attendanceDiagnosis.create({
         data: {
           attendanceId: encounterId,
           diagnosisId: data.diagnosisId,
@@ -756,10 +757,16 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         },
         include: { Diagnosis: true },
       });
+      await appendClinicalRecordAudit(tx, actorId, 'AttendanceDiagnosis', created.id, 'create', undefined, {
+        id: created.id, diagnosisId: created.diagnosisId, diagnosisType: created.diagnosisType,
+        classification: created.classification, icdCode: created.icdCode, createdById: created.createdById,
+      }, { workflow: 'diagnosis_added' });
+      return created;
     }, { isolationLevel: 'Serializable' });
   }
 
-  async updateDiagnosis(encounterId: string, diagnosisRowId: string, data: any) {
+  async updateDiagnosis(encounterId: string, diagnosisRowId: string, data: any, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const encounter = await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       const current = await tx.attendanceDiagnosis.findFirst({ where: { id: diagnosisRowId, attendanceId: encounterId } });
@@ -772,13 +779,22 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (diagnosisType === 'primary') {
         await tx.attendanceDiagnosis.updateMany({ where: { attendanceId: encounterId, diagnosisType: 'primary', id: { not: diagnosisRowId } }, data: { diagnosisType: 'additional' } });
       }
-      return tx.attendanceDiagnosis.update({ where: { id: diagnosisRowId }, data: {
+      const updated = await tx.attendanceDiagnosis.update({ where: { id: diagnosisRowId }, data: {
         diagnosisType, classification, notes: data.notes !== undefined ? data.notes : current.notes,
       }, include: { Diagnosis: true } });
+      await appendClinicalRecordAudit(tx, actorId, 'AttendanceDiagnosis', updated.id, 'update', {
+        id: current.id, diagnosisId: current.diagnosisId, diagnosisType: current.diagnosisType,
+        classification: current.classification, icdCode: current.icdCode,
+      }, {
+        id: updated.id, diagnosisId: updated.diagnosisId, diagnosisType: updated.diagnosisType,
+        classification: updated.classification, icdCode: updated.icdCode,
+      }, { workflow: 'diagnosis_updated' });
+      return updated;
     });
   }
 
-  async removeDiagnosis(encounterId: string, diagnosisId: string) {
+  async removeDiagnosis(encounterId: string, diagnosisId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
 
@@ -799,7 +815,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         }
       }
 
-      return tx.attendanceDiagnosis.delete({ where: { id: existing.id } });
+      const deleted = await tx.attendanceDiagnosis.delete({ where: { id: existing.id } });
+      await appendClinicalRecordAudit(tx, actorId, 'AttendanceDiagnosis', deleted.id, 'delete', {
+        id: existing.id, diagnosisId: existing.diagnosisId, diagnosisType: existing.diagnosisType,
+      }, undefined, { workflow: 'diagnosis_removed' });
+      return deleted;
     });
   }
 
@@ -1689,49 +1709,43 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
       where: { id: data.serviceCatalogId },
       select: { labTestTemplateId: true, name: true, code: true, serviceType: true },
     });
-
-    if (!catalogEntry) {
-      throw new NotFoundError('Lab service', data.serviceCatalogId);
-    }
+    if (!catalogEntry) throw new NotFoundError('Lab service', data.serviceCatalogId);
     if (catalogEntry.serviceType !== 'lab_test') {
       throw new ValidationError(`Service "${catalogEntry.name}" is not a laboratory service`);
     }
     if (!catalogEntry.labTestTemplateId) {
       throw new ValidationError(
         `ServiceCatalog entry "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a lab test template. ` +
-        `Ask an admin to fix the catalog linkage.`,
+        'Ask an admin to fix the catalog linkage.',
       );
     }
     templateId = catalogEntry.labTestTemplateId;
   } else {
     templateId = data.templateId;
   }
+  if (!templateId) throw new ValidationError('A lab test template or service catalog entry is required');
 
-  if (!templateId) {
-    throw new ValidationError('A lab test template or service catalog entry is required');
-  }
-
-  const template = await this.prisma.labTestTemplate.findUnique({
-    where: { id: templateId },
-    select: { id: true },
-  });
+  const template = await this.prisma.labTestTemplate.findUnique({ where: { id: templateId }, select: { id: true } });
   if (!template) throw new NotFoundError('Lab test template', templateId);
 
-  return this.prisma.labTest.create({
-    data: {
-      attendanceId: encounterId,
-      templateId,
-      serviceCatalogId: data.serviceCatalogId ?? null,
-      status: 'requested',
-      priority: data.priority ?? 'routine',
-      requestedAt: new Date(),
-      createdById: actorId,
-      notes: data.notes ?? null,
-    },
-    include: {
-      LabTestTemplate: true,
-      ServiceCatalog: { select: { id: true, name: true, code: true } },
-    },
+  return this.prisma.$transaction(async (tx) => {
+    await this.requireOpenEncounter(encounterId, tx);
+    const created = await tx.labTest.create({
+      data: {
+        attendanceId: encounterId, templateId, serviceCatalogId: data.serviceCatalogId ?? null,
+        status: 'requested', priority: data.priority ?? 'routine', requestedAt: new Date(),
+        createdById: actorId, notes: data.notes ?? null,
+      },
+      include: {
+        LabTestTemplate: true,
+        ServiceCatalog: { select: { id: true, name: true, code: true } },
+      },
+    });
+    await appendClinicalRecordAudit(tx, actorId, 'LabTest', created.id, 'create', undefined, {
+      id: created.id, templateId: created.templateId, serviceCatalogId: created.serviceCatalogId,
+      status: created.status, priority: created.priority, requestedAt: created.requestedAt, createdById: created.createdById,
+    }, { workflow: 'lab_order_requested' });
+    return created;
   });
 }
 
@@ -1818,10 +1832,12 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     }, { timeout: 15000, maxWait: 5000 });
   }
 
-  async removeLabTest(encounterId: string, labOrderId: string, userId: string) {
+  async removeLabTest(encounterId: string, labOrderId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.labTest.findFirst({
-        where: { id: labOrderId, attendanceId: encounterId }, select: { id: true, status: true },
+        where: { id: labOrderId, attendanceId: encounterId },
+        select: { id: true, status: true, priority: true, performedById: true, completedAt: true, requestedAt: true, createdById: true },
       });
       if (!current) throw new NotFoundError('Lab order in encounter', labOrderId);
       if (current.status === 'completed' || current.status === 'cancelled') {
@@ -1833,6 +1849,11 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
       if (current.status === 'requested') {
         const deleted = await tx.labTest.deleteMany({ where: { id: labOrderId, attendanceId: encounterId, status: 'requested' } });
         if (deleted.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+        await appendClinicalRecordAudit(tx, actorId, 'LabTest', labOrderId, 'delete', {
+          id: current.id, status: current.status, priority: current.priority,
+          performedById: current.performedById, completedAt: current.completedAt,
+          requestedAt: current.requestedAt, createdById: current.createdById,
+        }, undefined, { workflow: 'lab_order_removed' });
         return { id: labOrderId, status: 'deleted' as const };
       }
       const cancelled = await tx.labTest.updateMany({
@@ -1840,6 +1861,13 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
         data: { status: 'cancelled' },
       });
       if (cancelled.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+      await appendClinicalRecordAudit(tx, actorId, 'LabTest', labOrderId, 'update', {
+        id: current.id, status: current.status, priority: current.priority,
+        performedById: current.performedById, completedAt: current.completedAt,
+      }, {
+        id: current.id, status: 'cancelled', priority: current.priority,
+        performedById: current.performedById, completedAt: current.completedAt,
+      }, { workflow: 'lab_order_cancelled' });
       return { id: labOrderId, status: 'cancelled' as const };
     });
   }
