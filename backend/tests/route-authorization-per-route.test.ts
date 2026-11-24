@@ -93,6 +93,18 @@ describe('route authorization, route by route', () => {
     expect(source).toContain("router.get('/:id/ward-charges', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'])");
   });
 
+  it('restricts patient-linked bill and payment detail reads to care, records and finance roles', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src', 'modules', 'bill', 'BillRoutes.ts'), 'utf8');
+    for (const route of [
+      "router.get('/', requireRole(BILL_READERS)",
+      "router.get('/:id', requireRole(BILL_READERS)",
+      "router.get('/:id/line-items', requireRole(BILL_READERS)",
+      "router.get('/:id/breakdown', requireRole(BILL_READERS)",
+      "router.get('/:id/report', requireRole(BILL_READERS)",
+    ]) expect(source).toContain(route);
+    expect(source).toContain("const BILL_READERS = ['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'];");
+  });
+
   it('restricts patient demographics and EMR reads to patient-management roles', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'patient', 'PatientRoutes.ts'), 'utf8');
     const readRoutes = source.split('\n').filter((line) => line.includes('router.get('));
