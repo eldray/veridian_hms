@@ -64,6 +64,7 @@ export interface MedicalWorklistItem extends BaseWorklistItem {
   complaints?: string;
 }
 
+// Item timestamps are exposed so queue rows can show and preserve the newest request ordering.
 // Lab Worklist Item (Grouped by Patient)
 export interface LabWorklistItem extends BaseWorklistItem {
   testCount: number;
