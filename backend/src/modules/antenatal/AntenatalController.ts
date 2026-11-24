@@ -66,6 +66,7 @@ export class AntenatalController extends BaseController {
       if (data.edd) data.edd = new Date(data.edd);
 
       const booking = await this.service.updateBooking(req.params.id, data, req.user!.id);
+      (req as any).auditHandled = true;
       return this.ok(res, booking, 'Antenatal booking updated');
     })
   ];
@@ -81,12 +82,14 @@ export class AntenatalController extends BaseController {
       const booking = await this.service.closeBooking(req.params.id, {
         deliveryDate: new Date(deliveryDate), deliveryOutcome, deliveryRecordId
       }, req.user!.id);
+      (req as any).auditHandled = true;
       return this.ok(res, booking, 'Antenatal booking closed successfully');
     })
   ];
 
   deleteAntenatalBooking = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     await this.service.deleteBooking(req.params.id, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, null, 'Antenatal booking deactivated; maternal history has been retained');
   });
 
@@ -154,6 +157,7 @@ export class AntenatalController extends BaseController {
       if (updateData.visitDate) updateData.visitDate = new Date(updateData.visitDate);
       if (updateData.nextVisitDate) updateData.nextVisitDate = new Date(updateData.nextVisitDate);
       const visit = await this.service.updateVisit(req.params.id, updateData, req.user!.id);
+      (req as any).auditHandled = true;
       return this.ok(res, visit, 'ANC visit updated');
     })
   ];
@@ -223,6 +227,7 @@ export class AntenatalController extends BaseController {
       }
       if (requestData.deliveryDate) requestData.deliveryDate = new Date(requestData.deliveryDate);
       const record = await this.service.updateDeliveryRecord(req.params.id, requestData, req.user!.id);
+      (req as any).auditHandled = true;
       return this.ok(res, record, 'Delivery record updated');
     })
   ];
@@ -285,6 +290,7 @@ export class AntenatalController extends BaseController {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
       const record = await this.service.updatePostnatalRecord(req.params.id, req.body, req.user!.id);
+      (req as any).auditHandled = true;
       return this.ok(res, record, 'Postnatal record updated');
     })
   ];
