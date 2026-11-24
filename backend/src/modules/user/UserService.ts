@@ -318,21 +318,30 @@ export class UserService extends BaseService {
     if (policyError) throw new ValidationError(policyError);
 
     const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    const updated = await this.repository.update(userId, {
-      password: passwordHash,
-      // Clear the unused reset columns: an administrator decision ends any
-      // outstanding request, and no plaintext token is left on the row.
-      resetToken: null,
-      resetExpiry: null,
-      version: { increment: 1 },
-    });
-
-    // A direct administrator reset resolves any outstanding recovery request and
-    // invalidates a code that may already have been issued. Otherwise an older
-    // approved one-time code could still change the password after this reset.
+    // Keep the password/version update, pending reset invalidation and refresh
+    // session revocation in one transaction. A failed reset must not leave an
+    // old refresh token capable of minting a new access token.
     const resolvedAt = new Date();
-    await this.prisma.$transaction([
-      this.prisma.passwordResetRequest.updateMany({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          password: passwordHash,
+          resetToken: null,
+          resetExpiry: null,
+          version: { increment: 1 },
+          updatedAt: resolvedAt,
+        },
+        select: {
+          id: true, username: true, fullName: true, email: true, phone: true,
+          imageUrl: true, licenseNumber: true, specialization: true,
+          role: true, seniority: true, isActive: true, departmentId: true, version: true,
+          department: { select: { id: true, name: true } },
+          headedDepartment: { select: { id: true, name: true } },
+          createdAt: true, updatedAt: true,
+        },
+      });
+      await tx.passwordResetRequest.updateMany({
         where: { userId, status: { in: ['pending', 'approved'] } },
         data: {
           status: 'completed',
@@ -342,9 +351,10 @@ export class UserService extends BaseService {
           codeHash: null,
           expiresAt: null,
         },
-      }),
-      this.prisma.refreshToken.deleteMany({ where: { userId } }),
-    ]);
+      });
+      await tx.refreshToken.deleteMany({ where: { userId } });
+      return updatedUser as unknown as UserResponse;
+    });
 
     await this.auditLogger.log({
       entityType: 'User',
