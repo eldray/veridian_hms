@@ -51,6 +51,7 @@ export const voidLineItemValidation = [
 ];
 
 export const refundPaymentValidation = [
+  body('idempotencyKey').isUUID().withMessage('A valid refund idempotency key is required'),
   body('paymentId').notEmpty().withMessage('Select the payment being refunded'),
   body('amount').isFloat({ gt: 0 }).withMessage('A refund amount greater than zero is required'),
   body('refundMethod').optional().isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid refund method'),
