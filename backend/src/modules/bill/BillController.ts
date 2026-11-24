@@ -196,6 +196,7 @@ export class BillController extends BaseController {
         const { reason }: VoidLineItemInput = req.body;
         const result = await billService.voidLineItem(req.params.lineItemId, req.user.id, reason);
         const updatedBill = await billService.getBillById(result.billId);
+        (req as any).auditHandled = true;
         return this.ok(res, { voidedItem: result, updatedBill }, 'Bill line item voided successfully');
       } catch (error: any) {
         if (error.message === 'Line item not found' || error.message === 'Bill not found') return this.notFound(res, error.message);
