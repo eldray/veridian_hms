@@ -13,7 +13,6 @@ import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '
 import { releaseBedForAttendance } from '../bed/bedOccupancy';
 import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
 import { appendClinicalRecordAudit } from './clinicalAudit';
-import { appendClinicalRecordAudit } from './clinicalAudit';
 import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
