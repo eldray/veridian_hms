@@ -22,6 +22,7 @@ describe('laboratory result audit integrity', () => {
             attendanceId: 'attendance-1',
             result: null,
           })
+          .mockResolvedValueOnce({ id: 'lab-1', status: 'completed' })
           .mockResolvedValueOnce({ id: 'lab-1', status: 'completed' }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
