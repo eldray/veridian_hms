@@ -89,7 +89,7 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
     const requestedView = options.view ?? view;
     const requestedFrom = options.dateFrom ?? dateFrom;
     const requestedTo = options.dateTo ?? dateTo;
-    // Every queue answers the three views; all of them narrow by the visit date.
+    // Every queue answers the three views; attendance queues narrow by visit date, while item queues narrow by request date.
     const queueView: WorklistView = supportsWorklistViews(department) ? requestedView : 'pending';
     const params = {
       view: queueView,
