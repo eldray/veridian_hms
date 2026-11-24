@@ -122,54 +122,74 @@ export function readChain(metadata: unknown): AuditChain | null {
  * Appends one audit row. Callers already treat audit failures as non-fatal, so
  * this may throw; the caller decides whether to log and continue.
  */
-export async function appendAuditLog(prisma: PrismaClient, entry: AuditEntryInput) {
-  return prisma.$transaction(async (tx) => {
-    await tx.$queryRawUnsafe(CHAIN_LOCK_SQL);
+/**
+ * Appends one audit row using a caller-owned Prisma transaction.
+ *
+ * Use this when the business mutation and its audit evidence must commit or
+ * roll back together. The caller must pass the transaction client itself;
+ * this function deliberately does not open a nested transaction.
+ */
+export async function appendAuditLogWithinTransaction(
+  tx: Prisma.TransactionClient,
+  entry: AuditEntryInput,
+) {
+  await tx.$queryRawUnsafe(CHAIN_LOCK_SQL);
 
-    // Newest rows first; skip any legacy rows written before chaining existed.
-    const recent = await tx.auditLog.findMany({
-      orderBy: { id: 'desc' },
-      take: 50,
-      select: { id: true, metadata: true },
-    });
-    const previous = recent.map((row) => readChain(row.metadata)).find((chain) => chain !== null) ?? null;
+  // Newest rows first; skip any legacy rows written before chaining existed.
+  const recent = await tx.auditLog.findMany({
+    orderBy: { id: 'desc' },
+    take: 50,
+    select: { id: true, metadata: true },
+  });
+  const previous = recent.map((row) => readChain(row.metadata)).find((chain) => chain !== null) ?? null;
 
-    const timestamp = entry.timestamp ?? new Date();
-    const metadata = stripChain(entry.metadata ?? null);
-    const prevHash = previous?.hash ?? null;
-    const hash = computeAuditHash(prevHash, {
+  const timestamp = entry.timestamp ?? new Date();
+  const metadata = stripChain(entry.metadata ?? null);
+  const prevHash = previous?.hash ?? null;
+  const hash = computeAuditHash(prevHash, {
+    entityType: entry.entityType,
+    entityId: entry.entityId,
+    action: entry.action,
+    performedById: entry.performedById,
+    ipAddress: entry.ipAddress ?? null,
+    userAgent: entry.userAgent ?? null,
+    previousState: entry.previousState ?? null,
+    newState: entry.newState ?? null,
+    metadata,
+    timestamp,
+  });
+
+  // Prisma distinguishes SQL NULL (DbNull) from JSON null; null/undefined is
+  // stored as SQL NULL and read back as null, which is what the hash uses.
+  const asJson = (value: unknown) =>
+    value === null || value === undefined ? Prisma.DbNull : (value as Prisma.InputJsonValue);
+
+  return tx.auditLog.create({
+    data: {
       entityType: entry.entityType,
       entityId: entry.entityId,
-      action: entry.action,
+      action: entry.action as AuditAction,
       performedById: entry.performedById,
       ipAddress: entry.ipAddress ?? null,
       userAgent: entry.userAgent ?? null,
-      previousState: entry.previousState ?? null,
-      newState: entry.newState ?? null,
-      metadata,
+      previousState: asJson(entry.previousState),
+      newState: asJson(entry.newState),
+      metadata: { ...(metadata ?? {}), [CHAIN_KEY]: { prev: prevHash, hash } },
       timestamp,
-    });
+    },
+  });
+}
 
-    // Prisma distinguishes SQL NULL (DbNull) from JSON null; null/undefined is
-    // stored as SQL NULL and read back as null, which is what the hash uses.
-    const asJson = (value: unknown) =>
-      value === null || value === undefined ? Prisma.DbNull : (value as Prisma.InputJsonValue);
-
-    return tx.auditLog.create({
-      data: {
-        entityType: entry.entityType,
-        entityId: entry.entityId,
-        action: entry.action as AuditAction,
-        performedById: entry.performedById,
-        ipAddress: entry.ipAddress ?? null,
-        userAgent: entry.userAgent ?? null,
-        previousState: asJson(entry.previousState),
-        newState: asJson(entry.newState),
-        metadata: { ...(metadata ?? {}), [CHAIN_KEY]: { prev: prevHash, hash } },
-        timestamp,
-      },
-    });
-  }, { timeout: 15000 });
+/**
+ * Standalone append for actions that do not share a business transaction.
+ * Transaction-sensitive repositories should use appendAuditLogWithinTransaction
+ * with their existing transaction client instead.
+ */
+export async function appendAuditLog(prisma: PrismaClient, entry: AuditEntryInput) {
+  return prisma.$transaction(
+    (tx) => appendAuditLogWithinTransaction(tx, entry),
+    { timeout: 15000 },
+  );
 }
 
 /**
