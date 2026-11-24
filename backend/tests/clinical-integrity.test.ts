@@ -1,15 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-
-const withTransaction = (client: any) => {
-  if (typeof client.$transaction === 'function') return client;
-  client.$queryRawUnsafe ??= vi.fn().mockResolvedValue([]);
-  client.auditLog ??= {
-    findMany: vi.fn().mockResolvedValue([]),
-    create: vi.fn().mockResolvedValue({ id: 'audit-test' }),
-  };
-  client.$transaction = vi.fn(async (callback: (tx: any) => Promise<any>) => callback(client));
-  return client;
-};
 import { EncounterRepository, resolvePatientClassification } from '../src/modules/encounter/EncounterRepository';
 import { EncounterService } from '../src/modules/encounter/EncounterService';
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
@@ -40,9 +29,9 @@ describe('finalized clinical record immutability', () => {
         update: attendanceUpdate,
       },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
     (repository as any).requireActorId = async () => 'doctor-1';
 
     await expect(repository.updateEncounter('enc-finalized', {
@@ -61,9 +50,9 @@ describe('finalized clinical record immutability', () => {
       diagnosis: { findUnique: diagnosisFindUnique },
       attendanceDiagnosis: { create: vi.fn(), updateMany: vi.fn() },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
     (repository as any).requireActorId = async () => 'doctor-1';
 
     await expect(repository.addDiagnosis('enc-finalized', {
@@ -87,9 +76,9 @@ describe('finalized clinical record immutability', () => {
       },
       attendance: { findUnique: vi.fn().mockResolvedValue(finalized) },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await expect(repository.updateVitals('vitals-1', { temperature: 37 }))
       .rejects.toThrow(/clinical record is finalized/i);
@@ -106,9 +95,9 @@ describe('finalized clinical record immutability', () => {
       },
       attendance: { findUnique: vi.fn().mockResolvedValue(finalized) },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await expect(repository.deleteVitals('vitals-1'))
       .rejects.toThrow(/clinical record is finalized/i);
@@ -117,10 +106,10 @@ describe('finalized clinical record immutability', () => {
 
   it('blocks new prescriptions after clinical finalization', async () => {
     const stockLookup = vi.fn();
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       attendance: { findUnique: vi.fn().mockResolvedValue(finalized) },
       stockItem: { findUnique: stockLookup },
-    } as any));
+    } as any);
     (repository as any).requireActorId = async () => 'doctor-1';
 
     await expect(repository.addPrescription('enc-finalized', {
@@ -147,9 +136,9 @@ describe('medication dispensing encounter guard', () => {
       stockItem: { updateMany: vi.fn() },
       stockTransaction: { create: vi.fn() },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
     (repository as any).requireActorId = async () => 'user-1';
 
     await expect(repository.updateMedication(
@@ -164,7 +153,7 @@ describe('medication dispensing encounter guard', () => {
 describe('overdue MAR dose transitions', () => {
   it('does not mark doses due for cancelled prescriptions or closed encounters', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
-    const repository = new NursingRepository({ medicationDose: { updateMany } } as any));
+    const repository = new NursingRepository({ medicationDose: { updateMany } } as any);
     const now = new Date('2026-10-23T12:00:00.000Z');
 
     await repository.markOverdueAsDue(now);
@@ -215,7 +204,7 @@ describe('atomic MAR dose writes', () => {
   it('does not record a medication variance after the encounter has closed', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const findUnique = vi.fn().mockResolvedValue({ id: 'dose-1' });
-    const repository = new NursingRepository({ medicationDose: { updateMany, findUnique } } as any));
+    const repository = new NursingRepository({ medicationDose: { updateMany, findUnique } } as any);
 
     await expect(repository.recordDoseVariance('dose-1', 'nurse-1', { status: 'refused', reason: 'Patient refused' }))
       .rejects.toThrow(/encounter\/prescription is closed/i);
@@ -270,7 +259,7 @@ describe('auditable admission cancellation', () => {
   it('cancels without deleting the admission, returns the active visit to OPD, and releases its bed atomically', async () => {
     const { tx } = makeTx();
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.deleteAdmission('admission-1', 'admin-1', 'Admission entered in error'))
       .resolves.toEqual({
@@ -297,7 +286,7 @@ describe('auditable admission cancellation', () => {
 
   it('requires a meaningful cancellation reason before database access', async () => {
     const transaction = vi.fn();
-    const repository = new EncounterRepository(withTransaction({ $transaction: transaction } as any));
+    const repository = new EncounterRepository({ $transaction: transaction } as any);
     await expect(repository.deleteAdmission('admission-1', 'admin-1', '  '))
       .rejects.toThrow(/cancellation reason/i);
     expect(transaction).not.toHaveBeenCalled();
@@ -307,7 +296,7 @@ describe('auditable admission cancellation', () => {
     const { tx } = makeTx({ admission: {
       _count: { bills: 0, nursingNotes: 1, nursingTasks: 0, deliveryRecords: 0, proformaInvoices: 0 },
     } });
-    const repository = new EncounterRepository(withTransaction({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any));
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
 
     await expect(repository.deleteAdmission('admission-1', 'admin-1', 'Entered in error'))
       .rejects.toThrow(/related billing or inpatient-care records/i);
@@ -318,7 +307,7 @@ describe('auditable admission cancellation', () => {
   it('does not overwrite a concurrent attendance transition', async () => {
     const { tx } = makeTx();
     tx.attendance.updateMany.mockResolvedValue({ count: 0 });
-    const repository = new EncounterRepository(withTransaction({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any));
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
 
     await expect(repository.deleteAdmission('admission-1', 'admin-1', 'Entered in error'))
       .rejects.toThrow(/attendance changed while cancellation/i);
@@ -456,7 +445,7 @@ describe('admission, bed and nursing record consistency', () => {
       ward: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await repository.updateAdmission('admission-1', { dischargeDate: '2026-10-22T10:00:00.000Z', dischargeStatus: 'home' }, 'admin-1');
 
@@ -594,7 +583,7 @@ describe('OPD clinical record finalization', () => {
 describe('clinical vitals validation', () => {
   it('rejects malformed blood pressure before opening a database transaction', async () => {
     const transaction = vi.fn();
-    const repository = new EncounterRepository(withTransaction({ $transaction: transaction } as any));
+    const repository = new EncounterRepository({ $transaction: transaction } as any);
 
     await expect(repository.addVitals('attendance-1', { bloodPressure: '120-80' }, 'staff-1'))
       .rejects.toThrow(/systolic\/diastolic format/i);
@@ -604,7 +593,7 @@ describe('clinical vitals validation', () => {
 
   it('rejects impossible oxygen saturation before saving', async () => {
     const transaction = vi.fn();
-    const repository = new EncounterRepository(withTransaction({ $transaction: transaction } as any));
+    const repository = new EncounterRepository({ $transaction: transaction } as any);
 
     await expect(repository.addVitals('attendance-1', { spo2: 140 }, 'staff-1'))
       .rejects.toThrow(/spo₂ must be between 1 and 100/i);
@@ -613,7 +602,7 @@ describe('clinical vitals validation', () => {
   });
 
   it('accepts valid metric vital values and common blood-pressure format at validation boundary', async () => {
-    const repository = new EncounterRepository(withTransaction({} as any));
+    const repository = new EncounterRepository({} as any);
     // Exercise the shared validator directly through the repository prototype for a
     // deterministic unit test without needing a database connection.
     expect(() => (repository as any).validateClinicalVitalValues({
@@ -629,7 +618,7 @@ describe('clinical vitals validation', () => {
   });
 
   it('rejects implausible fetal heart rates outside the ANC clinical range', () => {
-    const repository = new EncounterRepository(withTransaction({} as any));
+    const repository = new EncounterRepository({} as any);
     expect(() => (repository as any).validateClinicalVitalValues({ fetalHeartRate: 20 }))
       .toThrow(/fetal heart rate must be between 60 and 200/i);
     expect(() => (repository as any).validateClinicalVitalValues({ fetalHeartRate: 140 }))
@@ -644,10 +633,10 @@ describe('HMIS diagnosis classification validation', () => {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', encounterCategory: 'opd' }) },
       diagnosis: { findUnique: findDiagnosis },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', isActive: true }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await expect(repository.addDiagnosis('attendance-1', {
       diagnosisId: 'diagnosis-1',
@@ -659,10 +648,10 @@ describe('HMIS diagnosis classification validation', () => {
 
   it('rejects an invalid new/old case classification before database writes', async () => {
     const transaction = vi.fn();
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', isActive: true }) },
       $transaction: transaction,
-    } as any));
+    } as any);
 
     await expect(repository.addDiagnosis('attendance-1', {
       diagnosisId: 'diagnosis-1',
@@ -680,14 +669,17 @@ describe('clinical encounter ownership', () => {
     const updateMany = vi.fn();
     const prisma: any = { labTest: { findFirst, updateMany } };
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.removeLabTest('encounter-a', 'lab-from-encounter-b'))
       .rejects.toThrow(/not found/i);
 
     expect(findFirst).toHaveBeenCalledWith({
       where: { id: 'lab-from-encounter-b', attendanceId: 'encounter-a' },
-      select: { id: true, status: true },
+      select: {
+        id: true, status: true, priority: true, performedById: true,
+        completedAt: true, requestedAt: true, createdById: true,
+      },
     });
     expect(updateMany).not.toHaveBeenCalled();
   });
@@ -697,7 +689,7 @@ describe('clinical encounter ownership', () => {
     const updateMany = vi.fn();
     const prisma: any = { scan: { findFirst, updateMany } };
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.removeScan('encounter-a', 'scan-from-encounter-b'))
       .rejects.toThrow(/not found/i);
@@ -712,7 +704,7 @@ describe('clinical encounter ownership', () => {
   it('does not delete a rendered service through the wrong encounter URL', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const deleteMany = vi.fn();
-    const repository = new EncounterRepository(withTransaction({ serviceRendered: { findFirst, deleteMany } } as any));
+    const repository = new EncounterRepository({ serviceRendered: { findFirst, deleteMany } } as any);
 
     await expect(repository.removeService('encounter-a', 'service-from-encounter-b'))
       .rejects.toThrow(/not found/i);
@@ -728,10 +720,10 @@ describe('clinical encounter ownership', () => {
     const findFirst = vi.fn().mockResolvedValue({ id: 'service-a' });
     const deleteMany = vi.fn();
     const attendanceFindUnique = vi.fn().mockResolvedValue({ id: 'encounter-a', status: 'completed' });
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       serviceRendered: { findFirst, deleteMany },
       attendance: { findUnique: attendanceFindUnique },
-    } as any));
+    } as any);
 
     await expect(repository.removeService('encounter-a', 'service-a'))
       .rejects.toThrow(/closed|open|completed/i);
@@ -747,7 +739,7 @@ describe('clinical encounter ownership', () => {
       attendance: { findUnique: attendanceFindUnique },
     };
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.deleteVitals('vitals-a')).rejects.toThrow(/closed encounter/i);
     expect(vitalsDeleteMany).not.toHaveBeenCalled();
@@ -762,10 +754,10 @@ describe('clinical encounter ownership', () => {
       status: 'completed',
     });
     const stockItemFindUnique = vi.fn();
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       attendance: { findUnique: attendanceFindUnique },
       stockItem: { findUnique: stockItemFindUnique },
-    } as any));
+    } as any);
     vi.spyOn(repository, 'requireActorId').mockResolvedValue('user-a');
 
     await expect(repository.addPrescription('encounter-a', {
@@ -782,7 +774,7 @@ describe('clinical encounter ownership', () => {
 describe('postnatal create/update validation consistency', () => {
   it('accepts the same vital and newborn measurement ranges on update as on creation', async () => {
     const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
-    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any));
+    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', {
       temperature: 25,
@@ -817,7 +809,7 @@ describe('postnatal create/update validation consistency', () => {
 
   it('rejects out-of-range fundal-height and newborn-weight values on update', async () => {
     const update = vi.fn();
-    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any));
+    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', { fundalHeight: 80 }))
       .rejects.toThrow(/fundal height must be between 0 and 60/i);
@@ -828,7 +820,7 @@ describe('postnatal create/update validation consistency', () => {
 
   it('rejects newborn temperature outside the same range used at creation', async () => {
     const update = vi.fn();
-    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any));
+    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', {
       babyTemperature: 20,
@@ -839,7 +831,7 @@ describe('postnatal create/update validation consistency', () => {
 
 describe('newborn record validation', () => {
   it('accepts a recorded birth weight in grams and an explicit outcome', () => {
-    const repository = new AntenatalRepository({} as any));
+    const repository = new AntenatalRepository({} as any);
     expect((repository as any).mapNewborns([{
       birthWeight: 3200,
       gender: 'female',
@@ -884,13 +876,13 @@ describe('newborn record validation', () => {
   });
 
   it('does not silently mark a newborn as alive when outcome is missing', () => {
-    const repository = new AntenatalRepository({} as any));
+    const repository = new AntenatalRepository({} as any);
     expect(() => (repository as any).mapNewborns([{ birthWeight: 3200, gender: 'male' }]))
       .toThrow(/confirmed outcome is required/i);
   });
 
   it('rejects an out-of-range Apgar score', () => {
-    const repository = new AntenatalRepository({} as any));
+    const repository = new AntenatalRepository({} as any);
     expect(() => (repository as any).mapNewborns([{
       birthWeight: 3200,
       gender: 'male',
@@ -911,7 +903,7 @@ describe('ANC visit clinical field validation', () => {
     });
     const repository = new AntenatalRepository({
       aNCVisit: { findUnique, update },
-    } as any));
+    } as any);
 
     await expect(repository.updateVisit('visit-1', { para: 2 }))
       .rejects.toThrow(/para must be less than gravida/i);
@@ -922,7 +914,7 @@ describe('ANC visit clinical field validation', () => {
     const update = vi.fn().mockResolvedValue({ id: 'visit-1', iptpDoseNumber: 6 });
     const repository = new AntenatalRepository({
       aNCVisit: { update },
-    } as any));
+    } as any);
 
     await expect(repository.updateVisit('visit-1', { iptpDoseNumber: 6 }))
       .resolves.toEqual({ id: 'visit-1', iptpDoseNumber: 6 });
@@ -936,7 +928,7 @@ describe('ANC visit clinical field validation', () => {
     const update = vi.fn();
     const repository = new AntenatalRepository({
       aNCVisit: { update },
-    } as any));
+    } as any);
 
     await expect(repository.updateVisit('visit-1', { iptpDoseNumber: 11 }))
       .rejects.toThrow(/iptp dose number must be between 1 and 10/i);
@@ -947,7 +939,7 @@ describe('ANC visit clinical field validation', () => {
 describe('maternal record integrity', () => {
   it('rejects parity equal to gravidity for an ongoing pregnancy before database access', async () => {
     const userFindUnique = vi.fn();
-    const repository = new AntenatalRepository({ user: { findUnique: userFindUnique } } as any));
+    const repository = new AntenatalRepository({ user: { findUnique: userFindUnique } } as any);
 
     await expect(repository.createBooking({
       patientId: 'patient-1',
@@ -963,7 +955,7 @@ describe('maternal record integrity', () => {
 
   it('returns no active booking instead of falling back to a completed pregnancy', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
-    const repository = new AntenatalRepository({ antenatalBooking: { findFirst } } as any));
+    const repository = new AntenatalRepository({ antenatalBooking: { findFirst } } as any);
 
     await expect(repository.getActiveBookingByPatientId('patient-1')).resolves.toBeNull();
     expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
@@ -974,7 +966,7 @@ describe('maternal record integrity', () => {
 
   it('rejects invalid gravida/para values for an ANC visit before database access', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any));
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
 
     await expect(repository.createVisit({
       bookingId: 'booking-1', attendanceId: 'attendance-1', visitNumber: 1,
@@ -1187,7 +1179,7 @@ describe('maternal record integrity', () => {
 describe('maternal update validation', () => {
   it('rejects unsupported maternal outcomes before updating a delivery record', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any));
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
 
     await expect(repository.updateDeliveryRecord('delivery-1', { maternalOutcome: 'unknown-value' }))
       .rejects.toThrow(/unsupported maternal outcome/i);
@@ -1197,7 +1189,7 @@ describe('maternal update validation', () => {
 
   it('accepts a common blood-pressure format and rejects impossible postnatal readings', async () => {
     const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
-    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any));
+    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', { bloodPressure: '120 / 80' }))
       .resolves.toEqual({ id: 'postnatal-1' });
@@ -1216,10 +1208,10 @@ describe('maternal update validation', () => {
 describe('investigation and procedure status integrity', () => {
   it('rejects unsupported procedure statuses before writing', async () => {
     const procedureUpdate = vi.fn();
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       procedure: { update: procedureUpdate },
-    } as any));
+    } as any);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'verified', {}, 'staff-1'))
       .rejects.toThrow(/unsupported procedure status/i);
@@ -1231,14 +1223,14 @@ describe('investigation and procedure status integrity', () => {
     const procedureFindUnique = vi.fn()
       .mockResolvedValueOnce({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' })
       .mockResolvedValueOnce({ id: 'procedure-1', status: 'in_progress' });
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       procedure: {
         findUnique: procedureFindUnique,
         updateMany: procedureUpdateMany,
       },
-    } as any));
+    } as any);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {}, 'staff-1'))
       .resolves.toEqual({ id: 'procedure-1', status: 'in_progress' });
@@ -1251,10 +1243,10 @@ describe('investigation and procedure status integrity', () => {
   it('rejects negative estimated blood loss before writing a theatre update', async () => {
     const procedureFindUnique = vi.fn();
     const procedureUpdateMany = vi.fn();
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       procedure: { findUnique: procedureFindUnique, updateMany: procedureUpdateMany },
-    } as any));
+    } as any);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', { bloodLoss: -1 }, 'staff-1'))
       .rejects.toThrow(/estimated blood loss must be a valid non-negative number/i);
@@ -1271,11 +1263,11 @@ describe('investigation and procedure status integrity', () => {
     const procedureFindUnique = vi.fn()
       .mockResolvedValueOnce({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' })
       .mockResolvedValueOnce({ id: 'procedure-1', status: 'in_progress', bloodLoss: 0 });
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       procedure: { findUnique: procedureFindUnique, updateMany: procedureUpdateMany },
-    } as any));
+    } as any);
 
     await repository.updateProcedureStatus('procedure-1', 'in_progress', { bloodLoss: 0 }, 'staff-1');
 
@@ -1287,10 +1279,10 @@ describe('investigation and procedure status integrity', () => {
 
   it('rejects unsupported laboratory statuses before writing', async () => {
     const labUpdate = vi.fn();
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       labTest: { update: labUpdate },
-    } as any));
+    } as any);
 
     await expect(repository.updateLabTestStatus('lab-1', 'verified', {}, 'staff-1'))
       .rejects.toThrow(/unsupported laboratory order status/i);
@@ -1307,10 +1299,10 @@ describe('investigation and procedure status integrity', () => {
       },
       attendance: { findUnique: vi.fn() },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await expect(repository.updateScanStatus('scan-1', 'in_progress', {}, 'staff-1'))
       .rejects.toThrow(/completed scan report is locked/i);
@@ -1326,7 +1318,7 @@ describe('postnatal record creation validation', () => {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'postnatal' }) },
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1' }) },
       $transaction: transaction,
-    } as any));
+    } as any);
 
     await expect(repository.createPostnatalRecord({
       examinationDate: new Date(),
@@ -1344,7 +1336,7 @@ describe('postnatal record creation validation', () => {
 describe('ANC danger-sign and referral completeness', () => {
   it('requires danger-sign details before creating an ANC visit', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any));
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
     await expect(repository.createVisit({
       visitDate: new Date(), attendanceId: 'attendance-1', bookingId: 'booking-1',
       recordedById: 'midwife-1', dangerSignsPresent: true, dangerSignsList: [],
@@ -1354,7 +1346,7 @@ describe('ANC danger-sign and referral completeness', () => {
 
   it('requires a referral destination when an ANC visit is marked referred', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any));
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
     await expect(repository.createVisit({
       visitDate: new Date(), attendanceId: 'attendance-1', bookingId: 'booking-1',
       recordedById: 'midwife-1', referralMade: true, referredTo: '  ',
@@ -1365,7 +1357,7 @@ describe('ANC danger-sign and referral completeness', () => {
   it('rejects an ANC follow-up date earlier than a historical visit', async () => {
     const repository = new AntenatalRepository({
       aNCVisit: { findUnique: vi.fn().mockResolvedValue({ visitDate: new Date('2026-10-10T12:00:00.000Z'), nextVisitDate: null }) },
-    } as any));
+    } as any);
     const visitDate = new Date('2026-10-10T12:00:00.000Z');
     const nextVisitDate = new Date('2026-10-09T12:00:00.000Z');
     await expect(repository.updateVisit('visit-1', { visitDate, nextVisitDate } as any))
@@ -1385,7 +1377,7 @@ describe('medication administration integrity', () => {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateMedication('attendance-1', 'medication-1', {
       status: 'administered',
@@ -1414,7 +1406,7 @@ describe('medication administration integrity', () => {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateMedication('attendance-1', 'medication-1', {
       status: 'administered', doseId: 'dose-2',
@@ -1432,7 +1424,7 @@ describe('medication administration integrity', () => {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateMedication('attendance-1', 'medication-1', {
       quantity: 1.5,
@@ -1456,7 +1448,7 @@ describe('medication administration integrity', () => {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateMedication('attendance-1', 'medication-1', {
       status: 'administered',
@@ -1479,7 +1471,7 @@ describe('medication administration integrity', () => {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateMedication('attendance-1', 'medication-1', {
       status: 'prescribed',
@@ -1493,7 +1485,7 @@ describe('medication administration integrity', () => {
 describe('postnatal referral completeness', () => {
   it('rejects future examination dates before database writes', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any));
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
     await expect(repository.createPostnatalRecord({
       examinationDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
       attendanceId: 'attendance-1', patientId: 'patient-1', createdById: 'midwife-1',
@@ -1507,7 +1499,7 @@ describe('postnatal referral completeness', () => {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'postnatal' }) },
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
       $transaction: transaction,
-    } as any));
+    } as any);
     await expect(repository.createPostnatalRecord({
       examinationDate: new Date(), attendanceId: 'attendance-1', patientId: 'patient-1',
       createdById: 'midwife-1', referralMade: true, referredTo: '  ',
@@ -1527,7 +1519,7 @@ describe('historical postnatal follow-up dates', () => {
         findUnique: vi.fn().mockResolvedValue({ examinationDate: examDate, nextVisitDate: null }),
         update,
       },
-    } as any));
+    } as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', {
       nextVisitDate: nextDate,
@@ -1558,7 +1550,7 @@ describe('primary diagnosis update atomicity', () => {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1' }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.addDiagnosis('attendance-1', {
       diagnosisId: 'diagnosis-1', diagnosisType: 'primary',
@@ -1577,7 +1569,7 @@ describe('completed investigation cancellation protection', () => {
       labTest: { findFirst: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }), updateMany },
     };
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
     await expect(repository.removeLabTest('attendance-1', 'lab-1'))
       .rejects.toThrow(/completed or already cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
@@ -1589,7 +1581,7 @@ describe('completed investigation cancellation protection', () => {
       scan: { findFirst: vi.fn().mockResolvedValue({ id: 'scan-1', status: 'completed' }), updateMany },
     };
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
     await expect(repository.removeScan('attendance-1', 'scan-1'))
       .rejects.toThrow(/completed or already cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
@@ -1601,7 +1593,7 @@ describe('completed investigation cancellation protection', () => {
       procedure: { findFirst: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), updateMany },
     };
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
     await expect(repository.removeProcedure('attendance-1', 'procedure-1'))
       .rejects.toThrow(/completed or already cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
@@ -1617,29 +1609,24 @@ describe('completed clinical record edit protection', () => {
       labTest: { findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }), updateMany },
       attendance: { findUnique: vi.fn() },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
     await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: 'changed' }, 'staff-1'))
       .rejects.toThrow(/completed laboratory result is locked/i);
     expect(updateMany).not.toHaveBeenCalled();
   });
 
   it('locks completed procedure records from ordinary edits', async () => {
-    const updateMany = vi.fn();
-    const tx: any = {
-      $queryRaw: vi.fn().mockResolvedValue([]),
-      procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), updateMany },
-      attendance: { findUnique: vi.fn() },
-    };
-    const repository = new EncounterRepository(withTransaction({
+    const update = vi.fn();
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
-      $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+      procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), update },
+    } as any);
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', { notes: 'changed' }, 'staff-1'))
       .rejects.toThrow(/completed procedure record is locked/i);
-    expect(updateMany).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
   });
 });
 
@@ -1655,9 +1642,9 @@ describe('primary diagnosis removal protection', () => {
         deleteMany,
       },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await expect(repository.removeDiagnosis('attendance-1', 'diagnosis-1'))
       .rejects.toThrow(/assign another diagnosis as primary/i);
@@ -1675,7 +1662,7 @@ describe('ANC partial-update clinical completeness', () => {
           referralMade: false, referredTo: null,
         }),
       },
-    } as any));
+    } as any);
     await expect(repository.updateVisit('visit-1', { dangerSignsList: [] } as any))
       .rejects.toThrow(/at least one danger sign/i);
   });
@@ -1688,7 +1675,7 @@ describe('ANC partial-update clinical completeness', () => {
           referralMade: true, referredTo: 'Tamale Teaching Hospital',
         }),
       },
-    } as any));
+    } as any);
     await expect(repository.updateVisit('visit-1', { referredTo: '  ' } as any))
       .rejects.toThrow(/referral destination/i);
   });
@@ -1698,7 +1685,7 @@ describe('ANC partial-update clinical completeness', () => {
 describe('encounter status workflow guards', () => {
   it('rejects direct status changes that bypass the dedicated workflow', async () => {
     const findUnique = vi.fn();
-    const repository = new EncounterRepository(withTransaction({ attendance: { findUnique } } as any));
+    const repository = new EncounterRepository({ attendance: { findUnique } } as any);
     await expect(repository.updateStatus('attendance-1', 'discharged', 'doctor-1'))
       .rejects.toThrow(/dedicated admission, completion, discharge/i);
     expect(findUnique).not.toHaveBeenCalled();
@@ -1727,7 +1714,7 @@ describe('medication administration requires a due dose', () => {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateMedication('attendance-1', 'medication-1', {
       status: 'administered',
@@ -1743,7 +1730,7 @@ describe('maternal booking history retention', () => {
     const update = vi.fn().mockResolvedValue({ id: 'booking-1', isActive: false });
     const repository = new AntenatalRepository({
       antenatalBooking: { findUnique, update },
-    } as any));
+    } as any);
 
     await repository.deleteBooking('booking-1');
 
@@ -1760,7 +1747,7 @@ describe('maternal booking history retention', () => {
         findUnique: vi.fn().mockResolvedValue(null),
         update,
       },
-    } as any));
+    } as any);
 
     await expect(repository.deleteBooking('missing-booking')).rejects.toThrow(/not found/i);
     expect(update).not.toHaveBeenCalled();
@@ -1770,7 +1757,7 @@ describe('maternal booking history retention', () => {
 
 describe('medication administration schedule parsing', () => {
   it('supports common Ghanaian prescription abbreviations without changing the prescribed frequency', () => {
-    const service = new NursingService({} as any));
+    const service = new NursingService({} as any);
     expect((service as any).parseFrequency('BD')).toEqual({ intervalHours: 12, dosesPerDay: 2 });
     expect((service as any).parseFrequency('TDS')).toEqual({ intervalHours: 8, dosesPerDay: 3 });
     expect((service as any).parseFrequency('every 8 hours')).toEqual({ intervalHours: 8, dosesPerDay: 3 });
@@ -1778,18 +1765,18 @@ describe('medication administration schedule parsing', () => {
   });
 
   it('rejects an unknown frequency instead of silently scheduling it once daily', () => {
-    const service = new NursingService({} as any));
+    const service = new NursingService({} as any);
     expect(() => (service as any).parseFrequency('three-ish times')).toThrow(/unsupported medication frequency/i);
   });
 
   it('rejects zero-hour intervals and unreasonable durations', () => {
-    const service = new NursingService({} as any));
+    const service = new NursingService({} as any);
     expect(() => (service as any).parseFrequency('every 0 hours')).toThrow(/interval must be between 1 and 24/i);
     expect(() => (service as any).parseDurationDays('400 days')).toThrow(/between 1 and 365 days/i);
   });
 
   it('uses the recorded prescription time for the first scheduled dose', () => {
-    const service = new NursingService({} as any));
+    const service = new NursingService({} as any);
     const prescribedAt = new Date('2026-10-21T10:37:00.000Z');
     expect((service as any).parseSchedule('STAT', '1 day', prescribedAt).firstDoseAt)
       .toEqual(prescribedAt);
@@ -1800,13 +1787,13 @@ describe('medication administration schedule parsing', () => {
 describe('prescription and MAR atomicity', () => {
   it('rejects unsupported frequency before creating a prescription', async () => {
     const transaction = vi.fn();
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', isActive: true }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1' }) },
       stockItem: { findUnique: vi.fn().mockResolvedValue({ id: 'stock-1', name: 'Paracetamol' }) },
       serviceCatalog: { findUnique: vi.fn().mockResolvedValue({ id: 'service-1', serviceType: 'medication' }) },
       $transaction: transaction,
-    } as any));
+    } as any);
 
     await expect(repository.addPrescription('attendance-1', {
       stockItemId: 'stock-1', serviceCatalogId: 'service-1', dosage: '500 mg',
@@ -1825,7 +1812,7 @@ describe('ANC booking closure requires a confirmed outcome', () => {
         findUnique: vi.fn().mockResolvedValue({ id: 'booking-1' }),
         update,
       },
-    } as any));
+    } as any);
 
     await expect(repository.closeBooking('booking-1', {}))
       .rejects.toThrow(/confirmed pregnancy outcome date is required/i);
@@ -1843,7 +1830,7 @@ describe('ANC booking closure requires a confirmed outcome', () => {
         findUnique: vi.fn().mockResolvedValue({ id: 'booking-1' }),
         update,
       },
-    } as any));
+    } as any);
 
     await repository.closeBooking('booking-1', { deliveryDate, deliveryOutcome: 'live_birth' });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
@@ -1859,7 +1846,7 @@ describe('ANC booking closure requires a confirmed outcome', () => {
 describe('delivery record correction validation', () => {
   it('rejects future delivery dates before opening a transaction', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any));
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
 
     await expect(repository.updateDeliveryRecord('delivery-1', {
       deliveryDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
@@ -1870,7 +1857,7 @@ describe('delivery record correction validation', () => {
 
   it('rejects unsupported places of delivery before writing', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any));
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
 
     await expect(repository.updateDeliveryRecord('delivery-1', {
       placeOfDelivery: 'somewhere-unknown',
@@ -1881,7 +1868,7 @@ describe('delivery record correction validation', () => {
 
   it('rejects empty delivery updates instead of accepting a no-op', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any));
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
 
     await expect(repository.updateDeliveryRecord('delivery-1', {}))
       .rejects.toThrow(/no supported delivery record fields/i);
@@ -2015,7 +2002,7 @@ describe('prescription cancellation integrity', () => {
       medicationDose: { updateMany: doseUpdateMany },
     };
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.removeMedication('attendance-1', 'med-1'))
       .rejects.toThrow(/dispensed or administered medication cannot be removed/i);
@@ -2033,7 +2020,7 @@ describe('prescription cancellation integrity', () => {
       },
       medicationDose: { updateMany: vi.fn() },
     };
-    const repository = new EncounterRepository(withTransaction({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any));
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
 
     await expect(repository.removeMedication('attendance-1', 'med-1'))
       .rejects.toThrow(/dispensed or administered medication cannot be removed/i);
@@ -2059,7 +2046,7 @@ describe('delivery-to-ANC booking link integrity', () => {
     };
     const repository = new AntenatalRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await expect(repository.updateDeliveryRecord('delivery-1', { antenatalBookingId: 'booking-2' }))
       .rejects.toThrow(/cannot be reassigned or unlinked/i);
@@ -2083,7 +2070,7 @@ describe('delivery-to-ANC booking link integrity', () => {
     };
     const repository = new AntenatalRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await expect(repository.updateDeliveryRecord('delivery-1', { antenatalBookingId: null }))
       .rejects.toThrow(/cannot be reassigned or unlinked/i);
@@ -2127,7 +2114,7 @@ describe('postnatal referral partial-update integrity', () => {
         }),
         update,
       },
-    } as any));
+    } as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', {
       referredTo: null,
@@ -2148,7 +2135,7 @@ describe('delivery record deletion integrity', () => {
     });
     const repository = new AntenatalRepository({
       deliveryRecord: { findUnique, delete: deleteRecord },
-    } as any));
+    } as any);
 
     await expect(repository.deleteDeliveryRecord('delivery-1'))
       .rejects.toThrow(/approved clinical correction workflow/i);
@@ -2179,7 +2166,7 @@ describe('delivery record deletion integrity', () => {
         }),
         delete: deleteRecord,
       },
-    } as any));
+    } as any);
 
     await expect(repository.deleteDeliveryRecord('delivery-2')).resolves.toBeUndefined();
     expect(deleteRecord).toHaveBeenCalledWith({ where: { id: 'delivery-2' } });
@@ -2190,7 +2177,7 @@ describe('delivery record deletion integrity', () => {
 
 describe('newborn update validation consistency', () => {
   it('rejects unsupported newborn gender values before database access', () => {
-    const repository = new AntenatalRepository({} as any));
+    const repository = new AntenatalRepository({} as any);
 
     expect(() => (repository as any).mapNewborns([{
       birthWeight: 3200,
@@ -2200,7 +2187,7 @@ describe('newborn update validation consistency', () => {
   });
 
   it('rejects duplicate newborn birth orders for both create and update mapping', () => {
-    const repository = new AntenatalRepository({} as any));
+    const repository = new AntenatalRepository({} as any);
 
     expect(() => (repository as any).mapNewborns([
       { birthWeight: 3200, gender: 'female', outcome: 'alive', order: 1 },
@@ -2220,7 +2207,7 @@ describe('theatre procedure scheduling input validation', () => {
 
   it('rejects an invalid scheduled date before creating a procedure', async () => {
     const prisma: any = makeSchedulingPrisma();
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.addProcedure('attendance-1', {
       templateId: 'template-1',
@@ -2233,7 +2220,7 @@ describe('theatre procedure scheduling input validation', () => {
 
   it.each([0, -1, 1441, 2.5, 'invalid'])('rejects invalid procedure duration %s before creating a procedure', async (duration) => {
     const prisma: any = makeSchedulingPrisma();
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.addProcedure('attendance-1', {
       templateId: 'template-1',
@@ -2245,7 +2232,7 @@ describe('theatre procedure scheduling input validation', () => {
 
   it('accepts valid scheduling inputs and preserves an omitted duration', async () => {
     const prisma: any = makeSchedulingPrisma();
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
     const scheduledDate = '2026-11-02T10:30:00.000Z';
 
     await repository.addProcedure('attendance-1', {
@@ -2299,7 +2286,7 @@ describe('theatre procedure safety documentation', () => {
 
   it('blocks completion when mandatory pre-operative safety checks are missing', async () => {
     const prisma = makeProcedurePrisma();
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
       clinicalRecord: { identityConfirmed: true },
@@ -2310,7 +2297,7 @@ describe('theatre procedure safety documentation', () => {
 
   it('blocks completion when the receiving-team clinical handover is missing', async () => {
     const prisma = makeProcedurePrisma();
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
     const { handoverNotes: _handoverNotes, ...recordWithoutHandover } = validTheatreRecord;
 
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
@@ -2322,7 +2309,7 @@ describe('theatre procedure safety documentation', () => {
 
   it('rejects non-numeric values in hospital-specific theatre number fields', async () => {
     const prisma = makeProcedurePrisma();
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {
       clinicalRecord: {
@@ -2335,7 +2322,7 @@ describe('theatre procedure safety documentation', () => {
 
   it('rejects invalid date values in hospital-specific theatre fields', async () => {
     const prisma = makeProcedurePrisma();
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {
       clinicalRecord: {
@@ -2347,7 +2334,7 @@ describe('theatre procedure safety documentation', () => {
 
   it('rejects invalid time values in hospital-specific theatre fields', async () => {
     const prisma = makeProcedurePrisma();
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {
       clinicalRecord: {
@@ -2360,7 +2347,7 @@ describe('theatre procedure safety documentation', () => {
 
   it('persists the structured theatre record when all mandatory checks are documented', async () => {
     const prisma = makeProcedurePrisma();
-    const repository = new EncounterRepository(withTransaction(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await repository.updateProcedureStatus('procedure-1', 'completed', {
       clinicalRecord: validTheatreRecord,
@@ -2418,7 +2405,7 @@ describe('maternal clinical record deletion integrity', () => {
     const deleteRecord = vi.fn();
     const repository = new AntenatalRepository({
       aNCVisit: { findUnique, delete: deleteRecord },
-    } as any));
+    } as any);
 
     await expect(repository.deleteVisit('anc-visit-1'))
       .rejects.toThrow(/cannot be physically deleted.*clinical record/i);
@@ -2437,7 +2424,7 @@ describe('maternal clinical record deletion integrity', () => {
     const deleteRecord = vi.fn();
     const repository = new AntenatalRepository({
       postnatalRecord: { findUnique, delete: deleteRecord },
-    } as any));
+    } as any);
 
     await expect(repository.deletePostnatalRecord('pnc-1'))
       .rejects.toThrow(/cannot be physically deleted.*clinical record/i);
@@ -2522,7 +2509,7 @@ describe('newborn follow-up preservation during delivery edits', () => {
     };
     const repository = new AntenatalRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await repository.updateDeliveryRecord('delivery-1', {
       Newborn: [{ order: 1, birthWeight: 3300, gender: 'female', outcome: 'alive' }],
@@ -2557,7 +2544,7 @@ describe('newborn follow-up preservation during delivery edits', () => {
     };
     const repository = new AntenatalRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await repository.updateDeliveryRecord('delivery-1', { Newborn: [] });
 
@@ -2616,7 +2603,7 @@ describe('consumable stock changes on closed encounters', () => {
 
   it('rejects recording consumable use after encounter closure before stock changes', async () => {
     const tx = closedEncounterTx();
-    const repository = new EncounterRepository(withTransaction({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any));
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
     (repository as any).requireActorId = vi.fn().mockResolvedValue('user-1');
     (repository as any).requireEncounterId = vi.fn().mockResolvedValue('enc-1');
 
@@ -2628,7 +2615,7 @@ describe('consumable stock changes on closed encounters', () => {
 
   it('rejects editing consumable use after encounter closure before stock changes', async () => {
     const tx = closedEncounterTx();
-    const repository = new EncounterRepository(withTransaction({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any));
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
     (repository as any).requireActorId = vi.fn().mockResolvedValue('user-1');
     (repository as any).requireEncounterId = vi.fn().mockResolvedValue('enc-1');
 
@@ -2640,7 +2627,7 @@ describe('consumable stock changes on closed encounters', () => {
 
   it('rejects deleting consumable use after encounter closure before stock changes', async () => {
     const tx = closedEncounterTx();
-    const repository = new EncounterRepository(withTransaction({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any));
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
     (repository as any).requireActorId = vi.fn().mockResolvedValue('user-1');
     (repository as any).requireEncounterId = vi.fn().mockResolvedValue('enc-1');
 
@@ -2659,10 +2646,10 @@ describe('diagnosis changes on closed encounters', () => {
       diagnosis: { findUnique: diagnosisLookup },
       attendanceDiagnosis: { findFirst: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'clinician-1' }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
     (repository as any).requireActorId = vi.fn().mockResolvedValue('clinician-1');
 
     await expect(repository.addDiagnosis('attendance-1', {
@@ -2678,7 +2665,7 @@ describe('diagnosis changes on closed encounters', () => {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
       attendanceDiagnosis: { findFirst: diagnosisLookup, deleteMany: vi.fn() },
     };
-    const repository = new EncounterRepository(withTransaction({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any));
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
 
     await expect(repository.removeDiagnosis('attendance-1', 'diagnosis-1'))
       .rejects.toThrow(/cannot be changed for a closed encounter/i);
@@ -2690,13 +2677,13 @@ describe('diagnosis changes on closed encounters', () => {
 
 describe('encounter discharge workflow integrity', () => {
   it('routes discharge through the guarded admission workflow', async () => {
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       attendance: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'attendance-1', Admission: { id: 'admission-1' },
         }),
       },
-    } as any));
+    } as any);
     const updateAdmission = vi.fn().mockResolvedValue({
       id: 'admission-1', dischargeDate: new Date('2026-10-25T10:00:00.000Z'),
     });
@@ -2717,11 +2704,11 @@ describe('encounter discharge workflow integrity', () => {
   });
 
   it('does not discharge an encounter that has no admission record', async () => {
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       attendance: {
         findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', Admission: null }),
       },
-    } as any));
+    } as any);
     const updateAdmission = vi.fn();
     (repository as any).updateAdmission = updateAdmission;
 
@@ -2746,9 +2733,9 @@ describe('daily notes on closed admissions', () => {
         update,
       },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     await expect(repository.addDailyNotes('admission-1', { notes: 'late note' }, 'clinician-1'))
       .rejects.toThrow(/daily notes cannot be added to a closed admission/i);
@@ -2766,9 +2753,9 @@ describe('daily notes on closed admissions', () => {
         update,
       },
     };
-    const repository = new EncounterRepository(withTransaction({
+    const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
-    } as any));
+    } as any);
 
     const result = await repository.addDailyNotes('admission-1', { notes: 'Patient reviewed' }, 'clinician-1');
     expect(update).toHaveBeenCalledOnce();
@@ -2798,7 +2785,7 @@ describe('stage-aware clinical order removal', () => {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'user-1', isActive: true }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
-    return { repository: new EncounterRepository(withTransaction(prisma)), tx };
+    return { repository: new EncounterRepository(prisma), tx };
   };
 
   it('deletes a laboratory request that has not been started, without recording cancellation', async () => {
