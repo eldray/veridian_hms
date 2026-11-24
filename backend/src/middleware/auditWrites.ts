@@ -62,18 +62,25 @@ export function auditWrites(prisma: PrismaClient) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
 
-    let responseBody: any;
     const originalJson = res.json.bind(res);
-    res.json = ((body: any) => { responseBody = body; return originalJson(body); }) as Response['json'];
+    let auditStarted = false;
 
-    res.on('finish', () => {
-      if (res.statusCode >= 400) return;
+    // Persist the audit event before sending a successful JSON response. The
+    // business transaction has already completed at this point, so an audit
+    // outage must not turn a committed payment/clinical write into a misleading
+    // failed response that a client might retry. The failure is logged and the
+    // original response is still delivered.
+    res.json = ((body: any) => {
+      if (auditStarted) return originalJson(body);
+      auditStarted = true;
+      if (res.statusCode >= 400 || body?.success === false) return originalJson(body);
+
       try {
         const path = (req.originalUrl || req.url).split('?')[0];
         const segments = path.split('/').filter(Boolean);
         if (segments[0] === 'api') segments.shift();
         const topic = segments[0];
-        if (!topic) return;
+        if (!topic) return originalJson(body);
 
         const user = (req as any).user;
         let userId: string | undefined = user?.id ?? user?.userId;
@@ -82,33 +89,57 @@ export function auditWrites(prisma: PrismaClient) {
         if (topic === 'auth') {
           const sub = segments[1];
           if (sub === 'login') {
-            userId = responseBody?.data?.user?.id ?? userId;
-            if (!userId || responseBody?.success === false) return;
+            userId = body?.data?.user?.id ?? userId;
+            if (!userId) return originalJson(body);
             entityType = 'Session'; entityId = userId; action = AuditAction.login;
           } else if (sub === 'logout') {
-            if (!userId) return;
+            if (!userId) return originalJson(body);
             entityType = 'Session'; entityId = userId; action = AuditAction.logout;
-          } else return; // refresh-token, change-password etc. are not business events here
+          } else return originalJson(body); // token refresh/password operations are not business events here
         } else {
-          if (SKIP_TOPICS.has(topic) || !userId) return;
+          if (SKIP_TOPICS.has(topic) || !userId) return originalJson(body);
           entityType = entityLabel(topic);
           entityId = segments.slice(1).find((s) => ID_LIKE.test(s))
-            ?? responseBody?.data?.id ?? responseBody?.id ?? '-';
+            ?? body?.data?.id ?? body?.id ?? '-';
           action = actionFor(req.method, segments.slice(1));
         }
 
         const operation = segments.slice(1).filter((s) => !ID_LIKE.test(s)).join('/');
+        const responseSnapshot = action === AuditAction.login || action === AuditAction.logout || action === AuditAction.delete
+          ? undefined
+          : safeBody(body?.data ?? body);
+
         void appendAuditLog(prisma, {
           entityType, entityId: String(entityId), action, performedById: userId,
           ipAddress: req.ip ?? null,
           previousState: undefined,
-          newState: action === AuditAction.login || action === AuditAction.logout || action === AuditAction.delete ? undefined : safeBody(req.body),
-          metadata: { method: req.method, url: path, operation: operation || undefined, statusCode: res.statusCode, userAgent: req.headers['user-agent'] ?? undefined },
-        }).catch((err: any) => console.error('[audit] could not record', req.method, path, err?.message ?? err));
+          // This is the successful API result, not the submitted request body.
+          // Keep the request separately in metadata so the audit UI does not
+          // mistake attempted input for the resulting record state.
+          newState: responseSnapshot,
+          metadata: {
+            method: req.method,
+            url: path,
+            operation: operation || undefined,
+            statusCode: res.statusCode,
+            snapshotSource: 'successful_api_response',
+            requestBody: safeBody(req.body),
+            userAgent: req.headers['user-agent'] ?? undefined,
+          },
+        }).then(() => {
+          originalJson(body);
+        }).catch((err: any) => {
+          console.error('[audit] could not record before response', req.method, path, err?.message ?? err);
+          originalJson(body);
+        });
       } catch (err: any) {
         console.error('[audit] failed:', err?.message ?? err);
+        originalJson(body);
       }
-    });
+
+      return res;
+    }) as Response['json'];
+
     next();
   };
 }
