@@ -103,6 +103,7 @@ describe('bill repository refunds', () => {
       amount: 40,
       reason: 'Patient declined the procedure',
       reference: 'VCH-22',
+      idempotencyKey: 'refund-new-key',
     }, 'cashier-1');
 
     expect(refundCreate).toHaveBeenCalledWith({
@@ -114,6 +115,7 @@ describe('bill repository refunds', () => {
         refundMethod: 'cash',
         reference: 'VCH-22',
         reason: 'Patient declined the procedure',
+        idempotencyKey: 'refund-new-key',
         processedById: 'cashier-1',
       }),
     });
@@ -268,10 +270,11 @@ describe('bill repository refunds', () => {
       paymentId: 'payment-1',
       amount: 100,
       reason: 'Full refund',
+      idempotencyKey: 'legacy-refund-key',
     }, 'accounts-1');
 
     expect(refundCreate).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ amount: 100, processedById: 'accounts-1' }),
+      data: expect.objectContaining({ amount: 100, idempotencyKey: 'legacy-refund-key', processedById: 'accounts-1' }),
     }));
     expect(billUpdate).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ paidAmount: 0, balance: 100, status: 'pending' }),
