@@ -705,7 +705,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
       await appendAuditLogWithinTransaction(tx, {
         entityType: 'DeliveryRecord', entityId: record.id, action: 'CREATE', performedById: data.createdById,
-        newState: { deliveryType: record.deliveryType, deliveryOutcome: record.deliveryOutcome, newbornCount: babies.length },
+        newState: { created: true },
         metadata: { source: 'antenatal.delivery.create', newbornCount: babies.length },
       });
 
@@ -1114,7 +1114,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       });
       await appendAuditLogWithinTransaction(tx, {
         entityType: 'PostnatalRecord', entityId: created.id, action: 'CREATE', performedById: d.createdById,
-        newState: { dayNumber: created.dayNumber },
+        newState: { created: true },
         metadata: { source: 'antenatal.postnatal.create' },
       });
       return created;
