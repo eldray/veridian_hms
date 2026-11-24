@@ -20,13 +20,13 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   router.use(protect);
 
   // Search and list patients
-  router.get('/', controller.searchPatients);
-  router.get('/stats', controller.getStats);
-  router.get('/recent', controller.getRecentPatients);
-  router.get('/corporate/:corporateAccountId', controller.getPatientsByCorporateAccount);
-  router.get('/nhis/:nhisNumber', controller.getPatientByNHIS);
-  router.get('/:id/corporate-summary', controller.getPatientCorporateSummary);
-  router.get('/:id', controller.getPatientById);
+  router.get('/', requirePatientManagement, controller.searchPatients);
+  router.get('/stats', requirePatientManagement, controller.getStats);
+  router.get('/recent', requirePatientManagement, controller.getRecentPatients);
+  router.get('/corporate/:corporateAccountId', requirePatientManagement, controller.getPatientsByCorporateAccount);
+  router.get('/nhis/:nhisNumber', requirePatientManagement, controller.getPatientByNHIS);
+  router.get('/:id/corporate-summary', requirePatientManagement, controller.getPatientCorporateSummary);
+  router.get('/:id', requirePatientManagement, controller.getPatientById);
   router.post('/', requirePatientManagement, parseMultipartFields, controller.createPatient);
   router.post('/generate-ccc', requirePatientManagement, controller.generateCCC);
   router.put('/:id', requirePatientManagement, parseMultipartFields, controller.updatePatient);
@@ -40,9 +40,9 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   // NEW: EMR (Allergies & Histories) Routes
   // ==========================================
   router.post('/:id/allergies', requirePatientManagement, validateBody(createAllergySchema), controller.addAllergy);
-  router.get('/:id/allergies', controller.getAllergies);
+  router.get('/:id/allergies', requirePatientManagement, controller.getAllergies);
   router.post('/:id/medical-history', requirePatientManagement, validateBody(createMedicalHistorySchema), controller.addMedicalHistory);
-  router.get('/:id/medical-history', controller.getMedicalHistories);
+  router.get('/:id/medical-history', requirePatientManagement, controller.getMedicalHistories);
 
   return router;
 }
