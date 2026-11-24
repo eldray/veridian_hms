@@ -27,6 +27,7 @@ export class FamilyPlanningController extends BaseController {
 
       const data = { ...req.body, providedById: req.user?.id };
       const record = await this.service.createFPService(data);
+      (req as any).auditHandled = true;
       return this.created(res, record, 'Family planning service recorded successfully');
     })
   ];
@@ -65,12 +66,14 @@ export class FamilyPlanningController extends BaseController {
   });
 
   updateFPService = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const record = await this.service.updateFPService(req.params.id, req.body);
+    const record = await this.service.updateFPService(req.params.id, req.body, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, record, 'FP service updated successfully');
   });
 
   deleteFPService = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    await this.service.deleteFPService(req.params.id);
+    await this.service.deleteFPService(req.params.id, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, null, 'FP service deleted successfully');
   });
 
