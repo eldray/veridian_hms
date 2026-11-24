@@ -5,6 +5,7 @@ import { CreateTransferDTO, TransferQueryParams } from './StockTransferTypes';
 import { getCounterService } from '../../services/CounterService';
 import { ValidationError, NotFoundError } from '../../utils/errors';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
 
 // Batch expiry is a calendar date; lots remain usable through that date.
 const startOfCurrentDay = (): Date => {
@@ -157,7 +158,7 @@ export class StockTransferService extends BaseService {
           }
           if (remaining > 0) throw new Error('Not enough eligible batch stock to reserve the full transfer quantity');
         }
-        await tx.stockTransaction.create({
+        const outboundMovement = await tx.stockTransaction.create({
           data: {
             stockItemId: item.stockItemId, transactionType: 'transfer_out', quantity: qty,
             balanceAfter: originBalanceAfter.quantity, departmentId: transfer.originId,
@@ -165,6 +166,7 @@ export class StockTransferService extends BaseService {
             batchAllocations: allocations.length ? allocations as any : undefined,
           },
         });
+        await appendStockMovementAudit(tx, 'create', userId, outboundMovement);
         await tx.stockTransferItem.update({
           where: { id: item.id },
           data: { quantitySent: qty, batchAllocations: allocations.length ? allocations as any : undefined },
@@ -303,7 +305,7 @@ export class StockTransferService extends BaseService {
           }
         }
 
-        await tx.stockTransaction.create({
+        const inboundMovement = await tx.stockTransaction.create({
           data: {
             stockItemId: item.stockItemId, transactionType: 'transfer_in', quantity: qty,
             balanceAfter: destinationBalanceAfter.quantity, departmentId: transfer.destinationId,
@@ -311,6 +313,7 @@ export class StockTransferService extends BaseService {
             batchAllocations: allocations.length ? allocations as any : undefined,
           },
         });
+        await appendStockMovementAudit(tx, 'create', userId, inboundMovement);
         await tx.stockTransferItem.update({ where: { id: item.id }, data: { quantityReceived: qty } });
       }
 

@@ -9,6 +9,7 @@ import {
   StockLookupItem
 } from './RequisitionTypes';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
 
 // Batch expiry is a calendar date: stock remains usable through the end of its
 // recorded expiry day. Compare against UTC midnight, matching dispensing and
@@ -653,25 +654,27 @@ export class RequisitionRepository {
 
         if (toDepartmentId) {
           const destinationName = requisition.departments?.name || 'department';
-          await tx.stockTransaction.createMany({
-            data: [
-              {
-                stockItemId: ri.stockItemId, transactionType: 'transfer_out', quantity: qty,
-                balanceAfter: supplierBalance.quantity, departmentId: supplierId, requisitionId: id,
-                reference: `REQ-${reference}`,
-                notes: `Transferred to ${destinationName} on requisition ${reference}`, performedBy: userId || undefined
-              },
-              {
-                stockItemId: ri.stockItemId, transactionType: 'transfer_in', quantity: qty,
-                balanceAfter: destinationBalance!.quantity, departmentId: toDepartmentId,
-                requisitionId: id, reference: `REQ-${reference}`,
-                notes: `Received from ${requisition.supplyingDepartment?.name || 'supplier'} on requisition ${reference}`,
-                performedBy: userId || undefined
-              }
-            ]
+          const outboundMovement = await tx.stockTransaction.create({
+            data: {
+              stockItemId: ri.stockItemId, transactionType: 'transfer_out', quantity: qty,
+              balanceAfter: supplierBalance.quantity, departmentId: supplierId, requisitionId: id,
+              reference: `REQ-${reference}`,
+              notes: `Transferred to ${destinationName} on requisition ${reference}`, performedBy: userId || undefined,
+            },
           });
+          await appendStockMovementAudit(tx, 'create', userId, outboundMovement, undefined, { workflow: 'requisition_fulfilment' });
+          const inboundMovement = await tx.stockTransaction.create({
+            data: {
+              stockItemId: ri.stockItemId, transactionType: 'transfer_in', quantity: qty,
+              balanceAfter: destinationBalance!.quantity, departmentId: toDepartmentId,
+              requisitionId: id, reference: `REQ-${reference}`,
+              notes: `Received from ${requisition.supplyingDepartment?.name || 'supplier'} on requisition ${reference}`,
+              performedBy: userId || undefined,
+            },
+          });
+          await appendStockMovementAudit(tx, 'create', userId, inboundMovement, undefined, { workflow: 'requisition_fulfilment' });
         } else if (toWardId) {
-          await tx.stockTransaction.create({
+          const wardIssueMovement = await tx.stockTransaction.create({
             data: {
               stockItemId: ri.stockItemId, transactionType: 'requisition', quantity: qty,
               // This requisition leaves the supplying department; balanceAfter must remain a location snapshot.
@@ -681,6 +684,7 @@ export class RequisitionRepository {
               performedBy: userId || undefined,
             }
           });
+          await appendStockMovementAudit(tx, 'create', userId, wardIssueMovement, undefined, { workflow: 'requisition_fulfilment' });
         }
 
         await tx.requisitionItem.update({ where: { id: ri.id }, data: { quantityFulfilled: qty, performedBy: userId || undefined } });

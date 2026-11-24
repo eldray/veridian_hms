@@ -3,6 +3,7 @@ import { BaseService } from '../../shared/base/BaseService';
 import { getCounterService } from '../../services/CounterService';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import { StockItemRepository, increaseDepartmentStockBalance } from './StockItemRepository';
+import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
 
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -194,7 +195,7 @@ export class StockItemService extends BaseService {
       if (initialStock > 0) {
         const departmentId = data.departmentId ? String(data.departmentId) : undefined;
         await increaseDepartmentStockBalance(tx, created.id, departmentId, initialStock);
-        await tx.stockTransaction.create({
+        const openingMovement = await tx.stockTransaction.create({
           data: {
             stockItemId: created.id,
             transactionType: 'purchase',
@@ -206,6 +207,7 @@ export class StockItemService extends BaseService {
             departmentId,
           },
         });
+        await appendStockMovementAudit(tx, 'create', userId, openingMovement, undefined, { workflow: 'stock_item_opening_balance' });
       }
       if (hasOpeningBatch) {
         await this.repo.addBatchWithinTransaction(

@@ -3,6 +3,7 @@ import { BaseRepository } from '../../shared/base/BaseRepository';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
 import { ValidationError } from '../../utils/errors';
+import { appendStockMovementAudit } from './stockMovementAudit';
 
 // Expiry fields are date-only in the UI and are stored at midnight. Treat a
 // batch as usable through its recorded expiry calendar day, not expired at 00:00.
@@ -201,7 +202,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: effectiveQuantity } } });
       }
 
-      return tx.stockTransaction.create({
+      const movement = await tx.stockTransaction.create({
         data: {
           stockItemId, transactionType, quantity: effectiveQuantity,
           balanceAfter: locationBalanceAfter, reference, notes, performedBy: performedBy || 'system',
@@ -209,10 +210,12 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           batchAllocations: batchAllocations.length ? batchAllocations as any : undefined
         }
       });
+      await appendStockMovementAudit(tx, 'create', performedBy, movement);
+      return movement;
   }
 
   // PRODUCTION FIX: Thread-safe reversal using atomic increment
-  async deleteSafely(id: string) {
+  async deleteSafely(id: string, performedById?: string) {
     return this.prisma.$transaction(async (tx) => {
       const transaction = await tx.stockTransaction.findUnique({ where: { id } });
       if (!transaction) throw new Error('Transaction not found');
@@ -270,9 +273,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         if (updated.count === 0) throw new Error('Cannot delete transaction - would cause negative stock');
       }
 
-      await tx.stockTransaction.delete({ where: { id } });
-      // Preserve the essential non-clinical movement facts for the audit trail.
-      // Do not include free-text notes or references, which may contain sensitive data.
+      // Preserve only structured movement facts; notes and references may contain PHI.
       const deletedTransaction = {
         id: transaction.id,
         stockItemId: transaction.stockItemId,
@@ -285,38 +286,45 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         transactionDate: transaction.transactionDate,
         createdAt: transaction.createdAt,
       };
+      await tx.stockTransaction.delete({ where: { id } });
+      await appendStockMovementAudit(tx, 'delete', performedById, transaction, deletedTransaction);
       return { success: true, message: 'Transaction deleted and stock reversed', deletedTransaction };
     });
   }
 
-  async updateNotes(id: string, notes?: string, reference?: string) {
-    const model = this.getModel();
-    const existing = await model.findUnique({
-      where: { id },
-      select: { notes: true, reference: true },
+  async updateNotes(id: string, notes?: string, reference?: string, performedById?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.stockTransaction.findUnique({ where: { id } });
+      if (!existing) throw new ValidationError('Stock transaction not found');
+
+      // The generic delete guard uses these legacy markers to identify clinical
+      // dispensing and consumable-use movements. Do not allow those markers to be
+      // edited away, or a user could bypass the guard and desynchronise the
+      // clinical encounter from the stock ledger.
+      const existingNotes = String(existing.notes || '');
+      const existingReference = String(existing.reference || '');
+      const isClinicalMovement =
+        /^Dispensed\\b/i.test(existingNotes) ||
+        /^Consumable use(?:\\s|:)/i.test(existingNotes) ||
+        /^Vaccine administered\\b/i.test(existingNotes) ||
+        /^Encounter\\s/i.test(existingReference) ||
+        /^Immunization record\\s/i.test(existingReference);
+      if (isClinicalMovement && (notes !== undefined || reference !== undefined)) {
+        throw new ValidationError('Clinical stock movement notes and references cannot be edited here. Correct the movement through the encounter workflow.');
+      }
+
+      const updateData: any = {};
+      if (notes !== undefined) updateData.notes = notes;
+      if (reference !== undefined) updateData.reference = reference;
+      const updated = await tx.stockTransaction.update({
+        where: { id }, data: updateData,
+        include: { StockItem: { select: { name: true, drugCode: true } } },
+      });
+      await appendStockMovementAudit(tx, 'update', performedById, existing, undefined, {
+        fieldsChanged: Object.keys(updateData),
+      });
+      return updated;
     });
-    if (!existing) throw new ValidationError('Stock transaction not found');
-
-    // The generic delete guard uses these legacy markers to identify clinical
-    // dispensing and consumable-use movements. Do not allow those markers to be
-    // edited away, or a user could bypass the guard and desynchronise the
-    // clinical encounter from the stock ledger.
-    const existingNotes = String(existing.notes || '');
-    const existingReference = String(existing.reference || '');
-    const isClinicalMovement =
-      /^Dispensed\b/i.test(existingNotes) ||
-      /^Consumable use(?:\s|:)/i.test(existingNotes) ||
-      /^Vaccine administered\b/i.test(existingNotes) ||
-      /^Encounter\s/i.test(existingReference) ||
-      /^Immunization record\s/i.test(existingReference);
-    if (isClinicalMovement && (notes !== undefined || reference !== undefined)) {
-      throw new ValidationError('Clinical stock movement notes and references cannot be edited here. Correct the movement through the encounter workflow.');
-    }
-
-    const updateData: any = {};
-    if (notes !== undefined) updateData.notes = notes;
-    if (reference !== undefined) updateData.reference = reference;
-    return model.update({ where: { id }, data: updateData, include: { StockItem: { select: { name: true, drugCode: true } } } });
   }
 
   // FIXED: Prisma doesn't support comparing two fields directly. We fetch and filter in memory.

@@ -27,6 +27,7 @@ export class StockTransactionController extends BaseController {
     // Staff are confined to their assigned department; only administrators may select a ward directly.
     const wardId = isAdmin ? (req.body.wardId || undefined) : undefined;
     const result = await this.service.create({ ...req.body, departmentId, wardId, role: req.user?.role, performedBy: req.user?.id });
+    (req as any).auditHandled = true;
     return this.created(res, result, 'Stock transaction created successfully');
   });
 
@@ -55,17 +56,16 @@ export class StockTransactionController extends BaseController {
 
   update = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
-    const result = await this.service.update(req.params.id, req.body, { departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin });
+    const result = await this.service.update(req.params.id, req.body, { departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin }, req.user?.id);
+    (req as any).auditHandled = true;
     return this.ok(res, result, 'Transaction updated');
   });
 
   delete = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
-    const result = await this.service.delete(req.params.id, { departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin });
-    const { deletedTransaction, ...response } = result as any;
-    // The global audit middleware consumes this internal request property.
-    // It is deliberately omitted from the HTTP response sent to the caller.
-    (req as any).auditPreviousState = deletedTransaction;
+    const result = await this.service.delete(req.params.id, { departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin }, req.user?.id);
+    const { deletedTransaction: _internalAuditSnapshot, ...response } = result as any;
+    (req as any).auditHandled = true;
     return this.ok(res, response, response.message);
   });
 

@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { CreatePurchaseInvoiceDTO, UpdatePurchaseInvoiceDTO, toNumber } from './PurchaseInvoiceTypes';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
 
 // Expiry dates are entered as calendar dates. Keep stock eligible through the
 // recorded day rather than rejecting it at midnight at the start of that day.
@@ -159,7 +160,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
 
         // 3. Create Stock Transaction. balanceAfter is a location snapshot, not
         // the hospital aggregate; reports use it to reconcile department/ward stock.
-        await tx.stockTransaction.create({
+        const receiptMovement = await tx.stockTransaction.create({
           data: {
             stockItemId: item.stockItemId, transactionType: 'purchase', quantity: item.quantity,
             balanceAfter: locationBalance.quantity, reference: data.invoiceNumber,
@@ -168,6 +169,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
             wardId: data.receivedAtWardId || undefined
           }
         });
+        await appendStockMovementAudit(tx, 'create', createdById || undefined, receiptMovement, undefined, { workflow: 'purchase_invoice_receipt' });
 
         // 4. Update Global Stock Item
         await tx.stockItem.update({
@@ -183,7 +185,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
   // ==========================================
   // SAFE DELETE (Prevents negative inventory)
   // ==========================================
-  async deleteSafely(id: string) {
+  async deleteSafely(id: string, performedById?: string) {
     return this.prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({ where: { id }, include: { InvoiceItem: true } });
       if (!invoice) throw new Error('Purchase invoice not found');
@@ -277,7 +279,25 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
         }
       }
 
-      // Delete ledger entries
+      // Audit every ledger row being removed before deleting it. These events
+      // share the invoice-reversal transaction, so a failed audit rolls back
+      // both the stock reversal and ledger deletion.
+      const ledgerRows = await tx.stockTransaction.findMany({ where: { invoiceId: id } });
+      for (const movement of ledgerRows) {
+        const snapshot = {
+          id: movement.id,
+          stockItemId: movement.stockItemId,
+          transactionType: movement.transactionType,
+          quantity: movement.quantity,
+          balanceAfter: movement.balanceAfter,
+          performedBy: movement.performedBy,
+          departmentId: movement.departmentId,
+          wardId: movement.wardId,
+          transactionDate: movement.transactionDate,
+          createdAt: movement.createdAt,
+        };
+        await appendStockMovementAudit(tx, 'delete', performedById, movement, snapshot, { workflow: 'purchase_invoice_reversal' });
+      }
       await tx.stockTransaction.deleteMany({ where: { invoiceId: id } });
       await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
       

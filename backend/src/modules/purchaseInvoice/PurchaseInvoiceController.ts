@@ -49,7 +49,7 @@ export class PurchaseInvoiceController extends BaseController {
   });
 
   deleteInvoice = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.deleteInvoice(req.params.id);
+    const result = await this.service.deleteInvoice(req.params.id, req.user?.id);
     return this.ok(res, { deletedInvoice: { id: result.id, invoiceNumber: result.invoiceNumber } }, 'Purchase invoice deleted (stock reversed)');
   });
 
