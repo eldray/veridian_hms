@@ -1614,10 +1614,14 @@ describe('historical postnatal follow-up dates', () => {
     const examDate = new Date('2026-10-10T09:00:00.000Z');
     const nextDate = new Date('2026-10-15T09:00:00.000Z');
     const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
+    const findUnique = vi.fn().mockResolvedValue({ examinationDate: examDate, nextVisitDate: null });
     const { prisma } = antenatalTransactionMock('postnatalRecord', {
-      findUnique: vi.fn().mockResolvedValue({ examinationDate: examDate, nextVisitDate: null }),
+      findUnique,
       update,
     });
+    // Date consistency is checked before the write transaction; expose the same
+    // lookup on the root Prisma client as well as the transaction client.
+    (prisma as any).postnatalRecord = { findUnique };
     const repository = new AntenatalRepository(prisma as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', {
