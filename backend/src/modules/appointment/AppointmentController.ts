@@ -52,6 +52,7 @@ export class AppointmentController extends BaseController {
       const scheduledAt = new Date(`${appointmentDate}T${appointmentTime}:00`); 
       
       const appt = await this.service.createAppointment({ ...rest, scheduledAt }, req.user!.id);
+      (req as any).auditHandled = true;
       return this.created(res, appt, 'Appointment created');
     })
   ];
@@ -76,13 +77,15 @@ export class AppointmentController extends BaseController {
         return this.badRequest(res, 'Appointment date and time are invalid');
       }
 
-      const appt = await this.service.updateAppointment(req.params.id, { ...rest, scheduledAt });
+      const appt = await this.service.updateAppointment(req.params.id, { ...rest, scheduledAt }, req.user!.id);
+      (req as any).auditHandled = true;
       return this.ok(res, appt, 'Appointment updated');
     })
   ];
 
   delete = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    await this.service.deleteAppointment(req.params.id);
+    await this.service.deleteAppointment(req.params.id, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, null, 'Appointment deleted');
   });
 

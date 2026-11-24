@@ -37,14 +37,14 @@ export class FamilyPlanningService extends BaseService {
     return this.repository.getFPHistoryForPatient(patientId);
   }
 
-  async updateFPService(id: string, data: UpdateFPServiceInput) {
+  async updateFPService(id: string, data: UpdateFPServiceInput, actorId: string) {
     // ✅ REMOVED manual existence check. Prisma throws P2025 if not found (mapped to 404).
-    return this.repository.update(id, data);
+    return this.repository.update(id, data, actorId);
   }
 
-  async deleteFPService(id: string) {
+  async deleteFPService(id: string, actorId: string) {
     // ✅ REMOVED manual existence check. Prisma throws P2025 if not found (mapped to 404).
-    await this.repository.delete(id);
+    await this.repository.delete(id, actorId);
   }
 
   async getFPStatistics(startDate?: Date, endDate?: Date) {

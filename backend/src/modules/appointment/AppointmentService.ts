@@ -46,7 +46,7 @@ export class AppointmentService extends BaseService {
     return this.toPresentation(await this.repository.create(data, createdBy));
   }
 
-  async updateAppointment(id: string, data: UpdateAppointmentDTO) {
+  async updateAppointment(id: string, data: UpdateAppointmentDTO, actorId: string) {
     const appt = await this.repository.findById(id);
     if (!appt) throw new Error('Appointment not found');
     if (data.patientId && data.patientId !== appt.patientId) {
@@ -58,12 +58,12 @@ export class AppointmentService extends BaseService {
     if (data.departmentId && !(await this.repository.validateDepartmentExists(data.departmentId))) {
       throw new Error('Department not found');
     }
-    return this.toPresentation(await this.repository.update(id, data));
+    return this.toPresentation(await this.repository.update(id, data, actorId));
   }
 
-  async deleteAppointment(id: string) {
+  async deleteAppointment(id: string, actorId: string) {
     if (!(await this.repository.findById(id))) throw new Error('Appointment not found');
-    return this.repository.delete(id);
+    return this.repository.delete(id, actorId);
   }
 
   async getStatistics(dateFrom?: Date) { return this.repository.getStatistics(dateFrom); }
