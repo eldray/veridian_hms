@@ -10,6 +10,7 @@ import {
   PART_II_KEYS,
 } from './ReferralTypes';
 import { getCounterService } from '../../services/CounterService';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
 /** Only declared Part II keys may be merged into a stored structured form. */
 function cleanPartII(raw: unknown): Partial<ReferralPartII> {
@@ -120,7 +121,8 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
   }
 
   async createOutgoing(data: CreateOutgoingReferralDTO, createdById: string) {
-    return this.getModel().create({
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.referralRecord.create({
       data: {
         referralNumber: getCounterService().nextReferralNumber(),
         patientId: data.patientId, attendanceId: data.attendanceId,
@@ -131,11 +133,15 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
         structuredForm: (data.structuredForm as Prisma.InputJsonValue) ?? Prisma.JsonNull
       },
       include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, createdBy: { select: { fullName: true, role: true } } }
+      });
+      await appendAuditLogWithinTransaction(tx, { entityType: 'ReferralRecord', entityId: created.id, action: 'CREATE', performedById: createdById, newState: { status: created.status, referralType: created.referralType }, metadata: { source: 'referral.create', status: created.status } });
+      return created;
     });
   }
 
   async createIncoming(data: CreateIncomingReferralDTO, createdById: string) {
-    return this.getModel().create({
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.referralRecord.create({
       data: {
         referralNumber: getCounterService().nextReferralNumber(),
         patientId: data.patientId, attendanceId: data.attendanceId, referralType: 'incoming',
@@ -145,68 +151,71 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
         structuredForm: (data.structuredForm as Prisma.InputJsonValue) ?? Prisma.JsonNull
       },
       include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, createdBy: { select: { fullName: true, role: true } } }
+      });
+      await appendAuditLogWithinTransaction(tx, { entityType: 'ReferralRecord', entityId: created.id, action: 'CREATE', performedById: createdById, newState: { status: created.status, referralType: created.referralType }, metadata: { source: 'referral.create', status: created.status } });
+      return created;
     });
   }
 
-  async updateStatus(id: string, status: ReferralStatus, notes?: any) {
-    const model = this.getModel();
-    const current = await model.findUnique({
-      where: { id },
-      select: { id: true, status: true, referralType: true, structuredForm: true },
-    });
-    if (!current) throw new NotFoundError('Referral', id);
+  async updateStatus(id: string, status: ReferralStatus, notes: any, performedById: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const model = tx.referralRecord;
+      const current = await model.findUnique({
+        where: { id },
+        select: { id: true, status: true, referralType: true, structuredForm: true },
+      });
+      if (!current) throw new NotFoundError('Referral', id);
 
-    const allowedTransitions: Record<string, ReferralStatus[]> = {
-      pending: ['accepted', 'cancelled'],
-      accepted: ['completed'],
-      completed: [],
-      cancelled: [],
-    };
-    if (!allowedTransitions[current.status]?.includes(status)) {
-      throw new ConflictError(
-        current.status === status
+      const allowedTransitions: Record<string, ReferralStatus[]> = {
+        pending: ['accepted', 'cancelled'], accepted: ['completed'], completed: [], cancelled: [],
+      };
+      if (!allowedTransitions[current.status]?.includes(status)) {
+        throw new ConflictError(current.status === status
           ? `Referral is already ${status}`
-          : `Referral cannot transition from ${current.status} to ${status}`,
-      );
-    }
+          : `Referral cannot transition from ${current.status} to ${status}`);
+      }
+      const partII = status === 'accepted' ? cleanPartII(notes?.partII) : {};
+      if (status === 'accepted' && current.referralType === 'outgoing') {
+        if (!partII.findings?.trim()) throw new ValidationError('Part II findings are required when accepting a referral');
+        if (!partII.receiverName?.trim()) throw new ValidationError('Part II must name the clinician reporting back');
+      }
+      const updateData: any = { status };
+      if (Object.keys(partII).length > 0) {
+        const existing = (current.structuredForm ?? {}) as ReferralStructuredForm;
+        updateData.structuredForm = { ...(existing as any), partII: { ...(existing.partII ?? {}), ...partII } } as Prisma.InputJsonValue;
+      }
+      if (status === 'accepted' && notes?.acceptanceNotes) updateData.outcomeNotes = notes.acceptanceNotes;
+      else if (status === 'cancelled' && (notes?.cancellationReason || notes?.rejectedReason)) updateData.outcomeNotes = notes.cancellationReason || notes.rejectedReason;
+      else if (status === 'completed') updateData.completedAt = new Date();
+      if (notes?.outcomeNotes) updateData.outcomeNotes = notes.outcomeNotes;
 
-    // Accepting an outgoing referral is where the receiving clinician's report back is
-    // captured, so Part II lands on the same record the referral was raised from.
-    const partII = status === 'accepted' ? cleanPartII(notes?.partII) : {};
-    if (status === 'accepted' && current.referralType === 'outgoing') {
-      if (!partII.findings?.trim()) throw new ValidationError('Part II findings are required when accepting a referral');
-      if (!partII.receiverName?.trim()) throw new ValidationError('Part II must name the clinician reporting back');
-    }
-
-    const updateData: any = { status };
-    if (Object.keys(partII).length > 0) {
-      const existing = (current.structuredForm ?? {}) as ReferralStructuredForm;
-      updateData.structuredForm = {
-        ...(existing as any),
-        partII: { ...(existing.partII ?? {}), ...partII },
-      } as Prisma.InputJsonValue;
-    }
-    if (status === 'accepted' && notes?.acceptanceNotes) {
-      updateData.outcomeNotes = notes.acceptanceNotes;
-    } else if (status === 'cancelled' && (notes?.cancellationReason || notes?.rejectedReason)) {
-      updateData.outcomeNotes = notes.cancellationReason || notes.rejectedReason;
-    } else if (status === 'completed') {
-      updateData.completedAt = new Date();
-    }
-    if (notes?.outcomeNotes) updateData.outcomeNotes = notes.outcomeNotes;
-
-    // Guard the write against a concurrent status change after the initial read.
-    const updated = await model.updateMany({
-      where: { id, status: current.status },
-      data: updateData,
+      const updated = await model.updateMany({ where: { id, status: current.status }, data: updateData });
+      if (updated.count !== 1) throw new ConflictError('Referral status changed; refresh and try again');
+      const result = await model.findUnique({
+        where: { id },
+        include: { patient: { select: { id: true, surname: true, otherNames: true } } },
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'ReferralRecord', entityId: id, action: 'UPDATE', performedById,
+        previousState: { status: current.status }, newState: { status },
+        metadata: { source: 'referral.status', from: current.status, to: status, partIIUpdated: Object.keys(partII).length > 0 },
+      });
+      return result;
     });
-    if (updated.count !== 1) {
-      throw new ConflictError('Referral status changed; refresh and try again');
-    }
+  }
 
-    return model.findUnique({
-      where: { id },
-      include: { patient: { select: { id: true, surname: true, otherNames: true } } },
+  async deleteReferral(id: string, performedById: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const current = await tx.referralRecord.findUnique({
+        where: { id }, select: { id: true, status: true, referralType: true },
+      });
+      if (!current) throw new NotFoundError('Referral', id);
+      await tx.referralRecord.delete({ where: { id } });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'ReferralRecord', entityId: id, action: 'DELETE', performedById,
+        previousState: { status: current.status, referralType: current.referralType },
+        metadata: { source: 'referral.delete' },
+      });
     });
   }
 
