@@ -8,6 +8,7 @@ import {
   FILE_ACCESS_TTL_SECONDS,
   createFileAccessToken,
   isServableUploadFilename,
+  isFileAccessVersionCurrent,
   parseCookies,
   resolveUploadPath,
   verifyFileAccessToken,
@@ -68,7 +69,7 @@ export async function serveUploadFile(req: Request, res: Response): Promise<void
     return;
   }
 
-  if (!viewer || !viewer.isActive || viewer.version !== session.version) {
+  if (!viewer || !viewer.isActive || !isFileAccessVersionCurrent(session.version, viewer.version)) {
     res.status(401).json({ success: false, message: 'Account is inactive or no longer exists' });
     return;
   }
