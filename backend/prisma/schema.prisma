@@ -1157,6 +1157,7 @@ model Payment {
 model Refund {
   id            String        @id @default(cuid())
   refundNumber  String        @unique
+  idempotencyKey String?       @unique
   billId        String
   paymentId     String?
   amount        Decimal       @db.Decimal(15, 2)

@@ -68,6 +68,7 @@ export interface RefundPaymentInput {
   refundMethod?: PaymentMethod;
   reference?: string;
   reason: string;
+  idempotencyKey?: string;
 }
 
 export interface BillFilter {

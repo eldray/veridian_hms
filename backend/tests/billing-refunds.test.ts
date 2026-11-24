@@ -31,6 +31,7 @@ const buildTx = (options: {
   bill?: Record<string, any>;
   payment?: Record<string, any> | null;
   priorRefunds?: Array<{ amount: any }>;
+  priorRefund?: Record<string, any> | null;
   updatedBill?: Record<string, any>;
 } = {}) => {
   const refundCreate = vi.fn().mockResolvedValue({
@@ -50,6 +51,7 @@ const buildTx = (options: {
       findUnique: vi.fn().mockResolvedValue(options.payment === undefined ? payment() : options.payment),
     },
     refund: {
+      findUnique: vi.fn().mockResolvedValue(options.priorRefund ?? null),
       findMany: vi.fn().mockResolvedValue(options.priorRefunds ?? []),
       create: refundCreate,
     },
@@ -101,6 +103,7 @@ describe('bill repository refunds', () => {
       amount: 40,
       reason: 'Patient declined the procedure',
       reference: 'VCH-22',
+      idempotencyKey: 'refund-new-key',
     }, 'cashier-1');
 
     expect(refundCreate).toHaveBeenCalledWith({
@@ -112,6 +115,7 @@ describe('bill repository refunds', () => {
         refundMethod: 'cash',
         reference: 'VCH-22',
         reason: 'Patient declined the procedure',
+        idempotencyKey: 'refund-new-key',
         processedById: 'cashier-1',
       }),
     });
@@ -124,6 +128,59 @@ describe('bill repository refunds', () => {
       data: { totalBill: 100, paidAmount: 60, outstandingBalance: 40 },
     });
     expect(result.refund.id).toBe('refund-1');
+  });
+
+  it('returns the original refund when the same idempotency key is retried', async () => {
+    const originalRefund = {
+      id: 'refund-original',
+      refundNumber: 'RFD-10001',
+      billId: 'bill-1',
+      paymentId: 'payment-1',
+      amount: 40,
+      refundMethod: 'cash',
+      reference: 'VCH-22',
+      reason: 'Patient declined the procedure',
+      processedById: 'cashier-1',
+    };
+    const { tx, refundCreate, billUpdate, attendanceUpdate } = buildTx({ priorRefund: originalRefund });
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const result = await new BillRepository(prisma).createRefund('bill-1', {
+      paymentId: 'payment-1',
+      amount: 40,
+      refundMethod: 'cash',
+      reference: 'VCH-22',
+      reason: 'Patient declined the procedure',
+      idempotencyKey: 'refund-retry-key',
+    }, 'cashier-1');
+
+    expect(tx.refund.findUnique).toHaveBeenCalledWith({ where: { idempotencyKey: 'refund-retry-key' } });
+    expect(result.refund.id).toBe('refund-original');
+    expect((result as any).duplicate).toBe(true);
+    expect(refundCreate).not.toHaveBeenCalled();
+    expect(billUpdate).not.toHaveBeenCalled();
+    expect(attendanceUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rejects reuse of a refund idempotency key with changed details or operator', async () => {
+    const originalRefund = {
+      id: 'refund-original',
+      billId: 'bill-1',
+      paymentId: 'payment-1',
+      amount: 40,
+      refundMethod: 'cash',
+      reference: null,
+      reason: 'Original refund',
+      processedById: 'cashier-1',
+    };
+    const { tx, refundCreate } = buildTx({ priorRefund: originalRefund });
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    await expect(new BillRepository(prisma).createRefund('bill-1', {
+      paymentId: 'payment-1',
+      amount: 20,
+      reason: 'Changed refund',
+      idempotencyKey: 'refund-retry-key',
+    }, 'cashier-1')).rejects.toThrow(/already been used with different details/i);
+    expect(refundCreate).not.toHaveBeenCalled();
   });
 
   it('allows a partial refund against one payment', async () => {
@@ -202,6 +259,32 @@ describe('bill repository refunds', () => {
     expect(cancelled.refundCreate).not.toHaveBeenCalled();
   });
 
+  it('returns an existing refund on a legacy billing retry', async () => {
+    const originalRefund = {
+      id: 'legacy-refund-original',
+      billId: 'bill-1',
+      paymentId: 'payment-1',
+      amount: 25,
+      refundMethod: 'cash',
+      reference: null,
+      reason: 'Legacy refund retry',
+      processedById: 'accounts-1',
+    };
+    const { tx, refundCreate, billUpdate } = buildTx({ priorRefund: originalRefund });
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const result = await new BillingRepository(prisma).createRefund('bill-1', {
+      paymentId: 'payment-1',
+      amount: 25,
+      reason: 'Legacy refund retry',
+      idempotencyKey: 'legacy-refund-retry',
+    }, 'accounts-1');
+
+    expect(result.refund.id).toBe('legacy-refund-original');
+    expect((result as any).duplicate).toBe(true);
+    expect(refundCreate).not.toHaveBeenCalled();
+    expect(billUpdate).not.toHaveBeenCalled();
+  });
+
   it('applies the same rules on the legacy billing module', async () => {
     const { tx, refundCreate, billUpdate } = buildTx({
       updatedBill: bill({ paidAmount: 0, balance: 100, status: 'pending' }),
@@ -213,10 +296,11 @@ describe('bill repository refunds', () => {
       paymentId: 'payment-1',
       amount: 100,
       reason: 'Full refund',
+      idempotencyKey: 'legacy-refund-key',
     }, 'accounts-1');
 
     expect(refundCreate).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ amount: 100, processedById: 'accounts-1' }),
+      data: expect.objectContaining({ amount: 100, idempotencyKey: 'legacy-refund-key', processedById: 'accounts-1' }),
     }));
     expect(billUpdate).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ paidAmount: 0, balance: 100, status: 'pending' }),

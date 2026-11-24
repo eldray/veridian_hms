@@ -37,6 +37,7 @@ export interface RefundPaymentDTO {
   refundMethod?: PaymentMethod;
   reference?: string;
   reason: string;
+  idempotencyKey?: string;
 }
 
 export interface UpdateBillStatusDTO {

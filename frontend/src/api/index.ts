@@ -2102,7 +2102,7 @@ export const addPaymentToBill = (billId: string, data: any) =>
  */
 export const refundBillPayment = (
   billId: string,
-  data: { paymentId: string; amount: number; refundMethod?: string; reference?: string; reason: string }
+  data: { paymentId: string; amount: number; refundMethod?: string; reference?: string; reason: string; idempotencyKey: string }
 ) => api.post(`/bills/${billId}/refunds`, data).then(r => r.data?.data ?? r.data);
 
 export const generateBillFromEncounter = (encounterId: string) =>

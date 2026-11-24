@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Undo2, X } from 'lucide-react';
 import { Button, cn, Field, INPUT } from '../ui';
 import { formatCurrency } from '../../utils/currency';
+import { uuid } from '../../utils/uuid';
 
 /**
  * One recorded payment, as far as the refund dialog needs to know it.
@@ -22,6 +23,7 @@ export interface RefundSubmission {
   refundMethod: string;
   reference?: string;
   reason: string;
+  idempotencyKey: string;
 }
 
 interface RefundPaymentModalProps {
@@ -39,6 +41,30 @@ const refundableOn = (payment: RefundablePayment) =>
   Math.max(0, roundMoney(Number(payment.amount) - refundedOn(payment)));
 
 const METHODS = ['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque'];
+const refundAttemptStorageKey = (paymentId: string) => `veridian:refund-attempt:${paymentId}`;
+
+const getOrCreateRefundAttemptKey = (paymentId: string): string => {
+  try {
+    const storageKey = refundAttemptStorageKey(paymentId);
+    const existing = sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+    const key = uuid();
+    sessionStorage.setItem(storageKey, key);
+    return key;
+  } catch {
+    return uuid();
+  }
+};
+
+const rotateRefundAttemptKey = (paymentId: string): string => {
+  const key = uuid();
+  try {
+    sessionStorage.setItem(refundAttemptStorageKey(paymentId), key);
+  } catch {
+    // The in-memory key still protects retries while this dialog remains mounted.
+  }
+  return key;
+};
 
 /**
  * Money handed back against one payment.
@@ -53,6 +79,7 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
   const [reason, setReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [idempotencyKey, setIdempotencyKey] = useState(() => uuid());
 
   useEffect(() => {
     if (!payment) return;
@@ -61,6 +88,8 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
     setReference('');
     setReason('');
     setError('');
+    // Keep this key stable while the dialog remains open, including after a lost response.
+    setIdempotencyKey(getOrCreateRefundAttemptKey(payment.id));
   }, [payment]);
 
   if (!payment) return null;
@@ -89,7 +118,11 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
         refundMethod: method,
         reference: reference.trim() || undefined,
         reason: reason.trim(),
+        idempotencyKey,
       });
+      // Rotate only after confirmed success. Network failures retain the key so
+      // retrying the same form cannot create a second refund.
+      setIdempotencyKey(rotateRefundAttemptKey(payment.id));
     } catch (err: any) {
       setError(err?.message || 'The refund could not be processed.');
     } finally {
