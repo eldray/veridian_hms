@@ -66,6 +66,28 @@ const routes = scan();
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 describe('route authorization, route by route', () => {
+  it('restricts patient demographics and EMR reads to patient-management roles', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'patient', 'PatientRoutes.ts'), 'utf8');
+    const readRoutes = source.split('\\n').filter((line) => line.includes('router.get('));
+    expect(readRoutes.length).toBeGreaterThan(0);
+    for (const route of readRoutes) expect(route).toContain('requirePatientManagement');
+  });
+
+  it('restricts family-planning read APIs to the page-authorised roles', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'familyPlanning', 'FamilyPlanningRoutes.ts'), 'utf8');
+    const readRoutes = source.split('\\n').filter((line) => line.includes('router.get('));
+    expect(readRoutes.length).toBeGreaterThan(0);
+    for (const route of readRoutes) expect(route).toContain('requireRole(readRoles)');
+  });
+
+  it('restricts referral read APIs to the page-authorised roles', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'referral', 'ReferralRoutes.ts'), 'utf8');
+    const readRoutes = source.split('\\n').filter((line) => line.includes('router.get('));
+    expect(readRoutes.length).toBeGreaterThan(0);
+    for (const route of readRoutes) expect(route).toContain('requireRole(readRoles)');
+  });
+
+
   it('uses the authenticated staff member for immunization performer and recorder attribution', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'immunization', 'ImmunizationRoutes.ts'), 'utf8');
     expect(source).toContain('const recordedBy = req.user!.id;');
