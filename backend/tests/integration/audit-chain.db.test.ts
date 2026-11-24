@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import {
   appendAuditLog,
+  appendAuditLogWithinTransaction,
   verifyAuditChain,
   type StoredAuditRow,
 } from '../../src/services/auditChain';
@@ -70,6 +71,38 @@ describeDb('audit chain against PostgreSQL', () => {
 
     expect(result.ok).toBe(true);
     expect(result.checked).toBe(8);
+  });
+
+  it('commits audit evidence in the caller transaction and rolls it back with the business write', async () => {
+    const committed = await prisma.$transaction(async (tx) => {
+      return appendAuditLogWithinTransaction(tx, {
+        entityType: 'DbTest',
+        entityId: `${marker}-transactional`,
+        action: 'create',
+        performedById: userId,
+        newState: { committed: true },
+        metadata: { marker, source: 'caller_transaction' },
+      });
+    });
+
+    expect(committed.entityId).toBe(`${marker}-transactional`);
+
+    await expect(prisma.$transaction(async (tx) => {
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'DbTest',
+        entityId: `${marker}-rolled-back`,
+        action: 'create',
+        performedById: userId,
+        newState: { committed: false },
+        metadata: { marker, source: 'caller_transaction' },
+      });
+      throw new Error('force business transaction rollback');
+    })).rejects.toThrow('force business transaction rollback');
+
+    const committedRow = await prisma.auditLog.findFirst({ where: { entityId: `${marker}-transactional` } });
+    const rolledBackRow = await prisma.auditLog.findFirst({ where: { entityId: `${marker}-rolled-back` } });
+    expect(committedRow).not.toBeNull();
+    expect(rolledBackRow).toBeNull();
   });
 
   it('detects a row edited after it was written', async () => {
