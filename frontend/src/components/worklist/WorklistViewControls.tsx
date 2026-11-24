@@ -82,7 +82,7 @@ export const WorklistViewControls: React.FC<WorklistViewControlsProps> = ({ depa
             value={dateFrom}
             onChange={(e) => setDateRange({ dateFrom: e.target.value, dateTo })}
             className="px-2 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]"
-            aria-label={department === "lab" ? "Request date from" : "Worklist date from"}
+            aria-label={["lab", "pharmacy", "scans", "theatre"].includes(department) ? "Request date from" : "Visit date from"}
           />
           <span>to</span>
           <input
@@ -90,7 +90,7 @@ export const WorklistViewControls: React.FC<WorklistViewControlsProps> = ({ depa
             value={dateTo}
             onChange={(e) => setDateRange({ dateFrom, dateTo: e.target.value })}
             className="px-2 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]"
-            aria-label={department === "lab" || department === "pharmacy" || department === "scans" || department === "theatre" ? "Request date to" : "Visit date to"}
+            aria-label={["lab", "pharmacy", "scans", "theatre"].includes(department) ? "Request date to" : "Visit date to"}
           />
           {(dateFrom || dateTo) && (
             <button
