@@ -1265,7 +1265,11 @@ describe('maternal update validation', () => {
 
   it('accepts a common blood-pressure format and rejects impossible postnatal readings', async () => {
     const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
-    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
+    const { prisma } = antenatalTransactionMock('postnatalRecord', {
+      findUnique: vi.fn().mockResolvedValue({ examinationDate: new Date(), nextVisitDate: null }),
+      update,
+    });
+    const repository = new AntenatalRepository(prisma as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', { bloodPressure: '120 / 80' }, 'midwife-1'))
       .resolves.toEqual({ id: 'postnatal-1' });
@@ -1836,7 +1840,7 @@ describe('medication administration requires a due dose', () => {
 
 describe('maternal booking history retention', () => {
   it('deactivates an antenatal booking instead of deleting its clinical history', async () => {
-    const findUnique = vi.fn().mockResolvedValue({ id: 'booking-1' });
+    const findUnique = vi.fn().mockResolvedValue({ id: 'booking-1', isActive: true });
     const update = vi.fn().mockResolvedValue({ id: 'booking-1', isActive: false });
     const { prisma } = antenatalTransactionMock('antenatalBooking', { findUnique, update });
     const repository = new AntenatalRepository(prisma as any);
