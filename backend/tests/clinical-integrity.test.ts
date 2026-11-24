@@ -1288,12 +1288,17 @@ describe('investigation and procedure status integrity', () => {
 
   it('prevents a completed scan from being reopened', async () => {
     const scanUpdate = vi.fn();
-    const repository = new EncounterRepository({
-      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       scan: {
         findUnique: vi.fn().mockResolvedValue({ id: 'scan-1', status: 'completed' }),
-        update: scanUpdate,
+        updateMany: scanUpdate,
       },
+      attendance: { findUnique: vi.fn() },
+    };
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
 
     await expect(repository.updateScanStatus('scan-1', 'in_progress', {}, 'staff-1'))
