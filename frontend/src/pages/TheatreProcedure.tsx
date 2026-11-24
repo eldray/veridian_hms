@@ -465,7 +465,7 @@ export default function TheatreProcedure() {
       ? selectedProcedure.clinicalRecord.auditLog : [];
     const nextClinicalRecord = isMinor
       ? { ...(selectedProcedure.clinicalRecord || {}), minorProcedure: currentMinor, workflow: 'minor' }
-      : { ...currentClinicalRecord, anesthesiaType, workflow: 'theatre' };
+      : { ...currentClinicalRecord, auditLog: currentAudit, anesthesiaType, workflow: 'theatre' };
 
     const unchanged = isMinor
       ? JSON.stringify(selectedProcedure.clinicalRecord?.minorProcedure || {}) === JSON.stringify(currentMinor) &&
@@ -784,10 +784,12 @@ export default function TheatreProcedure() {
       } else {
         setIsEditingCompletedProcedure(false);
       }
-      setMinorProcedureRecord({
-        indication: '', site: '', findings: '', procedureDetails: '',
-        anaesthesia: 'local', complications: '', aftercare: '', outcome: 'successful',
-      });
+      if (!isCompletedEdit) {
+        setMinorProcedureRecord({
+          indication: '', site: '', findings: '', procedureDetails: '',
+          anaesthesia: 'local', complications: '', aftercare: '', outcome: 'successful',
+        });
+      }
       await getAttendance(selectedAttendanceId);
       if (!isCompletedEdit) await calculateBill(selectedAttendanceId);
     } catch (err: any) {
