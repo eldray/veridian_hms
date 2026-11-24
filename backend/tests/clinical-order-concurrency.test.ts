@@ -21,10 +21,14 @@ describe('clinical order concurrent-update guards', () => {
 
   it('blocks scan result updates when the encounter is closed', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
-      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
       scan: { findUnique: vi.fn().mockResolvedValue({ id: 'scan-1', attendanceId: 'attendance-1', status: 'requested' }), updateMany },
+    };
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
 
     await expect(repository.updateScanStatus('scan-1', 'completed', { result: 'Report' }, 'staff-1'))
@@ -87,8 +91,8 @@ describe('clinical order concurrent-update guards', () => {
 
   it('requires report text before completing a scan order', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
-      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       scan: {
         findUnique: vi.fn().mockResolvedValue({
@@ -97,6 +101,10 @@ describe('clinical order concurrent-update guards', () => {
         }),
         updateMany,
       },
+    };
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
 
     await expect(repository.updateScanStatus('scan-1', 'completed', {
@@ -131,13 +139,17 @@ describe('clinical order concurrent-update guards', () => {
 
   it('does not overwrite a scan changed by another request', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
-    const prisma: any = {
-      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       scan: {
         findUnique: vi.fn().mockResolvedValue({ id: 'scan-1', attendanceId: 'attendance-1', status: 'requested' }),
         updateMany,
       },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
     const repository = new EncounterRepository(prisma);
 
