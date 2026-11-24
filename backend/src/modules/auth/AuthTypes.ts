@@ -11,6 +11,7 @@ export interface ChangePasswordRequestDTO { currentPassword: string; newPassword
 
 export interface TokenPayload {
   userId: string; username: string; role: UserRole; seniority: Seniority;
+  version: number; // Incremented whenever the account password is changed or reset.
   permissions: string[]; // ✅ NEW: For Dynamic RBAC
   iat?: number; exp?: number;
   departmentId: string;

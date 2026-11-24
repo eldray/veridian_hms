@@ -38,7 +38,15 @@ describe('password changes enforce the policy', () => {
   const currentPassword = 'Current-Password-1';
 
   const buildService = async () => {
-    const service = new AuthService({} as any);
+    const prisma = {
+      user: { update: vi.fn().mockResolvedValue(undefined) },
+      refreshToken: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      $transaction: vi.fn(async (work: any) => work({
+        user: prisma.user,
+        refreshToken: prisma.refreshToken,
+      })),
+    };
+    const service = new AuthService(prisma as any);
     const repository = {
       findById: vi.fn().mockResolvedValue({
         id: 'user-1',
@@ -46,15 +54,13 @@ describe('password changes enforce the policy', () => {
         email: 'eldray@example.com',
         password: await bcrypt.hash(currentPassword, 4),
       }),
-      updateUser: vi.fn().mockResolvedValue(undefined),
-      deleteRefreshTokenForUser: vi.fn().mockResolvedValue(undefined),
     };
     (service as any).repository = repository;
-    return { service, repository };
+    return { service, repository, prisma };
   };
 
   it('rejects a short new password without changing the account', async () => {
-    const { service, repository } = await buildService();
+    const { service, repository, prisma } = await buildService();
 
     const result = await service.changePassword('user-1', {
       currentPassword,
@@ -63,11 +69,11 @@ describe('password changes enforce the policy', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/at least 12/);
-    expect(repository.updateUser).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it('rejects reusing the current password', async () => {
-    const { service, repository } = await buildService();
+    const { service, prisma } = await buildService();
 
     const result = await service.changePassword('user-1', {
       currentPassword,
@@ -76,11 +82,11 @@ describe('password changes enforce the policy', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/different/);
-    expect(repository.updateUser).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it('stores a strong password and revokes the other sessions', async () => {
-    const { service, repository } = await buildService();
+    const { service, prisma } = await buildService();
 
     const result = await service.changePassword('user-1', {
       currentPassword,
@@ -88,8 +94,12 @@ describe('password changes enforce the policy', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(repository.updateUser).toHaveBeenCalledOnce();
-    expect(repository.deleteRefreshTokenForUser).toHaveBeenCalledWith('user-1');
+    expect(prisma.$transaction).toHaveBeenCalledOnce();
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: expect.objectContaining({ version: { increment: 1 } }),
+    });
+    expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'user-1' } });
   });
 });
 
@@ -122,15 +132,29 @@ describe('account creation enforces the policy', () => {
 
 describe('administrator password reset', () => {
   const buildService = (role = 'nurse') => {
-    const prisma = {
+    const prisma: any = {
+      user: {
+        update: vi.fn().mockResolvedValue({
+          id: 'user-9', username: 'ward.nurse', fullName: 'Ward Nurse',
+          email: 'ward.nurse@example.com', phone: null, imageUrl: null,
+          licenseNumber: null, specialization: null, role, seniority: 'JUNIOR',
+          isActive: true, departmentId: null, version: 1,
+          department: null, headedDepartment: null,
+          createdAt: new Date(), updatedAt: new Date(),
+        }),
+      },
       passwordResetRequest: {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       refreshToken: {
         deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
-      $transaction: vi.fn().mockResolvedValue([]),
     };
+    prisma.$transaction = vi.fn(async (work: any) => work({
+      user: prisma.user,
+      passwordResetRequest: prisma.passwordResetRequest,
+      refreshToken: prisma.refreshToken,
+    }));
     const service = new UserService(prisma as any);
     const repository = {
       findById: vi.fn().mockResolvedValue({
@@ -160,7 +184,7 @@ describe('administrator password reset', () => {
       service.resetUserPassword('user-9', 'weak', { userId: 'admin-1', role: 'admin' }),
     ).rejects.toThrow(/at least 12/);
 
-    expect(repository.update).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -172,12 +196,14 @@ describe('administrator password reset', () => {
       role: 'admin',
     });
 
-    const [userId, data] = repository.update.mock.calls[0];
-    expect(userId).toBe('user-9');
+    const updateArgs = prisma.user.update.mock.calls[0][0];
+    expect(updateArgs.where).toEqual({ id: 'user-9' });
+    const data = updateArgs.data;
     expect(data.password).not.toBe('Ward-Round-2026!');
     expect(await bcrypt.compare('Ward-Round-2026!', data.password)).toBe(true);
     expect(data.resetToken).toBeNull();
     expect(data.resetExpiry).toBeNull();
+    expect(data.version).toEqual({ increment: 1 });
     expect(prisma.passwordResetRequest.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { userId: 'user-9', status: { in: ['pending', 'approved'] } },
       data: expect.objectContaining({ status: 'completed', reviewedById: 'admin-1', codeHash: null, expiresAt: null }),
@@ -187,7 +213,7 @@ describe('administrator password reset', () => {
   });
 
   it('audits the reset without recording the password', async () => {
-    const { service, repository } = buildService();
+    const { service, prisma } = buildService();
     const auditLogger = (service as any).auditLogger;
 
     await service.resetUserPassword('user-9', 'Ward-Round-2026!', {
@@ -200,17 +226,17 @@ describe('administrator password reset', () => {
     expect(entry.performedById).toBe('admin-1');
     expect(entry.entityId).toBe('user-9');
     expect(JSON.stringify(entry)).not.toMatch(/Ward-Round|passwordHash|\$2[aby]\$/);
-    expect(repository.update).toHaveBeenCalledOnce();
+    expect(prisma.user.update).toHaveBeenCalledOnce();
   });
 
   it('will not let an admin hand out a super-admin password', async () => {
-    const { service, repository } = buildService('super_admin');
+    const { service, prisma } = buildService('super_admin');
 
     await expect(
       service.resetUserPassword('user-9', 'Ward-Round-2026!', { userId: 'admin-1', role: 'admin' }),
     ).rejects.toThrow(/super admin/i);
 
-    expect(repository.update).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
 
