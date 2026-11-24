@@ -192,6 +192,7 @@ export default function TheatreProcedure() {
     postOpDestination: '', postOpPlan: '', handoverNotes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditingCompletedProcedure, setIsEditingCompletedProcedure] = useState(false);
   const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [minorProcedureRecord, setMinorProcedureRecord] = useState({
@@ -385,6 +386,8 @@ export default function TheatreProcedure() {
 
   const selectedProcedure = procedures.find((p: any) => p.id === selectedProcedureId);
   const procedureDocumentationUnlocked = !!selectedProcedure && ['in_progress', 'completed'].includes(String(selectedProcedure.status || '').toLowerCase());
+  const canEditCompletedProcedure = !!selectedProcedure && selectedProcedure.status === 'completed' && canManageProcedures && isEditingCompletedProcedure;
+  const procedureRecordEditable = !!selectedProcedure && (selectedProcedure.status === 'in_progress' || canEditCompletedProcedure);
 
   const appliedInitialProcedureId = useRef<string | null>(null);
   useEffect(() => {
@@ -440,12 +443,18 @@ export default function TheatreProcedure() {
       resetForm();
     }
     setOpenTile(null);
-  }, [selectedProcedure]);
+  }, [selectedProcedure?.id]);
+
+  useEffect(() => {
+    setIsEditingCompletedProcedure(false);
+  }, [selectedProcedureId]);
 
   // Debounced draft autosave. It preserves the procedure's current status and never completes work.
   useEffect(() => {
-    if (!selectedProcedure || !selectedAttendanceId || !selectedProcedureId || !canUpdateProcedure ||
-        String(selectedProcedure.status || '').toLowerCase() !== 'in_progress') {
+    if (!selectedProcedure || !selectedAttendanceId || !selectedProcedureId ||
+        (!canUpdateProcedure && !canEditCompletedProcedure) ||
+        !['in_progress', 'completed'].includes(String(selectedProcedure.status || '').toLowerCase()) ||
+        (selectedProcedure.status === 'completed' && !canEditCompletedProcedure)) {
       setAutosaveStatus('idle');
       return;
     }
@@ -506,7 +515,7 @@ export default function TheatreProcedure() {
     autosaveTimer.current = timer;
     return () => clearTimeout(timer);
   }, [
-    selectedProcedureId, selectedAttendanceId, selectedProcedure, canUpdateProcedure,
+    selectedProcedureId, selectedAttendanceId, selectedProcedure, canUpdateProcedure, canEditCompletedProcedure,
     minorProcedureRecord, clinicalRecord, anesthesiaNotes, intraOperativeNotes,
     postOperativeNotes, bloodLoss, complications, hasComplications, outcome,
     anesthesiaType, user?.id, user?.fullName, user?.email, user?.username,
@@ -616,8 +625,8 @@ export default function TheatreProcedure() {
       toastError('Selection required', 'Please select a procedure');
       return;
     }
-    if (!canUpdateProcedure) {
-      toastError('Access denied', 'Cannot update completed/cancelled attendance');
+    if (!canUpdateProcedure && !canEditCompletedProcedure) {
+      toastError('Access denied', 'This procedure record cannot be edited in the current state.');
       return;
     }
     const customProtocolFields = Array.isArray(clinicalRecord.customProtocolFields) ? clinicalRecord.customProtocolFields : [];
@@ -685,7 +694,7 @@ export default function TheatreProcedure() {
     setIsSubmitting(true);
     try {
       await updateProcedureStatus(selectedAttendanceId, selectedProcedureId, {
-        status: complete ? 'completed' : 'in_progress',
+        status: complete ? 'completed' : (selectedProcedure?.status === 'completed' ? 'completed' : 'in_progress'),
         anesthesiaNotes: anesthesiaNotes || null,
         intraOperativeNotes: intraOperativeNotes || null,
         postOperativeNotes: postOperativeNotes || null,
@@ -717,7 +726,8 @@ export default function TheatreProcedure() {
         await getAttendance(selectedAttendanceId);
         await calculateBill(selectedAttendanceId);
       } else {
-        success('Theatre record saved', 'Your procedure documentation has been saved as in progress');
+        success('Theatre record saved', selectedProcedure?.status === 'completed' ? 'Changes to the completed procedure have been saved.' : 'Your procedure documentation has been saved as in progress');
+        if (selectedProcedure?.status === 'completed') setIsEditingCompletedProcedure(false);
         await getAttendance(selectedAttendanceId);
       }
     } catch (err: any) {
@@ -732,8 +742,8 @@ export default function TheatreProcedure() {
       toastError('Selection required', 'Select the minor procedure before saving.');
       return;
     }
-    if (!canUpdateProcedure) {
-      toastError('Access denied', 'Cannot update a completed/cancelled attendance.');
+    if (!canUpdateProcedure && !canEditCompletedProcedure) {
+      toastError('Access denied', 'This procedure record cannot be edited in the current state.');
       return;
     }
     if (!minorProcedureRecord.procedureDetails.trim()) {
@@ -748,7 +758,7 @@ export default function TheatreProcedure() {
       const auditLog = Array.isArray(previousRecord.auditLog) ? previousRecord.auditLog : [];
       const actor = user?.fullName || user?.email || user?.username || user?.id || 'Clinical user';
       await updateProcedureStatus(selectedAttendanceId, selectedProcedureId, {
-        status: 'completed',
+        status: selectedProcedure.status === 'completed' ? 'completed' : 'completed',
         performedById: user?.id || '',
         performedAt: now,
         outcome: minorProcedureRecord.outcome,
@@ -758,22 +768,27 @@ export default function TheatreProcedure() {
           minorProcedure: { ...minorProcedureRecord },
           workflow: 'minor',
           auditLog: [...auditLog, {
-            action: 'procedure_documented',
+            action: selectedProcedure.status === 'completed' ? 'completed_procedure_record_edited' : 'procedure_documented',
             userId: user?.id || null,
             userLabel: actor,
             timestamp: now,
           }],
         },
       });
-      success('Procedure saved', 'Minor procedure documentation has been recorded.');
-      setActiveTab('procedures');
-      setSelectedProcedureId('');
-      setMinorProcedureRecord({
-        indication: '', site: '', findings: '', procedureDetails: '',
-        anaesthesia: 'local', complications: '', aftercare: '', outcome: 'successful',
-      });
+      if (selectedProcedure.status === 'completed') {
+        success('Changes saved', 'The completed minor procedure record has been updated.');
+        setIsEditingCompletedProcedure(false);
+      } else {
+        success('Procedure saved', 'Minor procedure documentation has been recorded.');
+        setActiveTab('procedures');
+        setSelectedProcedureId('');
+        setMinorProcedureRecord({
+          indication: '', site: '', findings: '', procedureDetails: '',
+          anaesthesia: 'local', complications: '', aftercare: '', outcome: 'successful',
+        });
+        await calculateBill(selectedAttendanceId);
+      }
       await getAttendance(selectedAttendanceId);
-      await calculateBill(selectedAttendanceId);
     } catch (err: any) {
       toastError('Save failed', err.message || 'Could not save the minor procedure.');
     } finally {
@@ -1066,6 +1081,14 @@ export default function TheatreProcedure() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
+                    {selectedProcedure.status === 'completed' && canManageProcedures && !isEditingCompletedProcedure && (
+                      <button type="button" onClick={() => setIsEditingCompletedProcedure(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-300 text-purple-700 hover:bg-purple-50 text-xs font-bold transition-all">
+                        <Edit className="w-4 h-4" /> Edit entries
+                      </button>
+                    )}
+                    {selectedProcedure.status === 'completed' && canEditCompletedProcedure && (
+                      <button type="button" onClick={() => setIsEditingCompletedProcedure(false)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] text-xs font-semibold">Cancel editing</button>
+                    )}
                     {selectedProcedure.status === 'scheduled' && canUpdateProcedure && (
                       <button
                         type="button"
@@ -1206,6 +1229,8 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: PERI-OPERATIVE RECORD ─────────────────── */}
+              {procedureDocumentationUnlocked && (
+              <fieldset disabled={!procedureRecordEditable} className="contents">
               {procedureDocumentationUnlocked && isTheatreRequiredProcedure(selectedProcedure) && (
                 <div className="space-y-4">
                   <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
@@ -1789,6 +1814,8 @@ export default function TheatreProcedure() {
                 </div>
               )}
 
+              </fieldset>
+
               {/* ── COMPLETION BAR + ACTION BUTTONS ────────────── */}
               {procedureDocumentationUnlocked && (
               <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)] p-4">
@@ -1808,7 +1835,7 @@ export default function TheatreProcedure() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    {(selectedProcedure.status === 'scheduled' || selectedProcedure.status === 'in_progress') && canUpdateProcedure && (
+                    {(selectedProcedure.status === 'scheduled' || selectedProcedure.status === 'in_progress' || canEditCompletedProcedure) && (canUpdateProcedure || canEditCompletedProcedure) && (
                       <>
                         <button
                           onClick={() => handleCancelProcedure(selectedProcedure.id)}
@@ -1816,7 +1843,7 @@ export default function TheatreProcedure() {
                         >
                           Cancel Procedure
                         </button>
-                        {selectedProcedure.status === 'in_progress' && (
+                        {(selectedProcedure.status === 'in_progress' || canEditCompletedProcedure) && (
                           <>
                             <span className="self-center text-[11px] text-[var(--text-tertiary)]">
                               {autosaveStatus === 'saving' ? 'Saving draft…' : autosaveStatus === 'saved' ? 'Draft saved automatically' : autosaveStatus === 'error' ? 'Auto-save failed — check connection' : 'Changes save automatically'}
@@ -1826,7 +1853,7 @@ export default function TheatreProcedure() {
                               disabled={isSubmitting}
                               className="px-4 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 disabled:opacity-50 text-sm font-semibold transition-all"
                             >
-                              Save now
+                              {selectedProcedure.status === 'completed' ? 'Save changes' : 'Save now'}
                             </button>
                             <button
                               onClick={() => handleSubmitTheatreNotes(true)}
@@ -1851,7 +1878,7 @@ export default function TheatreProcedure() {
                     )}
                     {selectedProcedure.status === 'completed' && (
                       <span className="text-xs text-[var(--text-tertiary)] italic">
-                        This procedure is completed and locked.
+                        {isEditingCompletedProcedure ? 'Editing completed record — save changes when finished.' : 'This procedure is completed. Use Edit entries to make an amendment.'}
                       </span>
                     )}
                   </div>
