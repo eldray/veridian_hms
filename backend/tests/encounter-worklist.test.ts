@@ -429,6 +429,60 @@ describe('clinical request worklist timestamps', () => {
     expect(result.data[0].tests[0].id).toBe('new-request');
   });
 
+  it('filters pharmacy prescriptions by prescribedAt and sorts newest request groups first', async () => {
+    const older = new Date('2026-11-24T08:15:00Z');
+    const newest = new Date('2026-11-24T10:45:00Z');
+    const medication = { findMany: vi.fn(async (_args: any) => [
+      { id: 'older-rx', attendanceId: 'old-visit', name: 'Paracetamol', status: 'prescribed', prescribedAt: older, dispensedAt: null, StockItem: null, Attendance: requestAttendance('old') },
+      { id: 'new-rx', attendanceId: 'new-visit', name: 'Amoxicillin', status: 'prescribed', prescribedAt: newest, dispensedAt: null, StockItem: null, Attendance: requestAttendance('new') },
+    ]) };
+    const repository = new EncounterRepository({ medication } as any);
+    const result = await repository.getPharmacyWorklist({ dateFrom: new Date('2026-11-24T00:00:00Z'), dateTo: new Date('2026-11-24T23:59:59Z') });
+    const args = medication.findMany.mock.calls[0][0];
+
+    expect(args.where.prescribedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
+    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.orderBy).toEqual({ prescribedAt: 'desc' });
+    expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
+    expect(result.data[0].medications[0].id).toBe('new-rx');
+  });
+
+  it('filters scan requests by requestedAt and sorts newest request groups first', async () => {
+    const older = new Date('2026-11-24T08:15:00Z');
+    const newest = new Date('2026-11-24T10:45:00Z');
+    const scan = { findMany: vi.fn(async (_args: any) => [
+      { id: 'older-scan', attendanceId: 'old-visit', status: 'requested', requestedAt: older, priority: 'routine', scanType: 'X-ray', Attendance: requestAttendance('old'), ScanTemplate: { name: 'Chest X-ray' }, User_Scan_performedByIdToUser: null },
+      { id: 'new-scan', attendanceId: 'new-visit', status: 'requested', requestedAt: newest, priority: 'routine', scanType: 'Ultrasound', Attendance: requestAttendance('new'), ScanTemplate: { name: 'Ultrasound' }, User_Scan_performedByIdToUser: null },
+    ]) };
+    const repository = new EncounterRepository({ scan } as any);
+    const result = await repository.getRadiologyWorklist({ dateFrom: new Date('2026-11-24T00:00:00Z'), dateTo: new Date('2026-11-24T23:59:59Z') });
+    const args = scan.findMany.mock.calls[0][0];
+
+    expect(args.where.requestedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
+    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.orderBy).toEqual({ requestedAt: 'desc' });
+    expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
+    expect(result.data[0].scans[0].id).toBe('new-scan');
+  });
+
+  it('filters theatre procedures by creation time and sorts newest procedure groups first', async () => {
+    const older = new Date('2026-11-24T08:15:00Z');
+    const newest = new Date('2026-11-24T10:45:00Z');
+    const procedure = { findMany: vi.fn(async (_args: any) => [
+      { id: 'older-procedure', attendanceId: 'old-visit', status: 'scheduled', createdAt: older, scheduledDate: null, Attendance: requestAttendance('old'), ProcedureTemplate: { name: 'Dressing' }, User_Procedure_performedByIdToUser: null },
+      { id: 'new-procedure', attendanceId: 'new-visit', status: 'scheduled', createdAt: newest, scheduledDate: null, Attendance: requestAttendance('new'), ProcedureTemplate: { name: 'Minor suturing' }, User_Procedure_performedByIdToUser: null },
+    ]) };
+    const repository = new EncounterRepository({ procedure } as any);
+    const result = await repository.getProceduresWorklist({ dateFrom: new Date('2026-11-24T00:00:00Z'), dateTo: new Date('2026-11-24T23:59:59Z') });
+    const args = procedure.findMany.mock.calls[0][0];
+
+    expect(args.where.createdAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
+    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.orderBy).toEqual({ createdAt: 'desc' });
+    expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
+    expect(result.data[0].procedureNames).toBe('Minor suturing');
+  });
+
   it('filters completed lab work by result update time, not visit date', async () => {
     const labTest = { findMany: vi.fn(async (_args: any) => []) };
     const repository = new EncounterRepository({ labTest } as any);
