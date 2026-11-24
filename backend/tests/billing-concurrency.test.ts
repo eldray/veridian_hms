@@ -521,7 +521,7 @@ describe('pending MoMo intent cannot be bypassed with a manual mobile-money meth
     await expect(repository.addPayment('bill-1', {
       amount: 25,
       paymentMethod: 'mobile_money' as any,
-    }, 'cashier-1')).rejects.toThrow(/Mobile Money payment is still pending/i);
+    }, 'cashier-1')).rejects.toThrow(/Mobile Money payments must be confirmed through the MTN MoMo workflow/i);
 
     expect(tx.bill.updateMany).not.toHaveBeenCalled();
     expect(tx.payment.create).not.toHaveBeenCalled();
