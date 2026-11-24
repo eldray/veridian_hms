@@ -216,7 +216,14 @@ export default function DispensePatient() {
     setQueueLoading(true);
     try {
       const response: any = await getPharmacyWorklist();
-      const rows: any[] = response?.data?.data || [];
+      // Unwrap the standard API envelope and the worklist object's row array.
+      // Also accept direct/intercepted response shapes for transport compatibility.
+      const payload = response?.data?.data ?? response?.data ?? response;
+      const rows: any[] = Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
       setQueueRows(rows.map((row) => {
         const firstMed = Array.isArray(row.medications) && row.medications[0]
           ? row.medications[0].name
