@@ -203,25 +203,25 @@ export interface VitalsWorklistResponse { total: number; pending: number; recent
 export interface MedicalWorklistItem extends BaseWorklistItem { hasMedicalNotesToday: boolean; vitals?: any; hasDiagnosis?: boolean; }
 export interface MedicalWorklistResponse { total: number; pending: number; reviewed: number; data: MedicalWorklistItem[]; }
 
-export interface LabWorklistItem extends BaseWorklistItem { testName: string; category?: string; hasResults: boolean; }
+export interface LabWorklistItem extends BaseWorklistItem { testName: string; category?: string; hasResults: boolean; latestRequestedAt?: Date; }
 export interface LabWorklistResponse { total: number; pending: number; completed: number; inProgress: number; data: any[]; }
 
 export interface PharmacyWorklistItem extends BaseWorklistItem {
   prescriptionCount: number; prescribedCount: number; dispensedCount: number;
-  hasPendingPrescriptions: boolean; hasBeenDispensed: boolean; oldestPrescribedAt: Date;
+  hasPendingPrescriptions: boolean; hasBeenDispensed: boolean; oldestPrescribedAt: Date; newestPrescribedAt?: Date;
   medications: any[]; nextMedication: any | null;
 }
 export interface PharmacyWorklistResponse { total: number; pending: number; dispensed: number; data: PharmacyWorklistItem[]; }
 
 export interface ScansWorklistItem extends BaseWorklistItem {
   scanCount: number; requestedCount: number; inProgressCount: number; completedCount: number;
-  hasPendingScans: boolean; hasResults: boolean; oldestRequestedAt: Date; scanTypes: string; nextScan?: any | null;
+  hasPendingScans: boolean; hasResults: boolean; oldestRequestedAt: Date; latestRequestedAt?: Date; scanTypes: string; nextScan?: any | null;
 }
 export interface ScansWorklistResponse { total: number; pending: number; completed: number; inProgress: number; data: ScansWorklistItem[]; }
 
 export interface TheatreWorklistItem extends BaseWorklistItem {
   procedureCount: number; scheduledCount: number; completedCount: number;
-  hasPendingProcedures: boolean; hasBeenPerformed: boolean; earliestScheduledDate: Date | null; procedureNames: string; nextProcedure?: any | null;
+  hasPendingProcedures: boolean; hasBeenPerformed: boolean; earliestScheduledDate: Date | null; latestCreatedAt?: Date; procedureNames: string; nextProcedure?: any | null;
 }
 // ✅ FIXED: Removed duplicate TheatreWorklistResponse
 export interface TheatreWorklistResponse { total: number; scheduled: number; inProgress: number; completed: number; data: TheatreWorklistItem[]; }
