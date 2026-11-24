@@ -16,6 +16,8 @@ import { useToast } from '../store/toastStore';
 import { latestRecordedPayment, printThermalReceipt } from '../utils/receiptPrinter';
 import { getPatientName } from '../utils/patient';
 import { addServicesToEncounter } from '../api';
+import { initiateMomoPayment, checkMomoPaymentStatus } from '../api/momo';
+import { uuid } from '../utils/uuid';
 import {
   ArrowLeft, Receipt, DollarSign, CreditCard, Eye, Printer,
   FileText, User, Calendar,
@@ -116,6 +118,24 @@ const refundedOn = (payment: BillPayment) =>
   roundMoney((payment.refunds || []).reduce((sum, refund) => sum + Number(refund.amount || 0), 0));
 /** Never negative: several partial refunds may exhaust a payment. */
 const refundableOn = (payment: BillPayment) => Math.max(0, roundMoney(Number(payment.amount) - refundedOn(payment)));
+const paymentAttemptStorageKey = (billId: string) => `veridian:payment-attempt:${billId}`;
+const getOrCreatePaymentAttemptKey = (billId: string) => {
+  try {
+    const storageKey = paymentAttemptStorageKey(billId);
+    const existing = sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+    const key = uuid();
+    sessionStorage.setItem(storageKey, key);
+    return key;
+  } catch {
+    return uuid();
+  }
+};
+const rotatePaymentAttemptKey = (billId: string) => {
+  const key = uuid();
+  try { sessionStorage.setItem(paymentAttemptStorageKey(billId), key); } catch { /* in-memory retry key remains */ }
+  return key;
+};
 
 export default function PatientBillingItems() {
   const { patientId } = useParams<{ patientId: string }>();
@@ -148,6 +168,8 @@ export default function PatientBillingItems() {
   const [paymentMethod, setPaymentMethod] = useState<string>('cash');
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+  const [momoPhone, setMomoPhone] = useState('');
+  const paymentAttemptKey = useRef(uuid());
 
   // Refund state: the payment being refunded, if the dialog is open.
   const [refundTarget, setRefundTarget] = useState<BillPayment | null>(null);
@@ -649,20 +671,60 @@ export default function PatientBillingItems() {
       return;
     }
 
+    if (paymentMethod === 'mobile_money' && !momoPhone.trim()) {
+      toastError('Mobile number required', 'Enter the Ghana mobile number that should receive the MoMo prompt.');
+      return;
+    }
+
     setIsProcessingPayment(true);
     try {
-      await addPaymentToBill(selectedBill.id, {
-        amount: paymentAmount,
-        paymentMethod,
-        reference: paymentReference || `PAY-${Date.now()}`,
-        notes: paymentNotes || `Payment for selected items (${selectedItems.size} items)`,
-      });
+      const attemptKey = getOrCreatePaymentAttemptKey(selectedBill.id);
+      paymentAttemptKey.current = attemptKey;
 
+      if (paymentMethod === 'mobile_money') {
+        const intent = await initiateMomoPayment({
+          billId: selectedBill.id,
+          amount: paymentAmount,
+          payerPhone: momoPhone.trim(),
+          idempotencyKey: attemptKey,
+        });
+        let finalStatus = intent;
+        const waitBudgetMs = 60_000;
+        let waited = 0;
+        while (waited < waitBudgetMs && finalStatus.status !== 'successful' && finalStatus.status !== 'failed') {
+          const step = waited < 30_000 ? 2_000 : 5_000;
+          await new Promise(resolve => window.setTimeout(resolve, step));
+          waited += step;
+          finalStatus = await checkMomoPaymentStatus(intent.id);
+        }
+        if (finalStatus.status === 'failed') {
+          paymentAttemptKey.current = rotatePaymentAttemptKey(selectedBill.id);
+          throw new Error(finalStatus.failureReason || 'The Mobile Money transaction was declined or failed.');
+        }
+        if (finalStatus.status !== 'successful') {
+          throw new Error('The Mobile Money request is still pending. Verify the payer’s phone and check the status before attempting another collection. Do not record a separate manual payment.');
+        }
+        if (!finalStatus.paymentId) {
+          throw new Error('MoMo confirmed success, but the HMS payment record is not available yet. Recheck this same attempt; do not collect again.');
+        }
+      } else {
+        await addPaymentToBill(selectedBill.id, {
+          amount: paymentAmount,
+          paymentMethod,
+          reference: paymentReference || `PAY-${Date.now()}`,
+          notes: paymentNotes || `Payment for selected items (${selectedItems.size} items)`,
+          idempotencyKey: attemptKey,
+        });
+      }
+
+      // Rotate only after confirmed success; ambiguous network failures keep the same key.
+      paymentAttemptKey.current = rotatePaymentAttemptKey(selectedBill.id);
       setIsPaymentModalOpen(false);
       setSelectedItems(new Set());
       setPaymentAmount(0);
       setPaymentReference('');
       setPaymentNotes('');
+      setMomoPhone('');
       setPaymentMethod('cash');
 
       await getBills({ patientId: actualPatientId, _t: Date.now() });
@@ -671,13 +733,18 @@ export default function PatientBillingItems() {
       success('Payment Successful', `Payment of ${formatCurrency(paymentAmount)} has been processed`);
       await generateAndShowReceipt();
     } catch (err: any) {
-      toastError('Payment Failed', err.message || 'Failed to process payment');
+      const message = err?.response?.data?.message || err.message || 'Failed to process payment';
+      if (paymentMethod === 'mobile_money' && /pending|status|verify|outcome is unknown|not available yet|not confirmed/i.test(message)) {
+        toastError('Mobile Money status not confirmed', `${message} Do not collect a second payment until this attempt is verified.`);
+      } else {
+        toastError('Payment Failed', message);
+      }
     } finally {
       setIsProcessingPayment(false);
     }
   }, [
     selectedBill, selectedItems.size, paymentAmount, selectedItemsTotal,
-    paymentMethod, paymentReference, paymentNotes, formatCurrency,
+    paymentMethod, paymentReference, paymentNotes, momoPhone, formatCurrency,
     addPaymentToBill, getBills, actualPatientId, handleViewBillDetails,
     success, toastError, generateAndShowReceipt,
   ]);
@@ -1598,6 +1665,18 @@ export default function PatientBillingItems() {
                   </div>
                 </div>
                 
+                {paymentMethod === 'mobile_money' && (
+                  <Field label="Mobile Money Number" hint="Enter the payer's Ghana mobile number">
+                    <input
+                      type="tel"
+                      value={momoPhone}
+                      onChange={(e) => setMomoPhone(e.target.value)}
+                      placeholder="024 000 0000"
+                      className={cn(INPUT, 'w-full text-sm')}
+                    />
+                  </Field>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Reference No." hint="Optional">
                     <input
