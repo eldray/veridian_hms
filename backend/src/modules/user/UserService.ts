@@ -324,6 +324,7 @@ export class UserService extends BaseService {
       // outstanding request, and no plaintext token is left on the row.
       resetToken: null,
       resetExpiry: null,
+      version: { increment: 1 },
     });
 
     // A direct administrator reset resolves any outstanding recovery request and
@@ -382,7 +383,7 @@ export class UserService extends BaseService {
     await this.repository.deleteAllRefreshTokens(userId);
 
     const accessToken = jwt.sign(
-      { userId: user.id, username: user.username, role: user.role, seniority: user.seniority, permissions },
+      { userId: user.id, username: user.username, role: user.role, seniority: user.seniority, permissions, version: user.version },
       getJwtSecret(),
       { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] },
     );
