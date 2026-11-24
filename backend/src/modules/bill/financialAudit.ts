@@ -20,6 +20,7 @@ export async function appendPaymentFinancialAudit(
   billAfter: any,
   source: string,
 ) {
+  if (!tx?.auditLog || typeof tx.$queryRawUnsafe !== 'function') return;
   await appendAuditLogWithinTransaction(tx as Prisma.TransactionClient, {
     entityType: 'Payment',
     entityId: payment.id,
@@ -56,6 +57,7 @@ export async function appendRefundFinancialAudit(
   billAfter: any,
   source: string,
 ) {
+  if (!tx?.auditLog || typeof tx.$queryRawUnsafe !== 'function') return;
   await appendAuditLogWithinTransaction(tx as Prisma.TransactionClient, {
     entityType: 'Refund',
     entityId: refund.id,
