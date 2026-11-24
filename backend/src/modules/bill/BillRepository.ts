@@ -330,7 +330,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
       if (!reason) throw Object.assign(new Error('A refund reason is required.'), { statusCode: 400 });
 
       const amount = roundMoney(Number(data.amount));
-      const refundMethod = refundMethod;
+      const refundMethod = data.refundMethod || payment.paymentMethod;
       const reference = data.reference?.trim() || null;
       const idempotencyKey = data.idempotencyKey?.trim();
 
