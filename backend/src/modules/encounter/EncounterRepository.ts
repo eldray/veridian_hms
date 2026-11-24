@@ -1744,7 +1744,9 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     // before validating its current state so two staff members cannot both
     // complete or overwrite the same result concurrently.
     return this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT "id" FROM "LabTest" WHERE "id" = ${labOrderId} FOR UPDATE`;
+      if (typeof tx.$queryRaw === "function") {
+        await tx.$queryRaw`SELECT "id" FROM "LabTest" WHERE "id" = ${labOrderId} FOR UPDATE`;
+      }
       const current = await tx.labTest.findUnique({
         where: { id: labOrderId },
         select: { id: true, status: true, attendanceId: true, result: true },
@@ -1784,11 +1786,16 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
       else if (status === 'in_progress') updateData.performedById = actorId;
       if (!Object.keys(updateData).length) throw new ValidationError('No laboratory order changes were provided');
 
-      const updated = await tx.labTest.update({
-        where: { id: labOrderId },
+      const changed = await tx.labTest.updateMany({
+        where: { id: labOrderId, status: current.status },
         data: updateData,
+      });
+      if (changed.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+      const updated = await tx.labTest.findUnique({
+        where: { id: labOrderId },
         select: { id: true, status: true },
       });
+      if (!updated) throw new NotFoundError('Laboratory order', labOrderId);
 
       // Never copy the actual result, notes, or patient data into the audit row.
       await appendAuditLogWithinTransaction(tx, {
