@@ -66,6 +66,24 @@ const routes = scan();
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 describe('route authorization, route by route', () => {
+  it('restricts encounter worklists and vital-sign reads to their authorised departments', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'encounter', 'EncounterRoutes.ts'), 'utf8');
+    const expected = [
+      "router.get('/vitals/latest', requireRole(['admin', 'doctor', 'nurse', 'midwife'])",
+      "router.get('/vitals/batch', requireRole(['admin', 'doctor', 'nurse', 'midwife'])",
+      "router.get('/worklist/vitals', requireRole(['admin', 'doctor', 'nurse', 'midwife'])",
+      "router.get('/worklist/medical', requireRole(['admin', 'doctor', 'nurse', 'midwife'])",
+      "router.get('/worklist/lab', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech'])",
+      "router.get('/worklist/pharmacy', requireRole(['admin', 'pharmacist'])",
+      "router.get('/worklist/scans', requireRole(['admin', 'doctor', 'midwife', 'sonographer'])",
+      "router.get('/worklist/procedures', requireRole(['admin', 'doctor', 'nurse', 'midwife'])",
+      "router.get('/worklist/maternal', requireRole(['admin', 'doctor', 'midwife'])",
+      "router.get('/worklist/outstanding', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer'])",
+    ];
+    for (const route of expected) expect(source).toContain(route);
+  });
+
+
   it('restricts patient demographics and EMR reads to patient-management roles', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'patient', 'PatientRoutes.ts'), 'utf8');
     const readRoutes = source.split('\n').filter((line) => line.includes('router.get('));
