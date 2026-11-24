@@ -1894,14 +1894,6 @@ export default function TheatreProcedure() {
                         >
                           {isSubmitting ? 'Saving…' : 'Save changes'}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingCompletedProcedure(false)}
-                          disabled={isSubmitting}
-                          className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] text-sm font-medium"
-                        >
-                          Done editing
-                        </button>
                       </>
                     )}
                   </div>
