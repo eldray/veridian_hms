@@ -1810,8 +1810,8 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     });
   }
 
-  async removeLabTest(encounterId: string, labOrderId: string, userId: string) {
-    const actorId = await this.requireActorId(userId);
+  async removeLabTest(encounterId: string, labOrderId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.labTest.findFirst({
         where: { id: labOrderId, attendanceId: encounterId },
