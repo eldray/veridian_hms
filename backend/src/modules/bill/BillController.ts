@@ -43,7 +43,7 @@ export const addPaymentValidation = [
   body('paymentMethod').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid payment method'), // ✅ Fixed to paymentMethod
   body('reference').optional().isString(),
   body('notes').optional().isString(),
-  body('idempotencyKey').optional().isUUID().withMessage('A valid payment idempotency key is required')
+  body('idempotencyKey').isUUID().withMessage('A valid payment idempotency key is required')
 ];
 
 export const voidLineItemValidation = [
