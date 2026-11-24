@@ -412,8 +412,9 @@ describe('clinical stock movement audit protection', () => {
       notes: 'Consumable use: gloves',
       reference: 'Encounter ENC-1',
     });
+    const tx: any = { stockTransaction: { findUnique, update } };
     const prisma: any = {
-      stockTransaction: { findUnique, update },
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
     };
     const repository = new StockTransactionRepository(prisma);
 
@@ -429,8 +430,9 @@ describe('clinical stock movement audit protection', () => {
       notes: 'Routine stock issue',
       reference: 'REQ-001',
     });
+    const tx: any = { stockTransaction: { findUnique, update } };
     const prisma: any = {
-      stockTransaction: { findUnique, update },
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
     };
     const repository = new StockTransactionRepository(prisma);
 
