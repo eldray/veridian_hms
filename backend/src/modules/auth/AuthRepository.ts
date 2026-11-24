@@ -18,6 +18,7 @@ export class AuthRepository {
     specialization: true,
     departmentId: true,
     isActive: true,
+    version: true,
     createdAt: true,
     updatedAt: true,
     department: { select: { id: true, name: true } },
