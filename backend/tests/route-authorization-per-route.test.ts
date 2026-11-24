@@ -68,7 +68,7 @@ const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 describe('route authorization, route by route', () => {
   it('restricts insurance claim read APIs to accounts and doctors', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'insuranceClaim', 'InsuranceClaimRoutes.ts'), 'utf8');
-    expect(source).toMatch(/router\\.use\\(requireRole\\(\\[['"]admin['"],\\s*['"]accounts['"],\\s*['"]doctor['"]\\]\\)\\)/);
+    expect(source).toContain("router.use(requireRole(['admin', 'accounts', 'doctor']));");
   });
 
   it('restricts identifiable NHIS expiry patient details to authorised desk roles', () => {
