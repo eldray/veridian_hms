@@ -192,6 +192,8 @@ export default function TheatreProcedure() {
     postOpDestination: '', postOpPlan: '', handoverNotes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [autosaveStatus, setAutosaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [minorProcedureRecord, setMinorProcedureRecord] = useState({
     indication: '',
     site: '',
@@ -438,6 +440,81 @@ export default function TheatreProcedure() {
     }
     setOpenTile(null);
   }, [selectedProcedure]);
+
+  // Debounced draft autosave. It preserves the procedure's current status and never completes work.
+  useEffect(() => {
+    if (!selectedProcedure || !selectedAttendanceId || !selectedProcedureId || !canUpdateProcedure ||
+        ['completed', 'cancelled'].includes(String(selectedProcedure.status || '').toLowerCase())) {
+      setAutosaveStatus('idle');
+      return;
+    }
+
+    const isMinor = !isTheatreRequiredProcedure(selectedProcedure);
+    const currentMinor = { ...minorProcedureRecord };
+    const currentClinicalRecord = { ...clinicalRecord };
+    const currentAudit = Array.isArray(selectedProcedure.clinicalRecord?.auditLog)
+      ? selectedProcedure.clinicalRecord.auditLog : [];
+    const nextClinicalRecord = isMinor
+      ? { ...(selectedProcedure.clinicalRecord || {}), minorProcedure: currentMinor, workflow: 'minor' }
+      : { ...currentClinicalRecord, anesthesiaType, workflow: 'theatre' };
+
+    const unchanged = isMinor
+      ? JSON.stringify(selectedProcedure.clinicalRecord?.minorProcedure || {}) === JSON.stringify(currentMinor) &&
+        selectedProcedure.clinicalRecord?.workflow === 'minor'
+      : selectedProcedure.anesthesiaNotes === (anesthesiaNotes || null) &&
+        selectedProcedure.intraOperativeNotes === (intraOperativeNotes || null) &&
+        selectedProcedure.postOperativeNotes === (postOperativeNotes || null) &&
+        selectedProcedure.bloodLoss === (bloodLoss === '' ? null : Number(bloodLoss)) &&
+        selectedProcedure.complications === (hasComplications ? complications : null) &&
+        JSON.stringify(selectedProcedure.clinicalRecord || {}) === JSON.stringify(nextClinicalRecord);
+    if (unchanged) return;
+
+    setAutosaveStatus('saving');
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    const timer = setTimeout(async () => {
+      try {
+        const actor = user?.fullName || user?.email || user?.username || user?.id || 'Clinical user';
+        const timestamp = new Date().toISOString();
+        const auditLog = [...currentAudit, {
+          action: 'procedure_draft_autosaved',
+          userId: user?.id || null,
+          userLabel: actor,
+          timestamp,
+        }];
+        await updateProcedureStatus(selectedAttendanceId, selectedProcedureId, {
+          status: selectedProcedure.status,
+          ...(isMinor ? {
+            outcome: currentMinor.outcome,
+            complications: currentMinor.complications.trim() || null,
+            clinicalRecord: { ...nextClinicalRecord, auditLog },
+          } : {
+            anesthesiaNotes: anesthesiaNotes || null,
+            intraOperativeNotes: intraOperativeNotes || null,
+            postOperativeNotes: postOperativeNotes || null,
+            bloodLoss: bloodLoss === '' ? null : Number(bloodLoss),
+            complications: hasComplications ? complications : null,
+            outcome: outcome || null,
+            clinicalRecord: { ...nextClinicalRecord, auditLog },
+          }),
+        });
+        setAutosaveStatus('saved');
+      } catch {
+        setAutosaveStatus('error');
+      }
+    }, 1800);
+    autosaveTimer.current = timer;
+    return () => clearTimeout(timer);
+  }, [
+    selectedProcedureId, selectedAttendanceId, selectedProcedure, canUpdateProcedure,
+    minorProcedureRecord, clinicalRecord, anesthesiaNotes, intraOperativeNotes,
+    postOperativeNotes, bloodLoss, complications, hasComplications, outcome,
+    anesthesiaType, user?.id, user?.fullName, user?.email, user?.username,
+    updateProcedureStatus,
+  ]);
+
+  useEffect(() => () => {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+  }, []);
 
   const resetForm = () => {
     setAnesthesiaNotes('');
@@ -1036,6 +1113,9 @@ export default function TheatreProcedure() {
                               <span className="font-semibold text-xs text-[var(--text-primary)] truncate flex-1">
                                 {procedure.name}
                               </span>
+                              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${isTheatreRequiredProcedure(procedure) ? 'bg-purple-500/10 text-purple-600' : 'bg-sky-500/10 text-sky-600'}`}>
+                                {isTheatreRequiredProcedure(procedure) ? 'Major · Theatre' : 'Minor'}
+                              </span>
                             </div>
                             {procedure.scheduledDate && (
                               <p className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1">
@@ -1548,8 +1628,11 @@ export default function TheatreProcedure() {
                       </FormField>
                       <p className="text-[11px] text-[var(--text-tertiary)]">On save, the system records the authenticated user and exact save time in the procedure audit log.</p>
                     </div>
-                    <div className="flex justify-end gap-2 border-t border-[var(--border-color)] pt-3">
-                      <button type="button" disabled={isSubmitting} onClick={handleSubmitMinorProcedure} className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{isSubmitting ? 'Saving…' : 'Save procedure record'}</button>
+                    <div className="flex items-center justify-between gap-3 border-t border-[var(--border-color)] pt-3">
+                      <span className="text-[11px] text-[var(--text-tertiary)]">
+                        {autosaveStatus === 'saving' ? 'Saving draft…' : autosaveStatus === 'saved' ? 'Draft saved automatically' : autosaveStatus === 'error' ? 'Auto-save failed — check connection' : 'Changes save automatically'}
+                      </span>
+                      <button type="button" disabled={isSubmitting} onClick={handleSubmitMinorProcedure} className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{isSubmitting ? 'Saving…' : 'Complete procedure'}</button>
                     </div>
                 </SectionCard>
               )}
@@ -1709,12 +1792,15 @@ export default function TheatreProcedure() {
                         )}
                         {selectedProcedure.status === 'in_progress' && (
                           <>
+                            <span className="self-center text-[11px] text-[var(--text-tertiary)]">
+                              {autosaveStatus === 'saving' ? 'Saving draft…' : autosaveStatus === 'saved' ? 'Draft saved automatically' : autosaveStatus === 'error' ? 'Auto-save failed — check connection' : 'Changes save automatically'}
+                            </span>
                             <button
                               onClick={() => handleSubmitTheatreNotes(false)}
                               disabled={isSubmitting}
                               className="px-4 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 disabled:opacity-50 text-sm font-semibold transition-all"
                             >
-                              Save Progress
+                              Save now
                             </button>
                             <button
                               onClick={() => handleSubmitTheatreNotes(true)}
