@@ -62,7 +62,11 @@ export class StockTransactionController extends BaseController {
   delete = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
     const result = await this.service.delete(req.params.id, { departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin });
-    return this.ok(res, result, result.message);
+    const { deletedTransaction, ...response } = result as any;
+    // The global audit middleware consumes this internal request property.
+    // It is deliberately omitted from the HTTP response sent to the caller.
+    (req as any).auditPreviousState = deletedTransaction;
+    return this.ok(res, response, response.message);
   });
 
   getMovementSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {

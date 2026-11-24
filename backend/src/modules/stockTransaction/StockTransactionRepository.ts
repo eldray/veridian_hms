@@ -271,7 +271,21 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       }
 
       await tx.stockTransaction.delete({ where: { id } });
-      return { success: true, message: 'Transaction deleted and stock reversed' };
+      // Preserve the essential non-clinical movement facts for the audit trail.
+      // Do not include free-text notes or references, which may contain sensitive data.
+      const deletedTransaction = {
+        id: transaction.id,
+        stockItemId: transaction.stockItemId,
+        transactionType: transaction.transactionType,
+        quantity: transaction.quantity,
+        balanceAfter: transaction.balanceAfter,
+        performedBy: transaction.performedBy,
+        departmentId: transaction.departmentId,
+        wardId: transaction.wardId,
+        transactionDate: transaction.transactionDate,
+        createdAt: transaction.createdAt,
+      };
+      return { success: true, message: 'Transaction deleted and stock reversed', deletedTransaction };
     });
   }
 
