@@ -1876,10 +1876,33 @@ export default function TheatreProcedure() {
                         )}
                       </>
                     )}
-                    {selectedProcedure.status === 'completed' && (
+                    {selectedProcedure.status === 'completed' && !isEditingCompletedProcedure && (
                       <span className="text-xs text-[var(--text-tertiary)] italic">
-                        This procedure is completed and locked.
+                        Completed for billing and record-keeping. Use Edit entries to add or correct documentation.
                       </span>
+                    )}
+                    {isCompletedEdit && (
+                      <>
+                        <span className="self-center text-[11px] text-[var(--text-tertiary)]">
+                          {autosaveStatus === 'saving' ? 'Saving changes…' : autosaveStatus === 'saved' ? 'Changes saved automatically' : autosaveStatus === 'error' ? 'Auto-save failed — check connection' : 'You can add or correct entries'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleSubmitTheatreNotes(false)}
+                          disabled={isSubmitting}
+                          className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold"
+                        >
+                          {isSubmitting ? 'Saving…' : 'Save changes'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingCompletedProcedure(false)}
+                          disabled={isSubmitting}
+                          className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] text-sm font-medium"
+                        >
+                          Done editing
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
