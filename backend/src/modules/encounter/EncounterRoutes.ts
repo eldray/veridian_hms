@@ -84,7 +84,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.post('/:id/complete', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.completeEncounter);
 
   // WARD CHARGES
-  router.get('/:id/ward-charges', async (req, res, next) => {
+  router.get('/:id/ward-charges', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']), async (req, res, next) => {
     try {
       const records = await prismaClient.wardChargeRecord.findMany({
         where: { attendanceId: req.params.id },
@@ -125,8 +125,9 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   // ============================================
 
   router.post('/', requireRole(['admin', 'super_admin', 'records', 'doctor', 'nurse', 'midwife']), controller.create);
-  router.get('/', controller.getAll);
-  router.get('/:id', controller.getById);
+  const encounterReaders = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts', 'lab_tech', 'sonographer'];
+  router.get('/', requireRole(encounterReaders), controller.getAll);
+  router.get('/:id', requireRole(encounterReaders), controller.getById);
   router.post('/:id/finalize-clinical', requireRole(['doctor', 'nurse', 'midwife']), controller.finalizeClinicalRecord);
   router.put('/:id', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.update);
   router.put('/:id/status', requireRole(['admin', 'super_admin', 'doctor']), controller.updateStatus);
@@ -145,7 +146,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.delete('/:id/diagnosis/:diagnosisId', requireRole(['admin', 'super_admin', 'doctor']), controller.removeDiagnosis);
 
   // VITALS
-  router.get('/:id/vitals', controller.getVitalsByEncounter);
+  router.get('/:id/vitals', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getVitalsByEncounter);
   router.post('/:id/vitals', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.addVitals);
   router.put('/vitals/:vitalsId', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.updateVitals);
   router.delete('/vitals/:vitalsId', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.deleteVitals);
@@ -190,7 +191,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.delete('/:encounterId/services/:serviceRenderedId', requireRole(['admin', 'super_admin', 'doctor', 'nurse']), controller.removeService);
 
   // CONSUMABLES
-  router.get('/:id/consumables', controller.getConsumableUses);
+  router.get('/:id/consumables', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'pharmacist']), controller.getConsumableUses);
   router.post('/:id/consumables', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'pharmacist']), controller.recordConsumableUse);
   router.patch('/:id/consumables/:transactionId', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'pharmacist']), controller.updateConsumableUse);
   router.delete('/:id/consumables/:transactionId', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'pharmacist']), controller.deleteConsumableUse);
