@@ -66,6 +66,14 @@ const routes = scan();
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 describe('route authorization, route by route', () => {
+  it('uses the authenticated staff member for immunization performer and recorder attribution', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'immunization', 'ImmunizationRoutes.ts'), 'utf8');
+    expect(source).toContain('const recordedBy = req.user!.id;');
+    expect(source).toContain('administeredById: req.user!.id, recordedById: recordedBy');
+    expect(source).not.toContain('req.body.administeredById');
+    expect(source).not.toContain('req.body.recordedById');
+  });
+
   it('restricts insurance claim read APIs to accounts and doctors', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'insuranceClaim', 'InsuranceClaimRoutes.ts'), 'utf8');
     expect(source).toContain("router.use(requireRole(['admin', 'accounts', 'doctor']));");
