@@ -11,6 +11,7 @@ import { validateNHISPrescribingLevel } from './NHISPrescribingRules';
 import { approvedServicesCoverPrescription } from './NHISPreAuthorisation';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 import { releaseBedForAttendance } from '../bed/bedOccupancy';
+import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
@@ -1492,7 +1493,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           where: { id: stockItem.id }, select: { currentStock: true },
         });
         if (!current) throw new NotFoundError('Stock item', stockItem.id);
-        await tx.stockTransaction.create({
+        const dispenseMovement = await tx.stockTransaction.create({
           data: {
             stockItemId: stockItem.id, transactionType: 'sale', quantity: qty,
             // balanceAfter is a location snapshot, not the hospital-wide aggregate.
@@ -1503,6 +1504,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
             batchAllocations: batchAllocations as any,
           },
         });
+        await appendStockMovementAudit(tx, 'create', actorId, dispenseMovement, undefined, { workflow: 'medication_dispensing' });
       } else if (data.quantity !== undefined) {
         updateData.quantity = data.quantity;
       }
@@ -2466,7 +2468,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (!actor?.departmentId) throw new ValidationError('Assign the user to the issuing department before recording consumable use');
       const consumed = await this.consumeConsumableStock(tx, stockItemId, quantity, actor.departmentId);
 
-      return tx.stockTransaction.create({
+      const movement = await tx.stockTransaction.create({
         data: {
           stockItemId,
           transactionType: 'sale',
@@ -2480,6 +2482,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         },
         include: { StockItem: { select: { id: true, name: true, unitOfMeasure: true } } },
       });
+      await appendStockMovementAudit(tx, 'create', actorId, movement, undefined, { workflow: 'consumable_use' });
+      return movement;
     });
   }
 
@@ -2526,7 +2530,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         where: { id: previous.id },
         data: { notes: `Consumable use: [EDITED] ${previous.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
       });
-      await tx.stockTransaction.create({
+      await appendStockMovementAudit(tx, 'update', actorId, previous, undefined, { workflow: 'consumable_use_edit', fieldsChanged: ['notes'] });
+      const reversalMovement = await tx.stockTransaction.create({
         data: {
           stockItemId: previous.stockItemId,
           transactionType: 'adjustment',
@@ -2539,8 +2544,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           performedBy: actorId,
         },
       });
+      await appendStockMovementAudit(tx, 'create', actorId, reversalMovement, undefined, { workflow: 'consumable_use_edit_reversal' });
 
-      return tx.stockTransaction.create({
+      const replacementMovement = await tx.stockTransaction.create({
         data: {
           stockItemId,
           transactionType: 'sale',
@@ -2554,6 +2560,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         },
         include: { StockItem: { select: { id: true, name: true, unitOfMeasure: true } } },
       });
+      await appendStockMovementAudit(tx, 'create', actorId, replacementMovement, undefined, { workflow: 'consumable_use_edit_replacement' });
+      return replacementMovement;
     });
   }
 
@@ -2596,7 +2604,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         where: { id: use.id },
         data: { notes: `Consumable use: [DELETED] ${use.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
       });
-      return tx.stockTransaction.create({
+      await appendStockMovementAudit(tx, 'update', actorId, use, undefined, { workflow: 'consumable_use_delete', fieldsChanged: ['notes'] });
+      const reversalMovement = await tx.stockTransaction.create({
         data: {
           stockItemId: use.stockItemId,
           transactionType: 'adjustment',
@@ -2609,6 +2618,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           performedBy: actorId,
         },
       });
+      await appendStockMovementAudit(tx, 'create', actorId, reversalMovement, undefined, { workflow: 'consumable_use_delete_reversal' });
+      return reversalMovement;
     });
   }
 
