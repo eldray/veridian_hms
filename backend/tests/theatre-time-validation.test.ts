@@ -18,6 +18,9 @@ describe('theatre incision and closure time validation', () => {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
+    prisma.$queryRawUnsafe = vi.fn().mockResolvedValue([]);
+    prisma.auditLog = { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
     await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {
       clinicalRecord: { [field]: value },
@@ -38,6 +41,9 @@ describe('theatre completion outcome validation', () => {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
+    prisma.$queryRawUnsafe = vi.fn().mockResolvedValue([]);
+    prisma.auditLog = { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
       clinicalRecord: {

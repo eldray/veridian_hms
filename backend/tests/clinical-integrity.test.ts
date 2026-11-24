@@ -1223,13 +1223,16 @@ describe('investigation and procedure status integrity', () => {
     const procedureFindUnique = vi.fn()
       .mockResolvedValueOnce({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' })
       .mockResolvedValueOnce({ id: 'procedure-1', status: 'in_progress' });
+    const tx: any = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', fullName: 'Staff' }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
+      procedure: { findUnique: procedureFindUnique, updateMany: procedureUpdateMany },
+    };
     const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
-      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
-      procedure: {
-        findUnique: procedureFindUnique,
-        updateMany: procedureUpdateMany,
-      },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {}, 'staff-1'))
@@ -1263,10 +1266,15 @@ describe('investigation and procedure status integrity', () => {
     const procedureFindUnique = vi.fn()
       .mockResolvedValueOnce({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' })
       .mockResolvedValueOnce({ id: 'procedure-1', status: 'in_progress', bloodLoss: 0 });
-    const repository = new EncounterRepository({
-      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+    const tx: any = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       procedure: { findUnique: procedureFindUnique, updateMany: procedureUpdateMany },
+    };
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
 
     await repository.updateProcedureStatus('procedure-1', 'in_progress', { bloodLoss: 0 }, 'staff-1');
@@ -1619,14 +1627,19 @@ describe('completed clinical record edit protection', () => {
   });
 
   it('locks completed procedure records from ordinary edits', async () => {
-    const update = vi.fn();
+    const updateMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), updateMany },
+      attendance: { findUnique: vi.fn() },
+    };
     const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
-      procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), update },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', { notes: 'changed' }, 'staff-1'))
       .rejects.toThrow(/completed procedure record is locked/i);
-    expect(update).not.toHaveBeenCalled();
+    expect(updateMany).not.toHaveBeenCalled();
   });
 });
 
@@ -2281,6 +2294,9 @@ describe('theatre procedure safety documentation', () => {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
+    prisma.$queryRawUnsafe = vi.fn().mockResolvedValue([]);
+    prisma.auditLog = { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     return prisma;
   };
 
