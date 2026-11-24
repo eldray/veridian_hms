@@ -974,6 +974,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         include: { User: { select: { fullName: true } } },
       });
 
+      await appendClinicalRecordAudit(tx, actorId, 'Vitals', savedVitals.id, 'create', undefined, {
+        id: savedVitals.id, attendanceId: encounterId, recordedAt: savedVitals.recordedAt,
+        recordedFields: Object.keys(vitalsData), antenatalAssessmentIncluded: hasAntenatalData,
+      }, { workflow: 'vitals_recorded', clinicalValuesOmitted: true });
+
       if (hasAntenatalData) {
         const ancVisit = await this.getOrCreateANCVisit(tx, attendance, actorId);
         await tx.aNCVisit.update({
@@ -994,7 +999,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
-  async updateVitals(vitalsId: string, data: any) {
+  async updateVitals(vitalsId: string, data: any, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     this.validateClinicalVitalValues(data as Record<string, any>);
     const {
       fetalHeartRate,
@@ -1064,7 +1070,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const existingVitals = await tx.vitals.findUnique({
         where: { id: vitalsId },
-        select: { attendanceId: true, recordedById: true },
+        select: {
+          id: true, attendanceId: true, recordedById: true, recordedAt: true,
+          bloodPressure: true, temperature: true, pulse: true, respiration: true,
+          spo2: true, weight: true, height: true, bmi: true, muac: true,
+        },
       });
       if (!existingVitals) throw new NotFoundError('Vitals', vitalsId);
 
@@ -1094,15 +1104,27 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         });
       }
 
+      await appendClinicalRecordAudit(tx, actorId, 'Vitals', vitalsId, 'update', {
+        id: vitalsId, recordedAt: existingVitals.recordedAt,
+        recordedFields: Object.keys(vitalsData),
+      }, {
+        id: vitalsId, recordedAt: updatedVitals.recordedAt,
+        recordedFields: Object.keys(vitalsData),
+      }, { workflow: 'vitals_amended', clinicalValuesOmitted: true });
       return updatedVitals;
     });
   }
 
-  async deleteVitals(vitalsId: string) {
+  async deleteVitals(vitalsId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.vitals.findUnique({
         where: { id: vitalsId },
-        select: { id: true, attendanceId: true },
+        select: {
+          id: true, attendanceId: true, recordedAt: true,
+          bloodPressure: true, temperature: true, pulse: true, respiration: true,
+          spo2: true, weight: true, height: true, bmi: true, muac: true,
+        },
       });
       if (!existing) throw new NotFoundError('Vitals', vitalsId);
       await this.requireUnfinalizedClinicalEncounter(existing.attendanceId, tx);
@@ -1110,6 +1132,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         where: { id: vitalsId, attendanceId: existing.attendanceId },
       });
       if (result.count !== 1) throw new ConflictError('Vitals changed; refresh and try again');
+      await appendClinicalRecordAudit(tx, actorId, 'Vitals', vitalsId, 'delete', {
+        id: existing.id, attendanceId: existing.attendanceId, recordedAt: existing.recordedAt,
+        recordedFields: ['bloodPressure', 'temperature', 'pulse', 'respiration', 'spo2', 'weight', 'height', 'bmi', 'muac']
+          .filter((field) => (existing as any)[field] !== null && (existing as any)[field] !== undefined),
+      }, undefined, { workflow: 'vitals_deleted', clinicalValuesOmitted: true });
       return { id: vitalsId, deleted: true };
     });
   }
@@ -1329,6 +1356,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         route: created.route,
       }));
       if (rows.length > 0) await tx.medicationDose.createMany({ data: rows });
+      await appendClinicalRecordAudit(tx, actorId, 'Medication', created.id, 'create', undefined, {
+        id: created.id, attendanceId: encounterId, status: created.status,
+        quantity: created.quantity, prescribedAt: created.prescribedAt,
+        doseScheduleCount: rows.length,
+      }, { workflow: 'prescription_created', prescriptionTextOmitted: true });
       return created;
     });
 
@@ -1580,6 +1612,25 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         }
       }
 
+      const changedFields = Object.keys(data).filter((field) =>
+        ['status', 'quantity', 'dosage', 'frequency', 'duration', 'route', 'instructions', 'notes', 'doseId', 'site'].includes(field),
+      );
+      if (changedFields.length > 0 || administrationDose || isDispensing) {
+        await appendClinicalRecordAudit(tx, actorId, 'Medication', medicationId, 'update', {
+          id: med.id, status: med.status, quantity: med.quantity,
+          dispensedQuantity: med.dispensedQuantity ?? null,
+          dispensedAt: med.dispensedAt ?? null, administeredAt: med.administeredAt ?? null,
+        }, {
+          id: updated.id, status: updated.status, quantity: updated.quantity,
+          dispensedQuantity: updated.dispensedQuantity ?? null,
+          dispensedAt: updated.dispensedAt ?? null, administeredAt: updated.administeredAt ?? null,
+        }, {
+          workflow: isDispensing ? 'medication_dispensed' : administrationDose ? 'medication_administered' : 'prescription_amended',
+          changedFields: changedFields.filter((field) => !['instructions', 'notes', 'dosage', 'frequency', 'duration', 'route'].includes(field)),
+          prescriptionTextOmitted: true,
+          clinicalValuesOmitted: true,
+        });
+      }
       return updated;
     });
   }
@@ -1676,10 +1727,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async removeMedication(encounterId: string, medicationId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.findFirst({
         where: { id: medicationId, attendanceId: encounterId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, quantity: true, prescribedAt: true, prescribedById: true },
       });
       if (!medication) throw new NotFoundError('Medication', medicationId);
       if (medication.status === 'dispensed' || medication.status === 'administered') {
@@ -1695,6 +1747,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
       });
       if (deleted.count !== 1) throw new ConflictError('Prescription status changed; refresh and try again');
+      await appendClinicalRecordAudit(tx, actorId, 'Medication', medicationId, 'delete', {
+        id: medication.id, status: medication.status, quantity: medication.quantity,
+        prescribedAt: medication.prescribedAt, prescribedById: medication.prescribedById,
+      }, undefined, { workflow: 'prescription_removed', prescriptionTextOmitted: true });
       return { id: medicationId, status: 'deleted' as const };
     });
   }
