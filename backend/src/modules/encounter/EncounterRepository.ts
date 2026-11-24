@@ -2322,7 +2322,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           clinicalContentOmitted: ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'clinicalRecord'].some((field) => Object.prototype.hasOwnProperty.call(updateData, field)),
         },
       });
-      return tx.procedure.findUnique({ where: { id: procedureId } });
+      return updated;
     }, { timeout: 15000, maxWait: 5000 });
   }
 
