@@ -66,6 +66,9 @@ export function verifyFileAccessToken(
   return { userId, version };
 }
 
+export const isFileAccessVersionCurrent = (tokenVersion: unknown, userVersion: number): boolean =>
+  Number.isSafeInteger(tokenVersion) && tokenVersion === userVersion;
+
 export function parseCookies(header: string | undefined): Record<string, string> {
   if (!header) return {};
 
