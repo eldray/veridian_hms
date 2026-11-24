@@ -66,6 +66,11 @@ const routes = scan();
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 describe('route authorization, route by route', () => {
+  it('restricts identifiable NHIS expiry patient details to authorised desk roles', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'report', 'ReportRoutes.ts'), 'utf8');
+    expect(source).toMatch(/router\.get\(['"]\/nhis-expiring-soon['"],\s*requireRole\(\[['"]admin['"],\s*['"]accounts['"],\s*['"]records['"]\]\)/);
+  });
+
   it('finds the routes (guards against the scanner silently matching nothing)', () => {
     expect(routes.length).toBeGreaterThan(400);
     expect(routes.filter((r) => MUTATING.has(r.method)).length).toBeGreaterThan(200);

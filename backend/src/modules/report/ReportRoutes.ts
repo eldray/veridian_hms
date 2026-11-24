@@ -21,7 +21,9 @@ export function createReportRoutes(prisma: PrismaClient): Router {
 
   router.get('/nhis-expiry', requireRole(['admin', 'accounts']), (req, res) => controller.getNhisExpiryReport(req, res));
   router.get('/nhis-claims-summary', requireRole(['admin', 'accounts']), (req, res) => controller.getNhisClaimsSummary(req, res));
-  router.get('/nhis-expiring-soon', (req, res) => controller.getNhisExpiringSoon(req, res));
+  // This widget returns identifiable patient and NHIS membership details; keep it
+  // with the NHIS expiry report rather than exposing it to every signed-in role.
+  router.get('/nhis-expiring-soon', requireRole(['admin', 'accounts', 'records']), (req, res) => controller.getNhisExpiringSoon(req, res));
 
 
   return router;
