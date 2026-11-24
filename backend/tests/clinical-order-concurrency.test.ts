@@ -38,11 +38,13 @@ describe('clinical order concurrent-update guards', () => {
 
   it('blocks procedure status updates when the encounter is closed', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
+    const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
       procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' }), updateMany },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
       outcome: 'Recorded',
@@ -171,6 +173,7 @@ describe('clinical order concurrent-update guards', () => {
         updateMany,
       },
     };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
