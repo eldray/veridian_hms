@@ -10,10 +10,10 @@ import {
 } from './AntenatalTypes';
 
 
-async function appendMaternalUpdateAudit(tx: any, entityType: string, entityId: string, actorId: string, source: string, changedFields: string[], status?: Record<string, unknown>) {
+async function appendMaternalUpdateAudit(tx: any, entityType: string, entityId: string, actorId: string | undefined, source: string, changedFields: string[], status?: Record<string, unknown>) {
   if (!actorId) throw new ValidationError('Authenticated staff identity is required for maternal record audit');
   await appendAuditLogWithinTransaction(tx, {
-    entityType, entityId, action: 'UPDATE', performedById: actorId,
+    entityType, entityId, action: 'UPDATE', performedById: actorId!,
     newState: { updated: true, ...(status ?? {}) },
     metadata: { source, changedFields: [...new Set(changedFields)].sort() },
   });
@@ -179,7 +179,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }).then(res => ({ bookings: res.data, total: res.total }));
   }
 
-  async updateBooking(id: string, data: UpdateAntenatalBookingInput, actorId: string): Promise<any> {
+  async updateBooking(id: string, data: UpdateAntenatalBookingInput, actorId?: string): Promise<any> {
     // Pregnancy completion is controlled by the delivery/closure workflow, not by a generic profile update.
     const allowed = ['gravida', 'para', 'lmp', 'edd', 'gestationalAgeWeeks', 'riskLevel', 'riskFactors',
       'bloodGroup', 'hivStatus', 'hbLevel', 'vdrl', 'currentAttendanceId', 'malePartnerInvolved', 'itnGiven', 'itnGivenDate',
@@ -239,7 +239,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async closeBooking(id: string, deliveryData: { deliveryDate?: Date; deliveryOutcome?: string; deliveryRecordId?: string }, actorId: string): Promise<any> {
+  async closeBooking(id: string, deliveryData: { deliveryDate?: Date; deliveryOutcome?: string; deliveryRecordId?: string }, actorId?: string): Promise<any> {
     if (!deliveryData.deliveryDate || Number.isNaN(new Date(deliveryData.deliveryDate).getTime())) {
       throw new ValidationError('A confirmed pregnancy outcome date is required to close an antenatal booking');
     }
@@ -261,7 +261,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async deleteBooking(id: string, actorId: string): Promise<void> {
+  async deleteBooking(id: string, actorId?: string): Promise<void> {
     // Pregnancy bookings are part of the longitudinal maternal record. Deactivate
     // rather than hard-delete so linked ANC visits, delivery and postnatal history
     // remain available for continuity of care and audit.
@@ -427,7 +427,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     return this.prisma.aNCVisit.findUnique({ where: { id }, include: { booking: { include: { patient: true } }, recordedBy: { select: { fullName: true, role: true } } } });
   }
 
-  async updateVisit(id: string, data: UpdateANCVisitInput, actorId: string): Promise<any> {
+  async updateVisit(id: string, data: UpdateANCVisitInput, actorId?: string): Promise<any> {
     this.validateVisitGravidaPara(data.gravida, data.para);
     if (data.gravida !== undefined || data.para !== undefined) {
       const existing = await this.prisma.aNCVisit.findUnique({
@@ -787,7 +787,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async updateDeliveryRecord(id: string, data: any, actorId: string): Promise<any> {
+  async updateDeliveryRecord(id: string, data: any, actorId?: string): Promise<any> {
     const allowed = [
       'deliveryDate', 'deliveryType', 'deliveryOutcome', 'placeOfDelivery', 'attendant',
       'birthWeight', 'gestationWeeks', 'apgarScore1min', 'apgarScore5min', 'resusCitationDone',
@@ -1153,7 +1153,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     return this.prisma.postnatalRecord.findUnique({ where: { id }, include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, deliveryRecord: true } });
   }
 
-  async updatePostnatalRecord(id: string, data: any, actorId: string): Promise<any> {
+  async updatePostnatalRecord(id: string, data: any, actorId?: string): Promise<any> {
     const allowed = [
       'examinationDate', 'dayNumber', 'maternalCondition', 'maternalComplications',
       'bloodPressure', 'temperature', 'pulse', 'fundalHeight', 'lochia', 'perinealCondition',
