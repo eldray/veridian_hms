@@ -12,16 +12,20 @@ export class DocumentController {
     this.documentService = new DocumentService();
   }
 
-  // Authorization mirrors the upload route: the staff who generated a document
-  // can always reopen it, otherwise the role must match the underlying record.
+  // Apply the same template-level permission check to document lists, reprints,
+  // direct downloads and protected upload URLs.
   private canOpen(
     req: AuthRequest,
-    document: { entityType?: string; generatedById?: string },
+    document: { entityType?: string; generatedById?: string; templateType?: string | null; template?: { templateType?: string | null } | null },
   ): boolean {
     if (!req.user || !document.entityType || !document.generatedById) return false;
     return canAccessGeneratedDocument(
       { id: req.user.userId || req.user.id, role: req.user.role },
-      { entityType: document.entityType, generatedById: document.generatedById },
+      {
+        entityType: document.entityType,
+        generatedById: document.generatedById,
+        templateType: document.templateType || document.template?.templateType,
+      },
     );
   }
 
@@ -278,10 +282,11 @@ export class DocumentController {
       const { entityType, entityId } = req.params;
       
       const documents = await this.documentService.getDocumentsByEntity(entityType, entityId);
+      const visibleDocuments = documents.filter((document: any) => this.canOpen(req, document));
       
       return res.json({
         success: true,
-        data: documents
+        data: visibleDocuments
       });
     } catch (error: any) {
       console.error('Error fetching documents:', error);
