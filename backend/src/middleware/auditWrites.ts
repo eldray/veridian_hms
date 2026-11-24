@@ -81,8 +81,8 @@ export function auditWrites(prisma: PrismaClient) {
       if (auditStarted) return originalJson(body);
       auditStarted = true;
       if (res.statusCode >= 400 || body?.success === false) return originalJson(body);
-      // The stock transaction repository has already committed its detailed
-      // audit event in the same transaction as the stock mutation.
+      // The business repository has already committed its detailed audit event
+      // in the same transaction as this sensitive financial/stock mutation.
       if ((req as any).auditHandled === true) return originalJson(body);
 
       try {

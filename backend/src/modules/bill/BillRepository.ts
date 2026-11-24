@@ -3,6 +3,7 @@ import { PrismaClient, Prisma, BillStatus, PaymentMethod, PaymentMode, ServiceTy
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput, RefundPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
+import { appendPaymentFinancialAudit, appendRefundFinancialAudit } from './financialAudit';
 import { roundMoney, refundableAmount, billStatusAfterRefund, isValidRefundAmount } from '../../utils/refunds';
 import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff, resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
@@ -271,6 +272,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
             receivedById, transactionDate: new Date()
           }
         });
+        await appendPaymentFinancialAudit(tx, receivedById, payment, bill, updatedBill, 'bill_repository_manual_or_confirmed_payment');
         if (currentBill.attendanceId) await this.syncAttendanceFinancials(tx, currentBill.attendanceId, { ...currentBill, balance: newBalance });
         return { bill: updatedBill, payment, duplicate: false };
       });
@@ -406,6 +408,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
           status: billStatusAfterRefund(paidAfter, balanceAfter)
         }
       });
+      await appendRefundFinancialAudit(tx, processedById, refund, bill, updatedBill, 'bill_repository_refund');
 
       if (updatedBill.attendanceId) {
         await this.syncAttendanceFinancials(tx, updatedBill.attendanceId, updatedBill);

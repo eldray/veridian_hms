@@ -144,6 +144,7 @@ export class BillController extends BaseController {
 
       try {
         const result = await billService.addPayment(req.params.id, req.body as AddPaymentInput, req.user.id);
+        (req as any).auditHandled = true;
         return this.ok(res, result, 'Payment added successfully');
       } catch (error: any) {
         if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
@@ -168,6 +169,7 @@ export class BillController extends BaseController {
 
       try {
         const result = await billService.refundPayment(req.params.id, req.body as RefundPaymentInput, req.user.id);
+        (req as any).auditHandled = true;
         return this.ok(res, result, 'Refund processed successfully');
       } catch (error: any) {
         if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
