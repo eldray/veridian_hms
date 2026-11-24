@@ -7,6 +7,21 @@ import { NursingRepository } from '../src/modules/nursing/NursingRepository';
 import { buildWardChargeAdmissionWhere } from '../src/cron/wardChargeCron';
 import { classifyNewbornOutcomes } from '../src/modules/ghsReport/formA';
 
+const antenatalTransactionMock = (modelName: string, model: Record<string, any>) => {
+  const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: {
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
+    },
+    [modelName]: model,
+  };
+  return {
+    tx,
+    prisma: { $transaction: vi.fn(async (callback: any) => callback(tx)) },
+  };
+};
+
 
 
 describe('finalized clinical record immutability', () => {
@@ -819,7 +834,8 @@ describe('clinical encounter ownership', () => {
 describe('postnatal create/update validation consistency', () => {
   it('accepts the same vital and newborn measurement ranges on update as on creation', async () => {
     const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
-    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
+    const { prisma } = antenatalTransactionMock('postnatalRecord', { update });
+    const repository = new AntenatalRepository(prisma as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', {
       temperature: 25,
@@ -827,7 +843,7 @@ describe('postnatal create/update validation consistency', () => {
       fundalHeight: 60,
       babyWeight: 15,
       babyTemperature: 26,
-    })).resolves.toEqual({ id: 'postnatal-1' });
+    }, 'midwife-1')).resolves.toEqual({ id: 'postnatal-1' });
 
     expect(update).toHaveBeenCalledWith({
       where: { id: 'postnatal-1' },
@@ -959,11 +975,10 @@ describe('ANC visit clinical field validation', () => {
 
   it('allows IPTp dose numbers above five up to ten on ANC visits', async () => {
     const update = vi.fn().mockResolvedValue({ id: 'visit-1', iptpDoseNumber: 6 });
-    const repository = new AntenatalRepository({
-      aNCVisit: { update },
-    } as any);
+    const { prisma } = antenatalTransactionMock('aNCVisit', { update });
+    const repository = new AntenatalRepository(prisma as any);
 
-    await expect(repository.updateVisit('visit-1', { iptpDoseNumber: 6 }))
+    await expect(repository.updateVisit('visit-1', { iptpDoseNumber: 6 }, 'midwife-1'))
       .resolves.toEqual({ id: 'visit-1', iptpDoseNumber: 6 });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'visit-1' },
@@ -1250,9 +1265,13 @@ describe('maternal update validation', () => {
 
   it('accepts a common blood-pressure format and rejects impossible postnatal readings', async () => {
     const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
-    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
+    const { prisma } = antenatalTransactionMock('postnatalRecord', {
+      findUnique: vi.fn().mockResolvedValue({ examinationDate: new Date(), nextVisitDate: null }),
+      update,
+    });
+    const repository = new AntenatalRepository(prisma as any);
 
-    await expect(repository.updatePostnatalRecord('postnatal-1', { bloodPressure: '120 / 80' }))
+    await expect(repository.updatePostnatalRecord('postnatal-1', { bloodPressure: '120 / 80' }, 'midwife-1'))
       .resolves.toEqual({ id: 'postnatal-1' });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'postnatal-1' },
@@ -1595,16 +1614,19 @@ describe('historical postnatal follow-up dates', () => {
     const examDate = new Date('2026-10-10T09:00:00.000Z');
     const nextDate = new Date('2026-10-15T09:00:00.000Z');
     const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
-    const repository = new AntenatalRepository({
-      postnatalRecord: {
-        findUnique: vi.fn().mockResolvedValue({ examinationDate: examDate, nextVisitDate: null }),
-        update,
-      },
-    } as any);
+    const findUnique = vi.fn().mockResolvedValue({ examinationDate: examDate, nextVisitDate: null });
+    const { prisma } = antenatalTransactionMock('postnatalRecord', {
+      findUnique,
+      update,
+    });
+    // Date consistency is checked before the write transaction; expose the same
+    // lookup on the root Prisma client as well as the transaction client.
+    (prisma as any).postnatalRecord = { findUnique };
+    const repository = new AntenatalRepository(prisma as any);
 
     await expect(repository.updatePostnatalRecord('postnatal-1', {
       nextVisitDate: nextDate,
-    })).resolves.toEqual({ id: 'postnatal-1' });
+    }, 'midwife-1')).resolves.toEqual({ id: 'postnatal-1' });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'postnatal-1' },
       data: { nextVisitDate: nextDate },
@@ -1822,13 +1844,12 @@ describe('medication administration requires a due dose', () => {
 
 describe('maternal booking history retention', () => {
   it('deactivates an antenatal booking instead of deleting its clinical history', async () => {
-    const findUnique = vi.fn().mockResolvedValue({ id: 'booking-1' });
+    const findUnique = vi.fn().mockResolvedValue({ id: 'booking-1', isActive: true });
     const update = vi.fn().mockResolvedValue({ id: 'booking-1', isActive: false });
-    const repository = new AntenatalRepository({
-      antenatalBooking: { findUnique, update },
-    } as any);
+    const { prisma } = antenatalTransactionMock('antenatalBooking', { findUnique, update });
+    const repository = new AntenatalRepository(prisma as any);
 
-    await repository.deleteBooking('booking-1');
+    await repository.deleteBooking('booking-1', 'midwife-1');
 
     expect(update).toHaveBeenCalledWith({
       where: { id: 'booking-1' },
@@ -1838,14 +1859,13 @@ describe('maternal booking history retention', () => {
 
   it('reports a missing booking rather than silently succeeding', async () => {
     const update = vi.fn();
-    const repository = new AntenatalRepository({
-      antenatalBooking: {
-        findUnique: vi.fn().mockResolvedValue(null),
-        update,
-      },
-    } as any);
+    const { prisma } = antenatalTransactionMock('antenatalBooking', {
+      findUnique: vi.fn().mockResolvedValue(null),
+      update,
+    });
+    const repository = new AntenatalRepository(prisma as any);
 
-    await expect(repository.deleteBooking('missing-booking')).rejects.toThrow(/not found/i);
+    await expect(repository.deleteBooking('missing-booking', 'midwife-1')).rejects.toThrow(/not found/i);
     expect(update).not.toHaveBeenCalled();
   });
 });
@@ -1921,14 +1941,13 @@ describe('ANC booking closure requires a confirmed outcome', () => {
   it('closes a booking only with the explicitly recorded outcome and date', async () => {
     const deliveryDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const update = vi.fn().mockResolvedValue({ id: 'booking-1', isActive: false, isCompleted: true });
-    const repository = new AntenatalRepository({
-      antenatalBooking: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'booking-1' }),
-        update,
-      },
-    } as any);
+    const { prisma } = antenatalTransactionMock('antenatalBooking', {
+      findUnique: vi.fn().mockResolvedValue({ id: 'booking-1', isActive: true, isCompleted: false }),
+      update,
+    });
+    const repository = new AntenatalRepository(prisma as any);
 
-    await repository.closeBooking('booking-1', { deliveryDate, deliveryOutcome: 'live_birth' });
+    await repository.closeBooking('booking-1', { deliveryDate, deliveryOutcome: 'live_birth' }, 'midwife-1');
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'booking-1' },
       data: expect.objectContaining({
@@ -2630,7 +2649,7 @@ describe('newborn follow-up preservation during delivery edits', () => {
 
     await repository.updateDeliveryRecord('delivery-1', {
       Newborn: [{ order: 1, birthWeight: 3300, gender: 'female', outcome: 'alive' }],
-    });
+    }, 'midwife-1');
 
     expect(newbornUpdate).toHaveBeenCalledWith({
       where: { id: 'baby-1' },
@@ -2665,7 +2684,7 @@ describe('newborn follow-up preservation during delivery edits', () => {
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
 
-    await repository.updateDeliveryRecord('delivery-1', { Newborn: [] });
+    await repository.updateDeliveryRecord('delivery-1', { Newborn: [] }, 'midwife-1');
 
     expect(tx.newbornRecord.findFirst).not.toHaveBeenCalled();
     expect(newbornUpdate).not.toHaveBeenCalled();
