@@ -39,6 +39,7 @@ describe('theatre completion outcome validation', () => {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
       clinicalRecord: {
