@@ -74,9 +74,9 @@ describe('billing payment concurrency guards', () => {
   });
 
   it('rejects Mobile Money and client-supplied intent IDs on the legacy manual service path', async () => {
+    const service = new BillingService({} as any);
     const addPayment = vi.fn();
-    const repository = { addPayment };
-    const service = new BillingService(repository as any);
+    (service as any).repository.addPayment = addPayment;
 
     await expect(service.addPaymentToBill('bill-1', {
       amount: 50,
