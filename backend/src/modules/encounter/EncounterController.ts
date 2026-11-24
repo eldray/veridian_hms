@@ -313,6 +313,9 @@ export class EncounterController extends BaseController {
     const user = req.user!;
 
     const labOrder = await this.service.updateLabTestStatus(labTestId, status, { result, normalRange, units, notes, priority }, user.id);
+    // The repository committed the detailed, privacy-minimised audit event in
+    // the same transaction as the result update; suppress the generic duplicate.
+    (req as any).auditHandled = true;
     return this.ok(res, labOrder, 'Lab order status updated');
   });
 

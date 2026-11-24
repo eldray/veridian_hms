@@ -4,10 +4,14 @@ import { EncounterRepository } from '../src/modules/encounter/EncounterRepositor
 describe('clinical order concurrent-update guards', () => {
   it('blocks laboratory result updates when the encounter is closed', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
-      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
       labTest: { findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', attendanceId: 'attendance-1', status: 'requested' }), updateMany },
+    };
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
 
     await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: 'Positive' }, 'staff-1'))
@@ -60,13 +64,17 @@ describe('clinical order concurrent-update guards', () => {
 
   it('requires a meaningful result before completing a laboratory order', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
-      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       labTest: {
         findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', attendanceId: 'attendance-1', status: 'in_progress', result: null }),
         updateMany,
       },
+    };
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
 
     await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: '   ' }, 'staff-1'))
@@ -99,13 +107,17 @@ describe('clinical order concurrent-update guards', () => {
 
   it('does not overwrite a laboratory order changed by another request', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
-    const prisma: any = {
-      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       labTest: {
         findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', attendanceId: 'attendance-1', status: 'requested' }),
         updateMany,
       },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
     const repository = new EncounterRepository(prisma);
 
