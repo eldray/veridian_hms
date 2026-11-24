@@ -50,6 +50,7 @@ export class ReferralController extends BaseController {
     if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
     
     const referral = await this.service.createOutgoingReferral(req.body, req.user.id);
+    (req as any).auditHandled = true;
     return this.created(res, referral, 'Outgoing referral created successfully');
   });
 
@@ -57,16 +58,21 @@ export class ReferralController extends BaseController {
     if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
     
     const referral = await this.service.createIncomingReferral(req.body, req.user.id);
+    (req as any).auditHandled = true;
     return this.created(res, referral, 'Incoming referral created successfully');
   });
 
-  updateReferralStatus = this.asyncHandler(async (req: Request, res: Response) => {
-    const referral = await this.service.updateReferralStatus(req.params.id, req.body);
+  updateReferralStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+    const referral = await this.service.updateReferralStatus(req.params.id, req.body, req.user.id);
+    (req as any).auditHandled = true;
     return this.ok(res, referral, `Referral ${req.body.status} successfully`);
   });
 
-  deleteReferral = this.asyncHandler(async (req: Request, res: Response) => {
-    await this.service.deleteReferral(req.params.id);
+  deleteReferral = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+    await this.service.deleteReferral(req.params.id, req.user.id);
+    (req as any).auditHandled = true;
     return this.ok(res, null, 'Referral deleted successfully');
   });
 
