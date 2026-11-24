@@ -3194,15 +3194,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return where;
   }
 
-  /**
-   * The same visit-date window for the item queues (lab, pharmacy, procedures). Their own request
-   * windows still apply, but the desk filters on the visit date it prints in every row.
-   */
-  private visitDateWhere(query: WorklistQuery): any | null {
-    const range: any = {};
+  /** Date filters for item queues use the timestamp of the requested work, never the parent visit. */
+  private workItemDateWhere(query: WorklistQuery, field: 'requestedAt' | 'prescribedAt' | 'createdAt' | 'updatedAt'): Record<string, any> {
+    const range: Record<string, Date> = {};
     if (query.dateFrom) range.gte = query.dateFrom;
     if (query.dateTo) range.lte = query.dateTo;
-    return Object.keys(range).length ? range : null;
+    return Object.keys(range).length ? { [field]: range } : {};
   }
 
   /** Read the queue from the newest visits down, then rank it in memory — the ranking is clinical, not columnar. */
@@ -3306,7 +3303,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getLabWorklist(query: WorklistQuery = {}): Promise<any> {
     const view = query.view ?? 'pending';
-    const visitDate = this.visitDateWhere(query);
+    const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'updatedAt' : 'requestedAt');
     // To do: an unanswered request on a visit still open — the patient is here. Awaiting
     // results: the same request on a visit already closed, which would otherwise vanish when the
     // visit closes. Completed: tests answered in the last 72 hours.
@@ -3314,15 +3311,16 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       ? {
         status: 'completed',
         updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...(visitDate ? { Attendance: { is: { dateTime: visitDate } } } : {}),
+        ...itemDateFilter,
       }
       : {
         status: { in: ['requested', 'in_progress'] },
         requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
+        ...itemDateFilter,
         Attendance: {
           is: {
             status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-            ...(visitDate ? { dateTime: visitDate } : {}),
+
           },
         },
       };
@@ -3348,26 +3346,29 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         },
         LabTestTemplate: { select: { name: true } }
       },
-      orderBy: { requestedAt: 'asc' }
+      orderBy: { requestedAt: 'desc' }
     });
     const groupedByAttendance = new Map();
     for (const test of allLabTests) {
       const attendanceId = test.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId, ...this.displayIdentity(test.Attendance), location: test.Attendance.Bed ? { ward: test.Attendance.Bed.Ward?.wardName, bed: test.Attendance.Bed.bedNumber } : undefined, tests: [], requestedCount: 0, inProgressCount: 0, completedCount: 0, oldestRequestedAt: test.requestedAt });
+        groupedByAttendance.set(attendanceId, { attendanceId, ...this.displayIdentity(test.Attendance), location: test.Attendance.Bed ? { ward: test.Attendance.Bed.Ward?.wardName, bed: test.Attendance.Bed.bedNumber } : undefined, tests: [], requestedCount: 0, inProgressCount: 0, completedCount: 0, oldestRequestedAt: test.requestedAt, latestRequestedAt: test.requestedAt });
       }
       const group = groupedByAttendance.get(attendanceId); group.tests.push(test);
       if (test.status === 'requested') group.requestedCount++; else if (test.status === 'in_progress') group.inProgressCount++; else if (test.status === 'completed') group.completedCount++;
       if (new Date(test.requestedAt) < new Date(group.oldestRequestedAt)) group.oldestRequestedAt = test.requestedAt;
+      if (new Date(test.requestedAt) > new Date(group.latestRequestedAt)) group.latestRequestedAt = test.requestedAt;
     }
     const processedItems = [];
     for (const group of groupedByAttendance.values()) {
+      group.tests.sort((a: any, b: any) => queueTimeKey(b.requestedAt) - queueTimeKey(a.requestedAt));
       const hasPendingTests = group.requestedCount > 0 || group.inProgressCount > 0;
       const allCompleted = group.completedCount > 0 && group.requestedCount === 0 && group.inProgressCount === 0;
       let waitTime = 0; let priority = 'routine';
       if (hasPendingTests) { waitTime = Math.floor((Date.now() - new Date(group.oldestRequestedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
-      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, testCount: group.tests.length, requestedCount: group.requestedCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingTests, hasResults: allCompleted, oldestRequestedAt: group.oldestRequestedAt, tests: group.tests, waitTime, priority, status: hasPendingTests ? 'pending' : (allCompleted ? 'completed' : 'partial') });
+      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, testCount: group.tests.length, requestedCount: group.requestedCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingTests, hasResults: allCompleted, oldestRequestedAt: group.oldestRequestedAt, latestRequestedAt: group.latestRequestedAt, tests: group.tests, waitTime, priority, status: hasPendingTests ? 'pending' : (allCompleted ? 'completed' : 'partial') });
     }
+    processedItems.sort((a: any, b: any) => queueTimeKey(b.latestRequestedAt) - queueTimeKey(a.latestRequestedAt));
     const buckets = {
       today: view === 'pending' ? processedItems.length : 0,
       inpatients: 0,
@@ -3379,22 +3380,23 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getPharmacyWorklist(query: WorklistQuery = {}): Promise<any> {
     const view = query.view ?? 'pending';
-    const visitDate = this.visitDateWhere(query);
+    const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'updatedAt' : 'prescribedAt');
     // Prescriptions on open visits are counter work; the same prescription on a closed visit is
     // an outstanding collection the patient left without. Dispensed rows are the completed view.
     const where: any = view === 'completed'
       ? {
         status: 'dispensed',
         updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...(visitDate ? { Attendance: { is: { dateTime: visitDate } } } : {}),
+        ...itemDateFilter,
       }
       : {
         status: 'prescribed',
         prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
+        ...itemDateFilter,
         Attendance: {
           is: {
             status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-            ...(visitDate ? { dateTime: visitDate } : {}),
+
           },
         },
       };
@@ -3423,7 +3425,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           }
         }
       },
-      orderBy: { prescribedAt: 'asc' }
+      orderBy: { prescribedAt: 'desc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const med of allMedications) {
@@ -3438,12 +3440,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     }
     const processedItems: any[] = [];
     for (const group of groupedByAttendance.values()) {
+      group.medications.sort((a: any, b: any) => queueTimeKey(b.prescribedAt) - queueTimeKey(a.prescribedAt));
       const hasPendingPrescriptions = group.prescribedCount > 0;
       const allDispensed = group.prescribedCount === 0 && group.dispensedCount > 0;
       let waitTime = 0; let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       if (hasPendingPrescriptions) { waitTime = Math.floor((Date.now() - new Date(group.oldestPrescribedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
-      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, prescriptionCount: group.prescribedCount + group.dispensedCount, prescribedCount: group.prescribedCount, dispensedCount: group.dispensedCount, hasPendingPrescriptions, hasBeenDispensed: allDispensed, oldestPrescribedAt: group.oldestPrescribedAt, medications: group.medications.map((m: any) => ({ id: m.id, name: m.StockItem?.name || m.name, dosage: m.dosage, frequency: m.frequency, duration: m.duration, status: m.status, prescribedAt: m.prescribedAt, dispensedAt: m.dispensedAt })), waitTime, priority, status: hasPendingPrescriptions ? 'pending' : (allDispensed ? 'dispensed' : 'partial'), encounterCategory: 'ipd' });
+      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, prescriptionCount: group.prescribedCount + group.dispensedCount, prescribedCount: group.prescribedCount, dispensedCount: group.dispensedCount, hasPendingPrescriptions, hasBeenDispensed: allDispensed, oldestPrescribedAt: group.oldestPrescribedAt, newestPrescribedAt: group.newestPrescribedAt, medications: group.medications.map((m: any) => ({ id: m.id, name: m.StockItem?.name || m.name, dosage: m.dosage, frequency: m.frequency, duration: m.duration, status: m.status, prescribedAt: m.prescribedAt, dispensedAt: m.dispensedAt })), waitTime, priority, status: hasPendingPrescriptions ? 'pending' : (allDispensed ? 'dispensed' : 'partial'), encounterCategory: 'ipd' });
     }
+    processedItems.sort((a: any, b: any) => queueTimeKey(b.newestPrescribedAt) - queueTimeKey(a.newestPrescribedAt));
     const buckets = {
       today: view === 'pending' ? processedItems.length : 0,
       inpatients: 0,
@@ -3455,44 +3459,47 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getRadiologyWorklist(query: WorklistQuery = {}): Promise<any> {
     const view = query.view ?? 'pending';
-    const visitDate = this.visitDateWhere(query);
+    const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'updatedAt' : 'requestedAt');
     // To do: a scan requested on a visit still open. Awaiting results: the same request on a
     // visit already closed. Completed: scans reported in the last 72 hours.
     const where: any = view === 'completed'
       ? {
         status: 'completed',
         updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...(visitDate ? { Attendance: { is: { dateTime: visitDate } } } : {}),
+        ...itemDateFilter,
       }
       : {
         status: { in: ['requested', 'in_progress'] },
         requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
+        ...itemDateFilter,
         Attendance: {
           is: {
             status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-            ...(visitDate ? { dateTime: visitDate } : {}),
+
           },
         },
       };
     const allScans = await this.prisma.scan.findMany({
       where,
-      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ScanTemplate: true, User_Scan_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'asc' }
+      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ScanTemplate: true, User_Scan_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'desc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const scan of allScans) {
       const attendanceId = scan.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId: scan.attendanceId, ...this.displayIdentity(scan.Attendance), location: scan.Attendance.Bed ? { ward: scan.Attendance.Bed.Ward?.wardName, bed: scan.Attendance.Bed.bedNumber } : undefined, scans: [], requestedCount: 0, inProgressCount: 0, completedCount: 0, oldestRequestedAt: scan.requestedAt, highestPriority: 'routine' });
+        groupedByAttendance.set(attendanceId, { attendanceId: scan.attendanceId, ...this.displayIdentity(scan.Attendance), location: scan.Attendance.Bed ? { ward: scan.Attendance.Bed.Ward?.wardName, bed: scan.Attendance.Bed.bedNumber } : undefined, scans: [], requestedCount: 0, inProgressCount: 0, completedCount: 0, oldestRequestedAt: scan.requestedAt, latestRequestedAt: scan.requestedAt, highestPriority: 'routine' });
       }
       const group = groupedByAttendance.get(attendanceId)!; group.scans.push(scan);
       if (scan.status === 'requested') group.requestedCount++; else if (scan.status === 'in_progress') group.inProgressCount++; else if (scan.status === 'completed') group.completedCount++;
       if (new Date(scan.requestedAt) < new Date(group.oldestRequestedAt)) group.oldestRequestedAt = scan.requestedAt;
+      if (new Date(scan.requestedAt) > new Date(group.latestRequestedAt)) group.latestRequestedAt = scan.requestedAt;
       let priorityWeight = (scan.priority as string) === 'stat' ? 3 : scan.priority === 'urgent' ? 2 : 1;
       let currentWeight = (group.highestPriority as string) === 'stat' ? 3 : group.highestPriority === 'urgent' ? 2 : 1;
       if (priorityWeight > currentWeight) group.highestPriority = scan.priority || 'routine';
     }
     const processedItems: any[] = [];
     for (const group of groupedByAttendance.values()) {
+      group.scans.sort((a: any, b: any) => queueTimeKey(b.requestedAt) - queueTimeKey(a.requestedAt));
       const hasPendingScans = group.requestedCount > 0 || group.inProgressCount > 0;
       const allCompleted = group.completedCount > 0 && group.requestedCount === 0 && group.inProgressCount === 0;
       let waitTime = 0; let priority: 'routine' | 'urgent' | 'stat' = group.highestPriority as any;
@@ -3503,6 +3510,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         attendanceStatus: group.attendanceStatus, scanCount: group.scans.length, requestedCount: group.requestedCount,
         inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingScans, hasResults: allCompleted,
         oldestRequestedAt: group.oldestRequestedAt,
+        latestRequestedAt: group.latestRequestedAt,
         scanTypes: group.scans.map((s: any) => s.ScanTemplate?.name || s.scanType || 'Unknown').join(', '),
         scans: group.scans.map((s: any) => ({
           id: s.id, status: s.status, priority: s.priority, scanType: s.scanType,
@@ -3513,6 +3521,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         waitTime, priority, status: hasPendingScans ? 'pending' : (allCompleted ? 'completed' : 'partial'), encounterCategory: 'ipd',
       });
     }
+    processedItems.sort((a: any, b: any) => queueTimeKey(b.latestRequestedAt) - queueTimeKey(a.latestRequestedAt));
     const buckets = {
       today: view === 'pending' ? processedItems.length : 0,
       inpatients: 0,
@@ -3524,41 +3533,44 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getProceduresWorklist(query: WorklistQuery = {}): Promise<any> {
     const view = query.view ?? 'pending';
-    const visitDate = this.visitDateWhere(query);
+    const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'updatedAt' : 'createdAt');
     // Theatre work on an open visit; a procedure still scheduled on a closed visit is the
     // outcome that slipped through and needs chasing. Completed rows are the last 72 hours.
     const where: any = view === 'completed'
       ? {
         status: 'completed',
         updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...(visitDate ? { Attendance: { is: { dateTime: visitDate } } } : {}),
+        ...itemDateFilter,
       }
       : {
         status: { in: ['scheduled', 'in_progress'] },
         createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
+        ...itemDateFilter,
         Attendance: {
           is: {
             status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-            ...(visitDate ? { dateTime: visitDate } : {}),
+
           },
         },
       };
     const allProcedures = await this.prisma.procedure.findMany({
       where,
-      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { scheduledDate: 'asc' }
+      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { createdAt: 'desc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const procedure of allProcedures) {
       const attendanceId = procedure.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId: procedure.attendanceId, ...this.displayIdentity(procedure.Attendance), location: procedure.Attendance.Bed ? { ward: procedure.Attendance.Bed.Ward?.wardName, bed: procedure.Attendance.Bed.bedNumber } : undefined, procedures: [], scheduledCount: 0, inProgressCount: 0, completedCount: 0, earliestScheduledDate: null });
+        groupedByAttendance.set(attendanceId, { attendanceId: procedure.attendanceId, ...this.displayIdentity(procedure.Attendance), location: procedure.Attendance.Bed ? { ward: procedure.Attendance.Bed.Ward?.wardName, bed: procedure.Attendance.Bed.bedNumber } : undefined, procedures: [], latestCreatedAt: procedure.createdAt, scheduledCount: 0, inProgressCount: 0, completedCount: 0, earliestScheduledDate: null });
       }
       const group = groupedByAttendance.get(attendanceId)!; group.procedures.push(procedure);
+      if (queueTimeKey(procedure.createdAt) > queueTimeKey(group.latestCreatedAt)) group.latestCreatedAt = procedure.createdAt;
       if (procedure.status === 'scheduled') group.scheduledCount++; else if (procedure.status === 'in_progress') group.inProgressCount++; else if (procedure.status === 'completed') group.completedCount++;
       if (procedure.scheduledDate && (!group.earliestScheduledDate || new Date(procedure.scheduledDate) < new Date(group.earliestScheduledDate))) group.earliestScheduledDate = procedure.scheduledDate;
     }
     const processedItems: any[] = [];
     for (const group of groupedByAttendance.values()) {
+      group.procedures.sort((a: any, b: any) => queueTimeKey(b.createdAt) - queueTimeKey(a.createdAt));
       const hasPendingProcedures = group.scheduledCount > 0 || group.inProgressCount > 0;
       const hasBeenPerformed = group.completedCount > 0 && group.scheduledCount === 0 && group.inProgressCount === 0;
       let waitTime = 0; let priority: 'routine' | 'urgent' | 'stat' = 'routine';
@@ -3568,8 +3580,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         if (minutesUntilScheduled < 0) { const overdueHours = Math.abs(minutesUntilScheduled) / 60; if (overdueHours > 24) priority = 'stat'; else if (overdueHours > 12) priority = 'urgent'; }
         else { const waitHours = minutesUntilScheduled / 60; if (waitHours < 1) priority = 'stat'; else if (waitHours < 6) priority = 'urgent'; }
       }
-      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, procedureCount: group.procedures.length, scheduledCount: group.scheduledCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingProcedures, hasBeenPerformed, earliestScheduledDate: group.earliestScheduledDate, procedureNames: group.procedures.map((p: any) => p.ProcedureTemplate?.name || 'Unknown').join(', '), procedureIds: group.procedures.filter((p: any) => ['in_progress', 'scheduled'].includes(p.status)).sort((a: any, b: any) => (a.status === 'in_progress' ? 0 : 1) - (b.status === 'in_progress' ? 0 : 1)).map((p: any) => p.id), waitTime, priority, status: hasBeenPerformed ? 'completed' : (group.inProgressCount > 0 ? 'in_progress' : 'scheduled'), encounterCategory: 'ipd' });
+      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, procedureCount: group.procedures.length, scheduledCount: group.scheduledCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingProcedures, hasBeenPerformed, earliestScheduledDate: group.earliestScheduledDate, latestCreatedAt: group.latestCreatedAt, procedureNames: group.procedures.map((p: any) => p.ProcedureTemplate?.name || 'Unknown').join(', '), procedureIds: group.procedures.filter((p: any) => ['in_progress', 'scheduled'].includes(p.status)).sort((a: any, b: any) => (a.status === 'in_progress' ? 0 : 1) - (b.status === 'in_progress' ? 0 : 1)).map((p: any) => p.id), waitTime, priority, status: hasBeenPerformed ? 'completed' : (group.inProgressCount > 0 ? 'in_progress' : 'scheduled'), encounterCategory: 'ipd' });
     }
+    processedItems.sort((a: any, b: any) => queueTimeKey(b.latestCreatedAt) - queueTimeKey(a.latestCreatedAt));
     const buckets = {
       today: view === 'pending' ? processedItems.length : 0,
       inpatients: 0,

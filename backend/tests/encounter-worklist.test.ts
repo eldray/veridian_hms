@@ -402,3 +402,39 @@ describe('worklist cache keys', () => {
     );
   });
 });
+
+
+describe('clinical request worklist timestamps', () => {
+  const requestAttendance = (id: string) => ({
+    patientId: `patient-${id}`, attendanceNumber: `ATT-${id}`, dateTime: daysAgo(12), status: 'pending',
+    Patient: { surname: 'Mensah', otherNames: id, dateOfBirth: new Date('1990-01-01'), gender: 'female', folderNumber: `F-${id}` },
+    CounterClient: null, Bed: null,
+  });
+
+  it('filters lab requests by requestedAt and places the newest request first, even on an older visit', async () => {
+    const older = new Date('2026-11-24T08:15:00Z');
+    const newest = new Date('2026-11-24T10:45:00Z');
+    const labTest = { findMany: vi.fn(async (_args: any) => [
+      { id: 'older-request', attendanceId: 'old-visit', status: 'requested', requestedAt: older, Attendance: requestAttendance('old'), LabTestTemplate: { name: 'FBC' } },
+      { id: 'new-request', attendanceId: 'new-visit', status: 'requested', requestedAt: newest, Attendance: requestAttendance('new'), LabTestTemplate: { name: 'Malaria RDT' } },
+    ]) };
+    const repository = new EncounterRepository({ labTest } as any);
+    const result = await repository.getLabWorklist({ dateFrom: new Date('2026-11-24T00:00:00Z'), dateTo: new Date('2026-11-24T23:59:59Z') });
+    const args = labTest.findMany.mock.calls[0][0];
+
+    expect(args.where.requestedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
+    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.orderBy).toEqual({ requestedAt: 'desc' });
+    expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
+    expect(result.data[0].tests[0].id).toBe('new-request');
+  });
+
+  it('filters completed lab work by result update time, not visit date', async () => {
+    const labTest = { findMany: vi.fn(async (_args: any) => []) };
+    const repository = new EncounterRepository({ labTest } as any);
+    await repository.getLabWorklist({ view: 'completed', dateFrom: new Date('2026-11-24T00:00:00Z') });
+    const where = labTest.findMany.mock.calls[0][0].where;
+    expect(where.updatedAt.gte).toEqual(new Date('2026-11-24T00:00:00Z'));
+    expect(where.Attendance).toBeUndefined();
+  });
+});
