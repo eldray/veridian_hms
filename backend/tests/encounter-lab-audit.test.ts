@@ -23,7 +23,7 @@ describe('laboratory result audit integrity', () => {
             result: null,
           })
           .mockResolvedValueOnce({ id: 'lab-1', status: 'completed' }),
-        update: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
     const transaction = vi.fn(async (callback: (client: any) => Promise<any>) => callback(tx));
