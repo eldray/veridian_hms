@@ -73,7 +73,7 @@ describe('password changes enforce the policy', () => {
   });
 
   it('rejects reusing the current password', async () => {
-    const { service, repository } = await buildService();
+    const { service, prisma } = await buildService();
 
     const result = await service.changePassword('user-1', {
       currentPassword,
@@ -82,7 +82,7 @@ describe('password changes enforce the policy', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/different/);
-    expect(repository.updateUser).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it('stores a strong password and revokes the other sessions', async () => {
@@ -213,7 +213,7 @@ describe('administrator password reset', () => {
   });
 
   it('audits the reset without recording the password', async () => {
-    const { service, repository } = buildService();
+    const { service, prisma } = buildService();
     const auditLogger = (service as any).auditLogger;
 
     await service.resetUserPassword('user-9', 'Ward-Round-2026!', {
@@ -230,7 +230,7 @@ describe('administrator password reset', () => {
   });
 
   it('will not let an admin hand out a super-admin password', async () => {
-    const { service, repository } = buildService('super_admin');
+    const { service, prisma } = buildService('super_admin');
 
     await expect(
       service.resetUserPassword('user-9', 'Ward-Round-2026!', { userId: 'admin-1', role: 'admin' }),
