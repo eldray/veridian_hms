@@ -97,6 +97,7 @@ export class AuthController {
   private changePassword = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const result = await this.authService.changePassword(req.user!.userId, req.body);
+      if (result.success) clearFileAccessCookie(res);
       res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
       res.status(500).json({ success: false, message: 'Password change failed' });
