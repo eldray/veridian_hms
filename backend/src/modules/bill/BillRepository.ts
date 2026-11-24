@@ -566,7 +566,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async applyWaiver(billId: string, waiverId: string, userId: string) {
+  async applyWaiver(billId: string, waiverId: string, userId?: string) {
     return this.prisma.$transaction(async (tx) => {
       const waiver = await tx.patientWaiver.findUnique({ where: { id: waiverId }, include: { bill: true } });
       if (!waiver) throw new Error('Waiver not found');
