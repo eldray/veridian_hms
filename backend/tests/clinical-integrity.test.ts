@@ -1620,10 +1620,12 @@ describe('completed clinical record edit protection', () => {
 
   it('locks completed procedure records from ordinary edits', async () => {
     const update = vi.fn();
-    const repository = new EncounterRepository({
+    const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), update },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', { notes: 'changed' }, 'staff-1'))
       .rejects.toThrow(/completed procedure record is locked/i);
     expect(update).not.toHaveBeenCalled();
