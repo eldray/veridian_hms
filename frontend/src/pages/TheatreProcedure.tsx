@@ -1819,6 +1819,7 @@ export default function TheatreProcedure() {
               )}
 
               </fieldset>
+              )}
 
               {/* ── COMPLETION BAR + ACTION BUTTONS ────────────── */}
               {procedureDocumentationUnlocked && (
