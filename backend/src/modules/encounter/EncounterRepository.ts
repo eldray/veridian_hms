@@ -792,8 +792,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
-  async removeDiagnosis(encounterId: string, diagnosisId: string, userId: string) {
-    const actorId = await this.requireActorId(userId);
+  async removeDiagnosis(encounterId: string, diagnosisId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
 
