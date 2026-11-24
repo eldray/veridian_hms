@@ -843,7 +843,7 @@ describe('postnatal create/update validation consistency', () => {
       fundalHeight: 60,
       babyWeight: 15,
       babyTemperature: 26,
-    })).resolves.toEqual({ id: 'postnatal-1' });
+    }, 'midwife-1')).resolves.toEqual({ id: 'postnatal-1' });
 
     expect(update).toHaveBeenCalledWith({
       where: { id: 'postnatal-1' },
@@ -978,7 +978,7 @@ describe('ANC visit clinical field validation', () => {
     const { prisma } = antenatalTransactionMock('aNCVisit', { update });
     const repository = new AntenatalRepository(prisma as any);
 
-    await expect(repository.updateVisit('visit-1', { iptpDoseNumber: 6 }))
+    await expect(repository.updateVisit('visit-1', { iptpDoseNumber: 6 }, 'midwife-1'))
       .resolves.toEqual({ id: 'visit-1', iptpDoseNumber: 6 });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'visit-1' },
@@ -1267,7 +1267,7 @@ describe('maternal update validation', () => {
     const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
     const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
 
-    await expect(repository.updatePostnatalRecord('postnatal-1', { bloodPressure: '120 / 80' }))
+    await expect(repository.updatePostnatalRecord('postnatal-1', { bloodPressure: '120 / 80' }, 'midwife-1'))
       .resolves.toEqual({ id: 'postnatal-1' });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'postnatal-1' },
@@ -1618,7 +1618,7 @@ describe('historical postnatal follow-up dates', () => {
 
     await expect(repository.updatePostnatalRecord('postnatal-1', {
       nextVisitDate: nextDate,
-    })).resolves.toEqual({ id: 'postnatal-1' });
+    }, 'midwife-1')).resolves.toEqual({ id: 'postnatal-1' });
     expect(update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'postnatal-1' },
       data: { nextVisitDate: nextDate },
