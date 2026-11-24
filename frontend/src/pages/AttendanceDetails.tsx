@@ -390,10 +390,12 @@ export default function AttendanceDetails() {
         return;
       }
       
-      await Promise.all([
-        getAttendance(id),
-        getBills({ attendanceId: id })
-      ]);
+      const tasks: Promise<any>[] = [getAttendance(id)];
+      // Only care, records and finance roles may load the linked bill/payment history.
+      if (hasRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'])) {
+        tasks.push(getBills({ attendanceId: id }));
+      }
+      await Promise.all(tasks);
       
       // Vitals are part of the clinical record; operational desks must not request them.
       if (hasRole(['admin', 'doctor', 'nurse', 'midwife'])) await loadVitals(id);
