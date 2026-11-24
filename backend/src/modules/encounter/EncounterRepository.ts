@@ -13,6 +13,7 @@ import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '
 import { releaseBedForAttendance } from '../bed/bedOccupancy';
 import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
 import { appendClinicalRecordAudit } from './clinicalAudit';
+import { appendClinicalRecordAudit } from './clinicalAudit';
 import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
@@ -1964,20 +1965,28 @@ async addScan(encounterId: string, data: any, userId: string) {
   const template = await this.prisma.scanTemplate.findUnique({ where: { id: templateId } });
   if (!template) throw new NotFoundError('Scan template', templateId);
 
-  return this.prisma.scan.create({
-    data: {
-      attendanceId: encounterId,
-      templateId: template.id,
-      serviceCatalogId: serviceCatalogId ?? null,
-      scanType: template.scanType || template.name,
-      description: template.description ?? null,
-      bodyPart: data.bodyPart ?? null,
-      status: 'requested',
-      priority: data.priority ?? 'routine',
-      requestedAt: new Date(),
-      createdById: actorId,
-    },
-    include: { ScanTemplate: true },
+  return this.prisma.$transaction(async (tx) => {
+    await this.requireOpenEncounter(encounterId, tx);
+    const created = await tx.scan.create({
+      data: {
+        attendanceId: encounterId,
+        templateId: template.id,
+        serviceCatalogId: serviceCatalogId ?? null,
+        scanType: template.scanType || template.name,
+        description: template.description ?? null,
+        bodyPart: data.bodyPart ?? null,
+        status: 'requested',
+        priority: data.priority ?? 'routine',
+        requestedAt: new Date(),
+        createdById: actorId,
+      },
+      include: { ScanTemplate: true },
+    });
+    await appendClinicalRecordAudit(tx, actorId, 'Scan', created.id, 'create', undefined, {
+      id: created.id, templateId: created.templateId, serviceCatalogId: created.serviceCatalogId,
+      status: created.status, priority: created.priority, requestedAt: created.requestedAt, createdById: created.createdById,
+    }, { workflow: 'scan_order_requested' });
+    return created;
   });
 }
 
