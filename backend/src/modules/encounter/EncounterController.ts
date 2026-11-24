@@ -353,6 +353,7 @@ export class EncounterController extends BaseController {
     const { status, result, findings, impression, imageUrls, notes, priority } = req.body;
     const user = req.user!;
     const scan = await this.service.updateScanStatus(scanId, status, { result, findings, impression, imageUrls, notes, priority }, user.id);
+    (req as any).auditHandled = true;
     return this.ok(res, scan, 'Scan status updated');
   });
 
