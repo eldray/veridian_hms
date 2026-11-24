@@ -84,6 +84,12 @@ describe('route authorization, route by route', () => {
   });
 
 
+    it('restricts encounter statistics and aggregate worklist summaries to relevant staff roles', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'encounter', 'EncounterRoutes.ts'), 'utf8');
+    expect(source).toContain("router.get('/stats', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']), controller.getStats);");
+    expect(source).toContain("router.get('/worklist/summary', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'sonographer']), controller.getWorklistSummary);");
+  });
+
   it('scopes encounter list/detail and direct clinical subresource reads by staff role', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'encounter', 'EncounterRoutes.ts'), 'utf8');
     expect(source).toContain("router.get('/', requireRole(encounterReaders), controller.getAll);");
