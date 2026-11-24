@@ -467,6 +467,10 @@ export default function TheatreProcedure() {
     const nextClinicalRecord = isMinor
       ? { ...(selectedProcedure.clinicalRecord || {}), minorProcedure: currentMinor, workflow: 'minor' }
       : { ...currentClinicalRecord, anesthesiaType, workflow: 'theatre' };
+    const persistedClinicalRecord = { ...(selectedProcedure.clinicalRecord || {}) };
+    const comparableClinicalRecord = { ...nextClinicalRecord };
+    delete persistedClinicalRecord.auditLog;
+    delete comparableClinicalRecord.auditLog;
 
     const unchanged = isMinor
       ? JSON.stringify(selectedProcedure.clinicalRecord?.minorProcedure || {}) === JSON.stringify(currentMinor) &&
@@ -476,7 +480,7 @@ export default function TheatreProcedure() {
         selectedProcedure.postOperativeNotes === (postOperativeNotes || null) &&
         selectedProcedure.bloodLoss === (bloodLoss === '' ? null : Number(bloodLoss)) &&
         selectedProcedure.complications === (hasComplications ? complications : null) &&
-        JSON.stringify(selectedProcedure.clinicalRecord || {}) === JSON.stringify(nextClinicalRecord);
+        JSON.stringify(persistedClinicalRecord) === JSON.stringify(comparableClinicalRecord);
     if (unchanged) return;
 
     setAutosaveStatus('saving');
@@ -758,9 +762,9 @@ export default function TheatreProcedure() {
       const auditLog = Array.isArray(previousRecord.auditLog) ? previousRecord.auditLog : [];
       const actor = user?.fullName || user?.email || user?.username || user?.id || 'Clinical user';
       await updateProcedureStatus(selectedAttendanceId, selectedProcedureId, {
-        status: selectedProcedure.status === 'completed' ? 'completed' : 'completed',
+        status: 'completed',
         performedById: user?.id || '',
-        performedAt: now,
+        performedAt: selectedProcedure.status === 'completed' ? (selectedProcedure.performedAt || now) : now,
         outcome: minorProcedureRecord.outcome,
         complications: minorProcedureRecord.complications.trim() || null,
         clinicalRecord: {
@@ -1691,7 +1695,7 @@ export default function TheatreProcedure() {
                       <span className="text-[11px] text-[var(--text-tertiary)]">
                         {autosaveStatus === 'saving' ? 'Saving draft…' : autosaveStatus === 'saved' ? 'Draft saved automatically' : autosaveStatus === 'error' ? 'Auto-save failed — check connection' : 'Changes save automatically'}
                       </span>
-                      <button type="button" disabled={isSubmitting} onClick={handleSubmitMinorProcedure} className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{isSubmitting ? 'Saving…' : 'Complete procedure'}</button>
+                      <button type="button" disabled={isSubmitting} onClick={handleSubmitMinorProcedure} className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{isSubmitting ? 'Saving…' : selectedProcedure.status === 'completed' ? 'Save changes' : 'Complete procedure'}</button>
                     </div>
                 </SectionCard>
               )}
@@ -1837,12 +1841,14 @@ export default function TheatreProcedure() {
                   <div className="flex items-center gap-2 flex-wrap">
                     {(selectedProcedure.status === 'scheduled' || selectedProcedure.status === 'in_progress' || canEditCompletedProcedure) && (canUpdateProcedure || canEditCompletedProcedure) && (
                       <>
-                        <button
-                          onClick={() => handleCancelProcedure(selectedProcedure.id)}
-                          className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium transition-all"
-                        >
-                          Cancel Procedure
-                        </button>
+                        {(selectedProcedure.status === 'scheduled' || selectedProcedure.status === 'in_progress') && (
+                          <button
+                            onClick={() => handleCancelProcedure(selectedProcedure.id)}
+                            className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium transition-all"
+                          >
+                            Cancel Procedure
+                          </button>
+                        )}
                         {(selectedProcedure.status === 'in_progress' || canEditCompletedProcedure) && (
                           <>
                             <span className="self-center text-[11px] text-[var(--text-tertiary)]">
@@ -1855,23 +1861,25 @@ export default function TheatreProcedure() {
                             >
                               {selectedProcedure.status === 'completed' ? 'Save changes' : 'Save now'}
                             </button>
-                            <button
-                              onClick={() => handleSubmitTheatreNotes(true)}
-                              disabled={isSubmitting}
-                              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold transition-all flex items-center gap-2"
-                            >
-                              {isSubmitting ? (
-                                <>
-                                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  Saving…
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="w-4 h-4" />
-                                  Complete Procedure
-                                </>
-                              )}
-                            </button>
+                            {selectedProcedure.status === 'in_progress' && (
+                              <button
+                                onClick={() => handleSubmitTheatreNotes(true)}
+                                disabled={isSubmitting}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold transition-all flex items-center gap-2"
+                              >
+                                {isSubmitting ? (
+                                  <>
+                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    Saving…
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4" />
+                                    Complete Procedure
+                                  </>
+                                )}
+                              </button>
+                            )}
                           </>
                         )}
                       </>
