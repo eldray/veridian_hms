@@ -231,6 +231,7 @@ export class BillingController extends BaseController {
 
       try {
         const result = await this.service.voidLineItem(req.params.lineItemId, req.user!.id, req.body.reason);
+        (req as any).auditHandled = true;
         return this.ok(res, result, 'Bill line item voided successfully');
       } catch (error: any) {
         if (error?.statusCode === 409 || /recorded payments would exceed the revised patient liability|cannot void a line item on a cancelled bill/i.test(error?.message || '')) {
@@ -254,7 +255,8 @@ export class BillingController extends BaseController {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
-      const result = await this.service.applyWaiver(req.params.billId, req.body.waiverId);
+      const result = await this.service.applyWaiver(req.params.billId, req.body.waiverId, req.user!.id);
+      (req as any).auditHandled = true;
       return this.ok(res, result, 'Waiver applied successfully');
     })
   ];

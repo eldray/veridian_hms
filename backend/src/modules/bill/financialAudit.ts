@@ -86,3 +86,26 @@ export async function appendRefundFinancialAudit(
     metadata: { source: 'refund_balance_transition', refundId: refund.id },
   });
 }
+
+/** Generic structured financial event for bill adjustments beyond collections/refunds. */
+export async function appendStructuredFinancialAudit(
+  tx: any,
+  actorId: string | undefined,
+  entityType: string,
+  entityId: string,
+  action: 'create' | 'update' | 'delete',
+  previousState: Record<string, unknown> | undefined,
+  newState: Record<string, unknown> | undefined,
+  metadata: Record<string, unknown>,
+) {
+  if (!actorId || !tx?.auditLog || typeof tx.$queryRawUnsafe !== 'function') return;
+  await appendAuditLogWithinTransaction(tx as Prisma.TransactionClient, {
+    entityType,
+    entityId,
+    action,
+    performedById: actorId,
+    ...(previousState ? { previousState } : {}),
+    ...(newState ? { newState } : {}),
+    metadata,
+  });
+}

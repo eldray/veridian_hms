@@ -1,7 +1,7 @@
 import { PrismaClient, Prisma, BillStatus, PaymentMode } from '@prisma/client';
 import { ValidationError } from '../../utils/errors';
 import { BaseRepository } from '../../shared/base/BaseRepository';
-import { appendPaymentFinancialAudit, appendRefundFinancialAudit } from '../bill/financialAudit';
+import { appendPaymentFinancialAudit, appendRefundFinancialAudit, appendStructuredFinancialAudit } from '../bill/financialAudit';
 import { BillFilters } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
 import { resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
@@ -772,7 +772,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const newBalance = Math.max(0, money(newPatientPayable - toNumber(currentBill.paidAmount)));
       const newStatus: BillStatus = newBalance <= 0 ? 'paid' : (toNumber(currentBill.paidAmount) > 0 ? 'partial' : 'pending');
 
-      await tx.bill.update({
+      const updatedBill = await tx.bill.update({
         where: { id: lineItem.billId },
         data: {
           subtotal: newSubtotal,
@@ -786,16 +786,56 @@ export class BillingRepository extends BaseRepository<any, any, any> {
           updatedAt: new Date()
         }
       });
+      await appendStructuredFinancialAudit(
+        tx, userId, 'BillLineItem', lineItem.id, 'update',
+        {
+          id: lineItem.id, billId: lineItem.billId, isVoided: lineItem.isVoided,
+          quantity: lineItem.quantity, lineTotal: toNumber(lineItem.lineTotal),
+          patientPayableAmount: toNumber(lineItem.patientPayableAmount),
+          insuranceCoveredAmount: toNumber(lineItem.insuranceCoveredAmount),
+        },
+        {
+          id: updatedLineItem.id, billId: updatedLineItem.billId, isVoided: updatedLineItem.isVoided,
+          quantity: updatedLineItem.quantity, lineTotal: toNumber(updatedLineItem.lineTotal),
+          patientPayableAmount: toNumber(updatedLineItem.patientPayableAmount),
+          insuranceCoveredAmount: toNumber(updatedLineItem.insuranceCoveredAmount),
+          voidedAt: updatedLineItem.voidedAt, voidedById: updatedLineItem.voidedById,
+        },
+        { source: 'billing_repository_line_item_void' },
+      );
+      await appendStructuredFinancialAudit(
+        tx, userId, 'Bill', updatedBill.id, 'update',
+        {
+          subtotal: toNumber(currentBill.subtotal), taxAmount: toNumber(currentBill.taxAmount),
+          totalAmount: toNumber(currentBill.totalAmount), insuranceCovered: toNumber(currentBill.insuranceCovered),
+          patientPayable: toNumber(currentBill.patientPayable), waiverAmount: toNumber(currentBill.waiverAmount),
+          paidAmount: toNumber(currentBill.paidAmount), balance: toNumber(currentBill.balance), status: currentBill.status,
+        },
+        {
+          subtotal: toNumber(updatedBill.subtotal), taxAmount: toNumber(updatedBill.taxAmount),
+          totalAmount: toNumber(updatedBill.totalAmount), insuranceCovered: toNumber(updatedBill.insuranceCovered),
+          patientPayable: toNumber(updatedBill.patientPayable), waiverAmount: toNumber(updatedBill.waiverAmount),
+          paidAmount: toNumber(updatedBill.paidAmount), balance: toNumber(updatedBill.balance), status: updatedBill.status,
+        },
+        { source: 'billing_repository_line_item_void' },
+      );
 
       // Voiding a corporate charge must reverse the same amount from account
       // utilization that was added when the bill was created.
       if (currentBill.paymentMode === 'corporate' && currentBill.corporateAccountId) {
         const removedCharge = Math.max(0, toNumber(currentBill.totalAmount) - newTotal);
         if (removedCharge > 0) {
-          await tx.corporateAccount.update({
+          const corporateAfter = await tx.corporateAccount.update({
             where: { id: currentBill.corporateAccountId },
-            data: { currentBalance: { decrement: removedCharge } }
+            data: { currentBalance: { decrement: removedCharge } },
+            select: { id: true, currentBalance: true },
           });
+          await appendStructuredFinancialAudit(
+            tx, userId, 'CorporateAccount', corporateAfter.id, 'update',
+            { currentBalance: toNumber(corporateAfter.currentBalance) + removedCharge },
+            { currentBalance: toNumber(corporateAfter.currentBalance) },
+            { source: 'billing_repository_line_item_void', billId: lineItem.billId },
+          );
         }
       }
       if (currentBill.attendanceId) await this.syncAttendanceFinancials(tx, currentBill.attendanceId, { ...currentBill, totalAmount: newTotal, balance: newBalance });
@@ -804,7 +844,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async applyWaiver(billId: string, waiverId: string) {
+  async applyWaiver(billId: string, waiverId: string, userId?: string) {
     return this.prisma.$transaction(async (tx) => {
       const waiver = await tx.patientWaiver.findUnique({ where: { id: waiverId }, include: { bill: true } });
       if (!waiver) throw new Error('Waiver not found');
@@ -812,6 +852,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       if (waiver.appliedAt) throw new Error('This waiver has already been applied');
       if (waiver.billId !== billId) throw new Error('Waiver does not belong to this bill');
 
+      // Serialize separate waiver applications against the same outstanding balance.
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${billId} FOR UPDATE`;
+      }
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
@@ -821,9 +865,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         throw new Error('Approved waiver exceeds the remaining patient liability');
       }
       // Claim the waiver atomically so concurrent requests cannot apply it twice.
+      const appliedAt = new Date();
       const claimed = await tx.patientWaiver.updateMany({
         where: { id: waiverId, status: 'approved', appliedAt: null },
-        data: { appliedAt: new Date() }
+        data: { appliedAt }
       });
       if (claimed.count !== 1) throw new Error('This waiver has already been applied');
 
@@ -836,6 +881,24 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : (toNumber(bill.paidAmount) > 0 ? 'partial' : 'pending') },
         include: { Patient: true, Attendance: true, CorporateAccount: true }
       });
+      await appendStructuredFinancialAudit(
+        tx, userId, 'PatientWaiver', waiver.id, 'update',
+        { id: waiver.id, billId, status: waiver.status, appliedAt: waiver.appliedAt, amountApproved: toNumber(waiver.amountApproved) },
+        { id: waiver.id, billId, status: waiver.status, appliedAt, amountApproved: toNumber(waiver.amountApproved) },
+        { source: 'billing_repository_approved_waiver_application' },
+      );
+      await appendStructuredFinancialAudit(
+        tx, userId, 'Bill', updated.id, 'update',
+        {
+          waiverAmount: toNumber(bill.waiverAmount), patientPayable: toNumber(bill.patientPayable),
+          paidAmount: toNumber(bill.paidAmount), balance: toNumber(bill.balance), status: bill.status,
+        },
+        {
+          waiverAmount: toNumber(updated.waiverAmount), patientPayable: toNumber(updated.patientPayable),
+          paidAmount: toNumber(updated.paidAmount), balance: toNumber(updated.balance), status: updated.status,
+        },
+        { source: 'billing_repository_approved_waiver_application', waiverId: waiver.id },
+      );
 
       if (updated.attendanceId) await this.syncAttendanceFinancials(tx, updated.attendanceId, { ...updated, balance: newBalance });
 

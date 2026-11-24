@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { appendPaymentFinancialAudit, appendRefundFinancialAudit } from '../src/modules/bill/financialAudit';
+import { appendPaymentFinancialAudit, appendRefundFinancialAudit, appendStructuredFinancialAudit } from '../src/modules/bill/financialAudit';
 
 function buildTransaction() {
   const rows: any[] = [];
@@ -41,6 +41,27 @@ describe('transactional financial audit', () => {
     expect(rows[1].entityType).toBe('Bill');
     expect(rows[1].previousState).toEqual({ paidAmount: 0, balance: 50, status: 'pending' });
     expect(rows[1].newState).toEqual({ paidAmount: 25.5, balance: 24.5, status: 'partial' });
+  });
+
+  it('records structured waiver and bill-line adjustments without free-text reasons', async () => {
+    const { tx, rows } = buildTransaction();
+    await appendStructuredFinancialAudit(
+      tx, 'user-3', 'PatientWaiver', 'waiver-1', 'update',
+      { id: 'waiver-1', status: 'approved', appliedAt: null, amountApproved: 20 },
+      { id: 'waiver-1', status: 'approved', appliedAt: new Date('2026-11-24T12:00:00Z'), amountApproved: 20 },
+      { source: 'approved_waiver_application' },
+    );
+    await appendStructuredFinancialAudit(
+      tx, 'user-3', 'BillLineItem', 'line-1', 'update',
+      { id: 'line-1', isVoided: false, lineTotal: 15 },
+      { id: 'line-1', isVoided: true, lineTotal: 15, voidedById: 'user-3' },
+      { source: 'bill_line_item_void' },
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0].entityType).toBe('PatientWaiver');
+    expect(rows[1].entityType).toBe('BillLineItem');
+    expect(rows[1].newState).not.toHaveProperty('voidReason');
   });
 
   it('records a refund and bill balance transition without the refund reason or reference', async () => {

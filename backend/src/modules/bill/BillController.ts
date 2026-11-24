@@ -196,6 +196,7 @@ export class BillController extends BaseController {
         const { reason }: VoidLineItemInput = req.body;
         const result = await billService.voidLineItem(req.params.lineItemId, req.user.id, reason);
         const updatedBill = await billService.getBillById(result.billId);
+        (req as any).auditHandled = true;
         return this.ok(res, { voidedItem: result, updatedBill }, 'Bill line item voided successfully');
       } catch (error: any) {
         if (error.message === 'Line item not found' || error.message === 'Bill not found') return this.notFound(res, error.message);
@@ -295,7 +296,9 @@ export class BillController extends BaseController {
 
       try {
         const { waiverId } = req.body;
-        const result = await billService.applyWaiver(req.params.billId, waiverId);
+        if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+        const result = await billService.applyWaiver(req.params.billId, waiverId, req.user.id);
+        (req as any).auditHandled = true;
         return this.ok(res, result, 'Waiver applied successfully');
       } catch (error: any) {
         if (error.message === 'Waiver not found' || error.message === 'Bill not found') return this.notFound(res, error.message);

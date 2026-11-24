@@ -127,11 +127,11 @@ export class BillService extends BaseService {
     return this.billRepository.getLineItems(billId);
   }
 
-  async applyWaiver(billId: string, waiverId: string) {
+  async applyWaiver(billId: string, waiverId: string, userId?: string) {
     this.logInfo('Applying waiver to bill', { billId, waiverId });
     const bill = await this.billRepository.findById(billId);
     if (!bill) throw new Error('Bill not found');
-    return this.billRepository.applyWaiver(billId, waiverId);
+    return this.billRepository.applyWaiver(billId, waiverId, userId);
   }
 
   async getBreakdown(billId: string) {
