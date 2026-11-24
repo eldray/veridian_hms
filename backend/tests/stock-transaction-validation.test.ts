@@ -120,6 +120,62 @@ describe('stock transaction validation', () => {
     expect(tx.stockTransaction.delete).not.toHaveBeenCalled();
   });
 
+  it('returns a minimal stock movement snapshot after a successful audited reversal', async () => {
+    const original = {
+      id: 'tx-sale-1',
+      stockItemId: 'item-1',
+      transactionType: 'sale',
+      quantity: 2,
+      balanceAfter: 8,
+      performedBy: 'user-7',
+      departmentId: 'pharmacy',
+      wardId: null,
+      transactionDate: new Date('2026-11-20T10:00:00.000Z'),
+      createdAt: new Date('2026-11-20T10:00:00.000Z'),
+      notes: 'Free text must not be included in the audit snapshot',
+      reference: 'Potentially sensitive reference',
+      invoiceId: null,
+      requisitionId: null,
+    };
+    const upsertBalance = vi.fn().mockResolvedValue({ quantity: 10 });
+    const deleteTransaction = vi.fn().mockResolvedValue(original);
+    const tx = {
+      stockTransaction: {
+        findUnique: vi.fn().mockResolvedValue(original),
+        delete: deleteTransaction,
+      },
+      stockBatch: { count: vi.fn().mockResolvedValue(0) },
+      stockItemDepartmentBalance: { upsert: upsertBalance },
+      stockItem: { update: vi.fn().mockResolvedValue({ currentStock: 10 }) },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
+    };
+    const repository = new StockTransactionRepository(prisma as any);
+
+    const result = await repository.deleteSafely('tx-sale-1');
+
+    expect(result).toEqual({
+      success: true,
+      message: 'Transaction deleted and stock reversed',
+      deletedTransaction: {
+        id: 'tx-sale-1',
+        stockItemId: 'item-1',
+        transactionType: 'sale',
+        quantity: 2,
+        balanceAfter: 8,
+        performedBy: 'user-7',
+        departmentId: 'pharmacy',
+        wardId: null,
+        transactionDate: original.transactionDate,
+        createdAt: original.createdAt,
+      },
+    });
+    expect(result.deletedTransaction).not.toHaveProperty('notes');
+    expect(result.deletedTransaction).not.toHaveProperty('reference');
+    expect(deleteTransaction).toHaveBeenCalledWith({ where: { id: 'tx-sale-1' } });
+  });
+
   it('only allows administrators to select a ward directly', async () => {
     await expect(service.create({
       stockItemId: 'item-1',
