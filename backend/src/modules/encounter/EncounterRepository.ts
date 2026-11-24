@@ -2108,6 +2108,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       }
       data = { ...data, bloodLoss: estimatedBloodLoss };
     }
+    const actor = data.clinicalRecord !== undefined
+      ? await this.prisma.user.findUnique({
+          where: { id: actorId },
+          select: { id: true, fullName: true, username: true },
+        })
+      : null;
     return this.prisma.$transaction(async (tx) => {
       if (typeof tx.$queryRaw === 'function') {
         await tx.$queryRaw`SELECT "id" FROM "Procedure" WHERE "id" = ${procedureId} FOR UPDATE`;
@@ -2285,10 +2291,6 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (status === 'completed') updateData.performedAt = new Date();
     // Audit identity and time are authored by the server, never trusted from the browser payload.
     if (data.clinicalRecord !== undefined) {
-      const actor = await tx.user.findUnique({
-        where: { id: actorId },
-        select: { id: true, fullName: true, username: true },
-      });
       const previousClinicalRecord: any = current.clinicalRecord || {};
       const existingAuditLog = Array.isArray(previousClinicalRecord.auditLog) ? previousClinicalRecord.auditLog : [];
       updateData.clinicalRecord = {
