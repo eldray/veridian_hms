@@ -169,7 +169,6 @@ export default function PatientBillingItems() {
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [momoPhone, setMomoPhone] = useState('');
-  const paymentAttemptKey = useRef(uuid());
 
   // Refund state: the payment being refunded, if the dialog is open.
   const [refundTarget, setRefundTarget] = useState<BillPayment | null>(null);
@@ -679,7 +678,6 @@ export default function PatientBillingItems() {
     setIsProcessingPayment(true);
     try {
       const attemptKey = getOrCreatePaymentAttemptKey(selectedBill.id);
-      paymentAttemptKey.current = attemptKey;
 
       if (paymentMethod === 'mobile_money') {
         const intent = await initiateMomoPayment({
@@ -698,7 +696,7 @@ export default function PatientBillingItems() {
           finalStatus = await checkMomoPaymentStatus(intent.id);
         }
         if (finalStatus.status === 'failed') {
-          paymentAttemptKey.current = rotatePaymentAttemptKey(selectedBill.id);
+          rotatePaymentAttemptKey(selectedBill.id);
           throw new Error(finalStatus.failureReason || 'The Mobile Money transaction was declined or failed.');
         }
         if (finalStatus.status !== 'successful') {
@@ -718,7 +716,7 @@ export default function PatientBillingItems() {
       }
 
       // Rotate only after confirmed success; ambiguous network failures keep the same key.
-      paymentAttemptKey.current = rotatePaymentAttemptKey(selectedBill.id);
+      rotatePaymentAttemptKey(selectedBill.id);
       setIsPaymentModalOpen(false);
       setSelectedItems(new Set());
       setPaymentAmount(0);
