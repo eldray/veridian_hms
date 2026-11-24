@@ -90,7 +90,7 @@ export async function appendRefundFinancialAudit(
 /** Generic structured financial event for bill adjustments beyond collections/refunds. */
 export async function appendStructuredFinancialAudit(
   tx: any,
-  actorId: string,
+  actorId: string | undefined,
   entityType: string,
   entityId: string,
   action: 'create' | 'update' | 'delete',
@@ -98,7 +98,7 @@ export async function appendStructuredFinancialAudit(
   newState: Record<string, unknown> | undefined,
   metadata: Record<string, unknown>,
 ) {
-  if (!tx?.auditLog || typeof tx.$queryRawUnsafe !== 'function') return;
+  if (!actorId || !tx?.auditLog || typeof tx.$queryRawUnsafe !== 'function') return;
   await appendAuditLogWithinTransaction(tx as Prisma.TransactionClient, {
     entityType,
     entityId,
