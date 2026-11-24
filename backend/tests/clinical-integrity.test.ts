@@ -9,6 +9,120 @@ import { classifyNewbornOutcomes } from '../src/modules/ghsReport/formA';
 
 
 
+describe('finalized clinical record immutability', () => {
+  const finalized = {
+    id: 'enc-finalized',
+    status: 'pending',
+    finalizedAt: new Date('2026-11-24T06:00:00.000Z'),
+    encounterCategory: 'opd',
+    patientId: 'patient-1',
+    attendanceType: 'opd',
+    dateTime: new Date('2026-11-24T05:00:00.000Z'),
+  };
+
+  it('blocks legacy medical-note edits on a finalized record', async () => {
+    const attendanceUpdate = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'enc-finalized', finalizedAt: finalized.finalizedAt }),
+        update: attendanceUpdate,
+      },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+    (repository as any).requireActorId = async () => 'doctor-1';
+
+    await expect(repository.updateEncounter('enc-finalized', {
+      medicalNotes: 'Changed after signature',
+    } as any, 'doctor-1')).rejects.toThrow(/clinical record is finalized/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(attendanceUpdate).not.toHaveBeenCalled();
+  });
+
+  it('blocks diagnosis additions after clinical finalization', async () => {
+    const attendanceFindUnique = vi.fn().mockResolvedValue(finalized);
+    const diagnosisFindUnique = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: attendanceFindUnique },
+      diagnosis: { findUnique: diagnosisFindUnique },
+      attendanceDiagnosis: { create: vi.fn(), updateMany: vi.fn() },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+    (repository as any).requireActorId = async () => 'doctor-1';
+
+    await expect(repository.addDiagnosis('enc-finalized', {
+      diagnosisId: 'diagnosis-1',
+      diagnosisType: 'primary',
+      classification: 'NEW_DIAGNOSIS',
+    } as any, 'doctor-1')).rejects.toThrow(/clinical record is finalized/i);
+
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(diagnosisFindUnique).not.toHaveBeenCalled();
+    expect(tx.attendanceDiagnosis.create).not.toHaveBeenCalled();
+  });
+
+  it('blocks edits to an existing vital observation after finalization', async () => {
+    const vitalsUpdate = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      vitals: {
+        findUnique: vi.fn().mockResolvedValue({ attendanceId: 'enc-finalized', recordedById: 'nurse-1' }),
+        update: vitalsUpdate,
+      },
+      attendance: { findUnique: vi.fn().mockResolvedValue(finalized) },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.updateVitals('vitals-1', { temperature: 37 }))
+      .rejects.toThrow(/clinical record is finalized/i);
+    expect(vitalsUpdate).not.toHaveBeenCalled();
+  });
+
+  it('blocks deletion of a vital observation after finalization', async () => {
+    const deleteMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      vitals: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'vitals-1', attendanceId: 'enc-finalized' }),
+        deleteMany,
+      },
+      attendance: { findUnique: vi.fn().mockResolvedValue(finalized) },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.deleteVitals('vitals-1'))
+      .rejects.toThrow(/clinical record is finalized/i);
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('blocks new prescriptions after clinical finalization', async () => {
+    const stockLookup = vi.fn();
+    const repository = new EncounterRepository({
+      attendance: { findUnique: vi.fn().mockResolvedValue(finalized) },
+      stockItem: { findUnique: stockLookup },
+    } as any);
+    (repository as any).requireActorId = async () => 'doctor-1';
+
+    await expect(repository.addPrescription('enc-finalized', {
+      stockItemId: 'stock-1',
+      serviceCatalogId: 'service-1',
+      dosage: '1 tablet',
+      frequency: 'daily',
+      duration: '5 days',
+    } as any, 'doctor-1')).rejects.toThrow(/clinical record is finalized/i);
+    expect(stockLookup).not.toHaveBeenCalled();
+  });
+});
+
 describe('medication dispensing encounter guard', () => {
   it('does not dispense medication after the encounter has closed', async () => {
     const tx: any = {
@@ -617,10 +731,12 @@ describe('clinical encounter ownership', () => {
     const vitalsFindUnique = vi.fn().mockResolvedValue({ id: 'vitals-a', attendanceId: 'encounter-a' });
     const vitalsDeleteMany = vi.fn();
     const attendanceFindUnique = vi.fn().mockResolvedValue({ id: 'encounter-a', status: 'discharged' });
-    const repository = new EncounterRepository({
+    const prisma: any = {
       vitals: { findUnique: vitalsFindUnique, deleteMany: vitalsDeleteMany },
       attendance: { findUnique: attendanceFindUnique },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.deleteVitals('vitals-a')).rejects.toThrow(/closed encounter/i);
     expect(vitalsDeleteMany).not.toHaveBeenCalled();
@@ -2525,7 +2641,7 @@ describe('diagnosis changes on closed encounters', () => {
 
     await expect(repository.addDiagnosis('attendance-1', {
       diagnosisId: 'diagnosis-1', diagnosisType: 'additional', classification: 'NEW_DIAGNOSIS',
-    } as any, 'clinician-1')).rejects.toThrow(/diagnoses cannot be changed for a closed encounter/i);
+    } as any, 'clinician-1')).rejects.toThrow(/cannot be changed for a closed encounter/i);
     expect(diagnosisLookup).not.toHaveBeenCalled();
     expect(tx.attendanceDiagnosis.create).not.toHaveBeenCalled();
   });
@@ -2539,7 +2655,7 @@ describe('diagnosis changes on closed encounters', () => {
     const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
 
     await expect(repository.removeDiagnosis('attendance-1', 'diagnosis-1'))
-      .rejects.toThrow(/diagnoses cannot be changed for a closed encounter/i);
+      .rejects.toThrow(/cannot be changed for a closed encounter/i);
     expect(diagnosisLookup).not.toHaveBeenCalled();
     expect(tx.attendanceDiagnosis.deleteMany).not.toHaveBeenCalled();
   });
