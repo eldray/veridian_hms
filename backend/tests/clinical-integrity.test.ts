@@ -710,10 +710,12 @@ describe('clinical encounter ownership', () => {
     const vitalsFindUnique = vi.fn().mockResolvedValue({ id: 'vitals-a', attendanceId: 'encounter-a' });
     const vitalsDeleteMany = vi.fn();
     const attendanceFindUnique = vi.fn().mockResolvedValue({ id: 'encounter-a', status: 'discharged' });
-    const repository = new EncounterRepository({
+    const prisma: any = {
       vitals: { findUnique: vitalsFindUnique, deleteMany: vitalsDeleteMany },
       attendance: { findUnique: attendanceFindUnique },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.deleteVitals('vitals-a')).rejects.toThrow(/closed encounter/i);
     expect(vitalsDeleteMany).not.toHaveBeenCalled();
