@@ -8,13 +8,14 @@ export const createBillRoutes = () => {
   // All routes require authentication
   router.use(protect);
 
-  // Individual bill and charge details are clinical/operational context and are
-  // readable by any authenticated staff member. Facility-wide financial summaries
-  // remain restricted to finance/admin.
+  // Patient-linked bill details are limited to staff who legitimately handle care,
+  // registration/receipts or billing. Diagnostics, pharmacy and HR do not need the
+  // facility's payment history or bill line-item detail.
+  const BILL_READERS = ['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'];
   const FINANCIAL_READERS = ['admin', 'accounts'];
 
   // GET /api/bills - List all bills with filtering and pagination
-  router.get('/', billController.getBills);
+  router.get('/', requireRole(BILL_READERS), billController.getBills);
 
   // GET /api/bills/statistics - Get bill statistics
   router.get('/statistics', requireRole(FINANCIAL_READERS), billController.getBillStatistics);
@@ -27,16 +28,16 @@ export const createBillRoutes = () => {
   router.post('/generate/:encounterId', requireRole(BILLING_STAFF), billController.generateBillFromEncounter);
 
   // GET /api/bills/:id - Get bill by ID
-  router.get('/:id', billController.getBillById);
+  router.get('/:id', requireRole(BILL_READERS), billController.getBillById);
 
   // GET /api/bills/:id/line-items - Get bill line items
-  router.get('/:id/line-items', billController.getBillLineItems);
+  router.get('/:id/line-items', requireRole(BILL_READERS), billController.getBillLineItems);
 
   // GET /api/bills/:id/breakdown - Get grouped billing breakdown for a bill
-  router.get('/:id/breakdown', billController.getBillBreakdown);
+  router.get('/:id/breakdown', requireRole(BILL_READERS), billController.getBillBreakdown);
 
   // GET /api/bills/:id/report - Generate a bill report (reuses breakdown shape)
-  router.get('/:id/report', billController.getBillReport);
+  router.get('/:id/report', requireRole(BILL_READERS), billController.getBillReport);
 
   // POST /api/bills - Create a new bill
   router.post('/', requireRole(['admin', 'accounts']), billController.createBill);

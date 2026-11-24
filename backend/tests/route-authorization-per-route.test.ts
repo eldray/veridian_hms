@@ -84,6 +84,35 @@ describe('route authorization, route by route', () => {
   });
 
 
+  it('scopes encounter list/detail and direct clinical subresource reads by staff role', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'encounter', 'EncounterRoutes.ts'), 'utf8');
+    expect(source).toContain("router.get('/', requireRole(encounterReaders), controller.getAll);");
+    expect(source).toContain("router.get('/:id', requireRole(encounterReaders), controller.getById);");
+    expect(source).toContain("router.get('/:id/vitals', requireRole(['admin', 'doctor', 'nurse', 'midwife'])");
+    expect(source).toContain("router.get('/:id/consumables', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'pharmacist'])");
+    expect(source).toContain("router.get('/:id/ward-charges', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'])");
+  });
+
+  it('restricts patient-linked bill and payment detail reads to care, records and finance roles', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src', 'modules', 'bill', 'BillRoutes.ts'), 'utf8');
+    for (const route of [
+      "router.get('/', requireRole(BILL_READERS)",
+      "router.get('/:id', requireRole(BILL_READERS)",
+      "router.get('/:id/line-items', requireRole(BILL_READERS)",
+      "router.get('/:id/breakdown', requireRole(BILL_READERS)",
+      "router.get('/:id/report', requireRole(BILL_READERS)",
+    ]) expect(source).toContain(route);
+    expect(source).toContain("const BILL_READERS = ['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'];");
+  });
+
+  it('restricts inpatient and daycase patient lists to the relevant clinical desks', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'encounter', 'EncounterRoutes.ts'), 'utf8');
+    expect(source).toContain("router.get('/daycase', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records'])");
+    expect(source).toContain("router.get('/bed-occupancy', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records'])");
+    expect(source).toContain("router.get('/detention', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records'])");
+    expect(source).toContain("router.get('/formal-ipd', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records'])");
+  });
+
   it('restricts patient demographics and EMR reads to patient-management roles', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'patient', 'PatientRoutes.ts'), 'utf8');
     const readRoutes = source.split('\n').filter((line) => line.includes('router.get('));

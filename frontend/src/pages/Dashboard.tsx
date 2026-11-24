@@ -380,7 +380,7 @@ export default function Dashboard() {
   const role = user?.role ?? '';
   const config = getRoleDashboard(role);
 
-  const needsRecent = config.sidebarPanel.type === 'recent';
+  const needsRecent = config.sidebarPanel.type === 'recent' && !['hr_officer', 'pharmacist'].includes(role);
 
   const [preset, setPreset] = useState<DatePreset>('today');
   const [dateRange, setDateRange] = useState<DateRange>(presetRange('today'));

@@ -390,13 +390,16 @@ export default function AttendanceDetails() {
         return;
       }
       
-      await Promise.all([
-        getAttendance(id),
-        getBills({ attendanceId: id })
-      ]);
+      const tasks: Promise<any>[] = [getAttendance(id)];
+      // Only care, records and finance roles may load the linked bill/payment history.
+      if (hasRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'])) {
+        tasks.push(getBills({ attendanceId: id }));
+      }
+      await Promise.all(tasks);
       
-      // Load vitals for this attendance
-      await loadVitals(id);
+      // Vitals are part of the clinical record; operational desks must not request them.
+      if (hasRole(['admin', 'doctor', 'nurse', 'midwife'])) await loadVitals(id);
+      else setVitalsList([]);
     } catch (e) {
       toastError('Load failed', 'Could not load attendance data.');
     } finally {
@@ -805,6 +808,7 @@ export default function AttendanceDetails() {
   };
 
   // Mirrors PUT /api/encounters/:id, which allows midwife as well as doctor and nurse.
+  const canReadFullClinicalRecord = hasRole(['admin', 'doctor', 'nurse', 'midwife']);
   const canEdit = hasRole(['admin', 'doctor', 'nurse', 'midwife']);
   const canWriteReport = hasRole(['admin', 'doctor']);
   const [showMedicalReport, setShowMedicalReport] = useState(false);
@@ -883,7 +887,10 @@ export default function AttendanceDetails() {
     { id: 'procedures', label: 'Procedures', icon: Scissors, count: encounterProcedures.length },
     { id: 'vitals', label: 'Vitals', icon: Heart, count: vitalsList.length },
     { id: 'billing', label: 'Billing', icon: DollarSign, count: attendanceBills.length },
-  ];
+  ].filter(tab => canReadFullClinicalRecord || tab.id === 'overview' ||
+    (tab.id === 'lab-tests' && hasRole(['lab_tech'])) ||
+    (tab.id === 'scans' && hasRole(['sonographer'])) ||
+    (tab.id === 'billing' && canOpenBilling));
 
   // ── Loading State ─────────────────────────────
   if (isLoading && !refreshing) {
@@ -1069,7 +1076,7 @@ export default function AttendanceDetails() {
       {/* Medication safety: show recorded allergies across every attendance tab.
           A counter customer has no allergy record, so the banner would only shout about
           a review that cannot exist. */}
-      {patient && !isCounterTicket && (
+      {patient && !isCounterTicket && canReadFullClinicalRecord && (
         <section
           role="alert"
           aria-label="Patient allergy information"
