@@ -331,6 +331,7 @@ export class EncounterController extends BaseController {
     const user = req.user!;
 
     const scan = await this.service.addScan(id, data, user.id);
+    (req as any).auditHandled = true;
     return this.created(res, scan, 'Scan added successfully');
   });
 
@@ -360,6 +361,7 @@ export class EncounterController extends BaseController {
   removeScan = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, scanId } = req.params;
     const result = await this.service.removeScan(encounterId, scanId, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, result, result.status === 'cancelled' ? 'Scan cancelled successfully' : 'Scan request deleted successfully');
   });
 
@@ -373,6 +375,7 @@ export class EncounterController extends BaseController {
     const user = req.user!;
 
     const procedure = await this.service.addProcedure(id, data, user.id);
+    (req as any).auditHandled = true;
     return this.created(res, procedure, 'Procedure added successfully');
   });
 
@@ -388,6 +391,7 @@ export class EncounterController extends BaseController {
   removeProcedure = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, procedureId } = req.params;
     const result = await this.service.removeProcedure(encounterId, procedureId, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, result, result.status === 'cancelled' ? 'Procedure cancelled successfully' : 'Procedure request deleted successfully');
   });
 
