@@ -50,7 +50,7 @@ export function verifyFileAccessToken(
   if (parts.length !== 4) return null;
 
   const [userId, versionRaw, expiresAtRaw, signature] = parts;
-  if (!userId || !/^\\d+$/.test(versionRaw) || !/^\\d+$/.test(expiresAtRaw)) return null;
+  if (!userId || !/^\d+$/.test(versionRaw) || !/^\d+$/.test(expiresAtRaw)) return null;
 
   const version = Number(versionRaw);
   const expiresAt = Number(expiresAtRaw);
