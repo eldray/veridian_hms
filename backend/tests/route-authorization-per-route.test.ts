@@ -172,6 +172,17 @@ describe('route authorization, route by route', () => {
     expect(source).not.toContain('req.body.recordedById');
   });
 
+  it('does not expose hospital-wide stock totals through department requisition reads', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'requisition', 'RequisitionRepository.ts'), 'utf8');
+    const listStart = source.indexOf('async findAll(');
+    const detailStart = source.indexOf('async findById(');
+    const fulfilStart = source.indexOf('async fulfillRequisitionWithStockUpdate(');
+    const listProjection = source.slice(listStart, detailStart);
+    const detailProjection = source.slice(detailStart, fulfilStart);
+    expect(listProjection).not.toContain('currentStock: true');
+    expect(detailProjection).not.toContain('currentStock: true');
+  });
+
   it('restricts insurance claim read APIs to accounts and doctors', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'insuranceClaim', 'InsuranceClaimRoutes.ts'), 'utf8');
     expect(source).toContain("router.use(requireRole(['admin', 'accounts', 'doctor']));");
