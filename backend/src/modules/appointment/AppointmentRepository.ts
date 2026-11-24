@@ -2,6 +2,8 @@ import { PrismaClient, UserRole } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { CreateAppointmentDTO, UpdateAppointmentDTO, AppointmentFilters } from './AppointmentTypes';
 import { getCounterService } from '../../services/CounterService';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain';
+import { ValidationError } from '../../utils/errors';
 
 export class AppointmentRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
@@ -56,23 +58,31 @@ export class AppointmentRepository extends BaseRepository<any, any, any> {
   async create(data: CreateAppointmentDTO, createdBy: string) {
     const clinician = await this.prisma.user.findUnique({ where: { id: data.clinicianId }, select: { role: true } });
     
-    return this.getModel().create({
-      data: {
-        appointmentNumber: `APT-${getCounterService().nextAppointmentNumber()}`,
-        patientId: data.patientId, clinicianId: data.clinicianId, clinicianRole: clinician?.role,
-        departmentId: data.departmentId, title: data.title, description: data.description,
-        scheduledAt: data.scheduledAt, // ✅ FIXED
-        duration: data.duration || 30, type: data.type, status: 'scheduled', createdBy
-      },
-      include: {
-        patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
-        clinician: { select: { id: true, fullName: true, role: true } },
-        department: { select: { id: true, name: true } }
-      }
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.appointment.create({
+        data: {
+          appointmentNumber: `APT-${getCounterService().nextAppointmentNumber()}`,
+          patientId: data.patientId, clinicianId: data.clinicianId, clinicianRole: clinician?.role,
+          departmentId: data.departmentId, title: data.title, description: data.description,
+          scheduledAt: data.scheduledAt,
+          duration: data.duration || 30, type: data.type, status: 'scheduled', createdBy
+        },
+        include: {
+          patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
+          clinician: { select: { id: true, fullName: true, role: true } },
+          department: { select: { id: true, name: true } }
+        }
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Appointment', entityId: created.id, action: 'CREATE', performedById: createdBy,
+        newState: { created: true, status: created.status },
+        metadata: { source: 'appointment.create', changedFields: ['appointment'] },
+      });
+      return created;
     });
   }
 
-  async update(id: string, data: UpdateAppointmentDTO) {
+  async update(id: string, data: UpdateAppointmentDTO, actorId: string) {
     const updateData: any = {};
 
     for (const field of [
@@ -107,13 +117,36 @@ export class AppointmentRepository extends BaseRepository<any, any, any> {
       }
     }
 
-    return this.getModel().update({
-      where: { id }, data: updateData,
-      include: {
-        patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
-        clinician: { select: { id: true, fullName: true, role: true } },
-        department: { select: { id: true, name: true } }
-      }
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for appointment audit');
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.appointment.update({
+        where: { id }, data: updateData,
+        include: {
+          patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
+          clinician: { select: { id: true, fullName: true, role: true } },
+          department: { select: { id: true, name: true } }
+        }
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Appointment', entityId: id, action: 'UPDATE', performedById: actorId,
+        newState: { updated: true, status: updated.status },
+        metadata: { source: 'appointment.update', changedFields: Object.keys(updateData).sort() },
+      });
+      return updated;
+    });
+  }
+
+  async delete(id: string, actorId: string) {
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for appointment audit');
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.appointment.findUnique({ where: { id }, select: { id: true, status: true } });
+      if (!current) throw new ValidationError('Appointment not found');
+      await tx.appointment.delete({ where: { id } });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Appointment', entityId: id, action: 'DELETE', performedById: actorId,
+        previousState: { status: current.status },
+        metadata: { source: 'appointment.delete' },
+      });
     });
   }
 
