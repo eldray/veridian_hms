@@ -46,6 +46,7 @@ export class AntenatalController extends BaseController {
       
       const data: CreateAntenatalBookingInput = { ...req.body, lmp: new Date(req.body.lmp), createdById: req.user!.id };
       const booking = await this.service.createBooking(data);
+      (req as any).auditHandled = true;
       return this.created(res, booking, 'Antenatal booking created successfully');
     })
   ];
@@ -128,6 +129,7 @@ export class AntenatalController extends BaseController {
       
       const data: CreateANCVisitInput = { ...req.body, visitDate: new Date(req.body.visitDate), recordedById: req.user!.id };
       const visit = await this.service.createVisit(data);
+      (req as any).auditHandled = true;
       return this.created(res, visit, 'ANC visit recorded successfully');
     })
   ];
