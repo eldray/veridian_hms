@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Undo2, X } from 'lucide-react';
 import { Button, cn, Field, INPUT } from '../ui';
 import { formatCurrency } from '../../utils/currency';
+import { uuid } from '../../utils/uuid';
 
 /**
  * One recorded payment, as far as the refund dialog needs to know it.
@@ -22,6 +23,7 @@ export interface RefundSubmission {
   refundMethod: string;
   reference?: string;
   reason: string;
+  idempotencyKey: string;
 }
 
 interface RefundPaymentModalProps {
@@ -53,6 +55,7 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
   const [reason, setReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [idempotencyKey, setIdempotencyKey] = useState(() => uuid());
 
   useEffect(() => {
     if (!payment) return;
@@ -61,7 +64,9 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
     setReference('');
     setReason('');
     setError('');
-  }, [payment]);
+    // Keep this key stable while the dialog remains open, including after a lost response.
+    setIdempotencyKey(uuid());
+  }, [payment?.id]);
 
   if (!payment) return null;
 
@@ -89,6 +94,7 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
         refundMethod: method,
         reference: reference.trim() || undefined,
         reason: reason.trim(),
+        idempotencyKey,
       });
     } catch (err: any) {
       setError(err?.message || 'The refund could not be processed.');
