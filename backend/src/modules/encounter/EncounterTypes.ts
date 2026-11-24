@@ -97,6 +97,7 @@ export interface BaseWorklistItem {
  */
 export type WorklistView = 'pending' | 'completed' | 'outstanding';
 
+/** Request timestamps are exposed so grouped worklists can retain their queue ordering context. */
 export interface WorklistQuery {
   view?: WorklistView;
   dateFrom?: Date | null;
