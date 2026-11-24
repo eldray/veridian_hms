@@ -46,6 +46,26 @@ export interface PaginatedAuditLogs {
   };
 }
 
+const readAuditPagination = (body: any, fallbackLimit = 25) => {
+  // BaseController.paginated returns metadata under `meta`, not `pagination`.
+  // Accept both formats so the audit page never mistakes the first 25 rows for
+  // the entire audit history.
+  const value = body?.meta ?? body?.pagination ?? body?.data?.meta ?? body?.data?.pagination;
+  if (!value || value.total === undefined) return null;
+  const page = Number(value.page) || 1;
+  const limit = Number(value.limit) || fallbackLimit;
+  const total = Number(value.total);
+  const totalPages = Number(value.totalPages ?? value.pages);
+  return {
+    page,
+    limit,
+    total: Number.isFinite(total) && total >= 0 ? total : 0,
+    totalPages: Number.isFinite(totalPages) && totalPages >= 0
+      ? totalPages
+      : Math.ceil(Math.max(0, total) / Math.max(1, limit)),
+  };
+};
+
 // ── List ────────────────────────────────────────────────────
 export const getAuditLogs = (filters: AuditLogFilters = {}): Promise<PaginatedAuditLogs> =>
   api.get('/audit/logs', { params: filters }).then((r) => {
@@ -57,10 +77,11 @@ export const getAuditLogs = (filters: AuditLogFilters = {}): Promise<PaginatedAu
     if (body?.success && Array.isArray(body.data)) {
       return {
         data: body.data,
-        pagination: body.pagination ?? {
+        pagination: readAuditPagination(body, filters.limit ?? 25) ?? {
           page: filters.page ?? 1,
-          limit: filters.limit ?? 20,
+          limit: filters.limit ?? 25,
           total: body.data.length,
+          totalPages: Math.ceil(body.data.length / Math.max(1, filters.limit ?? 25)),
         },
       };
     }
@@ -68,10 +89,11 @@ export const getAuditLogs = (filters: AuditLogFilters = {}): Promise<PaginatedAu
     if (body?.data?.data && Array.isArray(body.data.data)) {
       return {
         data: body.data.data,
-        pagination: body.data.pagination ?? body.pagination ?? {
+        pagination: readAuditPagination(body, filters.limit ?? 25) ?? {
           page: filters.page ?? 1,
-          limit: filters.limit ?? 20,
+          limit: filters.limit ?? 25,
           total: body.data.data.length,
+          totalPages: Math.ceil(body.data.data.length / Math.max(1, filters.limit ?? 25)),
         },
       };
     }
@@ -89,7 +111,7 @@ export const getAuditLogs = (filters: AuditLogFilters = {}): Promise<PaginatedAu
 
     return {
       data: [],
-      pagination: { page: 1, limit: filters.limit ?? 20, total: 0 },
+      pagination: { page: 1, limit: filters.limit ?? 25, total: 0, totalPages: 0 },
     };
   });
 
@@ -110,7 +132,7 @@ export const getEntityAuditLogs = (
     .then((r) => {
       const body = r.data;
       if (body?.success && Array.isArray(body.data)) {
-        return { data: body.data, pagination: body.pagination ?? { page: 1, limit: 20, total: body.data.length } };
+        return { data: body.data, pagination: readAuditPagination(body) ?? { page: 1, limit: 25, total: body.data.length, totalPages: 1 } };
       }
       return { data: [], pagination: { page: 1, limit: 20, total: 0 } };
     });
