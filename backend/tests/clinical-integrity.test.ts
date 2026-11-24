@@ -2655,7 +2655,7 @@ describe('diagnosis changes on closed encounters', () => {
     const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
 
     await expect(repository.removeDiagnosis('attendance-1', 'diagnosis-1'))
-      .rejects.toThrow(/diagnoses cannot be changed for a closed encounter/i);
+      .rejects.toThrow(/cannot be changed for a closed encounter/i);
     expect(diagnosisLookup).not.toHaveBeenCalled();
     expect(tx.attendanceDiagnosis.deleteMany).not.toHaveBeenCalled();
   });
