@@ -15,8 +15,11 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   // All routes require authentication
   router.use(protect);
 
-  // Individual invoice details are available to authenticated staff for care,
-  // dispensing and front-desk workflows. Facility-wide financial views stay restricted.
+  // Patient-linked invoice/payment details are limited to staff who handle care,
+  // registration/receipts or billing. Pharmacy may read line items for dispensing,
+  // but not the full invoice/payment history. Facility-wide financial views stay restricted.
+  const BILL_READERS = ['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'];
+  const BILL_ITEM_READERS = [...BILL_READERS, 'pharmacist'];
   const FINANCIAL_READERS = ['admin', 'accounts'];
 
   // Get all bills with filtering and pagination
@@ -32,7 +35,7 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   router.get('/tax-summary', requireRole(FINANCIAL_READERS), controller.getTaxSummary.bind(controller));
 
   // Get bill by ID
-  router.get('/invoices/:id', controller.getById.bind(controller));
+  router.get('/invoices/:id', requireRole(BILL_READERS), controller.getById.bind(controller));
 
   // Create new bill (Admin/Accounts only)
   router.post('/invoices', requireRole(['admin', 'accounts']), controller.create);
@@ -47,7 +50,7 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   router.post('/invoices/:id/refunds', requireRole(['admin', 'accounts']), controller.refundPayment);
 
   // Get bill line items
-  router.get('/invoices/:id/items', controller.getLineItems.bind(controller));
+  router.get('/invoices/:id/items', requireRole(BILL_ITEM_READERS), controller.getLineItems.bind(controller));
 
   // Revenue-line report: every charge in a date range, across all bills (Reports screen)
   router.get('/line-items', requireRole(FINANCIAL_READERS), controller.getRevenueLines.bind(controller));
