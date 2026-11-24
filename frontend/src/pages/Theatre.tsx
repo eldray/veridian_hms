@@ -266,7 +266,7 @@ export default function Theatre() {
           </div>
         ) : (
           <div
-            className="max-h-[calc(100dvh-22rem)] min-h-0 overflow-auto overscroll-contain"
+            className="h-[clamp(15rem,calc(100dvh-27rem),42rem)] min-h-0 min-w-0 overflow-auto overscroll-contain"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}
           >
             <table className="w-full min-w-[980px] text-sm">
