@@ -107,8 +107,8 @@ describe('route authorization, route by route', () => {
 
   it('restricts inpatient and daycase patient lists to the relevant clinical desks', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'encounter', 'EncounterRoutes.ts'), 'utf8');
-    expect(source).toContain("router.get('/daycase', requireRole(['admin', 'doctor', 'nurse', 'midwife'])");
-    expect(source).toContain("router.get('/bed-occupancy', requireRole(['admin', 'doctor', 'nurse', 'midwife'])");
+    expect(source).toContain("router.get('/daycase', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records'])");
+    expect(source).toContain("router.get('/bed-occupancy', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records'])");
     expect(source).toContain("router.get('/detention', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records'])");
     expect(source).toContain("router.get('/formal-ipd', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records'])");
   });
