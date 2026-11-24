@@ -165,39 +165,74 @@ export function QuickAccessFab() {
 
   if (!open) {
     return (
-      <div className="fixed bottom-6 right-6 z-50 print:hidden" style={{ width: 56, height: 56 }}>
-        <style>{'@keyframes quick-access-fan { from { opacity: 0; transform: translate(0,0) scale(.35); } to { opacity: 1; transform: translate(var(--orbit-x),var(--orbit-y)) scale(1); } } @keyframes quick-access-halo { 0%,100% { box-shadow: 0 0 0 0 rgba(34,211,238,.22), 0 10px 28px rgba(2,12,27,.3); } 50% { box-shadow: 0 0 0 9px rgba(34,211,238,0), 0 12px 32px rgba(2,12,27,.36); } }'}</style>
+      <div className="fixed bottom-4 right-4 z-40 print:hidden" style={{ width: 44, height: 44 }}>
         {radialOpen && (
-          <>
-            <button type="button" aria-label="Close quick actions" onClick={() => setRadialOpen(false)} className="fixed inset-0 z-0 cursor-default" style={{ background: 'rgba(3,12,24,.10)' }} />
-            {radialItems.map((item, index) => {
-              const Icon = item.icon;
-              const angles = [-90, -110, -130, -150, -170, -190];
-              const radians = angles[index] * Math.PI / 180;
-              const distance = 104;
-              const x = Math.cos(radians) * distance;
-              const y = Math.sin(radians) * distance;
-              return (
-                <button key={item.id} type="button" onClick={() => goTo(item)} aria-label={item.label} title={item.label}
-                  className="absolute z-10 flex h-11 w-11 items-center justify-center rounded-full border shadow-xl transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
-                  style={{ left: 6, top: 6, background: 'var(--bg-card)', color: 'var(--icon-cyan-text)', borderColor: 'var(--border-color)', boxShadow: '0 8px 22px rgba(2,12,27,.28)', '--orbit-x': `${x}px`, '--orbit-y': `${y}px`, animation: `quick-access-fan .28s cubic-bezier(.2,.8,.2,1) ${index * 45}ms both` } as React.CSSProperties}>
-                  <Icon className="h-[18px] w-[18px]" />
-                  <span className="pointer-events-none absolute right-[52px] whitespace-nowrap rounded-md border px-2.5 py-1.5 text-[11px] font-semibold shadow-lg" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>{item.label}</span>
-                </button>
-              );
-            })}
-            <button type="button" onClick={() => { setRadialOpen(false); setOpen(true); }} aria-label="Search all pages" title="Search all pages"
-              className="absolute z-10 flex h-11 w-11 items-center justify-center rounded-full border shadow-xl transition-transform hover:scale-110"
-              style={{ left: 6, top: 6, '--orbit-x': '-72px', '--orbit-y': '-72px', background: 'var(--bg-card)', color: 'var(--icon-cyan-text)', borderColor: 'var(--border-color)', animation: 'quick-access-fan .28s cubic-bezier(.2,.8,.2,1) 270ms both' } as React.CSSProperties}>
-              <Search className="h-[18px] w-[18px]" />
-              <span className="pointer-events-none absolute right-[52px] whitespace-nowrap rounded-md border px-2.5 py-1.5 text-[11px] font-semibold shadow-lg" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>Search all pages</span>
-            </button>
-          </>
+          <div
+            role="menu"
+            aria-label="Quick links"
+            className="absolute bottom-[52px] right-0 w-60 max-h-[min(60vh,420px)] overflow-y-auto rounded-xl border p-2 shadow-2xl backdrop-blur-xl"
+            style={{
+              background: 'color-mix(in srgb, var(--bg-card) 94%, transparent)',
+              borderColor: 'var(--border-color)',
+              boxShadow: '0 12px 34px rgba(2,12,27,.24)',
+            }}
+          >
+            <div className="px-2 pb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+              Quick links
+            </div>
+            <div className="space-y-1">
+              {radialItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => goTo(item)}
+                    className="flex w-full min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--bg-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium">{item.label}</span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setRadialOpen(false); setOpen(true); }}
+                className="flex w-full min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors hover:bg-[var(--bg-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                style={{ color: 'var(--icon-cyan-text)' }}
+              >
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: 'var(--icon-cyan-bg)' }}>
+                  <Search className="h-4 w-4" />
+                </span>
+                Search all pages
+              </button>
+            </div>
+          </div>
         )}
-        <button type="button" onClick={() => setRadialOpen((value) => !value)} aria-label={radialOpen ? 'Close quick access' : 'Open quick access'} aria-expanded={radialOpen} aria-keyshortcuts="Control+K Meta+K" title="Quick access (Ctrl+K)"
-          className="absolute inset-0 z-20 flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/20 text-white transition-all duration-300 hover:scale-105 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/40"
-          style={{ background: 'linear-gradient(145deg,#1599ad 0%,#126b91 52%,#173e72 100%)', animation: radialOpen ? 'none' : 'quick-access-halo 3s ease-in-out infinite', boxShadow: '0 10px 28px rgba(2,12,27,.38)' }}>
-          <Plus className={`h-6 w-6 transition-transform duration-300 ${radialOpen ? 'rotate-45' : 'rotate-0'}`} />
+        <button
+          type="button"
+          onClick={() => setRadialOpen((value) => !value)}
+          aria-label={radialOpen ? 'Close quick access' : 'Open quick access'}
+          aria-expanded={radialOpen}
+          aria-keyshortcuts="Control+K Meta+K"
+          title="Quick access (Ctrl+K)"
+          className="absolute inset-0 z-20 flex h-11 w-11 items-center justify-center rounded-full border transition-all duration-200 hover:scale-105 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+          style={{
+            background: 'rgba(18,107,145,.68)',
+            color: '#fff',
+            borderColor: 'rgba(255,255,255,.28)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            opacity: 0.78,
+            boxShadow: '0 4px 14px rgba(2,12,27,.18)',
+          }}
+        >
+          <Plus className={`h-5 w-5 transition-transform duration-200 ${radialOpen ? 'rotate-45' : 'rotate-0'}`} />
         </button>
       </div>
     );
