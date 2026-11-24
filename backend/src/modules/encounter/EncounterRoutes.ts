@@ -24,17 +24,17 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.post('/:id/convert-to-ipd', requireRole(['admin', 'super_admin', 'doctor']), controller.convertDaycaseToIPD);
 
   // WORKLISTS (read-only — any authenticated staff)
-  router.get('/vitals/latest', controller.getLatestVitals);
-  router.get('/vitals/batch', controller.getVitalsByEncounters);
-  router.get('/worklist/vitals', controller.getVitalsWorklist);
-  router.get('/worklist/medical', controller.getMedicalWorklist);
-  router.get('/worklist/lab', controller.getLabWorklist);
-  router.get('/worklist/pharmacy', controller.getPharmacyWorklist);
-  router.get('/worklist/scans', controller.getRadiologyWorklist);
-  router.get('/worklist/procedures', controller.getProceduresWorklist);
-  router.get('/worklist/maternal', controller.getMaternalWorklist);
+  router.get('/vitals/latest', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getLatestVitals);
+  router.get('/vitals/batch', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getVitalsByEncounters);
+  router.get('/worklist/vitals', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getVitalsWorklist);
+  router.get('/worklist/medical', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getMedicalWorklist);
+  router.get('/worklist/lab', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech']), controller.getLabWorklist);
+  router.get('/worklist/pharmacy', requireRole(['admin', 'pharmacist']), controller.getPharmacyWorklist);
+  router.get('/worklist/scans', requireRole(['admin', 'doctor', 'midwife', 'sonographer']), controller.getRadiologyWorklist);
+  router.get('/worklist/procedures', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getProceduresWorklist);
+  router.get('/worklist/maternal', requireRole(['admin', 'doctor', 'midwife']), controller.getMaternalWorklist);
   // Closed visits still carrying an unanswered lab, scan or procedure — the warning tab.
-  router.get('/worklist/outstanding', controller.getOutstandingWorklist);
+  router.get('/worklist/outstanding', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer']), controller.getOutstandingWorklist);
   router.get('/worklist/summary', controller.getWorklistSummary);
 
   // STATS
