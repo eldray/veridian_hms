@@ -2051,9 +2051,11 @@ async addScan(encounterId: string, data: any, userId: string) {
   }
 
   async removeScan(encounterId: string, scanId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.scan.findFirst({
-        where: { id: scanId, attendanceId: encounterId }, select: { id: true, status: true },
+        where: { id: scanId, attendanceId: encounterId },
+        select: { id: true, status: true, priority: true, performedById: true, completedAt: true, requestedAt: true, createdById: true },
       });
       if (!current) throw new NotFoundError('Scan in encounter', scanId);
       if (current.status === 'completed' || current.status === 'cancelled') {
@@ -2065,6 +2067,11 @@ async addScan(encounterId: string, data: any, userId: string) {
       if (current.status === 'requested') {
         const deleted = await tx.scan.deleteMany({ where: { id: scanId, attendanceId: encounterId, status: 'requested' } });
         if (deleted.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
+        await appendClinicalRecordAudit(tx, actorId, 'Scan', scanId, 'delete', {
+          id: current.id, status: current.status, priority: current.priority,
+          performedById: current.performedById, completedAt: current.completedAt,
+          requestedAt: current.requestedAt, createdById: current.createdById,
+        }, undefined, { workflow: 'scan_order_removed' });
         return { id: scanId, status: 'deleted' as const };
       }
       const cancelled = await tx.scan.updateMany({
@@ -2072,6 +2079,13 @@ async addScan(encounterId: string, data: any, userId: string) {
         data: { status: 'cancelled' },
       });
       if (cancelled.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
+      await appendClinicalRecordAudit(tx, actorId, 'Scan', scanId, 'update', {
+        id: current.id, status: current.status, priority: current.priority,
+        performedById: current.performedById, completedAt: current.completedAt,
+      }, {
+        id: current.id, status: 'cancelled', priority: current.priority,
+        performedById: current.performedById, completedAt: current.completedAt,
+      }, { workflow: 'scan_order_cancelled' });
       return { id: scanId, status: 'cancelled' as const };
     });
   }
