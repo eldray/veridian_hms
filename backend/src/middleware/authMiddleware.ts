@@ -28,6 +28,7 @@ interface DecodedToken {
   email?: string;
   permissions?: string[];
   type?: string;
+  version?: number;
 }
 
 const isSuperAdmin = (role?: string) => String(role || '').toLowerCase() === 'super_admin';
@@ -56,7 +57,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
 
     const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as DecodedToken;
     // Refresh tokens are long-lived and must only be exchanged at /auth/refresh-token.
-    if (!decoded.userId || decoded.type === 'refresh') {
+    if (!decoded.userId || decoded.type === 'refresh' || !Number.isInteger(decoded.version)) {
       res.status(401).json({ success: false, message: 'Invalid token' });
       return;
     }
@@ -72,6 +73,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
         role: true,
         seniority: true,
         isActive: true,
+        version: true,
         roles: {
           include: {
             permissions: {
@@ -84,6 +86,14 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
 
     if (!currentUser || !currentUser.isActive) {
       res.status(401).json({ success: false, message: 'Account is inactive or no longer exists' });
+      return;
+    }
+
+    // A password reset/change increments the persisted account version. Any
+    // access JWT minted before that change is rejected immediately, not merely
+    // after its expiry. Tokens without a version are intentionally rejected.
+    if (decoded.version !== currentUser.version) {
+      res.status(401).json({ success: false, message: 'Session expired. Please sign in again.' });
       return;
     }
 
