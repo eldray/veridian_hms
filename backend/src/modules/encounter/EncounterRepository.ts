@@ -12,6 +12,7 @@ import { approvedServicesCoverPrescription } from './NHISPreAuthorisation';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 import { releaseBedForAttendance } from '../bed/bedOccupancy';
 import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
+import { appendClinicalRecordAudit } from './clinicalAudit';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
@@ -743,7 +744,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         });
       }
 
-      return tx.attendanceDiagnosis.create({
+      const created = await tx.attendanceDiagnosis.create({
         data: {
           attendanceId: encounterId,
           diagnosisId: data.diagnosisId,
@@ -755,10 +756,16 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         },
         include: { Diagnosis: true },
       });
+      await appendClinicalRecordAudit(tx, actorId, 'AttendanceDiagnosis', created.id, 'create', undefined, {
+        id: created.id, diagnosisId: created.diagnosisId, diagnosisType: created.diagnosisType,
+        classification: created.classification, icdCode: created.icdCode, createdById: created.createdById,
+      }, { workflow: 'diagnosis_added' });
+      return created;
     }, { isolationLevel: 'Serializable' });
   }
 
-  async updateDiagnosis(encounterId: string, diagnosisRowId: string, data: any) {
+  async updateDiagnosis(encounterId: string, diagnosisRowId: string, data: any, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const encounter = await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       const current = await tx.attendanceDiagnosis.findFirst({ where: { id: diagnosisRowId, attendanceId: encounterId } });
@@ -771,13 +778,22 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (diagnosisType === 'primary') {
         await tx.attendanceDiagnosis.updateMany({ where: { attendanceId: encounterId, diagnosisType: 'primary', id: { not: diagnosisRowId } }, data: { diagnosisType: 'additional' } });
       }
-      return tx.attendanceDiagnosis.update({ where: { id: diagnosisRowId }, data: {
+      const updated = await tx.attendanceDiagnosis.update({ where: { id: diagnosisRowId }, data: {
         diagnosisType, classification, notes: data.notes !== undefined ? data.notes : current.notes,
       }, include: { Diagnosis: true } });
+      await appendClinicalRecordAudit(tx, actorId, 'AttendanceDiagnosis', updated.id, 'update', {
+        id: current.id, diagnosisId: current.diagnosisId, diagnosisType: current.diagnosisType,
+        classification: current.classification, icdCode: current.icdCode,
+      }, {
+        id: updated.id, diagnosisId: updated.diagnosisId, diagnosisType: updated.diagnosisType,
+        classification: updated.classification, icdCode: updated.icdCode,
+      }, { workflow: 'diagnosis_updated' });
+      return updated;
     });
   }
 
-  async removeDiagnosis(encounterId: string, diagnosisId: string) {
+  async removeDiagnosis(encounterId: string, diagnosisId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
 
@@ -798,7 +814,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         }
       }
 
-      return tx.attendanceDiagnosis.delete({ where: { id: existing.id } });
+      const deleted = await tx.attendanceDiagnosis.delete({ where: { id: existing.id } });
+      await appendClinicalRecordAudit(tx, actorId, 'AttendanceDiagnosis', deleted.id, 'delete', {
+        id: existing.id, diagnosisId: existing.diagnosisId, diagnosisType: existing.diagnosisType,
+      }, undefined, { workflow: 'diagnosis_removed' });
+      return deleted;
     });
   }
 
