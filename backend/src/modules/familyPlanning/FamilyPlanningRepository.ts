@@ -2,6 +2,8 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import { ValidationError } from '../../utils/errors';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { CreateFPServiceInput, UpdateFPServiceInput, FPServiceFilters } from './FamilyPlanningTypes';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain';
+import { ValidationError as AuditValidationError } from '../../utils/errors';
 
 export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServiceInput, UpdateFPServiceInput> {
   constructor(prisma: PrismaClient) {
@@ -155,32 +157,39 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
 
     // Determine first-time acceptance from this patient's dated FP history, not a client-supplied checkbox.
     // Same-day additional method records are continuing records, preventing duplicate "new acceptor" counts.
-    const priorOrSameDayServices = await this.getModel().count({
-      where: {
-        patientId: data.patientId,
-        serviceDate: { lte: serviceDate },
-        OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }],
-      },
-    });
-    const isNewAcceptor = priorOrSameDayServices === 0;
-
-    return this.getModel().create({
-      data: {
-        patientId: data.patientId, attendanceId: data.attendanceId || undefined,
-        serviceDate, method: data.method as any,
-        methodCategory: data.methodCategory as any, isNewAcceptor,
-        counsellingGiven: data.counsellingGiven ?? true, informedConsent: data.informedConsent === true,
-        sideEffects: data.sideEffects, contraindications: data.contraindications,
-        medicalEligibilityCategory: data.medicalEligibilityCategory, nextFollowUpDate: data.nextFollowUpDate,
-        isPostpartum: data.isPostpartum || false, isPostAbortion: data.isPostAbortion || false,
-        postpartumWeeks: data.postpartumWeeks,
-        postpartumDeliveryRecordId: data.postpartumDeliveryRecordId || undefined,
-        postnatalRecordId: data.postnatalRecordId || undefined,
-        postAbortionRecordId: data.postAbortionRecordId || undefined,
-        cypFactor: data.cypFactor ?? this.calculateCYP(data.method),
-        providedById: data.providedById, notes: data.notes,
-      },
-      include: this.getStandardIncludes()
+    return this.prisma.$transaction(async (tx) => {
+      const priorOrSameDayServices = await tx.familyPlanningService.count({
+        where: {
+          patientId: data.patientId,
+          serviceDate: { lte: serviceDate },
+          OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }],
+        },
+      });
+      const isNewAcceptor = priorOrSameDayServices === 0;
+      const created = await tx.familyPlanningService.create({
+        data: {
+          patientId: data.patientId, attendanceId: data.attendanceId || undefined,
+          serviceDate, method: data.method as any,
+          methodCategory: data.methodCategory as any, isNewAcceptor,
+          counsellingGiven: data.counsellingGiven ?? true, informedConsent: data.informedConsent === true,
+          sideEffects: data.sideEffects, contraindications: data.contraindications,
+          medicalEligibilityCategory: data.medicalEligibilityCategory, nextFollowUpDate: data.nextFollowUpDate,
+          isPostpartum: data.isPostpartum || false, isPostAbortion: data.isPostAbortion || false,
+          postpartumWeeks: data.postpartumWeeks,
+          postpartumDeliveryRecordId: data.postpartumDeliveryRecordId || undefined,
+          postnatalRecordId: data.postnatalRecordId || undefined,
+          postAbortionRecordId: data.postAbortionRecordId || undefined,
+          cypFactor: data.cypFactor ?? this.calculateCYP(data.method),
+          providedById: data.providedById, notes: data.notes,
+        },
+        include: this.getStandardIncludes()
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'FamilyPlanningService', entityId: created.id, action: 'CREATE', performedById: data.providedById,
+        newState: { created: true },
+        metadata: { source: 'family-planning.create', changedFields: ['familyPlanningService'] },
+      });
+      return created;
     });
   }
 
@@ -232,7 +241,7 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
   }
 
   // Override update to include relations
-  async update(id: string, data: UpdateFPServiceInput) {
+  async update(id: string, data: UpdateFPServiceInput, actorId: string) {
     if (data.method !== undefined || data.methodCategory !== undefined) {
       const current = await this.getModel().findUnique({
         where: { id },
@@ -277,7 +286,29 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       postAbortionRecordId: data.postAbortionRecordId === undefined ? current.postAbortionRecordId : data.postAbortionRecordId,
     };
     await this.validateMaternalEventLinks(merged, current.patientId, new Date(current.serviceDate));
-    return this.getModel().update({ where: { id }, data, include: this.getStandardIncludes() });
+    if (!actorId) throw new AuditValidationError('Authenticated staff identity is required for family-planning audit');
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.familyPlanningService.update({ where: { id }, data, include: this.getStandardIncludes() });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'FamilyPlanningService', entityId: id, action: 'UPDATE', performedById: actorId,
+        newState: { updated: true },
+        metadata: { source: 'family-planning.update', changedFields: Object.keys(data).sort() },
+      });
+      return updated;
+    });
+  }
+
+  async delete(id: string, actorId: string) {
+    if (!actorId) throw new AuditValidationError('Authenticated staff identity is required for family-planning audit');
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.familyPlanningService.findUnique({ where: { id }, select: { id: true } });
+      if (!current) throw new AuditValidationError('Family-planning service not found');
+      await tx.familyPlanningService.delete({ where: { id } });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'FamilyPlanningService', entityId: id, action: 'DELETE', performedById: actorId,
+        metadata: { source: 'family-planning.delete' },
+      });
+    });
   }
 
   private activeAttendanceFilter(): Prisma.FamilyPlanningServiceWhereInput {
