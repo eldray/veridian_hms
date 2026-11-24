@@ -2158,7 +2158,6 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-    return this.prisma.$transaction(async (tx) => {
     if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, in_progress, completed or cancelled');
     if (data.bloodLoss !== undefined && data.bloodLoss !== null) {
       const rawBloodLoss = data.bloodLoss;
@@ -2169,6 +2168,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       }
       data = { ...data, bloodLoss: estimatedBloodLoss };
     }
+    return this.prisma.$transaction(async (tx) => {
     if (typeof tx.$queryRaw === 'function') {
       await tx.$queryRaw`SELECT "id" FROM "Procedure" WHERE "id" = ${procedureId} FOR UPDATE`;
     }
