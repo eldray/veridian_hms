@@ -84,6 +84,15 @@ describe('route authorization, route by route', () => {
   });
 
 
+  it('scopes encounter list/detail and direct clinical subresource reads by staff role', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'encounter', 'EncounterRoutes.ts'), 'utf8');
+    expect(source).toContain("router.get('/', requireRole(encounterReaders), controller.getAll);");
+    expect(source).toContain("router.get('/:id', requireRole(encounterReaders), controller.getById);");
+    expect(source).toContain("router.get('/:id/vitals', requireRole(['admin', 'doctor', 'nurse', 'midwife'])");
+    expect(source).toContain("router.get('/:id/consumables', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'pharmacist'])");
+    expect(source).toContain("router.get('/:id/ward-charges', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'])");
+  });
+
   it('restricts patient demographics and EMR reads to patient-management roles', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'patient', 'PatientRoutes.ts'), 'utf8');
     const readRoutes = source.split('\n').filter((line) => line.includes('router.get('));
