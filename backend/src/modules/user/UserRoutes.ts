@@ -3,7 +3,7 @@ import { body } from 'express-validator';
 import { UserController } from './UserController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 import { validateBody } from '../../middleware/validate';
-import { ResetUserPasswordSchema } from './UserValidators';
+import { CreateUserSchema, ResetUserPasswordSchema, UpdateUserSchema } from './UserValidators';
 import { uploadSingleDocument, handleUploadError } from '../../middleware/uploadMiddleware';
 import { VALID_ROLES, VALID_SENIORITY, VALID_LEAVE_TYPES, VALID_SHIFT_TYPES } from './UserTypes';
 
@@ -43,18 +43,7 @@ export const createUserRoutes = (prisma: any): Router => {
   router.post(
     '/',
     requireRole([...ADMIN_ONLY]),
-    [
-      body('username').trim().notEmpty().isLength({ min: 3 }),
-      body('password').isLength({ min: 6 }),
-      body('fullName').trim().notEmpty(),
-      body('role').isIn(VALID_ROLES as unknown as string[]),
-      body('seniority').optional().isIn(VALID_SENIORITY as unknown as string[]),
-      body('email').optional({ checkFalsy: true }).isEmail(),
-      body('phone').optional().trim(),
-      body('licenseNumber').optional().trim(),
-      body('specialization').optional().trim(),
-      body('departmentId').optional().isString(),
-    ],
+    validateBody(CreateUserSchema),
     controller.createUser,
   );
 
@@ -76,9 +65,11 @@ export const createUserRoutes = (prisma: any): Router => {
   // ==========================================
 
   // Updating a user's core fields (role, department, seniority, etc.) — admin only.
+  // Keep this as the single PUT registration so validation cannot be shadowed.
   router.put(
     '/:id',
     requireRole([...ADMIN_ONLY]),
+    validateBody(UpdateUserSchema),
     controller.updateUser,
   );
 
@@ -130,26 +121,7 @@ router.post('/:id/payslips/preset', requireRole([...ADMIN_HR]), controller.prese
   // USER UPDATE / DEACTIVATE
   // ==========================================
 
-  router.put(
-    '/:id',
-    requireRole([...ADMIN_ONLY]),
-    [
-      body('fullName').optional().trim().notEmpty(),
-      body('email').optional().isEmail(),
-      body('phone').optional().trim(),
-      body('licenseNumber').optional().trim(),
-      body('specialization').optional().trim(),
-      body('role').optional().isIn(VALID_ROLES as unknown as string[]),
-      body('seniority').optional().isIn(VALID_SENIORITY as unknown as string[]),
-      body('isActive').optional().isBoolean(),
-      body('departmentId').optional().isString(),
-      body('imageUrl').optional().isURL(),
-      body('headedDepartmentId').optional().isString(),
-    ],
-    controller.updateUser,
-  );
 
-  router.patch('/:id/deactivate', requireRole([...ADMIN_ONLY]), controller.deactivateUser);
 
   // A member of staff who cannot sign in is reset here. There is no mail server in
   // the packaged deployment, so /auth/forgot-password has nothing to send a link
