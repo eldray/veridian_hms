@@ -10,7 +10,8 @@ import { EncounterRepository } from '../src/modules/encounter/EncounterRepositor
 describe('theatre procedure audit integrity', () => {
   it('commits procedure progress and a privacy-minimised audit event in the same transaction', async () => {
     const tx: any = {
-      $queryRaw: vi.fn().mockResolvedValue([]),
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'surgeon-1', fullName: 'Surgeon' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       procedure: {
