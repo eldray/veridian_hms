@@ -23,6 +23,8 @@ describe('finalized clinical record immutability', () => {
   it('blocks legacy medical-note edits on a finalized record', async () => {
     const attendanceUpdate = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: vi.fn().mockResolvedValue([]),
       attendance: {
         findUnique: vi.fn().mockResolvedValue({ id: 'enc-finalized', finalizedAt: finalized.finalizedAt }),
@@ -45,6 +47,8 @@ describe('finalized clinical record immutability', () => {
     const attendanceFindUnique = vi.fn().mockResolvedValue(finalized);
     const diagnosisFindUnique = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: vi.fn().mockResolvedValue([]),
       attendance: { findUnique: attendanceFindUnique },
       diagnosis: { findUnique: diagnosisFindUnique },
@@ -69,6 +73,8 @@ describe('finalized clinical record immutability', () => {
   it('blocks edits to an existing vital observation after finalization', async () => {
     const vitalsUpdate = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: vi.fn().mockResolvedValue([]),
       vitals: {
         findUnique: vi.fn().mockResolvedValue({ attendanceId: 'enc-finalized', recordedById: 'nurse-1' }),
@@ -88,6 +94,8 @@ describe('finalized clinical record immutability', () => {
   it('blocks deletion of a vital observation after finalization', async () => {
     const deleteMany = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: vi.fn().mockResolvedValue([]),
       vitals: {
         findUnique: vi.fn().mockResolvedValue({ id: 'vitals-1', attendanceId: 'enc-finalized' }),
@@ -126,6 +134,8 @@ describe('finalized clinical record immutability', () => {
 describe('medication dispensing encounter guard', () => {
   it('does not dispense medication after the encounter has closed', async () => {
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: {
         findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'discharged' }),
       },
@@ -179,6 +189,8 @@ describe('atomic MAR dose writes', () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const findUnique = vi.fn().mockResolvedValue({ id: 'dose-1', status: 'due' });
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: vi.fn().mockResolvedValue([]),
       medicationDose: { updateMany, findUnique },
     };
@@ -209,6 +221,8 @@ describe('atomic MAR dose writes', () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const findUnique = vi.fn().mockResolvedValue({ id: 'dose-1', status: 'due' });
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: vi.fn().mockResolvedValue([]),
       medicationDose: { updateMany, findUnique },
     };
@@ -248,6 +262,8 @@ describe('auditable admission cancellation', () => {
       ...(overrides.admission || {}),
     };
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       admission: {
         findUnique: vi.fn().mockResolvedValue(admission),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -328,6 +344,8 @@ describe('auditable admission cancellation', () => {
 describe('admission, bed and nursing record consistency', () => {
   it('does not create an encounter against an occupied bed', async () => {
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       bed: { findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true, Ward: { id: 'ward-1', isActive: true } }), updateMany: vi.fn() },
       attendance: { findFirst: vi.fn().mockResolvedValue({ id: 'attendance-existing' }), create: vi.fn() },
     };
@@ -348,6 +366,8 @@ describe('admission, bed and nursing record consistency', () => {
   it('returns an existing admission idempotently instead of creating a duplicate', async () => {
     const existingAdmission = { id: 'admission-1', attendanceId: 'attendance-1', admissionNumber: 'ADM-1001' };
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted', Admission: existingAdmission }) },
       admission: { findUnique: vi.fn().mockResolvedValue(existingAdmission), create: vi.fn() },
     };
@@ -360,6 +380,8 @@ describe('admission, bed and nursing record consistency', () => {
 
   it('rejects assigning a bed that is already occupied before creating an admission', async () => {
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: {
         findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', status: 'pending', bedId: 'bed-1', wardId: 'ward-1', Admission: null, Bed: null }),
         findFirst: vi.fn().mockResolvedValue({ id: 'attendance-other' }),
@@ -384,6 +406,8 @@ describe('admission, bed and nursing record consistency', () => {
   it('closes the admission and releases its bed when discharging an inpatient encounter', async () => {
     const admission = { id: 'admission-1', dischargeDate: null, dailyNotes: [{ noteType: 'observation', notes: 'Stable' }] };
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: {
         findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted', bedId: 'bed-1', wardId: 'ward-1', Admission: admission, Patient: { surname: 'Test', otherNames: 'Patient' } }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
@@ -442,6 +466,8 @@ describe('admission, bed and nursing record consistency', () => {
 
   it('also releases the bed when discharge is saved through the admission update endpoint', async () => {
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       admission: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'admission-1', attendanceId: 'attendance-1', dischargeDate: null, dailyNotes: [],
@@ -505,6 +531,8 @@ describe('facility-level patient classification', () => {
 describe('OPD clinical record finalization', () => {
   it('does not treat one isolated measurement as a complete vital-sign section', async () => {
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', role: 'doctor', isActive: true }) },
       attendance: {
         findUnique: vi.fn().mockResolvedValue({
@@ -557,6 +585,8 @@ describe('OPD clinical record finalization', () => {
   it('refuses to finalize when mandatory clinical documentation is missing', async () => {
     const update = vi.fn();
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', role: 'doctor', isActive: true }) },
       attendance: {
         findUnique: vi.fn().mockResolvedValue({
@@ -640,6 +670,8 @@ describe('HMIS diagnosis classification validation', () => {
   it('requires case classification for OPD diagnoses', async () => {
     const findDiagnosis = vi.fn();
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', encounterCategory: 'opd' }) },
       diagnosis: { findUnique: findDiagnosis },
     };
@@ -859,6 +891,8 @@ describe('newborn record validation', () => {
     const record = { id: 'delivery-weight-1', patientId: 'patient-1', attendanceId: 'attendance-1' };
     const create = vi.fn().mockResolvedValue(record);
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'delivery' }) },
       antenatalBooking: { findFirst: vi.fn().mockResolvedValue(null), findUnique: vi.fn() },
       deliveryRecord: { create },
@@ -1034,6 +1068,8 @@ describe('maternal record integrity', () => {
   it('does not create a delivery record when its attendance belongs to another patient', async () => {
     const deliveryCreate = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'delivery-attendance', patientId: 'patient-b' }) },
       antenatalBooking: { findUnique: vi.fn() },
       deliveryRecord: { create: deliveryCreate },
@@ -1066,6 +1102,8 @@ describe('maternal record integrity', () => {
     const bookingFindFirst = vi.fn().mockResolvedValue(booking);
     const deliveryCreate = vi.fn().mockResolvedValue(record);
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'delivery' }) },
       antenatalBooking: {
         findUnique: vi.fn(),
@@ -1114,6 +1152,8 @@ describe('maternal record integrity', () => {
     const bookingUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const deliveryCreate = vi.fn().mockResolvedValue(record);
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'delivery' }) },
       antenatalBooking: {
         findUnique: vi.fn().mockResolvedValue(booking),
@@ -1321,6 +1361,8 @@ describe('investigation and procedure status integrity', () => {
   it('prevents a completed scan from being reopened', async () => {
     const scanUpdate = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: vi.fn().mockResolvedValue([]),
       scan: {
         findUnique: vi.fn().mockResolvedValue({ id: 'scan-1', status: 'completed' }),
@@ -1399,6 +1441,8 @@ describe('medication administration integrity', () => {
   it('rejects legacy medication administration when the encounter has closed', async () => {
     const medicationLookup = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
       medication: { findUnique: medicationLookup },
     };
@@ -1416,6 +1460,8 @@ describe('medication administration integrity', () => {
 
   it('rejects a dose belonging to a different medication', async () => {
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
@@ -1444,6 +1490,8 @@ describe('medication administration integrity', () => {
 
   it('rejects a non-positive or fractional medication quantity before writing', async () => {
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       medication: { findUnique: vi.fn().mockResolvedValue({
         id: 'medication-1', attendanceId: 'attendance-1', status: 'prescribed',
         quantity: 1, stockItemId: null, StockItem: null,
@@ -1463,6 +1511,8 @@ describe('medication administration integrity', () => {
   it('does not allow administration before dispensing', async () => {
     const update = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
@@ -1488,6 +1538,8 @@ describe('medication administration integrity', () => {
   it('does not allow an administered medication to be reset to prescribed', async () => {
     const update = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'medication-1', attendanceId: 'attendance-1', status: 'administered',
@@ -1566,6 +1618,8 @@ describe('primary diagnosis update atomicity', () => {
     const updateMany = vi.fn();
     const existingDiagnosis = { id: 'link-1', attendanceId: 'attendance-1', diagnosisId: 'diagnosis-1', diagnosisType: 'primary' };
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1' }) },
       diagnosis: { findUnique: vi.fn().mockResolvedValue({ id: 'diagnosis-1', icdCode: 'A09' }) },
       attendanceDiagnosis: {
@@ -1634,6 +1688,8 @@ describe('completed clinical record edit protection', () => {
   it('locks completed laboratory results from ordinary edits', async () => {
     const updateMany = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: vi.fn().mockResolvedValue([]),
       labTest: { findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }), updateMany },
       attendance: { findUnique: vi.fn() },
@@ -1650,6 +1706,8 @@ describe('completed clinical record edit protection', () => {
   it('locks completed procedure records from ordinary edits', async () => {
     const updateMany = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       $queryRaw: vi.fn().mockResolvedValue([]),
       procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), updateMany },
       attendance: { findUnique: vi.fn() },
@@ -1669,6 +1727,8 @@ describe('primary diagnosis removal protection', () => {
   it('requires a replacement primary diagnosis before removing one from a multi-diagnosis encounter', async () => {
     const deleteMany = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'in_progress' }) },
       attendanceDiagnosis: {
         findFirst: vi.fn().mockResolvedValue({ id: 'link-1', diagnosisType: 'primary' }),
@@ -1731,6 +1791,8 @@ describe('medication administration requires a due dose', () => {
   it('does not mark a medication administered when no scheduled dose exists', async () => {
     const medicationUpdate = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
@@ -2029,6 +2091,8 @@ describe('prescription cancellation integrity', () => {
     const medicationUpdate = vi.fn();
     const doseUpdateMany = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       medication: {
         findFirst: vi.fn().mockResolvedValue({ id: 'med-1', status: 'dispensed' }),
         update: medicationUpdate,
@@ -2048,6 +2112,8 @@ describe('prescription cancellation integrity', () => {
   it('does not cancel an administered medication through ordinary removal', async () => {
     const medicationUpdate = vi.fn();
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       medication: {
         findFirst: vi.fn().mockResolvedValue({ id: 'med-1', status: 'administered' }),
         update: medicationUpdate,
@@ -2069,6 +2135,8 @@ describe('delivery-to-ANC booking link integrity', () => {
     const bookingLookup = vi.fn();
     const bookingUpdate = vi.fn();
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       deliveryRecord: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-10T10:00:00.000Z'),
@@ -2093,6 +2161,8 @@ describe('delivery-to-ANC booking link integrity', () => {
   it('refuses to clear an existing delivery-to-ANC booking link', async () => {
     const deliveryUpdate = vi.fn();
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       deliveryRecord: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-10T10:00:00.000Z'),
@@ -2118,6 +2188,8 @@ describe('postnatal attendance type consistency', () => {
     const attendance = { id: 'delivery-attendance', patientId: 'patient-1', attendanceType: 'delivery' };
     const create = vi.fn().mockResolvedValue({ id: 'postnatal-1', attendanceId: attendance.id });
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue(attendance) },
       postnatalRecord: { create },
     };
@@ -2492,6 +2564,8 @@ describe('postnatal pregnancy and delivery linkage integrity', () => {
     };
     const create = vi.fn();
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'postnatal-attendance', patientId: 'patient-1', attendanceType: 'postnatal',
@@ -2535,6 +2609,8 @@ describe('newborn follow-up preservation during delivery edits', () => {
       Newborn: [{ id: 'baby-1', order: 1, birthWeight: 3300, babyWeightAt6to10Days: 2800 }],
     });
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       deliveryRecord: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-20'),
@@ -2574,6 +2650,8 @@ describe('newborn follow-up preservation during delivery edits', () => {
     const newbornCreate = vi.fn();
     const deliveryUpdate = vi.fn().mockResolvedValue({ id: 'delivery-1', Newborn: [{ id: 'baby-1' }] });
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       deliveryRecord: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-20'),
@@ -2683,6 +2761,8 @@ describe('diagnosis changes on closed encounters', () => {
   it('rejects adding a diagnosis after the encounter is closed', async () => {
     const diagnosisLookup = vi.fn();
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', encounterCategory: 'opd', status: 'discharged' }) },
       diagnosis: { findUnique: diagnosisLookup },
       attendanceDiagnosis: { findFirst: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
@@ -2703,6 +2783,8 @@ describe('diagnosis changes on closed encounters', () => {
   it('rejects removing a diagnosis after the encounter is closed', async () => {
     const diagnosisLookup = vi.fn();
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
       attendanceDiagnosis: { findFirst: diagnosisLookup, deleteMany: vi.fn() },
     };
@@ -2764,6 +2846,8 @@ describe('daily notes on closed admissions', () => {
   it('rejects daily notes after discharge without updating the admission', async () => {
     const update = vi.fn();
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       admission: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'admission-1',
@@ -2786,6 +2870,8 @@ describe('daily notes on closed admissions', () => {
   it('appends a daily note for an open admission', async () => {
     const update = vi.fn().mockImplementation(({ data }: any) => ({ id: 'admission-1', ...data }));
     const tx = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       admission: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'admission-1', dischargeDate: null, dailyNotes: [],
@@ -2808,6 +2894,8 @@ describe('daily notes on closed admissions', () => {
 describe('stage-aware clinical order removal', () => {
   const buildRepository = (order: 'labTest' | 'scan' | 'procedure' | 'medication', status: string, billLine: any = null) => {
     const tx: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'pending' }) },
       insuranceClaimItem: { findFirst: vi.fn().mockResolvedValue(null) },
       billLineItem: {
