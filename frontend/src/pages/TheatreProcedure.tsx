@@ -384,6 +384,7 @@ export default function TheatreProcedure() {
   }, [currentAttendance]);
 
   const selectedProcedure = procedures.find((p: any) => p.id === selectedProcedureId);
+  const procedureDocumentationUnlocked = !!selectedProcedure && ['in_progress', 'completed'].includes(String(selectedProcedure.status || '').toLowerCase());
 
   const appliedInitialProcedureId = useRef<string | null>(null);
   useEffect(() => {
@@ -444,7 +445,7 @@ export default function TheatreProcedure() {
   // Debounced draft autosave. It preserves the procedure's current status and never completes work.
   useEffect(() => {
     if (!selectedProcedure || !selectedAttendanceId || !selectedProcedureId || !canUpdateProcedure ||
-        ['completed', 'cancelled'].includes(String(selectedProcedure.status || '').toLowerCase())) {
+        String(selectedProcedure.status || '').toLowerCase() !== 'in_progress') {
       setAutosaveStatus('idle');
       return;
     }
@@ -598,7 +599,8 @@ export default function TheatreProcedure() {
         status: 'in_progress',
         performedById: user?.id || '',
       });
-      success('Procedure started', 'Operation in progress');
+      success('Procedure started', 'Operation in progress. Continue with the clinical record below.');
+      setActiveTab('record');
       await getAttendance(selectedAttendanceId);
     } catch (error: any) {
       toastError('Update failed', error.message);
@@ -1051,16 +1053,38 @@ export default function TheatreProcedure() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">{getStatusBadge(selectedProcedure.status)}</div>
-                  {selectedProcedure.status === 'scheduled' && canManageProcedures && canUpdateProcedure && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveProcedure(selectedProcedure.id)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Remove scheduled procedure
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {getStatusBadge(selectedProcedure.status)}
+                    <span className="text-[10px] text-[var(--text-tertiary)]">
+                      {selectedProcedure.status === 'scheduled'
+                        ? 'Next: start the procedure, then complete the clinical record.'
+                        : selectedProcedure.status === 'in_progress'
+                          ? 'In progress · document the procedure below.'
+                          : selectedProcedure.status === 'completed'
+                            ? 'Procedure and documentation completed.'
+                            : 'Procedure cancelled.'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {selectedProcedure.status === 'scheduled' && canUpdateProcedure && (
+                      <button
+                        type="button"
+                        onClick={() => handleStartProcedure(selectedProcedure.id)}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-600 text-white hover:bg-yellow-700 text-xs font-bold shadow-sm transition-all"
+                      >
+                        <Activity className="w-4 h-4" /> Start procedure
+                      </button>
+                    )}
+                    {selectedProcedure.status === 'scheduled' && canManageProcedures && canUpdateProcedure && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveProcedure(selectedProcedure.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove scheduled procedure
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
                 </>
@@ -1171,8 +1195,18 @@ export default function TheatreProcedure() {
               </div>
               </div>
 
+              {selectedProcedure?.status === 'scheduled' && (
+                <div className="mx-3 mb-3 flex flex-col gap-3 rounded-xl border border-yellow-300 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-950/20 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-yellow-900 dark:text-yellow-200">Procedure is scheduled — documentation is not started</p>
+                    <p className="mt-1 text-xs text-yellow-800 dark:text-yellow-300">Confirm the team is ready, then select <strong>Start procedure</strong> above. The clinical documentation will unlock when the status changes to In Progress.</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-yellow-400 px-3 py-1 text-[10px] font-semibold text-yellow-900 dark:text-yellow-200">Step 1 of 3 · Scheduled</span>
+                </div>
+              )}
+
               {/* ── TAB: PERI-OPERATIVE RECORD ─────────────────── */}
-              {selectedProcedure && isTheatreRequiredProcedure(selectedProcedure) && (
+              {procedureDocumentationUnlocked && isTheatreRequiredProcedure(selectedProcedure) && (
                 <div className="space-y-4">
                   <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
                     <div className="flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-3">
@@ -1586,7 +1620,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: MINOR PROCEDURE DOCUMENTATION MODAL ─────── */}
-              {selectedProcedure && !isTheatreRequiredProcedure(selectedProcedure) && (
+              {procedureDocumentationUnlocked && !isTheatreRequiredProcedure(selectedProcedure) && (
                 <SectionCard
                   icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
                   title="Minor procedure documentation"
@@ -1638,7 +1672,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: NARRATIVE NOTES ─────────────────────────── */}
-              {selectedProcedure && (
+              {procedureDocumentationUnlocked && (
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Complications */}
                   <SectionCard
@@ -1710,7 +1744,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── TAB: HANDOVER ─────────────────────────────────── */}
-              {selectedProcedure && (
+              {procedureDocumentationUnlocked && (
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <SectionCard
                     icon={<Save className="w-4 h-4 text-purple-600" />}
@@ -1756,7 +1790,7 @@ export default function TheatreProcedure() {
               )}
 
               {/* ── COMPLETION BAR + ACTION BUTTONS ────────────── */}
-              {selectedProcedure && (
+              {procedureDocumentationUnlocked && (
               <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)] p-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-3">
@@ -1782,14 +1816,6 @@ export default function TheatreProcedure() {
                         >
                           Cancel Procedure
                         </button>
-                        {selectedProcedure.status === 'scheduled' && (
-                          <button
-                            onClick={() => handleStartProcedure(selectedProcedure.id)}
-                            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-semibold transition-all"
-                          >
-                            Start Procedure
-                          </button>
-                        )}
                         {selectedProcedure.status === 'in_progress' && (
                           <>
                             <span className="self-center text-[11px] text-[var(--text-tertiary)]">
