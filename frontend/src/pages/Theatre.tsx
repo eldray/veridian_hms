@@ -188,7 +188,7 @@ export default function Theatre() {
 
   if (isLoading || worklistLoading) {
     return (
-      <div className="w-full min-w-0 max-w-full overflow-x-hidden space-y-6 p-4 sm:p-6">
+      <div className="w-full min-w-0 max-w-full min-h-0 flex flex-col gap-3 overflow-x-hidden">
         {queueHeader}
         <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
           <div className="w-12 h-12 border-4 border-[var(--icon-purple-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -199,7 +199,7 @@ export default function Theatre() {
   }
 
   return (
-    <div className="w-full min-w-0 max-w-full min-h-0 overflow-x-hidden space-y-4 p-4 sm:p-6">
+    <div className="w-full min-w-0 max-w-full min-h-0 flex flex-col gap-3 overflow-x-hidden">
       {queueHeader}
 
       {worklistError && (
@@ -209,7 +209,7 @@ export default function Theatre() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-3">
         <StatCard label="Patients" value={stats.patients} icon={Users} accent="cyan" />
         <StatCard label="Open Procedures" value={stats.openProcedures} icon={Scissors} accent="purple" />
         <StatCard label="In Progress" value={stats.inProgress} icon={Activity} accent="yellow" />
@@ -266,7 +266,7 @@ export default function Theatre() {
           </div>
         ) : (
           <div
-            className="max-h-[calc(100dvh-22rem)] min-h-0 overflow-auto overscroll-contain"
+            className="h-[clamp(15rem,calc(100dvh-27rem),42rem)] min-h-0 min-w-0 overflow-auto overscroll-contain"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}
           >
             <table className="w-full min-w-[980px] text-sm">
