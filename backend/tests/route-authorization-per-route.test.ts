@@ -66,6 +66,14 @@ const routes = scan();
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 describe('route authorization, route by route', () => {
+  it('restricts patient demographics and EMR reads to patient-management roles', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'patient', 'PatientRoutes.ts'), 'utf8');
+    const readRoutes = source.split(/\\r?\\n/).filter((line) => /router\\.get\\(/.test(line));
+    expect(readRoutes.length).toBeGreaterThan(0);
+    for (const route of readRoutes) expect(route).toContain('requirePatientManagement');
+  });
+
+
   it('restricts insurance claim read APIs to accounts and doctors', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'insuranceClaim', 'InsuranceClaimRoutes.ts'), 'utf8');
     expect(source).toContain("router.use(requireRole(['admin', 'accounts', 'doctor']));");
