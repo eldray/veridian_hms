@@ -845,7 +845,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async applyWaiver(billId: string, waiverId: string) {
+  async applyWaiver(billId: string, waiverId: string, userId?: string) {
     return this.prisma.$transaction(async (tx) => {
       const waiver = await tx.patientWaiver.findUnique({ where: { id: waiverId }, include: { bill: true } });
       if (!waiver) throw new Error('Waiver not found');
@@ -853,6 +853,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       if (waiver.appliedAt) throw new Error('This waiver has already been applied');
       if (waiver.billId !== billId) throw new Error('Waiver does not belong to this bill');
 
+      // Serialize separate waiver applications against the same outstanding balance.
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${billId} FOR UPDATE`;
+      }
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
@@ -862,9 +866,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         throw new Error('Approved waiver exceeds the remaining patient liability');
       }
       // Claim the waiver atomically so concurrent requests cannot apply it twice.
+      const appliedAt = new Date();
       const claimed = await tx.patientWaiver.updateMany({
         where: { id: waiverId, status: 'approved', appliedAt: null },
-        data: { appliedAt: new Date() }
+        data: { appliedAt }
       });
       if (claimed.count !== 1) throw new Error('This waiver has already been applied');
 
@@ -877,6 +882,24 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : (toNumber(bill.paidAmount) > 0 ? 'partial' : 'pending') },
         include: { Patient: true, Attendance: true, CorporateAccount: true }
       });
+      await appendStructuredFinancialAudit(
+        tx, userId, 'PatientWaiver', waiver.id, 'update',
+        { id: waiver.id, billId, status: waiver.status, appliedAt: waiver.appliedAt, amountApproved: toNumber(waiver.amountApproved) },
+        { id: waiver.id, billId, status: waiver.status, appliedAt, amountApproved: toNumber(waiver.amountApproved) },
+        { source: 'billing_repository_approved_waiver_application' },
+      );
+      await appendStructuredFinancialAudit(
+        tx, userId, 'Bill', updated.id, 'update',
+        {
+          waiverAmount: toNumber(bill.waiverAmount), patientPayable: toNumber(bill.patientPayable),
+          paidAmount: toNumber(bill.paidAmount), balance: toNumber(bill.balance), status: bill.status,
+        },
+        {
+          waiverAmount: toNumber(updated.waiverAmount), patientPayable: toNumber(updated.patientPayable),
+          paidAmount: toNumber(updated.paidAmount), balance: toNumber(updated.balance), status: updated.status,
+        },
+        { source: 'billing_repository_approved_waiver_application', waiverId: waiver.id },
+      );
 
       if (updated.attendanceId) await this.syncAttendanceFinancials(tx, updated.attendanceId, { ...updated, balance: newBalance });
 
