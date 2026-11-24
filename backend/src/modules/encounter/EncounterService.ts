@@ -786,8 +786,8 @@ export class EncounterService extends BaseService {
   }
 
   async addVitals(id: string, data: AddVitalsDTO, userId: string) { return this.repository.addVitals(id, data, userId); }
-  async updateVitals(id: string, data: any) { return this.repository.updateVitals(id, data); }
-  async deleteVitals(id: string) { return this.repository.deleteVitals(id); }
+  async updateVitals(id: string, data: any, userId?: string) { return this.repository.updateVitals(id, data, userId); }
+  async deleteVitals(id: string, userId?: string) { return this.repository.deleteVitals(id, userId); }
   
   async addPrescription(id: string, data: AddPrescriptionDTO, userId: string) { return this.repository.addPrescription(id, data, userId); }
   async updateMedication(encounterId: string, medId: string, data: any, userId: string) { return this.repository.updateMedication(encounterId, medId, data, userId); }
