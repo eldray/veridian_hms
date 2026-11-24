@@ -34,6 +34,33 @@ describe('counter receipt and ticket persistence', () => {
     expect((bill as any).CounterClient.name).toBe('Walk-in customer');
   });
 
+  it('sorts counter tickets in the database before pagination', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const count = vi.fn().mockResolvedValue(21);
+    const repository = new CounterRepository({
+      attendance: { findMany, count },
+      counterClient: { findMany: vi.fn().mockResolvedValue([]) },
+    } as any);
+
+    const result = await repository.listTickets({
+      page: 2,
+      limit: 10,
+      sortBy: 'customerName',
+      sortOrder: 'asc',
+    });
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      skip: 10,
+      take: 10,
+      orderBy: [
+        { CounterClient: { name: 'asc' } },
+        { Patient: { surname: 'asc' } },
+        { id: 'asc' },
+      ],
+    }));
+    expect(result.totalPages).toBe(3);
+  });
+
   it('creates a new walk-in identity and its ticket in one database transaction', async () => {
     const clientCreate = vi.fn().mockResolvedValue({ id: 'client-1' });
     const attendanceCreate = vi.fn().mockResolvedValue({
