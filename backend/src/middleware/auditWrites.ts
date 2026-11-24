@@ -113,6 +113,9 @@ export function auditWrites(prisma: PrismaClient) {
 
         const operation = segments.slice(1).filter((s) => !ID_LIKE.test(s)).join('/');
         const mayStoreSnapshot = SNAPSHOT_ALLOWED_TOPICS.has(topic);
+        const stockDeleteSnapshot = topic === 'stock-transactions' && req.method === 'DELETE'
+          ? (req as any).auditPreviousState
+          : undefined;
         const responseSnapshot = mayStoreSnapshot && action !== AuditAction.login && action !== AuditAction.logout && action !== AuditAction.delete
           ? safeBody(body?.data ?? body)
           : undefined;
@@ -120,7 +123,7 @@ export function auditWrites(prisma: PrismaClient) {
         void appendAuditLog(prisma, {
           entityType, entityId: String(entityId), action, performedById: userId,
           ipAddress: req.ip ?? null,
-          previousState: undefined,
+          previousState: stockDeleteSnapshot ?? undefined,
           // Full request/response payloads can contain PHI, payment details, or
           // staff data. Retain snapshots only for explicitly low-risk catalogs.
           newState: responseSnapshot,
@@ -129,7 +132,9 @@ export function auditWrites(prisma: PrismaClient) {
             url: path,
             operation: operation || undefined,
             statusCode: res.statusCode,
-            snapshotSource: mayStoreSnapshot ? 'successful_api_response' : 'omitted_sensitive_or_unreviewed_topic',
+            snapshotSource: stockDeleteSnapshot
+              ? 'stock_transaction_delete_previous_state'
+              : mayStoreSnapshot ? 'successful_api_response' : 'omitted_sensitive_or_unreviewed_topic',
             userAgent: req.headers['user-agent'] ?? undefined,
           },
         }).then(() => {
