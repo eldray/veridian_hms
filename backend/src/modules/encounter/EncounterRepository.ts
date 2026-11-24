@@ -1839,14 +1839,12 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
         data: { status: 'cancelled' },
       });
       if (cancelled.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
-      const updated = await tx.labTest.findUnique({ where: { id: labOrderId } });
-      if (!updated) throw new NotFoundError('Laboratory order', labOrderId);
       await appendClinicalRecordAudit(tx, actorId, 'LabTest', labOrderId, 'update', {
         id: current.id, status: current.status, priority: current.priority,
         performedById: current.performedById, completedAt: current.completedAt,
       }, {
-        id: updated.id, status: updated.status, priority: updated.priority,
-        performedById: updated.performedById, completedAt: updated.completedAt,
+        id: current.id, status: 'cancelled', priority: current.priority,
+        performedById: current.performedById, completedAt: current.completedAt,
       }, { workflow: 'lab_order_cancelled' });
       return { id: labOrderId, status: 'cancelled' as const };
     });
