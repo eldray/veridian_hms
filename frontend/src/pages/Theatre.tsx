@@ -188,7 +188,7 @@ export default function Theatre() {
 
   if (isLoading || worklistLoading) {
     return (
-      <div className="w-full min-w-0 max-w-full min-h-0 flex flex-col gap-3 overflow-x-hidden">
+      <div className="w-full h-full min-w-0 max-w-full min-h-0 flex flex-col gap-3 overflow-hidden">
         {queueHeader}
         <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
           <div className="w-12 h-12 border-4 border-[var(--icon-purple-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -235,6 +235,8 @@ export default function Theatre() {
         icon={isDone ? History : Scissors}
         accent={isDone ? 'green' : 'purple'}
         padded={false}
+        className="flex-1 min-h-0 min-w-0 flex flex-col"
+        contentClassName="flex-1 min-h-0 min-w-0 flex flex-col"
       >
         {filteredPatients.length === 0 ? (
           <div className="p-8 text-center">
@@ -266,7 +268,7 @@ export default function Theatre() {
           </div>
         ) : (
           <div
-            className="h-[clamp(15rem,calc(100dvh-27rem),42rem)] min-h-0 min-w-0 overflow-auto overscroll-contain"
+            className="flex-1 min-h-0 min-w-0 overflow-auto overscroll-contain"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}
           >
             <table className="w-full min-w-[980px] text-sm">
