@@ -3316,6 +3316,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       : {
         status: { in: ['requested', 'in_progress'] },
         requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
+        ...itemDateFilter,
         Attendance: {
           is: {
             status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
@@ -3391,6 +3392,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       : {
         status: 'prescribed',
         prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
+        ...itemDateFilter,
         Attendance: {
           is: {
             status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
@@ -3469,6 +3471,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       : {
         status: { in: ['requested', 'in_progress'] },
         requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
+        ...itemDateFilter,
         Attendance: {
           is: {
             status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
@@ -3541,6 +3544,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       : {
         status: { in: ['scheduled', 'in_progress'] },
         createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
+        ...itemDateFilter,
         Attendance: {
           is: {
             status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
