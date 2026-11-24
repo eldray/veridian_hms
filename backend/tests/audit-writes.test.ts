@@ -27,7 +27,7 @@ describe('automatic write auditing', () => {
     vi.mocked(appendAuditLog).mockReset();
   });
 
-  it('stores the successful response as the new snapshot and records request input separately before responding', async () => {
+  it('records the audit event without retaining billing request or response payloads', async () => {
     let auditSaved = false;
     vi.mocked(appendAuditLog).mockImplementation(async () => {
       auditSaved = true;
@@ -66,13 +66,13 @@ describe('automatic write auditing', () => {
       entityId: recordId,
       action: AuditAction.create,
       performedById: 'cashier-1',
-      newState: { id: recordId, amount: 100, status: 'paid' },
+      newState: undefined,
       metadata: {
-        snapshotSource: 'successful_api_response',
-        requestBody: { amount: 100, password: '[hidden]' },
+        snapshotSource: 'omitted_sensitive_or_unreviewed_topic',
       },
     });
     expect(JSON.stringify(entry)).not.toContain('must-not-be-stored');
+    expect(JSON.stringify(entry)).not.toContain('100');
   });
 
   it('still sends the already-committed API result if audit storage is unavailable', async () => {
