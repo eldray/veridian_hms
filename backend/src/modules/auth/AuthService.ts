@@ -63,6 +63,7 @@ export class AuthService {
     seniority: Seniority,
     permissions: string[],
     departmentId: string | null = null,
+    version = 0,
   ) {
     const payload: TokenPayload = {
       userId,
@@ -71,6 +72,7 @@ export class AuthService {
       seniority,
       permissions,
       departmentId: departmentId || '',
+      version,
     };
     const accessToken = jwt.sign(payload, getJwtSecret(), { algorithm: 'HS256', expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] });
     const refreshToken = jwt.sign({ userId, type: 'refresh' }, getJwtSecret(), { algorithm: 'HS256', expiresIn: REFRESH_TOKEN_EXPIRY as SignOptions['expiresIn'] });
@@ -101,6 +103,7 @@ export class AuthService {
       user.seniority,
       permissions,
       user.departmentId ?? null,
+      user.version,
     );
 
     await this.repository.updateLastLogin(user.id);
@@ -140,6 +143,7 @@ export class AuthService {
       updatedUser.seniority,
       permissions,
       updatedUser.departmentId ?? null,
+      updatedUser.version,
     );
     await this.repository.storeRefreshToken(
       updatedUser.id, tokens.refreshToken, refreshTokenExpiresAt(),
@@ -194,7 +198,7 @@ export class AuthService {
         data: { status: 'completed', completedAt: new Date(), codeHash: null },
       });
       if (consumed.count !== 1) throw new Error('Invalid or expired reset code');
-      await tx.user.update({ where: { id: user.id }, data: { password, resetToken: null, resetExpiry: null } });
+      await tx.user.update({ where: { id: user.id }, data: { password, resetToken: null, resetExpiry: null, version: { increment: 1 } } });
       await tx.refreshToken.deleteMany({ where: { userId: user.id } });
     });
     return { success: true };
@@ -228,6 +232,7 @@ export class AuthService {
       user.seniority,
       permissions,
       user.departmentId ?? null,
+      user.version,
     );
 
     await this.repository.storeRefreshToken(
@@ -255,7 +260,7 @@ export class AuthService {
     if (policyError) return { success: false, error: policyError };
 
     const newPasswordHash = await bcrypt.hash(data.newPassword, SALT_ROUNDS);
-    await this.repository.updateUser(userId, { password: newPasswordHash });
+    await this.repository.updateUser(userId, { password: newPasswordHash, version: { increment: 1 } });
     // Changing a password must invalidate every other session for this account.
     await this.repository.deleteRefreshTokenForUser(userId);
     return { success: true };
