@@ -361,7 +361,8 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     data: { paymentId: string; amount: number; refundMethod?: string; reference?: string; reason: string; idempotencyKey?: string },
     userId: string,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
       if (typeof tx.$queryRaw === 'function') {
         await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${billId} FOR UPDATE`;
       }
@@ -469,7 +470,42 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       }
 
       return { bill: updated, refund };
-    });
+
+      });
+    } catch (error: any) {
+      // A retry can race another request using the same globally unique key on a
+      // different bill. The losing transaction rolls back; resolve the committed
+      // ledger row outside that transaction and return it only for an exact replay.
+      if (idempotencyKey && error?.code === 'P2002') {
+        const priorRefund = await this.prisma.refund.findUnique({ where: { idempotencyKey } });
+        if (priorRefund) {
+          const originalPayment = await this.prisma.payment.findUnique({
+            where: { id: data.paymentId },
+            select: { billId: true, paymentMethod: true },
+          });
+          const requestedMethod = data.refundMethod || originalPayment?.paymentMethod;
+          const sameRequest =
+            priorRefund.billId === billId &&
+            priorRefund.paymentId === data.paymentId &&
+            Math.round(toNumber(priorRefund.amount) * 100) === Math.round(roundMoney(Number(data.amount)) * 100) &&
+            priorRefund.refundMethod === requestedMethod &&
+            (priorRefund.reference || null) === (data.reference?.trim() || null) &&
+            priorRefund.reason === String(data.reason || '').trim() &&
+            priorRefund.processedById === userId &&
+            originalPayment?.billId === billId;
+          if (!sameRequest) {
+            throw Object.assign(new Error('This refund request key has already been used with different details.'), { statusCode: 409 });
+          }
+          const priorBill = await this.prisma.bill.findUnique({ where: { id: billId } });
+          if (priorBill) return { bill: priorBill, refund: priorRefund, duplicate: true };
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Every charged line in a date window    });
   }
 
   /**
