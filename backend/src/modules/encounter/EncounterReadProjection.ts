@@ -29,11 +29,12 @@ const CLINICAL_FIELDS = [
   'nhisCCC',
 ] as const;
 
-export function projectEncounterForRole<T extends Record<string, any>>(record: T, role?: string): T {
+export function projectEncounterForRole<T extends object>(record: T, role?: string): T {
   if (!record || CLINICAL_READ_ROLES.has(String(role || '').toLowerCase())) return record;
 
+  const source = record as Record<string, any>;
   const normalizedRole = String(role || '').toLowerCase();
-  const projected: Record<string, any> = { ...record };
+  const projected: Record<string, any> = { ...source };
 
   for (const field of CLINICAL_FIELDS) delete projected[field];
 
@@ -67,11 +68,11 @@ export function projectEncounterForRole<T extends Record<string, any>>(record: T
   }
 
   if (normalizedRole === 'lab_tech') {
-    if (Array.isArray(record.LabTest)) projected.LabTest = record.LabTest;
-    if (Array.isArray(record.labTests)) projected.labTests = record.labTests;
+    if (Array.isArray(source.LabTest)) projected.LabTest = source.LabTest;
+    if (Array.isArray(source.labTests)) projected.labTests = source.labTests;
   } else if (normalizedRole === 'sonographer') {
-    if (Array.isArray(record.Scan)) projected.Scan = record.Scan;
-    if (Array.isArray(record.scans)) projected.scans = record.scans;
+    if (Array.isArray(source.Scan)) projected.Scan = source.Scan;
+    if (Array.isArray(source.scans)) projected.scans = source.scans;
   }
 
   return projected as T;
