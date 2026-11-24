@@ -976,7 +976,15 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
       await appendClinicalRecordAudit(tx, actorId, 'Vitals', savedVitals.id, 'create', undefined, {
         id: savedVitals.id, attendanceId: encounterId, recordedAt: savedVitals.recordedAt,
-        recordedFields: Object.keys(vitalsData), antenatalAssessmentIncluded: hasAntenatalData,
+        recordedFields: [
+          ...Object.keys(vitalsData),
+          ...(fetalHeartRate !== undefined ? ['fetalHeartRate'] : []),
+          ...(fundalHeight !== undefined ? ['fundalHeight'] : []),
+          ...(presentingPart !== undefined ? ['presentingPart'] : []),
+          ...(fetalMovement !== undefined ? ['fetalMovement'] : []),
+          ...(oedema !== undefined ? ['oedema'] : []),
+        ],
+        antenatalAssessmentIncluded: hasAntenatalData,
       }, { workflow: 'vitals_recorded', clinicalValuesOmitted: true });
 
       if (hasAntenatalData) {
@@ -1106,10 +1114,24 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
       await appendClinicalRecordAudit(tx, actorId, 'Vitals', vitalsId, 'update', {
         id: vitalsId, recordedAt: existingVitals.recordedAt,
-        recordedFields: Object.keys(vitalsData),
+        recordedFields: [
+          ...Object.keys(vitalsData),
+          ...(fetalHeartRate !== undefined ? ['fetalHeartRate'] : []),
+          ...(fundalHeight !== undefined ? ['fundalHeight'] : []),
+          ...(presentingPart !== undefined ? ['presentingPart'] : []),
+          ...(fetalMovement !== undefined ? ['fetalMovement'] : []),
+          ...(oedema !== undefined ? ['oedema'] : []),
+        ],
       }, {
         id: vitalsId, recordedAt: updatedVitals.recordedAt,
-        recordedFields: Object.keys(vitalsData),
+        recordedFields: [
+          ...Object.keys(vitalsData),
+          ...(fetalHeartRate !== undefined ? ['fetalHeartRate'] : []),
+          ...(fundalHeight !== undefined ? ['fundalHeight'] : []),
+          ...(presentingPart !== undefined ? ['presentingPart'] : []),
+          ...(fetalMovement !== undefined ? ['fetalMovement'] : []),
+          ...(oedema !== undefined ? ['oedema'] : []),
+        ],
       }, { workflow: 'vitals_amended', clinicalValuesOmitted: true });
       return updatedVitals;
     });
