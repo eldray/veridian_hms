@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BillingRepository } from '../src/modules/billing/BillingRepository';
 import { CounterRepository } from '../src/modules/counter/CounterRepository';
 
@@ -72,7 +72,7 @@ describe('counter receipt and ticket persistence', () => {
     expect(ticket.id).toBe('ticket-1');
   });
 
-  it('does not leave a new counter customer behind when ticket creation fails', async () => {
+  it('propagates ticket creation failure inside the customer-and-ticket transaction', async () => {
     const clientCreate = vi.fn().mockResolvedValue({ id: 'client-1' });
     const attendanceCreate = vi.fn().mockRejectedValue(new Error('attendance insert failed'));
     const tx: any = {
