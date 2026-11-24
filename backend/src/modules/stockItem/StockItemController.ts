@@ -19,6 +19,9 @@ export class StockItemController extends BaseController {
 
   create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    if (!isAdmin && !req.user?.departmentId) {
+      return this.badRequest(res, 'Assign this user to a department before creating a stock item. Opening stock must belong to a department.');
+    }
     const data = { ...req.body, departmentId: isAdmin ? req.body.departmentId : req.user?.departmentId };
     const result = await this.service.create(data, req.user?.id);
     return this.created(res, result, 'Stock item created successfully');
@@ -89,6 +92,9 @@ export class StockItemController extends BaseController {
   addStockBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { batchNumber, expiryDate, quantity, costPrice, receivedDate, departmentId } = req.body;
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    if (!isAdmin && !req.user?.departmentId) {
+      return this.badRequest(res, 'Assign this user to a department before receiving stock batches.');
+    }
     const effectiveDepartmentId = isAdmin ? departmentId : req.user?.departmentId;
     const result = await this.service.addStockBatch(req.params.id, batchNumber, new Date(expiryDate), Number(quantity), Number(costPrice), receivedDate ? new Date(receivedDate) : undefined, effectiveDepartmentId ? String(effectiveDepartmentId) : undefined);
     return this.created(res, result, 'Batch added');

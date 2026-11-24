@@ -172,6 +172,13 @@ describe('route authorization, route by route', () => {
     expect(source).not.toContain('req.body.recordedById');
   });
 
+  it('prevents pharmacy stock receipts from being placed in the unassigned stock pool', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'stockItem', 'StockItemController.ts'), 'utf8');
+    expect(source).toContain("if (!isAdmin && !req.user?.departmentId)");
+    expect(source).toContain("Assign this user to a department before creating a stock item");
+    expect(source).toContain("Assign this user to a department before receiving stock batches");
+  });
+
   it('restricts insurance claim read APIs to accounts and doctors', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'insuranceClaim', 'InsuranceClaimRoutes.ts'), 'utf8');
     expect(source).toContain("router.use(requireRole(['admin', 'accounts', 'doctor']));");
