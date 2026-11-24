@@ -392,7 +392,16 @@ export default function LabResultEntry() {
     setQueueLoading(true);
     try {
       const response: any = await getLabWorklist();
-      const rows: any[] = response?.data?.data || [];
+      // Axios returns the standard API envelope: response.data.data is the worklist
+      // object, and the actual rows are one level deeper at worklist.data.
+      // Accept the common direct/intercepted shapes as well so this queue cannot
+      // silently disappear when the transport wrapper changes.
+      const payload = response?.data?.data ?? response?.data ?? response;
+      const rows: any[] = Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
       setQueueRows(rows.map((row) => ({
         attendanceId: row.attendanceId,
         patientId: row.patientId,
