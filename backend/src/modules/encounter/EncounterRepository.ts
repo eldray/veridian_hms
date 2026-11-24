@@ -1957,7 +1957,11 @@ async addScan(encounterId: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported scan order status');
     if (data.priority !== undefined && !['routine', 'urgent', 'stat'].includes(String(data.priority))) throw new ValidationError('Unsupported scan priority');
-    const current = await this.prisma.scan.findUnique({
+    return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Scan" WHERE "id" = ${scanId} FOR UPDATE`;
+      }
+      const current = await tx.scan.findUnique({
       where: { id: scanId },
       select: { id: true, status: true, attendanceId: true, result: true, findings: true, impression: true },
     });
@@ -1965,7 +1969,7 @@ async addScan(encounterId: string, data: any, userId: string) {
     if (current.status === 'cancelled') throw new ConflictError('A cancelled scan order cannot be reopened or changed');
     if (current.status === 'completed') throw new ConflictError('A completed scan report is locked; use the documented report-correction workflow');
     if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A scan in progress cannot return to requested');
-    await this.requireOpenEncounter(current.attendanceId);
+    await this.requireOpenEncounter(current.attendanceId, tx);
 
     const finalReport = {
       result: data.result !== undefined ? data.result : current.result,
@@ -1989,12 +1993,24 @@ async addScan(encounterId: string, data: any, userId: string) {
     if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
     else if (status === 'in_progress') updateData.performedById = actorId;
     if (!Object.keys(updateData).length) throw new ValidationError('No scan order changes were provided');
-    const updated = await this.prisma.scan.updateMany({
+      const changed = await tx.scan.updateMany({
       where: { id: scanId, status: current.status },
       data: updateData,
     });
-    if (updated.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
-    return this.prisma.scan.findUnique({ where: { id: scanId } });
+      if (changed.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
+      const updated = await tx.scan.findUnique({ where: { id: scanId }, select: { id: true, status: true } });
+      if (!updated) throw new NotFoundError('Scan order', scanId);
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Scan', entityId: scanId, action: 'update', performedById: actorId,
+        previousState: { status: current.status }, newState: { status: updated.status },
+        metadata: {
+          operation: 'scan_result_update', fromStatus: current.status, toStatus: updated.status,
+          changedFields: Object.keys(updateData).filter((field) => !['result', 'findings', 'impression', 'notes', 'imageUrls'].includes(field)),
+          clinicalContentOmitted: ['result', 'findings', 'impression', 'notes', 'imageUrls'].some((field) => Object.prototype.hasOwnProperty.call(updateData, field)),
+        },
+      });
+      return tx.scan.findUnique({ where: { id: scanId } });
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async removeScan(encounterId: string, scanId: string, userId: string) {
