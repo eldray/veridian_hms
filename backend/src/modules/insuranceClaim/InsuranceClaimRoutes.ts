@@ -13,6 +13,10 @@ import {
 export const createInsuranceClaimRoutes = () => {
   const router = Router();
   router.use(protect);
+  // Match the application access policy: Accounts manage claims and Doctors may
+  // review them; other authenticated staff must not gain claim-wide access by
+  // calling the API directly instead of using the role-gated frontend.
+  router.use(requireRole(['admin', 'accounts', 'doctor']));
 
   router.use('/batches', createClaimBatchRoutes());
 
