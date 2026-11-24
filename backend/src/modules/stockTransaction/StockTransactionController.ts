@@ -64,8 +64,9 @@ export class StockTransactionController extends BaseController {
   delete = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
     const result = await this.service.delete(req.params.id, { departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin }, req.user?.id);
+    const { deletedTransaction: _internalAuditSnapshot, ...response } = result as any;
     (req as any).auditHandled = true;
-    return this.ok(res, result, result.message);
+    return this.ok(res, response, response.message);
   });
 
   getMovementSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
