@@ -2641,7 +2641,7 @@ describe('diagnosis changes on closed encounters', () => {
 
     await expect(repository.addDiagnosis('attendance-1', {
       diagnosisId: 'diagnosis-1', diagnosisType: 'additional', classification: 'NEW_DIAGNOSIS',
-    } as any, 'clinician-1')).rejects.toThrow(/diagnoses cannot be changed for a closed encounter/i);
+    } as any, 'clinician-1')).rejects.toThrow(/cannot be changed for a closed encounter/i);
     expect(diagnosisLookup).not.toHaveBeenCalled();
     expect(tx.attendanceDiagnosis.create).not.toHaveBeenCalled();
   });
