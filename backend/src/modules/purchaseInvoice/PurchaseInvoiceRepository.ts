@@ -185,7 +185,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
   // ==========================================
   // SAFE DELETE (Prevents negative inventory)
   // ==========================================
-  async deleteSafely(id: string) {
+  async deleteSafely(id: string, performedById?: string) {
     return this.prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({ where: { id }, include: { InvoiceItem: true } });
       if (!invoice) throw new Error('Purchase invoice not found');
@@ -279,7 +279,25 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
         }
       }
 
-      // Delete ledger entries
+      // Audit every ledger row being removed before deleting it. These events
+      // share the invoice-reversal transaction, so a failed audit rolls back
+      // both the stock reversal and ledger deletion.
+      const ledgerRows = await tx.stockTransaction.findMany({ where: { invoiceId: id } });
+      for (const movement of ledgerRows) {
+        const snapshot = {
+          id: movement.id,
+          stockItemId: movement.stockItemId,
+          transactionType: movement.transactionType,
+          quantity: movement.quantity,
+          balanceAfter: movement.balanceAfter,
+          performedBy: movement.performedBy,
+          departmentId: movement.departmentId,
+          wardId: movement.wardId,
+          transactionDate: movement.transactionDate,
+          createdAt: movement.createdAt,
+        };
+        await appendStockMovementAudit(tx, 'delete', performedById, movement, snapshot, { workflow: 'purchase_invoice_reversal' });
+      }
       await tx.stockTransaction.deleteMany({ where: { invoiceId: id } });
       await tx.invoiceItem.deleteMany({ where: { invoiceId: id } });
       
