@@ -1616,14 +1616,19 @@ describe('completed clinical record edit protection', () => {
   });
 
   it('locks completed procedure records from ordinary edits', async () => {
-    const update = vi.fn();
+    const updateMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), updateMany },
+      attendance: { findUnique: vi.fn() },
+    };
     const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
-      procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), update },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', { notes: 'changed' }, 'staff-1'))
       .rejects.toThrow(/completed procedure record is locked/i);
-    expect(update).not.toHaveBeenCalled();
+    expect(updateMany).not.toHaveBeenCalled();
   });
 });
 
