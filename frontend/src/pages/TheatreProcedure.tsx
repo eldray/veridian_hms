@@ -598,7 +598,8 @@ export default function TheatreProcedure() {
         status: 'in_progress',
         performedById: user?.id || '',
       });
-      success('Procedure started', 'Operation in progress');
+      success('Procedure started', 'Operation in progress. Continue with the clinical record below.');
+      setActiveTab('record');
       await getAttendance(selectedAttendanceId);
     } catch (error: any) {
       toastError('Update failed', error.message);
@@ -1051,16 +1052,38 @@ export default function TheatreProcedure() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-2">{getStatusBadge(selectedProcedure.status)}</div>
-                  {selectedProcedure.status === 'scheduled' && canManageProcedures && canUpdateProcedure && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveProcedure(selectedProcedure.id)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" /> Remove scheduled procedure
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {getStatusBadge(selectedProcedure.status)}
+                    <span className="text-[10px] text-[var(--text-tertiary)]">
+                      {selectedProcedure.status === 'scheduled'
+                        ? 'Next: start the procedure, then complete the clinical record.'
+                        : selectedProcedure.status === 'in_progress'
+                          ? 'In progress · document the procedure below.'
+                          : selectedProcedure.status === 'completed'
+                            ? 'Procedure and documentation completed.'
+                            : 'Procedure cancelled.'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {selectedProcedure.status === 'scheduled' && canUpdateProcedure && (
+                      <button
+                        type="button"
+                        onClick={() => handleStartProcedure(selectedProcedure.id)}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-600 text-white hover:bg-yellow-700 text-xs font-bold shadow-sm transition-all"
+                      >
+                        <Activity className="w-4 h-4" /> Start procedure
+                      </button>
+                    )}
+                    {selectedProcedure.status === 'scheduled' && canManageProcedures && canUpdateProcedure && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveProcedure(selectedProcedure.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove scheduled procedure
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
                 </>
@@ -1782,14 +1805,6 @@ export default function TheatreProcedure() {
                         >
                           Cancel Procedure
                         </button>
-                        {selectedProcedure.status === 'scheduled' && (
-                          <button
-                            onClick={() => handleStartProcedure(selectedProcedure.id)}
-                            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-semibold transition-all"
-                          >
-                            Start Procedure
-                          </button>
-                        )}
                         {selectedProcedure.status === 'in_progress' && (
                           <>
                             <span className="self-center text-[11px] text-[var(--text-tertiary)]">
