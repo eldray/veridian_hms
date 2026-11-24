@@ -33,6 +33,8 @@ export interface CounterTicketFilters {
   dateTo?: Date;
   page?: number;
   limit?: number;
+  sortBy?: 'newest' | 'oldest' | 'customerName' | 'ticketNo' | 'status';
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface AddSaleItemInput {
