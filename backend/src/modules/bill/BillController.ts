@@ -296,7 +296,9 @@ export class BillController extends BaseController {
 
       try {
         const { waiverId } = req.body;
-        const result = await billService.applyWaiver(req.params.billId, waiverId);
+        if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+        const result = await billService.applyWaiver(req.params.billId, waiverId, req.user.id);
+        (req as any).auditHandled = true;
         return this.ok(res, result, 'Waiver applied successfully');
       } catch (error: any) {
         if (error.message === 'Waiver not found' || error.message === 'Bill not found') return this.notFound(res, error.message);
