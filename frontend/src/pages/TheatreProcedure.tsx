@@ -712,15 +712,15 @@ export default function TheatreProcedure() {
           auditLog: [
             ...(Array.isArray(selectedProcedure?.clinicalRecord?.auditLog) ? selectedProcedure.clinicalRecord.auditLog : []),
             {
-              action: complete ? 'theatre_record_completed' : 'theatre_record_saved',
+              action: selectedProcedure?.status === 'completed' ? 'completed_theatre_record_edited' : (complete ? 'theatre_record_completed' : 'theatre_record_saved'),
               userId: user?.id || null,
               userLabel: user?.fullName || user?.email || user?.username || user?.id || 'Clinical user',
               timestamp: new Date().toISOString(),
             },
           ],
         },
-        performedById: user?.id || '',
-        performedAt: new Date().toISOString(),
+        performedById: selectedProcedure?.status === 'completed' ? (selectedProcedure.performedById || user?.id || '') : (user?.id || ''),
+        performedAt: selectedProcedure?.status === 'completed' ? (selectedProcedure.performedAt || new Date().toISOString()) : new Date().toISOString(),
       });
       if (complete) {
         success('Operation notes saved', 'Theatre procedure completed');
@@ -763,7 +763,7 @@ export default function TheatreProcedure() {
       const actor = user?.fullName || user?.email || user?.username || user?.id || 'Clinical user';
       await updateProcedureStatus(selectedAttendanceId, selectedProcedureId, {
         status: 'completed',
-        performedById: user?.id || '',
+        performedById: selectedProcedure.status === 'completed' ? (selectedProcedure.performedById || user?.id || '') : (user?.id || ''),
         performedAt: selectedProcedure.status === 'completed' ? (selectedProcedure.performedAt || now) : now,
         outcome: minorProcedureRecord.outcome,
         complications: minorProcedureRecord.complications.trim() || null,
