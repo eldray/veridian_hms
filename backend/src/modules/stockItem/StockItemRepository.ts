@@ -355,22 +355,24 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         remaining -= move;
       }
 
-      await tx.stockTransaction.createMany({
-        data: [
-          {
-            stockItemId, transactionType: 'transfer_out', quantity,
-            balanceAfter: unassignedBalance.quantity, reference: 'STOCK-ALLOCATION',
-            notes: `Allocated legacy/unassigned stock to department ${departmentId}`,
-            performedBy: performedBy || undefined,
-          },
-          {
-            stockItemId, transactionType: 'transfer_in', quantity,
-            balanceAfter: destinationBalance.quantity, departmentId, reference: 'STOCK-ALLOCATION',
-            notes: 'Received allocation from unassigned hospital stock',
-            performedBy: performedBy || undefined,
-          },
-        ],
+      const outboundMovement = await tx.stockTransaction.create({
+        data: {
+          stockItemId, transactionType: 'transfer_out', quantity,
+          balanceAfter: unassignedBalance.quantity, reference: 'STOCK-ALLOCATION',
+          notes: `Allocated legacy/unassigned stock to department ${departmentId}`,
+          performedBy: performedBy || undefined,
+        },
       });
+      await appendStockMovementAudit(tx, 'create', performedBy, outboundMovement, undefined, { workflow: 'unassigned_stock_allocation' });
+      const inboundMovement = await tx.stockTransaction.create({
+        data: {
+          stockItemId, transactionType: 'transfer_in', quantity,
+          balanceAfter: destinationBalance.quantity, departmentId, reference: 'STOCK-ALLOCATION',
+          notes: 'Received allocation from unassigned hospital stock',
+          performedBy: performedBy || undefined,
+        },
+      });
+      await appendStockMovementAudit(tx, 'create', performedBy, inboundMovement, undefined, { workflow: 'unassigned_stock_allocation' });
       return { stockItemId, departmentId, quantity, hospitalTotal: item.currentStock };
     });
   }
