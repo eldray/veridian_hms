@@ -195,6 +195,38 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return encounter.id;
   }
 
+  /**
+   * A finalized clinical assessment is a signed record. Clinical assessment,
+   * diagnosis, prescription and recorded-vital corrections must use an approved
+   * addendum/correction process rather than overwriting the signed content.
+   * Lock the attendance row so finalization and a concurrent edit serialize.
+   */
+  private async requireUnfinalizedClinicalEncounter(encounterId: string, db: any = this.prisma) {
+    if (typeof db.$queryRaw === 'function') {
+      await db.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${encounterId} FOR UPDATE`;
+    }
+    const encounter = await db.attendance.findUnique({
+      where: { id: encounterId },
+      select: {
+        id: true,
+        status: true,
+        finalizedAt: true,
+        encounterCategory: true,
+        patientId: true,
+        attendanceType: true,
+        dateTime: true,
+      },
+    });
+    if (!encounter) throw new NotFoundError('Encounter', encounterId);
+    if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(encounter.status))) {
+      throw new ConflictError('Clinical records cannot be changed for a closed encounter');
+    }
+    if (encounter.finalizedAt) {
+      throw new ConflictError('This clinical record is finalized and cannot be overwritten. Use the facility-approved correction/addendum process.');
+    }
+    return encounter;
+  }
+
   private async requireOpenEncounter(encounterId: string, db: any = this.prisma) {
     const encounter = await db.attendance.findUnique({
       where: { id: encounterId },
@@ -457,6 +489,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     normalizedData.updatedById = actorId;
 
     return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${id} FOR UPDATE`;
+      }
       const currentClinicalRecord = await tx.attendance.findUnique({
         where: { id },
         select: { id: true, finalizedAt: true },
@@ -580,6 +615,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         throw new ValidationError('Only an active doctor, nurse, or midwife can finalize a clinical record');
       }
 
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${id} FOR UPDATE`;
+      }
       const record = await tx.attendance.findUnique({
         where: { id },
         include: {
@@ -683,14 +721,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     // Previously, a duplicate primary diagnosis could demote the existing primary and
     // then throw, leaving the encounter without its intended primary diagnosis.
     return this.prisma.$transaction(async (tx) => {
-      const encounter = await tx.attendance.findUnique({
-        where: { id: encounterId },
-        select: { id: true, encounterCategory: true, status: true },
-      });
-      if (!encounter) throw new NotFoundError('Encounter', encounterId);
-      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(encounter.status))) {
-        throw new ConflictError('Diagnoses cannot be changed for a closed encounter');
-      }
+      const encounter = await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       if (encounter.encounterCategory === 'opd' && !data.classification) {
         throw new ValidationError('HMIS diagnosis classification is required for OPD diagnoses');
       }
@@ -728,11 +759,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   async updateDiagnosis(encounterId: string, diagnosisRowId: string, data: any) {
     return this.prisma.$transaction(async (tx) => {
-      const encounter = await tx.attendance.findUnique({ where: { id: encounterId }, select: { id: true, encounterCategory: true, status: true } });
-      if (!encounter) throw new NotFoundError('Encounter', encounterId);
-      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(encounter.status))) {
-        throw new ConflictError('Diagnoses cannot be changed for a closed encounter');
-      }
+      const encounter = await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       const current = await tx.attendanceDiagnosis.findFirst({ where: { id: diagnosisRowId, attendanceId: encounterId } });
       if (!current) throw new NotFoundError('Diagnosis in encounter', diagnosisRowId);
       const diagnosisType = data.diagnosisType ?? current.diagnosisType;
@@ -751,14 +778,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   async removeDiagnosis(encounterId: string, diagnosisId: string) {
     return this.prisma.$transaction(async (tx) => {
-      const encounter = await tx.attendance.findUnique({
-        where: { id: encounterId },
-        select: { id: true, status: true },
-      });
-      if (!encounter) throw new NotFoundError('Encounter', encounterId);
-      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(encounter.status))) {
-        throw new ConflictError('Diagnoses cannot be changed for a closed encounter');
-      }
+      await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
 
       // Accept either the encounter-diagnosis row ID (used by the UI) or the
       // catalogue diagnosis ID (used by older callers).
@@ -1026,14 +1046,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       });
       if (!existingVitals) throw new NotFoundError('Vitals', vitalsId);
 
-      const attendance = await tx.attendance.findUnique({
-        where: { id: existingVitals.attendanceId },
-        select: { id: true, patientId: true, attendanceType: true, dateTime: true, status: true },
-      });
-      if (!attendance) throw new NotFoundError('Encounter', existingVitals.attendanceId);
-      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(attendance.status)) {
-        throw new ConflictError('Vitals cannot be changed for a closed encounter');
-      }
+      const attendance = await this.requireUnfinalizedClinicalEncounter(existingVitals.attendanceId, tx);
       if (hasAntenatalData && attendance.attendanceType !== 'antenatal') {
         throw new ValidationError('Antenatal assessment fields can only be saved for an antenatal visit');
       }
@@ -1064,28 +1077,33 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async deleteVitals(vitalsId: string) {
-    const existing = await this.prisma.vitals.findUnique({
-      where: { id: vitalsId },
-      select: { id: true, attendanceId: true },
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.vitals.findUnique({
+        where: { id: vitalsId },
+        select: { id: true, attendanceId: true },
+      });
+      if (!existing) throw new NotFoundError('Vitals', vitalsId);
+      await this.requireUnfinalizedClinicalEncounter(existing.attendanceId, tx);
+      const result = await tx.vitals.deleteMany({
+        where: { id: vitalsId, attendanceId: existing.attendanceId },
+      });
+      if (result.count !== 1) throw new ConflictError('Vitals changed; refresh and try again');
+      return { id: vitalsId, deleted: true };
     });
-    if (!existing) throw new NotFoundError('Vitals', vitalsId);
-    await this.requireOpenEncounter(existing.attendanceId);
-    const result = await this.prisma.vitals.deleteMany({
-      where: { id: vitalsId, attendanceId: existing.attendanceId },
-    });
-    if (result.count !== 1) throw new ConflictError('Vitals changed; refresh and try again');
-    return { id: vitalsId, deleted: true };
   }
 
   async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
     const encounter = await this.prisma.attendance.findUnique({
       where: { id: encounterId },
-      select: { id: true, patientId: true, paymentMode: true, insuranceProviderId: true, status: true },
+      select: { id: true, patientId: true, paymentMode: true, insuranceProviderId: true, status: true, finalizedAt: true },
     });
     if (!encounter) throw new NotFoundError('Encounter', encounterId);
     if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
       throw new ConflictError('Prescriptions cannot be added to a closed encounter');
+    }
+    if (encounter.finalizedAt) {
+      throw new ConflictError('This clinical record is finalized. Use the facility-approved correction/addendum process before adding a prescription.');
     }
     // A claim is filed in a named patient's name, so a counter ticket can only be self-pay.
     if (!encounter.patientId && (encounter.paymentMode === 'nhis' || encounter.insuranceProviderId)) {
@@ -1258,6 +1276,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     // Keep the prescription and its medication-administration schedule atomic. If
     // dose creation fails, the prescription itself must roll back as well.
     const medication = await this.prisma.$transaction(async (tx) => {
+      await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       const created = await tx.medication.create({
         data: {
           attendanceId: encounterId,
@@ -1369,6 +1388,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
       const prescriptionFields = ['dosage', 'frequency', 'duration', 'route', 'instructions'];
+      if (prescriptionFields.some((field) => data[field] !== undefined) || data.notes !== undefined) {
+        await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
+      }
       if (med.status !== 'prescribed' && prescriptionFields.some((field) => data[field] !== undefined)) {
         throw new ConflictError('Only an undispensed prescription can be edited; dispensed or administered medication requires a documented clinical correction workflow');
       }
@@ -1643,7 +1665,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (medication.status !== 'prescribed') {
         throw new ConflictError('Only an undispensed prescription can be removed');
       }
-      await this.requireOpenEncounter(encounterId, tx);
+      await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       await this.ensureClinicalOrderNotClaimed(tx, 'medicationId', medicationId);
       await this.removeLinkedClinicalBillLine(tx, encounterId, `medication:${medicationId}`, userId, 'Undispensed prescription removed from Medical Entries');
       const deleted = await tx.medication.deleteMany({
