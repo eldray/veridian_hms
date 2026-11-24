@@ -9,6 +9,16 @@ import {
   AntenatalBookingFilters, DeliveryRecordFilters, PostnatalRecordFilters
 } from './AntenatalTypes';
 
+
+async function appendMaternalUpdateAudit(tx: any, entityType: string, entityId: string, actorId: string, source: string, changedFields: string[], status?: Record<string, unknown>) {
+  if (!actorId) throw new ValidationError('Authenticated staff identity is required for maternal record audit');
+  await appendAuditLogWithinTransaction(tx, {
+    entityType, entityId, action: 'UPDATE', performedById: actorId,
+    newState: { updated: true, ...(status ?? {}) },
+    metadata: { source, changedFields: [...new Set(changedFields)].sort() },
+  });
+}
+
 export class AntenatalRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'antenatalBooking');
@@ -169,7 +179,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }).then(res => ({ bookings: res.data, total: res.total }));
   }
 
-  async updateBooking(id: string, data: UpdateAntenatalBookingInput): Promise<any> {
+  async updateBooking(id: string, data: UpdateAntenatalBookingInput, actorId: string): Promise<any> {
     // Pregnancy completion is controlled by the delivery/closure workflow, not by a generic profile update.
     const allowed = ['gravida', 'para', 'lmp', 'edd', 'gestationalAgeWeeks', 'riskLevel', 'riskFactors',
       'bloodGroup', 'hivStatus', 'hbLevel', 'vdrl', 'currentAttendanceId', 'malePartnerInvolved', 'itnGiven', 'itnGivenDate',
@@ -222,10 +232,14 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (itnGivenDate.getTime() > Date.now()) throw new ValidationError('ITN administration date cannot be in the future');
       clean.itnGivenDate = itnGivenDate;
     }
-    return this.getModel().update({ where: { id }, data: clean, include: { patient: true } });
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.antenatalBooking.update({ where: { id }, data: clean, include: { patient: true } });
+      await appendMaternalUpdateAudit(tx, 'AntenatalBooking', id, actorId, 'antenatal.booking.update', Object.keys(clean));
+      return updated;
+    });
   }
 
-  async closeBooking(id: string, deliveryData: { deliveryDate?: Date; deliveryOutcome?: string; deliveryRecordId?: string }): Promise<any> {
+  async closeBooking(id: string, deliveryData: { deliveryDate?: Date; deliveryOutcome?: string; deliveryRecordId?: string }, actorId: string): Promise<any> {
     if (!deliveryData.deliveryDate || Number.isNaN(new Date(deliveryData.deliveryDate).getTime())) {
       throw new ValidationError('A confirmed pregnancy outcome date is required to close an antenatal booking');
     }
@@ -234,27 +248,31 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (!deliveryData.deliveryOutcome || !String(deliveryData.deliveryOutcome).trim()) {
       throw new ValidationError('A confirmed pregnancy outcome is required; the system will not assume delivery');
     }
-    const booking = await this.getModel().findUnique({ where: { id }, select: { id: true } });
-    if (!booking) throw new NotFoundError('Antenatal booking', id);
-    return this.getModel().update({
-      where: { id },
-      data: {
-        isActive: false, isCompleted: true,
-        deliveryDate,
-        deliveryOutcome: String(deliveryData.deliveryOutcome).trim(),
-        deliveryRecordId: deliveryData.deliveryRecordId, updatedAt: new Date()
-      },
-      include: { patient: true }
+    return this.prisma.$transaction(async (tx) => {
+      const booking = await tx.antenatalBooking.findUnique({ where: { id }, select: { id: true, isActive: true, isCompleted: true } });
+      if (!booking) throw new NotFoundError('Antenatal booking', id);
+      const updated = await tx.antenatalBooking.update({
+        where: { id },
+        data: { isActive: false, isCompleted: true, deliveryDate, deliveryOutcome: String(deliveryData.deliveryOutcome).trim(), deliveryRecordId: deliveryData.deliveryRecordId, updatedAt: new Date() },
+        include: { patient: true }
+      });
+      await appendMaternalUpdateAudit(tx, 'AntenatalBooking', id, actorId, 'antenatal.booking.close', ['isActive', 'isCompleted', 'deliveryDate', 'deliveryOutcome', 'deliveryRecordId'], { active: false, completed: true });
+      return updated;
     });
   }
 
-  async deleteBooking(id: string): Promise<void> {
+  async deleteBooking(id: string, actorId: string): Promise<void> {
     // Pregnancy bookings are part of the longitudinal maternal record. Deactivate
     // rather than hard-delete so linked ANC visits, delivery and postnatal history
     // remain available for continuity of care and audit.
-    const booking = await this.getModel().findUnique({ where: { id }, select: { id: true } });
-    if (!booking) throw new NotFoundError('Antenatal booking', id);
-    await this.getModel().update({ where: { id }, data: { isActive: false } });
+    await this.prisma.$transaction(async (tx) => {
+      const booking = await tx.antenatalBooking.findUnique({ where: { id }, select: { id: true, isActive: true } });
+      if (!booking) throw new NotFoundError('Antenatal booking', id);
+      if (booking.isActive) {
+        await tx.antenatalBooking.update({ where: { id }, data: { isActive: false } });
+        await appendMaternalUpdateAudit(tx, 'AntenatalBooking', id, actorId, 'antenatal.booking.deactivate', ['isActive'], { active: false });
+      }
+    });
   }
 
   // ===================== ANC VISITS =====================
@@ -409,7 +427,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     return this.prisma.aNCVisit.findUnique({ where: { id }, include: { booking: { include: { patient: true } }, recordedBy: { select: { fullName: true, role: true } } } });
   }
 
-  async updateVisit(id: string, data: UpdateANCVisitInput): Promise<any> {
+  async updateVisit(id: string, data: UpdateANCVisitInput, actorId: string): Promise<any> {
     this.validateVisitGravidaPara(data.gravida, data.para);
     if (data.gravida !== undefined || data.para !== undefined) {
       const existing = await this.prisma.aNCVisit.findUnique({
@@ -507,10 +525,10 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('Fetal heart rate must be between 60 and 200 bpm');
     }
     if (Object.keys(clean).length === 0) throw new ValidationError('No valid ANC visit fields were provided');
-    return this.prisma.aNCVisit.update({
-      where: { id },
-      data: clean,
-      include: { recordedBy: { select: { fullName: true, role: true } } },
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.aNCVisit.update({ where: { id }, data: clean, include: { recordedBy: { select: { fullName: true, role: true } } } });
+      await appendMaternalUpdateAudit(tx, 'ANCVisit', id, actorId, 'antenatal.visit.update', Object.keys(clean));
+      return updated;
     });
   }
 
@@ -769,7 +787,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async updateDeliveryRecord(id: string, data: any): Promise<any> {
+  async updateDeliveryRecord(id: string, data: any, actorId: string): Promise<any> {
     const allowed = [
       'deliveryDate', 'deliveryType', 'deliveryOutcome', 'placeOfDelivery', 'attendant',
       'birthWeight', 'gestationWeeks', 'apgarScore1min', 'apgarScore5min', 'resusCitationDone',
@@ -900,16 +918,11 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (booking) {
         await tx.antenatalBooking.update({
           where: { id: booking.id },
-          data: {
-            isActive: false,
-            isCompleted: true,
-            deliveryDate: record.deliveryDate,
-            deliveryOutcome: record.deliveryOutcome,
-            deliveryRecordId: record.id,
-            updatedAt: new Date(),
-          },
+          data: { isActive: false, isCompleted: true, deliveryDate: record.deliveryDate, deliveryOutcome: record.deliveryOutcome, deliveryRecordId: record.id, updatedAt: new Date() },
         });
+        await appendMaternalUpdateAudit(tx, 'AntenatalBooking', booking.id, actorId, 'antenatal.booking.delivery_sync', ['isActive', 'isCompleted', 'deliveryDate', 'deliveryOutcome', 'deliveryRecordId'], { active: false, completed: true });
       }
+      await appendMaternalUpdateAudit(tx, 'DeliveryRecord', id, actorId, 'antenatal.delivery.update', [...Object.keys(clean), ...(data.Newborn !== undefined ? ['Newborn'] : [])]);
       return record;
     });
   }
@@ -1140,7 +1153,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     return this.prisma.postnatalRecord.findUnique({ where: { id }, include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, deliveryRecord: true } });
   }
 
-  async updatePostnatalRecord(id: string, data: any): Promise<any> {
+  async updatePostnatalRecord(id: string, data: any, actorId: string): Promise<any> {
     const allowed = [
       'examinationDate', 'dayNumber', 'maternalCondition', 'maternalComplications',
       'bloodPressure', 'temperature', 'pulse', 'fundalHeight', 'lochia', 'perinealCondition',
@@ -1225,10 +1238,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       }
     }
     if (Object.keys(clean).length === 0) throw new ValidationError('No valid postnatal fields were provided');
-    return this.prisma.postnatalRecord.update({
-      where: { id },
-      data: clean,
-      include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, deliveryRecord: true },
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.postnatalRecord.update({
+        where: { id }, data: clean,
+        include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, deliveryRecord: true },
+      });
+      await appendMaternalUpdateAudit(tx, 'PostnatalRecord', id, actorId, 'antenatal.postnatal.update', Object.keys(clean));
+      return updated;
     });
   }
 
