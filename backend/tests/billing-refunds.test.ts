@@ -259,6 +259,32 @@ describe('bill repository refunds', () => {
     expect(cancelled.refundCreate).not.toHaveBeenCalled();
   });
 
+  it('returns an existing refund on a legacy billing retry', async () => {
+    const originalRefund = {
+      id: 'legacy-refund-original',
+      billId: 'bill-1',
+      paymentId: 'payment-1',
+      amount: 25,
+      refundMethod: 'cash',
+      reference: null,
+      reason: 'Legacy refund retry',
+      processedById: 'accounts-1',
+    };
+    const { tx, refundCreate, billUpdate } = buildTx({ priorRefund: originalRefund });
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const result = await new BillingRepository(prisma).createRefund('bill-1', {
+      paymentId: 'payment-1',
+      amount: 25,
+      reason: 'Legacy refund retry',
+      idempotencyKey: 'legacy-refund-retry',
+    }, 'accounts-1');
+
+    expect(result.refund.id).toBe('legacy-refund-original');
+    expect((result as any).duplicate).toBe(true);
+    expect(refundCreate).not.toHaveBeenCalled();
+    expect(billUpdate).not.toHaveBeenCalled();
+  });
+
   it('applies the same rules on the legacy billing module', async () => {
     const { tx, refundCreate, billUpdate } = buildTx({
       updatedBill: bill({ paidAmount: 0, balance: 100, status: 'pending' }),
