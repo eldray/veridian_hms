@@ -111,7 +111,6 @@ export class RequisitionRepository {
                   name: true,
                   drugCode: true,
                   unitOfMeasure: true,
-                  currentStock: true,
                   reorderLevel: true
                 }
               }
@@ -158,7 +157,6 @@ export class RequisitionRepository {
                 name: true,
                 drugCode: true,
                 unitOfMeasure: true,
-                currentStock: true,
                 reorderLevel: true,
                 costPrice: true
               }
