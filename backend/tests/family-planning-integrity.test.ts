@@ -4,6 +4,12 @@ import { FamilyPlanningRepository } from '../src/modules/familyPlanning/FamilyPl
 function makeRepository(attendance: any = null) {
   const create = vi.fn().mockResolvedValue({ id: 'fp-1' });
   const prisma: any = {
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+    $transaction: vi.fn(async (callback: any) => callback(prisma)),
+    auditLog: {
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
+    },
     patient: { findUnique: vi.fn().mockResolvedValue({ id: 'patient-1' }) },
     attendance: { findUnique: vi.fn().mockResolvedValue(attendance) },
     deliveryRecord: { findUnique: vi.fn().mockResolvedValue(null) },
