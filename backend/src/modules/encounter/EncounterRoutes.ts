@@ -20,10 +20,10 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   // ============================================
 
   // DAYCASE
-  router.get('/daycase', controller.getDaycasePatients);
+  router.get('/daycase', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getDaycasePatients);
   router.post('/:id/convert-to-ipd', requireRole(['admin', 'super_admin', 'doctor']), controller.convertDaycaseToIPD);
 
-  // WORKLISTS (read-only — any authenticated staff)
+  // WORKLISTS (read-only — each queue is restricted to its responsible department)
   router.get('/vitals/latest', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getLatestVitals);
   router.get('/vitals/batch', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getVitalsByEncounters);
   router.get('/worklist/vitals', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getVitalsWorklist);
@@ -111,14 +111,14 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   });
 
   // BED OCCUPANCY
-  router.get('/bed-occupancy', controller.getBedOccupancy);
+  router.get('/bed-occupancy', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getBedOccupancy);
 
   // DETENTION / OBSERVATION
-  router.get('/detention', controller.getDetentionPatients);
+  router.get('/detention', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getDetentionPatients);
   router.post('/:id/convert-detention-to-ipd', requireRole(['admin', 'super_admin', 'doctor']), controller.convertDetentionToIPD);
 
   // FORMAL IPD
-  router.get('/formal-ipd', controller.getFormalIPDPatients);
+  router.get('/formal-ipd', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getFormalIPDPatients);
 
   // ============================================
   // DYNAMIC ID ROUTES (LAST)
