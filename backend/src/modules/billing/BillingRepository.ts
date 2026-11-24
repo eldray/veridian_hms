@@ -361,121 +361,118 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     data: { paymentId: string; amount: number; refundMethod?: string; reference?: string; reason: string; idempotencyKey?: string },
     userId: string,
   ) {
+    const idempotencyKey = data.idempotencyKey?.trim();
     try {
       return await this.prisma.$transaction(async (tx) => {
-      if (typeof tx.$queryRaw === 'function') {
-        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${billId} FOR UPDATE`;
-      }
-
-      const bill = await tx.bill.findUnique({ where: { id: billId } });
-      if (!bill) throw Object.assign(new Error('Bill not found'), { statusCode: 404 });
-      if (bill.status === 'cancelled') {
-        throw Object.assign(new Error('Cannot refund a cancelled bill.'), { statusCode: 409 });
-      }
-
-      const payment = await tx.payment.findUnique({ where: { id: data.paymentId } });
-      if (!payment || payment.billId !== billId) {
-        throw Object.assign(new Error('Payment not found on this bill.'), { statusCode: 404 });
-      }
-      if (payment.isVoided) {
-        throw Object.assign(new Error('This payment was voided and cannot be refunded.'), { statusCode: 409 });
-      }
-
-      const reason = String(data.reason || '').trim();
-      if (!reason) throw Object.assign(new Error('A refund reason is required.'), { statusCode: 400 });
-
-      const amount = roundMoney(Number(data.amount));
-      const refundMethod = data.refundMethod || payment.paymentMethod;
-      const reference = data.reference?.trim() || null;
-      const idempotencyKey = data.idempotencyKey?.trim();
-
-      // The bill row lock serializes retries for this bill. Replaying the same
-      // request returns its original ledger row; reusing the key for changed data
-      // or another operator is rejected instead of creating a second payout.
-      if (idempotencyKey) {
-        const priorRefund = await tx.refund.findUnique({ where: { idempotencyKey } });
-        if (priorRefund) {
-          const sameRequest =
-            priorRefund.billId === billId &&
-            priorRefund.paymentId === payment.id &&
-            Math.round(toNumber(priorRefund.amount) * 100) === Math.round(amount * 100) &&
-            priorRefund.refundMethod === refundMethod &&
-            (priorRefund.reference || null) === reference &&
-            priorRefund.reason === reason &&
-            priorRefund.processedById === userId;
-          if (!sameRequest) {
-            throw Object.assign(new Error('This refund request key has already been used with different details.'), { statusCode: 409 });
-          }
-          return { bill, refund: priorRefund, duplicate: true };
+        if (typeof tx.$queryRaw === 'function') {
+          await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${billId} FOR UPDATE`;
         }
-      }
 
-      const priorRefunds = await tx.refund.findMany({
-        where: { paymentId: payment.id },
-        select: { amount: true },
-      });
-      const alreadyRefunded = priorRefunds.reduce((sum, row) => sum + toNumber(row.amount), 0);
-      const refundable = refundableAmount(toNumber(payment.amount), alreadyRefunded);
-      if (!isValidRefundAmount(data.amount)) {
-        throw Object.assign(new Error('Refund amount must be greater than zero and use no more than two decimal places.'), { statusCode: 400 });
-      }
-      if (amount > refundable) {
-        throw Object.assign(
-          new Error(`Refund exceeds the unrefunded amount on this payment (${refundable.toFixed(2)}).`),
-          { statusCode: 409 },
-        );
-      }
+        const bill = await tx.bill.findUnique({ where: { id: billId } });
+        if (!bill) throw Object.assign(new Error('Bill not found'), { statusCode: 404 });
+        if (bill.status === 'cancelled') {
+          throw Object.assign(new Error('Cannot refund a cancelled bill.'), { statusCode: 409 });
+        }
 
-      const paidNow = toNumber(bill.paidAmount);
-      if (amount > roundMoney(paidNow)) {
-        throw Object.assign(
-          new Error('Refund exceeds the amount currently recorded as paid on this bill.'),
-          { statusCode: 409 },
-        );
-      }
+        const payment = await tx.payment.findUnique({ where: { id: data.paymentId } });
+        if (!payment || payment.billId !== billId) {
+          throw Object.assign(new Error('Payment not found on this bill.'), { statusCode: 404 });
+        }
+        if (payment.isVoided) {
+          throw Object.assign(new Error('This payment was voided and cannot be refunded.'), { statusCode: 409 });
+        }
 
-      const refund = await tx.refund.create({
-        data: {
-          refundNumber: getCounterService().nextRefundNumber(),
-          billId,
-          paymentId: payment.id,
-          amount,
-          refundMethod: (data.refundMethod || payment.paymentMethod) as any,
-          reference,
-          reason,
-          idempotencyKey,
-          processedById: userId,
-        },
-      });
+        const reason = String(data.reason || '').trim();
+        if (!reason) throw Object.assign(new Error('A refund reason is required.'), { statusCode: 400 });
 
-      const paidAfter = roundMoney(paidNow - amount);
-      const balanceAfter = roundMoney(toNumber(bill.balance) + amount);
-      const updated = await tx.bill.update({
-        where: { id: billId },
-        data: {
-          paidAmount: paidAfter,
-          balance: balanceAfter,
-          status: billStatusAfterRefund(paidAfter, balanceAfter),
-          updatedAt: new Date(),
-        },
-        include: {
-          Patient: { select: { surname: true, otherNames: true, folderNumber: true, contact: true } },
-          Attendance: { select: { attendanceNumber: true, attendanceType: true } },
-          CorporateAccount: true,
-        },
-      });
+        const amount = roundMoney(Number(data.amount));
+        const refundMethod = data.refundMethod || payment.paymentMethod;
+        const reference = data.reference?.trim() || null;
 
-      if (updated.attendanceId) {
-        await this.syncAttendanceFinancials(tx, updated.attendanceId, updated);
-      }
+        // Same-bill retries are serialized by the bill lock. A cross-bill retry
+        // is resolved by the unique-key handler below after the losing tx rolls back.
+        if (idempotencyKey) {
+          const priorRefund = await tx.refund.findUnique({ where: { idempotencyKey } });
+          if (priorRefund) {
+            const sameRequest =
+              priorRefund.billId === billId &&
+              priorRefund.paymentId === payment.id &&
+              Math.round(toNumber(priorRefund.amount) * 100) === Math.round(amount * 100) &&
+              priorRefund.refundMethod === refundMethod &&
+              (priorRefund.reference || null) === reference &&
+              priorRefund.reason === reason &&
+              priorRefund.processedById === userId;
+            if (!sameRequest) {
+              throw Object.assign(new Error('This refund request key has already been used with different details.'), { statusCode: 409 });
+            }
+            return { bill, refund: priorRefund, duplicate: true };
+          }
+        }
 
-      return { bill: updated, refund };
+        const priorRefunds = await tx.refund.findMany({
+          where: { paymentId: payment.id },
+          select: { amount: true },
+        });
+        const alreadyRefunded = priorRefunds.reduce((sum, row) => sum + toNumber(row.amount), 0);
+        const refundable = refundableAmount(toNumber(payment.amount), alreadyRefunded);
+        if (!isValidRefundAmount(data.amount)) {
+          throw Object.assign(new Error('Refund amount must be greater than zero and use no more than two decimal places.'), { statusCode: 400 });
+        }
+        if (amount > refundable) {
+          throw Object.assign(
+            new Error(`Refund exceeds the unrefunded amount on this payment (${refundable.toFixed(2)}).`),
+            { statusCode: 409 },
+          );
+        }
 
+        const paidNow = toNumber(bill.paidAmount);
+        if (amount > roundMoney(paidNow)) {
+          throw Object.assign(
+            new Error('Refund exceeds the amount currently recorded as paid on this bill.'),
+            { statusCode: 409 },
+          );
+        }
+
+        const refund = await tx.refund.create({
+          data: {
+            refundNumber: getCounterService().nextRefundNumber(),
+            billId,
+            paymentId: payment.id,
+            amount,
+            refundMethod: refundMethod as any,
+            reference,
+            reason,
+            idempotencyKey,
+            processedById: userId,
+          },
+        });
+
+        const paidAfter = roundMoney(paidNow - amount);
+        const balanceAfter = roundMoney(toNumber(bill.balance) + amount);
+        const updated = await tx.bill.update({
+          where: { id: billId },
+          data: {
+            paidAmount: paidAfter,
+            balance: balanceAfter,
+            status: billStatusAfterRefund(paidAfter, balanceAfter),
+            updatedAt: new Date(),
+          },
+          include: {
+            Patient: { select: { surname: true, otherNames: true, folderNumber: true, contact: true } },
+            Attendance: { select: { attendanceNumber: true, attendanceType: true } },
+            CorporateAccount: true,
+          },
+        });
+
+        if (updated.attendanceId) {
+          await this.syncAttendanceFinancials(tx, updated.attendanceId, updated);
+        }
+
+        return { bill: updated, refund };
       });
     } catch (error: any) {
-      // A retry can race another request using the same globally unique key on a
-      // different bill. The losing transaction rolls back; resolve the committed
-      // ledger row outside that transaction and return it only for an exact replay.
+      // Concurrent requests can use the same globally unique key on different
+      // bills. The losing transaction rolls back; only an exact replay succeeds.
       if (idempotencyKey && error?.code === 'P2002') {
         const priorRefund = await this.prisma.refund.findUnique({ where: { idempotencyKey } });
         if (priorRefund) {
