@@ -31,19 +31,21 @@ export function createReferralRoutes(prisma: PrismaClient): Router {
     body('status').isIn(['pending', 'accepted', 'completed', 'cancelled']).withMessage('Valid status required')
   ];
 
+  const readRoles = ['admin', 'records', 'doctor', 'nurse', 'midwife'];
+
   // ==========================================
   // ✅ SPECIFIC ROUTES FIRST (BEFORE dynamic :id routes)
   // ==========================================
   // The referrals page is open to the clinical team, and it loads this summary on
   // mount, so nurses and midwives read it too.
-  router.get('/stats/summary', protect, requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife']), controller.getReferralStats);
-  router.get('/patient/:patientId', protect, controller.getReferralsByPatient);
+  router.get('/stats/summary', protect, requireRole(readRoles), controller.getReferralStats);
+  router.get('/patient/:patientId', protect, requireRole(readRoles), controller.getReferralsByPatient);
 
   // ==========================================
   // DYNAMIC ID ROUTES (LAST)
   // ==========================================
-  router.get('/', protect, controller.getReferrals);
-  router.get('/:id', protect, controller.getReferralById);
+  router.get('/', protect, requireRole(readRoles), controller.getReferrals);
+  router.get('/:id', protect, requireRole(readRoles), controller.getReferralById);
 
   router.post('/outgoing', protect, requireRole(['admin', 'doctor', 'records']), outgoingReferralValidation, controller.createOutgoingReferral);
   router.post('/incoming', protect, requireRole(['admin', 'records']), incomingReferralValidation, controller.createIncomingReferral);
