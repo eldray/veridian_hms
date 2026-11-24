@@ -3,7 +3,7 @@ import { PrismaClient, Prisma, BillStatus, PaymentMethod, PaymentMode, ServiceTy
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput, RefundPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
-import { appendPaymentFinancialAudit, appendRefundFinancialAudit } from './financialAudit';
+import { appendPaymentFinancialAudit, appendRefundFinancialAudit, appendStructuredFinancialAudit } from './financialAudit';
 import { roundMoney, refundableAmount, billStatusAfterRefund, isValidRefundAmount } from '../../utils/refunds';
 import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff, resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
@@ -463,7 +463,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       const newBalance = Math.max(0, newPatientPayable - recordedPayments);
 
-      await tx.bill.update({
+      const updatedBill = await tx.bill.update({
         where: { id: lineItem.billId },
         data: {
           subtotal: newTotal,
@@ -475,13 +475,54 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
 
+      await appendStructuredFinancialAudit(
+        tx, userId, 'BillLineItem', lineItem.id, 'update',
+        {
+          id: lineItem.id, billId: lineItem.billId, isVoided: lineItem.isVoided,
+          quantity: lineItem.quantity, lineTotal: toNumber(lineItem.lineTotal),
+          patientPayableAmount: toNumber(lineItem.patientPayableAmount),
+          insuranceCoveredAmount: toNumber(lineItem.insuranceCoveredAmount),
+        },
+        {
+          id: updatedLineItem.id, billId: updatedLineItem.billId, isVoided: updatedLineItem.isVoided,
+          quantity: updatedLineItem.quantity, lineTotal: toNumber(updatedLineItem.lineTotal),
+          patientPayableAmount: toNumber(updatedLineItem.patientPayableAmount),
+          insuranceCoveredAmount: toNumber(updatedLineItem.insuranceCoveredAmount),
+          voidedAt: updatedLineItem.voidedAt, voidedById: updatedLineItem.voidedById,
+        },
+        { source: 'bill_line_item_void' },
+      );
+      await appendStructuredFinancialAudit(
+        tx, userId, 'Bill', updatedBill.id, 'update',
+        {
+          subtotal: toNumber(bill?.subtotal), totalAmount: toNumber(bill?.totalAmount),
+          insuranceCovered: toNumber(bill?.insuranceCovered), patientPayable: toNumber(bill?.patientPayable),
+          waiverAmount: toNumber(bill?.waiverAmount), paidAmount: toNumber(bill?.paidAmount),
+          balance: toNumber(bill?.balance), status: bill?.status,
+        },
+        {
+          subtotal: toNumber(updatedBill.subtotal), totalAmount: toNumber(updatedBill.totalAmount),
+          insuranceCovered: toNumber(updatedBill.insuranceCovered), patientPayable: toNumber(updatedBill.patientPayable),
+          waiverAmount: toNumber(updatedBill.waiverAmount), paidAmount: toNumber(updatedBill.paidAmount),
+          balance: toNumber(updatedBill.balance), status: updatedBill.status,
+        },
+        { source: 'bill_line_item_void' },
+      );
+
       if (bill?.paymentMode === 'corporate' && bill.corporateAccountId) {
         const removedCharge = Math.max(0, toNumber(bill.totalAmount) - newTotal);
         if (removedCharge > 0) {
-          await tx.corporateAccount.update({
+          const corporateAfter = await tx.corporateAccount.update({
             where: { id: bill.corporateAccountId },
-            data: { currentBalance: { decrement: removedCharge } }
+            data: { currentBalance: { decrement: removedCharge } },
+            select: { id: true, currentBalance: true },
           });
+          await appendStructuredFinancialAudit(
+            tx, userId, 'CorporateAccount', corporateAfter.id, 'update',
+            { currentBalance: toNumber(corporateAfter.currentBalance) + removedCharge },
+            { currentBalance: toNumber(corporateAfter.currentBalance) },
+            { source: 'bill_line_item_void', billId: lineItem.billId },
+          );
         }
       }
       if (bill?.attendanceId) await this.syncAttendanceFinancials(tx, bill.attendanceId, { ...bill, totalAmount: newTotal, balance: newBalance });
