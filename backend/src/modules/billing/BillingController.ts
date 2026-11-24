@@ -69,7 +69,7 @@ export class BillingController extends BaseController {
   // ============================================
   addPayment = [
     body('amount').isFloat({ min: 0.01 }).withMessage('Valid amount is required'),
-    body('paymentMethod').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Valid payment method is required'),
+    body('paymentMethod').isIn(['cash', 'card', 'bank_transfer', 'cheque']).withMessage('Valid payment method is required'),
     body('idempotencyKey').isUUID().withMessage('A valid payment idempotency key is required'),
 
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
