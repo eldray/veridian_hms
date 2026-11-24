@@ -34,33 +34,36 @@ function sign(payload: string): string {
   return crypto.createHmac('sha256', getSecret()).update(`file-access:${payload}`).digest('base64url');
 }
 
-export function createFileAccessToken(userId: string, nowMs: number = Date.now()): string {
+export function createFileAccessToken(userId: string, version: number, nowMs: number = Date.now()): string {
   if (!userId) throw new Error('A user id is required to create a file access token');
+  if (!Number.isSafeInteger(version) || version < 0) throw new Error('A valid account version is required to create a file access token');
   const expiresAt = Math.floor(nowMs / 1000) + FILE_ACCESS_TTL_SECONDS;
-  const payload = `${userId}.${expiresAt}`;
+  const payload = `${userId}.${version}.${expiresAt}`;
   return `${payload}.${sign(payload)}`;
 }
 
 export function verifyFileAccessToken(
   token: string,
   nowMs: number = Date.now(),
-): { userId: string } | null {
+): { userId: string; version: number } | null {
   const parts = token.split('.');
-  if (parts.length !== 3) return null;
+  if (parts.length !== 4) return null;
 
-  const [userId, expiresAtRaw, signature] = parts;
-  if (!userId || !/^\d+$/.test(expiresAtRaw)) return null;
+  const [userId, versionRaw, expiresAtRaw, signature] = parts;
+  if (!userId || !/^\\d+$/.test(versionRaw) || !/^\\d+$/.test(expiresAtRaw)) return null;
 
+  const version = Number(versionRaw);
   const expiresAt = Number(expiresAtRaw);
-  if (!Number.isFinite(expiresAt) || expiresAt * 1000 <= nowMs) return null;
+  if (!Number.isSafeInteger(version) || !Number.isFinite(expiresAt) || expiresAt * 1000 <= nowMs) return null;
 
-  const expected = Buffer.from(sign(`${userId}.${expiresAtRaw}`));
+  const payload = `${userId}.${versionRaw}.${expiresAtRaw}`;
+  const expected = Buffer.from(sign(payload));
   const provided = Buffer.from(signature);
   if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
     return null;
   }
 
-  return { userId };
+  return { userId, version };
 }
 
 export function parseCookies(header: string | undefined): Record<string, string> {
