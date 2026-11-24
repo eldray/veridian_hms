@@ -20,6 +20,27 @@ describe('finalized clinical record immutability', () => {
     dateTime: new Date('2026-11-24T05:00:00.000Z'),
   };
 
+  it('blocks legacy medical-note edits on a finalized record', async () => {
+    const attendanceUpdate = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'enc-finalized', finalizedAt: finalized.finalizedAt }),
+        update: attendanceUpdate,
+      },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+    (repository as any).requireActorId = async () => 'doctor-1';
+
+    await expect(repository.updateEncounter('enc-finalized', {
+      medicalNotes: 'Changed after signature',
+    } as any, 'doctor-1')).rejects.toThrow(/clinical record is finalized/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(attendanceUpdate).not.toHaveBeenCalled();
+  });
+
   it('blocks diagnosis additions after clinical finalization', async () => {
     const attendanceFindUnique = vi.fn().mockResolvedValue(finalized);
     const diagnosisFindUnique = vi.fn();
