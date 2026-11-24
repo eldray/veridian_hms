@@ -91,9 +91,9 @@ export class PurchaseInvoiceService extends BaseService {
     return this.repo.update(id, updateData);
   }
 
-  async deleteInvoice(id: string) {
+  async deleteInvoice(id: string, performedById?: string) {
     this.logInfo('Attempting to delete purchase invoice', { id });
-    return this.repo.deleteSafely(id); // ✅ Uses the new safe delete logic
+    return this.repo.deleteSafely(id, performedById); // Stock reversal and ledger audit share one transaction.
   }
 
   async getSuppliers() {
