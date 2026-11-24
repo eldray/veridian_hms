@@ -709,7 +709,7 @@ export default function PatientBillingItems() {
         await addPaymentToBill(selectedBill.id, {
           amount: paymentAmount,
           paymentMethod,
-          reference: paymentReference || `PAY-${Date.now()}`,
+          reference: paymentReference.trim() || undefined,
           notes: paymentNotes || `Payment for selected items (${selectedItems.size} items)`,
           idempotencyKey: attemptKey,
         });
