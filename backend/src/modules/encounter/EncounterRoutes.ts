@@ -20,7 +20,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   // ============================================
 
   // DAYCASE
-  router.get('/daycase', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getDaycasePatients);
+  router.get('/daycase', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getDaycasePatients);
   router.post('/:id/convert-to-ipd', requireRole(['admin', 'super_admin', 'doctor']), controller.convertDaycaseToIPD);
 
   // WORKLISTS (read-only — each queue is restricted to its responsible department)
@@ -111,7 +111,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   });
 
   // BED OCCUPANCY
-  router.get('/bed-occupancy', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getBedOccupancy);
+  router.get('/bed-occupancy', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getBedOccupancy);
 
   // DETENTION / OBSERVATION
   router.get('/detention', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getDetentionPatients);
