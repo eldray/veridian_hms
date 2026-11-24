@@ -260,9 +260,16 @@ export class AuthService {
     if (policyError) return { success: false, error: policyError };
 
     const newPasswordHash = await bcrypt.hash(data.newPassword, SALT_ROUNDS);
-    await this.repository.updateUser(userId, { password: newPasswordHash, version: { increment: 1 } });
-    // Changing a password must invalidate every other session for this account.
-    await this.repository.deleteRefreshTokenForUser(userId);
+    // Change the password/version and revoke refresh sessions atomically. If
+    // either write fails, neither takes effect, so an old refresh token cannot
+    // survive a partially completed password change.
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { password: newPasswordHash, version: { increment: 1 } },
+      });
+      await tx.refreshToken.deleteMany({ where: { userId } });
+    });
     return { success: true };
   }
 
