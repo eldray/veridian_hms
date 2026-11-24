@@ -414,7 +414,7 @@ describe('clinical request worklist timestamps', () => {
   it('filters lab requests by requestedAt and places the newest request first, even on an older visit', async () => {
     const older = new Date('2026-11-24T08:15:00Z');
     const newest = new Date('2026-11-24T10:45:00Z');
-    const labTest = { findMany: vi.fn(async () => [
+    const labTest = { findMany: vi.fn(async (_args: any) => [
       { id: 'older-request', attendanceId: 'old-visit', status: 'requested', requestedAt: older, Attendance: requestAttendance('old'), LabTestTemplate: { name: 'FBC' } },
       { id: 'new-request', attendanceId: 'new-visit', status: 'requested', requestedAt: newest, Attendance: requestAttendance('new'), LabTestTemplate: { name: 'Malaria RDT' } },
     ]) };
@@ -430,7 +430,7 @@ describe('clinical request worklist timestamps', () => {
   });
 
   it('filters completed lab work by result update time, not visit date', async () => {
-    const labTest = { findMany: vi.fn(async () => []) };
+    const labTest = { findMany: vi.fn(async (_args: any) => []) };
     const repository = new EncounterRepository({ labTest } as any);
     await repository.getLabWorklist({ view: 'completed', dateFrom: new Date('2026-11-24T00:00:00Z') });
     const where = labTest.findMany.mock.calls[0][0].where;
