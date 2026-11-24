@@ -2311,7 +2311,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       data: updateData,
     });
       if (changed.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
-      const updated = await tx.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true } });
+      const updated = await tx.procedure.findUnique({ where: { id: procedureId } });
       if (!updated) throw new NotFoundError('Procedure', procedureId);
       await appendAuditLogWithinTransaction(tx, {
         entityType: 'Procedure', entityId: procedureId, action: 'update', performedById: actorId,
