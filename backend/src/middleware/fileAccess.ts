@@ -8,29 +8,28 @@ import {
   FILE_ACCESS_TTL_SECONDS,
   createFileAccessToken,
   isServableUploadFilename,
+  isFileAccessVersionCurrent,
   parseCookies,
   resolveUploadPath,
   verifyFileAccessToken,
 } from '../services/fileAccess';
 
-function authenticatedUserId(req: Request): string | null {
+function authenticatedUser(req: Request): { userId: string; version: number } | null {
   const cookieToken = parseCookies(req.headers.cookie)[FILE_ACCESS_COOKIE];
   if (cookieToken) {
     const payload = verifyFileAccessToken(cookieToken);
-    if (payload) return payload.userId;
+    if (payload) return payload;
   }
 
   // Allows API clients and explicit download links to use the normal bearer token.
   const authorization = req.headers.authorization;
   if (authorization?.startsWith('Bearer ')) {
     try {
-      const decoded = jwt.verify(authorization.slice(7), process.env.JWT_SECRET || '') as {
-        userId?: string;
-        id?: string;
-        type?: string;
-      };
-      if (decoded.type === 'refresh') return null;
-      return decoded.userId || decoded.id || null;
+      const decoded = jwt.verify(authorization.slice(7), process.env.JWT_SECRET || '', {
+        algorithms: ['HS256'],
+      }) as { userId?: string; type?: string; version?: number };
+      if (decoded.type === 'refresh' || !decoded.userId || !Number.isSafeInteger(decoded.version)) return null;
+      return { userId: decoded.userId, version: decoded.version! };
     } catch {
       return null;
     }
@@ -40,12 +39,13 @@ function authenticatedUserId(req: Request): string | null {
 }
 
 export async function serveUploadFile(req: Request, res: Response): Promise<void> {
-  const userId = authenticatedUserId(req);
-  if (!userId) {
+  const session = authenticatedUser(req);
+  if (!session) {
     res.status(401).json({ success: false, message: 'Authentication required' });
     return;
   }
 
+  const userId = session.userId;
   const category = String(req.params.category || '');
   const filename = String(req.params.filename || '');
   const absolutePath = resolveUploadPath(category, filename);
@@ -57,11 +57,11 @@ export async function serveUploadFile(req: Request, res: Response): Promise<void
 
   // The file access cookie lasts longer than a role change or a deactivation,
   // so authorization is always re-checked against the current account.
-  let viewer: { id: string; role: string; isActive: boolean } | null;
+  let viewer: { id: string; role: string; isActive: boolean; version: number } | null;
   try {
     viewer = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true, isActive: true },
+      select: { id: true, role: true, isActive: true, version: true },
     });
   } catch {
     // Fail closed when the authorization lookup is unavailable.
@@ -69,7 +69,7 @@ export async function serveUploadFile(req: Request, res: Response): Promise<void
     return;
   }
 
-  if (!viewer || !viewer.isActive) {
+  if (!viewer || !viewer.isActive || !isFileAccessVersionCurrent(session.version, viewer.version)) {
     res.status(401).json({ success: false, message: 'Account is inactive or no longer exists' });
     return;
   }
@@ -98,8 +98,8 @@ export async function serveUploadFile(req: Request, res: Response): Promise<void
   });
 }
 
-export function setFileAccessCookie(res: Response, userId: string): void {
-  res.cookie(FILE_ACCESS_COOKIE, createFileAccessToken(userId), {
+export function setFileAccessCookie(res: Response, userId: string, version: number): void {
+  res.cookie(FILE_ACCESS_COOKIE, createFileAccessToken(userId, version), {
     httpOnly: true,
     sameSite: 'strict',
     secure: process.env.COOKIE_SECURE === 'true',

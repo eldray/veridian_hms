@@ -3,6 +3,7 @@ import path from 'path';
 import {
   createFileAccessToken,
   isServableUploadFilename,
+  isFileAccessVersionCurrent,
   parseCookies,
   resolveUploadPath,
   verifyFileAccessToken,
@@ -16,27 +17,27 @@ describe('file access tokens', () => {
   });
 
   it('accepts a token it just created', () => {
-    const token = createFileAccessToken('user-1');
-    expect(verifyFileAccessToken(token)).toEqual({ userId: 'user-1' });
+    const token = createFileAccessToken('user-1', 4);
+    expect(verifyFileAccessToken(token)).toEqual({ userId: 'user-1', version: 4 });
   });
 
   it('rejects a token after its expiry', () => {
     const issuedAt = 1_000_000;
-    const token = createFileAccessToken('user-1', issuedAt);
+    const token = createFileAccessToken('user-1', 0, issuedAt);
     const afterExpiry = issuedAt + 25 * 60 * 60 * 1000;
 
     expect(verifyFileAccessToken(token, afterExpiry)).toBeNull();
   });
 
   it('rejects a token whose user id was changed', () => {
-    const token = createFileAccessToken('user-1');
-    const [userId, expiresAt, signature] = token.split('.');
+    const token = createFileAccessToken('user-1', 2);
+    const [userId, version, expiresAt, signature] = token.split('.');
 
-    expect(verifyFileAccessToken(`${userId}x.${expiresAt}.${signature}`)).toBeNull();
+    expect(verifyFileAccessToken(`${userId}x.${version}.${expiresAt}.${signature}`)).toBeNull();
   });
 
   it('rejects a token signed with another secret', () => {
-    const token = createFileAccessToken('user-1');
+    const token = createFileAccessToken('user-1', 0);
     process.env.JWT_SECRET = 'a-different-secret-that-is-also-long-enough';
 
     expect(verifyFileAccessToken(token)).toBeNull();
@@ -45,7 +46,18 @@ describe('file access tokens', () => {
   it('rejects malformed tokens', () => {
     expect(verifyFileAccessToken('')).toBeNull();
     expect(verifyFileAccessToken('user-1')).toBeNull();
-    expect(verifyFileAccessToken('user-1.not-a-number.signature')).toBeNull();
+    expect(verifyFileAccessToken('user-1.not-a-number.123.signature')).toBeNull();
+  });
+  it('rejects file sessions minted before a password reset', () => {
+    expect(isFileAccessVersionCurrent(3, 4)).toBe(false);
+    expect(isFileAccessVersionCurrent(4, 4)).toBe(true);
+    expect(isFileAccessVersionCurrent(undefined, 0)).toBe(false);
+  });
+
+  it('rejects a tampered account version', () => {
+    const token = createFileAccessToken('user-1', 4);
+    const [userId, _version, expiresAt, signature] = token.split('.');
+    expect(verifyFileAccessToken(`${userId}.5.${expiresAt}.${signature}`)).toBeNull();
   });
 });
 

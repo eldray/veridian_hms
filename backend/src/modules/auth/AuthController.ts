@@ -56,7 +56,7 @@ export class AuthController {
 
       const result: any = await this.authService.login({ username, password });
       if (result.success && result.data?.user?.id) {
-        setFileAccessCookie(res, result.data.user.id);
+        setFileAccessCookie(res, result.data.user.id, result.data.user.version);
       }
       res.status(result.success ? 200 : 401).json(result);
     } catch (error) {
@@ -71,7 +71,7 @@ export class AuthController {
     try {
       const result: any = await this.authService.refreshToken(req.body.refreshToken);
       if (result.success && result.data?.user?.id) {
-        setFileAccessCookie(res, result.data.user.id);
+        setFileAccessCookie(res, result.data.user.id, result.data.user.version);
       }
       res.status(result.success ? 200 : 401).json(result);
     } catch (error) {
@@ -97,6 +97,7 @@ export class AuthController {
   private changePassword = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const result = await this.authService.changePassword(req.user!.userId, req.body);
+      if (result.success) clearFileAccessCookie(res);
       res.status(result.success ? 200 : 400).json(result);
     } catch (error) {
       res.status(500).json({ success: false, message: 'Password change failed' });
