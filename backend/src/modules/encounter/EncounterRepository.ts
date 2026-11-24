@@ -500,7 +500,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       const clinicalKeys = [
         'complaints', 'historyPresentingComplaint', 'reviewOfSystems', 'physicalExamination',
         'physicalExamStructured', 'assessment', 'treatmentPlan', 'clinicalOutcome',
-        'allergyReviewStatus', 'allergyReviewNotes', 'providerId', 'clinicalNotes',
+        'allergyReviewStatus', 'allergyReviewNotes', 'providerId', 'clinicalNotes', 'medicalNotes',
       ];
       if (currentClinicalRecord.finalizedAt && clinicalKeys.some((key) => Object.prototype.hasOwnProperty.call(normalizedData, key))) {
         throw new ConflictError('This clinical record is finalized and cannot be overwritten. Use the facility-approved correction/addendum process.');
