@@ -4,11 +4,13 @@ import { EncounterRepository } from '../src/modules/encounter/EncounterRepositor
 describe('clinical order concurrent-update guards', () => {
   it('blocks laboratory result updates when the encounter is closed', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
+    const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
       labTest: { findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', attendanceId: 'attendance-1', status: 'requested' }), updateMany },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: 'Positive' }, 'staff-1'))
       .rejects.toThrow(/closed encounter/i);
@@ -60,14 +62,16 @@ describe('clinical order concurrent-update guards', () => {
 
   it('requires a meaningful result before completing a laboratory order', async () => {
     const updateMany = vi.fn();
-    const repository = new EncounterRepository({
+    const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       labTest: {
         findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', attendanceId: 'attendance-1', status: 'in_progress', result: null }),
         updateMany,
       },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: '   ' }, 'staff-1'))
       .rejects.toThrow(/result must be recorded/i);
@@ -107,6 +111,7 @@ describe('clinical order concurrent-update guards', () => {
         updateMany,
       },
     };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
 
     await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: 'Positive' }, 'staff-1'))
