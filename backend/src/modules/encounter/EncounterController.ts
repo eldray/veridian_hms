@@ -6,6 +6,7 @@ import { AuthRequest } from '../../middleware/authMiddleware';
 import { createPaginatedResponse } from '../../shared/types/ApiResponse';
 import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, AddMedicationDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO, WorklistQuery } from './EncounterTypes';
 import { ValidationError } from '../../utils/errors';
+import { projectEncounterForRole } from './EncounterReadProjection';
 
 const WORKLIST_VIEWS = ['pending', 'completed', 'outstanding'];
 
@@ -131,13 +132,15 @@ export class EncounterController extends BaseController {
     };
 
     const result = await this.service.getEncounters(filters);
-    return this.paginated(res, result.data, { page, limit, total: result.total }, 'Encounters retrieved');
+    const role = req.user?.role;
+    const projected = result.data.map((encounter: any) => projectEncounterForRole(encounter, role));
+    return this.paginated(res, projected, { page, limit, total: result.total }, 'Encounters retrieved');
   });
 
   getById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const encounter = await this.service.getEncounterById(id);
-    return this.ok(res, encounter, 'Encounter retrieved successfully');
+    return this.ok(res, projectEncounterForRole(encounter, req.user?.role), 'Encounter retrieved successfully');
   });
 
   update = this.asyncHandler(async (req: AuthRequest, res: Response) => {
