@@ -706,7 +706,10 @@ describe('clinical encounter ownership', () => {
 
     expect(findFirst).toHaveBeenCalledWith({
       where: { id: 'scan-from-encounter-b', attendanceId: 'encounter-a' },
-      select: { id: true, status: true },
+      select: {
+        id: true, status: true, priority: true, performedById: true,
+        completedAt: true, requestedAt: true, createdById: true,
+      },
     });
     expect(updateMany).not.toHaveBeenCalled();
   });
@@ -2221,12 +2224,16 @@ describe('newborn update validation consistency', () => {
 
 
 describe('theatre procedure scheduling input validation', () => {
-  const makeSchedulingPrisma = () => ({
-    user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
-    attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
-    procedureTemplate: { findUnique: vi.fn().mockResolvedValue({ id: 'template-1', name: 'Minor procedure' }) },
-    procedure: { create: vi.fn().mockResolvedValue({ id: 'procedure-1' }) },
-  });
+  const makeSchedulingPrisma = () => {
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
+      procedureTemplate: { findUnique: vi.fn().mockResolvedValue({ id: 'template-1', name: 'Minor procedure' }) },
+      procedure: { create: vi.fn().mockResolvedValue({ id: 'procedure-1', templateId: 'template-1', status: 'scheduled' }) },
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    return prisma;
+  };
 
   it('rejects an invalid scheduled date before creating a procedure', async () => {
     const prisma: any = makeSchedulingPrisma();

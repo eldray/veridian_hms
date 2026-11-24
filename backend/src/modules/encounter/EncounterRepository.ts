@@ -1964,20 +1964,28 @@ async addScan(encounterId: string, data: any, userId: string) {
   const template = await this.prisma.scanTemplate.findUnique({ where: { id: templateId } });
   if (!template) throw new NotFoundError('Scan template', templateId);
 
-  return this.prisma.scan.create({
-    data: {
-      attendanceId: encounterId,
-      templateId: template.id,
-      serviceCatalogId: serviceCatalogId ?? null,
-      scanType: template.scanType || template.name,
-      description: template.description ?? null,
-      bodyPart: data.bodyPart ?? null,
-      status: 'requested',
-      priority: data.priority ?? 'routine',
-      requestedAt: new Date(),
-      createdById: actorId,
-    },
-    include: { ScanTemplate: true },
+  return this.prisma.$transaction(async (tx) => {
+    await this.requireOpenEncounter(encounterId, tx);
+    const created = await tx.scan.create({
+      data: {
+        attendanceId: encounterId,
+        templateId: template.id,
+        serviceCatalogId: serviceCatalogId ?? null,
+        scanType: template.scanType || template.name,
+        description: template.description ?? null,
+        bodyPart: data.bodyPart ?? null,
+        status: 'requested',
+        priority: data.priority ?? 'routine',
+        requestedAt: new Date(),
+        createdById: actorId,
+      },
+      include: { ScanTemplate: true },
+    });
+    await appendClinicalRecordAudit(tx, actorId, 'Scan', created.id, 'create', undefined, {
+      id: created.id, templateId: created.templateId, serviceCatalogId: created.serviceCatalogId,
+      status: created.status, priority: created.priority, requestedAt: created.requestedAt,
+    }, { workflow: 'scan_order_requested' });
+    return created;
   });
 }
 
@@ -2041,10 +2049,12 @@ async addScan(encounterId: string, data: any, userId: string) {
     }, { timeout: 15000, maxWait: 5000 });
   }
 
-  async removeScan(encounterId: string, scanId: string, userId: string) {
+  async removeScan(encounterId: string, scanId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.scan.findFirst({
-        where: { id: scanId, attendanceId: encounterId }, select: { id: true, status: true },
+        where: { id: scanId, attendanceId: encounterId },
+        select: { id: true, status: true, priority: true, performedById: true, completedAt: true, requestedAt: true, createdById: true },
       });
       if (!current) throw new NotFoundError('Scan in encounter', scanId);
       if (current.status === 'completed' || current.status === 'cancelled') {
@@ -2056,6 +2066,11 @@ async addScan(encounterId: string, data: any, userId: string) {
       if (current.status === 'requested') {
         const deleted = await tx.scan.deleteMany({ where: { id: scanId, attendanceId: encounterId, status: 'requested' } });
         if (deleted.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
+        await appendClinicalRecordAudit(tx, actorId, 'Scan', scanId, 'delete', {
+          id: current.id, status: current.status, priority: current.priority,
+          performedById: current.performedById, completedAt: current.completedAt,
+          requestedAt: current.requestedAt, createdById: current.createdById,
+        }, undefined, { workflow: 'scan_order_removed' });
         return { id: scanId, status: 'deleted' as const };
       }
       const cancelled = await tx.scan.updateMany({
@@ -2063,6 +2078,11 @@ async addScan(encounterId: string, data: any, userId: string) {
         data: { status: 'cancelled' },
       });
       if (cancelled.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
+      await appendClinicalRecordAudit(tx, actorId, 'Scan', scanId, 'update', {
+        id: current.id, status: current.status, priority: current.priority,
+      }, {
+        id: current.id, status: 'cancelled', priority: current.priority,
+      }, { workflow: 'scan_order_cancelled', fromStatus: current.status, toStatus: 'cancelled' });
       return { id: scanId, status: 'cancelled' as const };
     });
   }
@@ -2109,18 +2129,27 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   const template = await this.prisma.procedureTemplate.findUnique({ where: { id: templateId } });
   if (!template) throw new NotFoundError('Procedure template', templateId);
 
-  return this.prisma.procedure.create({
-    data: {
-      attendanceId: encounterId,
-      templateId: template.id,
-      serviceCatalogId: serviceCatalogId ?? null,
-      status: 'scheduled',
-      scheduledDate,
-      notes: data.notes ?? null,
-      duration: data.duration ?? null,
-      createdById: actorId,
-    },
-    include: { ProcedureTemplate: true },
+  return this.prisma.$transaction(async (tx) => {
+    await this.requireOpenEncounter(encounterId, tx);
+    const created = await tx.procedure.create({
+      data: {
+        attendanceId: encounterId,
+        templateId: template.id,
+        serviceCatalogId: serviceCatalogId ?? null,
+        status: 'scheduled',
+        scheduledDate,
+        notes: data.notes ?? null,
+        duration: data.duration ?? null,
+        createdById: actorId,
+      },
+      include: { ProcedureTemplate: true },
+    });
+    await appendClinicalRecordAudit(tx, actorId, 'Procedure', created.id, 'create', undefined, {
+      id: created.id, templateId: created.templateId, serviceCatalogId: created.serviceCatalogId,
+      status: created.status, scheduledDate: created.scheduledDate, duration: created.duration,
+      createdById: created.createdById,
+    }, { workflow: 'procedure_scheduled' });
+    return created;
   });
 }
 
@@ -2356,10 +2385,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     }, { timeout: 15000, maxWait: 5000 });
   }
 
-  async removeProcedure(encounterId: string, procedureId: string, userId: string) {
+  async removeProcedure(encounterId: string, procedureId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.procedure.findFirst({
-        where: { id: procedureId, attendanceId: encounterId }, select: { id: true, status: true },
+        where: { id: procedureId, attendanceId: encounterId },
+        select: { id: true, status: true, scheduledDate: true, duration: true, performedById: true, performedAt: true, createdById: true },
       });
       if (!current) throw new NotFoundError('Procedure in encounter', procedureId);
       if (current.status === 'completed' || current.status === 'cancelled') {
@@ -2371,6 +2402,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (current.status === 'scheduled') {
         const deleted = await tx.procedure.deleteMany({ where: { id: procedureId, attendanceId: encounterId, status: 'scheduled' } });
         if (deleted.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
+        await appendClinicalRecordAudit(tx, actorId, 'Procedure', procedureId, 'delete', {
+          id: current.id, status: current.status, scheduledDate: current.scheduledDate,
+          duration: current.duration, performedById: current.performedById,
+          performedAt: current.performedAt, createdById: current.createdById,
+        }, undefined, { workflow: 'procedure_order_removed' });
         return { id: procedureId, status: 'deleted' as const };
       }
       const cancelled = await tx.procedure.updateMany({
@@ -2378,6 +2414,13 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         data: { status: 'cancelled' },
       });
       if (cancelled.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
+      await appendClinicalRecordAudit(tx, actorId, 'Procedure', procedureId, 'update', {
+        id: current.id, status: current.status, scheduledDate: current.scheduledDate,
+        duration: current.duration, performedById: current.performedById, performedAt: current.performedAt,
+      }, {
+        id: current.id, status: 'cancelled', scheduledDate: current.scheduledDate,
+        duration: current.duration, performedById: current.performedById, performedAt: current.performedAt,
+      }, { workflow: 'procedure_order_cancelled', fromStatus: current.status, toStatus: 'cancelled' });
       return { id: procedureId, status: 'cancelled' as const };
     });
   }
