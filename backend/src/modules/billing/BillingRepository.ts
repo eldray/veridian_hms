@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma, BillStatus, PaymentMode } from '@prisma/client';
 import { ValidationError } from '../../utils/errors';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { appendPaymentFinancialAudit, appendRefundFinancialAudit } from '../bill/financialAudit';
 import { BillFilters } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
 import { resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
@@ -318,6 +319,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         const payment = await tx.payment.create({
           data: { billId: id, amount, paymentMethod: paymentData.paymentMethod, reference: paymentData.reference || null, idempotencyKey, receivedById: paymentData.userId, notes: paymentData.notes, transactionDate: new Date() }
         });
+        await appendPaymentFinancialAudit(tx, paymentData.userId, payment, bill, updatedBill, 'billing_repository_manual_or_confirmed_payment');
         if (current.attendanceId) await this.syncAttendanceFinancials(tx, current.attendanceId, { ...current, balance: newBalance });
         return { bill: updatedBill, payment, duplicate: false };
       });
@@ -463,6 +465,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
             CorporateAccount: true,
           },
         });
+        await appendRefundFinancialAudit(tx, userId, refund, bill, updated, 'billing_repository_refund');
 
         if (updated.attendanceId) {
           await this.syncAttendanceFinancials(tx, updated.attendanceId, updated);
