@@ -2158,6 +2158,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
     if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, in_progress, completed or cancelled');
     if (data.bloodLoss !== undefined && data.bloodLoss !== null) {
       const rawBloodLoss = data.bloodLoss;
@@ -2168,12 +2169,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       }
       data = { ...data, bloodLoss: estimatedBloodLoss };
     }
-    const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true, attendanceId: true, clinicalRecord: true } });
+    const current = await tx.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true, attendanceId: true, clinicalRecord: true, scheduledDate: true, duration: true, performedById: true, performedAt: true } });
     if (!current) throw new NotFoundError('Procedure', procedureId);
     if (current.status === 'cancelled') throw new ConflictError('A cancelled procedure cannot be reopened or changed');
     if (current.status === 'completed') throw new ConflictError('A completed procedure record is locked; use the documented clinical correction workflow');
     if (current.status === 'in_progress' && status === 'scheduled') throw new ConflictError('A procedure in progress cannot return to scheduled');
-    await this.requireOpenEncounter(current.attendanceId);
+    await this.requireOpenEncounter(current.attendanceId, tx);
     const updateData: any = {}
     for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss', 'clinicalRecord']) {
       if (data[field] !== undefined) updateData[field] = data[field];
@@ -2341,7 +2342,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (status === 'completed') updateData.performedAt = new Date();
     // Audit identity and time are authored by the server, never trusted from the browser payload.
     if (data.clinicalRecord !== undefined) {
-      const actor = await this.prisma.user.findUnique({
+      const actor = await tx.user.findUnique({
         where: { id: actorId },
         select: { id: true, fullName: true, username: true },
       });
@@ -2362,12 +2363,26 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       };
     }
     if (!Object.keys(updateData).length) throw new ValidationError('No procedure changes were provided');
-    const updated = await this.prisma.procedure.updateMany({
+    const updated = await tx.procedure.updateMany({
       where: { id: procedureId, status: current.status },
       data: updateData,
     });
     if (updated.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
-    return this.prisma.procedure.findUnique({ where: { id: procedureId } });
+    const updatedProcedure = await tx.procedure.findUnique({ where: { id: procedureId } });
+    if (!updatedProcedure) throw new NotFoundError('Procedure', procedureId);
+    await appendClinicalRecordAudit(tx, actorId, 'Procedure', updatedProcedure.id, 'update', {
+      id: current.id, status: current.status, scheduledDate: current.scheduledDate,
+      duration: current.duration, performedById: current.performedById, performedAt: current.performedAt,
+    }, {
+      id: updatedProcedure.id, status: updatedProcedure.status, scheduledDate: updatedProcedure.scheduledDate,
+      duration: updatedProcedure.duration, performedById: updatedProcedure.performedById, performedAt: updatedProcedure.performedAt,
+    }, {
+      workflow: 'procedure_record_updated',
+      fieldsChanged: Object.keys(updateData).filter((field) => ['status', 'scheduledDate', 'duration', 'performedById', 'performedAt'].includes(field)),
+      clinicalContentOmitted: Object.keys(updateData).some((field) => ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'clinicalRecord', 'bloodLoss'].includes(field)),
+    });
+    return updatedProcedure;
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async removeProcedure(encounterId: string, procedureId: string, userId: string) {
