@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { CreatePurchaseInvoiceDTO, UpdatePurchaseInvoiceDTO, toNumber } from './PurchaseInvoiceTypes';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
 
 // Expiry dates are entered as calendar dates. Keep stock eligible through the
 // recorded day rather than rejecting it at midnight at the start of that day.
@@ -159,7 +160,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
 
         // 3. Create Stock Transaction. balanceAfter is a location snapshot, not
         // the hospital aggregate; reports use it to reconcile department/ward stock.
-        await tx.stockTransaction.create({
+        const receiptMovement = await tx.stockTransaction.create({
           data: {
             stockItemId: item.stockItemId, transactionType: 'purchase', quantity: item.quantity,
             balanceAfter: locationBalance.quantity, reference: data.invoiceNumber,
@@ -168,6 +169,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
             wardId: data.receivedAtWardId || undefined
           }
         });
+        await appendStockMovementAudit(tx, 'create', createdById || undefined, receiptMovement, undefined, { workflow: 'purchase_invoice_receipt' });
 
         // 4. Update Global Stock Item
         await tx.stockItem.update({
