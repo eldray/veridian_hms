@@ -138,12 +138,12 @@ export class ReferralService extends BaseService {
     }, userId);
   }
 
-  async updateReferralStatus(id: string, data: UpdateReferralStatusDTO) {
-    return this.repository.updateStatus(id, data.status, data);
+  async updateReferralStatus(id: string, data: UpdateReferralStatusDTO, userId: string) {
+    return this.repository.updateStatus(id, data.status, data, userId);
   }
 
-  async deleteReferral(id: string) {
-    await this.repository.delete(id);
+  async deleteReferral(id: string, userId: string) {
+    await this.repository.deleteReferral(id, userId);
   }
 
   async getReferralsByPatient(patientId: string) {
