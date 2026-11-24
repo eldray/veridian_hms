@@ -764,8 +764,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     }, { isolationLevel: 'Serializable' });
   }
 
-  async updateDiagnosis(encounterId: string, diagnosisRowId: string, data: any, userId: string) {
-    const actorId = await this.requireActorId(userId);
+  async updateDiagnosis(encounterId: string, diagnosisRowId: string, data: any, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const encounter = await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       const current = await tx.attendanceDiagnosis.findFirst({ where: { id: diagnosisRowId, attendanceId: encounterId } });
