@@ -1708,49 +1708,43 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
       where: { id: data.serviceCatalogId },
       select: { labTestTemplateId: true, name: true, code: true, serviceType: true },
     });
-
-    if (!catalogEntry) {
-      throw new NotFoundError('Lab service', data.serviceCatalogId);
-    }
+    if (!catalogEntry) throw new NotFoundError('Lab service', data.serviceCatalogId);
     if (catalogEntry.serviceType !== 'lab_test') {
       throw new ValidationError(`Service "${catalogEntry.name}" is not a laboratory service`);
     }
     if (!catalogEntry.labTestTemplateId) {
       throw new ValidationError(
         `ServiceCatalog entry "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a lab test template. ` +
-        `Ask an admin to fix the catalog linkage.`,
+        'Ask an admin to fix the catalog linkage.',
       );
     }
     templateId = catalogEntry.labTestTemplateId;
   } else {
     templateId = data.templateId;
   }
+  if (!templateId) throw new ValidationError('A lab test template or service catalog entry is required');
 
-  if (!templateId) {
-    throw new ValidationError('A lab test template or service catalog entry is required');
-  }
-
-  const template = await this.prisma.labTestTemplate.findUnique({
-    where: { id: templateId },
-    select: { id: true },
-  });
+  const template = await this.prisma.labTestTemplate.findUnique({ where: { id: templateId }, select: { id: true } });
   if (!template) throw new NotFoundError('Lab test template', templateId);
 
-  return this.prisma.labTest.create({
-    data: {
-      attendanceId: encounterId,
-      templateId,
-      serviceCatalogId: data.serviceCatalogId ?? null,
-      status: 'requested',
-      priority: data.priority ?? 'routine',
-      requestedAt: new Date(),
-      createdById: actorId,
-      notes: data.notes ?? null,
-    },
-    include: {
-      LabTestTemplate: true,
-      ServiceCatalog: { select: { id: true, name: true, code: true } },
-    },
+  return this.prisma.$transaction(async (tx) => {
+    await this.requireOpenEncounter(encounterId, tx);
+    const created = await tx.labTest.create({
+      data: {
+        attendanceId: encounterId, templateId, serviceCatalogId: data.serviceCatalogId ?? null,
+        status: 'requested', priority: data.priority ?? 'routine', requestedAt: new Date(),
+        createdById: actorId, notes: data.notes ?? null,
+      },
+      include: {
+        LabTestTemplate: true,
+        ServiceCatalog: { select: { id: true, name: true, code: true } },
+      },
+    });
+    await appendClinicalRecordAudit(tx, actorId, 'LabTest', created.id, 'create', undefined, {
+      id: created.id, templateId: created.templateId, serviceCatalogId: created.serviceCatalogId,
+      status: created.status, priority: created.priority, requestedAt: created.requestedAt, createdById: created.createdById,
+    }, { workflow: 'lab_order_requested' });
+    return created;
   });
 }
 
@@ -1758,17 +1752,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported laboratory order status');
     if (data.priority !== undefined && !['routine', 'urgent', 'stat'].includes(String(data.priority))) throw new ValidationError('Unsupported laboratory priority');
-    const current = await this.prisma.labTest.findUnique({
-      where: { id: labOrderId },
-      select: { id: true, status: true, attendanceId: true, result: true },
-    });
-    if (!current) throw new NotFoundError('Laboratory order', labOrderId);
-    if (current.status === 'cancelled') throw new ConflictError('A cancelled laboratory order cannot be reopened or changed');
-    if (current.status === 'completed') throw new ConflictError('A completed laboratory result is locked; use the documented result-correction workflow');
-    if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A laboratory order in progress cannot return to requested');
-    await this.requireOpenEncounter(current.attendanceId);
 
-    const finalResult = data.result !== undefined ? data.result : current.result;
     const hasMeaningfulLabResult = (value: unknown): boolean => {
       if (typeof value === 'string') return value.trim().length > 0;
       if (typeof value === 'number') return Number.isFinite(value);
@@ -1784,28 +1768,54 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
       if ('value' in record) return hasMeaningfulLabResult(record.value);
       return Object.values(record).some((item) => typeof item === 'string' && item.trim().length > 0);
     };
-    if (status === 'completed' && !hasMeaningfulLabResult(finalResult)) {
-      throw new ValidationError('A laboratory result must be recorded before completing the order');
-    }
 
-    const updateData: any = {}
-    for (const field of ['result', 'normalRange', 'units', 'notes', 'priority']) if (data[field] !== undefined) updateData[field] = data[field];
-    if (status !== current.status) updateData.status = status;
-    if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
-    else if (status === 'in_progress') updateData.performedById = actorId;
-    if (!Object.keys(updateData).length) throw new ValidationError('No laboratory order changes were provided');
-    const updated = await this.prisma.labTest.updateMany({
-      where: { id: labOrderId, status: current.status },
-      data: updateData,
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.labTest.findUnique({
+        where: { id: labOrderId },
+        select: { id: true, status: true, attendanceId: true, result: true, priority: true, performedById: true, completedAt: true, requestedAt: true, createdById: true },
+      });
+      if (!current) throw new NotFoundError('Laboratory order', labOrderId);
+      if (current.status === 'cancelled') throw new ConflictError('A cancelled laboratory order cannot be reopened or changed');
+      if (current.status === 'completed') throw new ConflictError('A completed laboratory result is locked; use the documented result-correction workflow');
+      if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A laboratory order in progress cannot return to requested');
+      await this.requireOpenEncounter(current.attendanceId, tx);
+
+      const finalResult = data.result !== undefined ? data.result : current.result;
+      if (status === 'completed' && !hasMeaningfulLabResult(finalResult)) {
+        throw new ValidationError('A laboratory result must be recorded before completing the order');
+      }
+
+      const updateData: any = {};
+      for (const field of ['result', 'normalRange', 'units', 'notes', 'priority']) if (data[field] !== undefined) updateData[field] = data[field];
+      if (status !== current.status) updateData.status = status;
+      if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
+      else if (status === 'in_progress') updateData.performedById = actorId;
+      if (!Object.keys(updateData).length) throw new ValidationError('No laboratory order changes were provided');
+
+      const changed = await tx.labTest.updateMany({
+        where: { id: labOrderId, status: current.status },
+        data: updateData,
+      });
+      if (changed.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+      const updated = await tx.labTest.findUnique({ where: { id: labOrderId } });
+      if (!updated) throw new NotFoundError('Laboratory order', labOrderId);
+      await appendClinicalRecordAudit(tx, actorId, 'LabTest', updated.id, 'update', {
+        id: current.id, status: current.status, priority: current.priority,
+        performedById: current.performedById, completedAt: current.completedAt,
+      }, {
+        id: updated.id, status: updated.status, priority: updated.priority,
+        performedById: updated.performedById, completedAt: updated.completedAt,
+      }, { workflow: 'lab_order_status_or_result_update', fieldsChanged: Object.keys(updateData) });
+      return updated;
     });
-    if (updated.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
-    return this.prisma.labTest.findUnique({ where: { id: labOrderId } });
   }
 
   async removeLabTest(encounterId: string, labOrderId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.labTest.findFirst({
-        where: { id: labOrderId, attendanceId: encounterId }, select: { id: true, status: true },
+        where: { id: labOrderId, attendanceId: encounterId },
+        select: { id: true, status: true, priority: true, performedById: true, completedAt: true, requestedAt: true, createdById: true },
       });
       if (!current) throw new NotFoundError('Lab order in encounter', labOrderId);
       if (current.status === 'completed' || current.status === 'cancelled') {
@@ -1817,6 +1827,11 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
       if (current.status === 'requested') {
         const deleted = await tx.labTest.deleteMany({ where: { id: labOrderId, attendanceId: encounterId, status: 'requested' } });
         if (deleted.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+        await appendClinicalRecordAudit(tx, actorId, 'LabTest', labOrderId, 'delete', {
+          id: current.id, status: current.status, priority: current.priority,
+          performedById: current.performedById, completedAt: current.completedAt,
+          requestedAt: current.requestedAt, createdById: current.createdById,
+        }, undefined, { workflow: 'lab_order_removed' });
         return { id: labOrderId, status: 'deleted' as const };
       }
       const cancelled = await tx.labTest.updateMany({
@@ -1824,6 +1839,14 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
         data: { status: 'cancelled' },
       });
       if (cancelled.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+      const updated = await tx.labTest.findUnique({ where: { id: labOrderId } });
+      await appendClinicalRecordAudit(tx, actorId, 'LabTest', labOrderId, 'update', {
+        id: current.id, status: current.status, priority: current.priority,
+        performedById: current.performedById, completedAt: current.completedAt,
+      }, {
+        id: updated?.id, status: updated?.status, priority: updated?.priority,
+        performedById: updated?.performedById, completedAt: updated?.completedAt,
+      }, { workflow: 'lab_order_cancelled' });
       return { id: labOrderId, status: 'cancelled' as const };
     });
   }
