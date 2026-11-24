@@ -239,18 +239,21 @@ export class EncounterController extends BaseController {
     const user = req.user!;
 
     const vitals = await this.service.addVitals(id, data, user.id);
+    (req as any).auditHandled = true;
     return this.created(res, vitals, 'Vitals recorded successfully');
   });
 
   updateVitals = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { vitalsId } = req.params;
-    const vitals = await this.service.updateVitals(vitalsId, req.body);
+    const vitals = await this.service.updateVitals(vitalsId, req.body, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, vitals, 'Vitals updated successfully');
   });
 
   deleteVitals = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { vitalsId } = req.params;
-    await this.service.deleteVitals(vitalsId);
+    await this.service.deleteVitals(vitalsId, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, null, 'Vitals deleted successfully');
   });
 
@@ -264,6 +267,7 @@ export class EncounterController extends BaseController {
     const user = req.user!;
 
     const prescription = await this.service.addPrescription(id, data, user.id);
+    (req as any).auditHandled = true;
     return this.created(res, prescription, 'Prescription added successfully');
   });
 
@@ -275,6 +279,7 @@ export class EncounterController extends BaseController {
     const normalizedExpiryDate = expiryDate ? new Date(expiryDate) : undefined;
 
     const medication = await this.service.dispenseMedication(encounterId, medicationId, normalizedQuantity, user.id, batchNumber, normalizedExpiryDate);
+    (req as any).auditHandled = true;
     return this.ok(res, medication, 'Medication dispensed successfully');
   });
 
@@ -288,12 +293,14 @@ export class EncounterController extends BaseController {
     }
     const user = req.user!;
     const medication = await this.service.updateMedication(encounterId, medicationId, req.body, user.id);
+    (req as any).auditHandled = true;
     return this.ok(res, medication, 'Medication updated successfully');
   });
 
   removeMedication = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, medicationId } = req.params;
     const result = await this.service.removeMedication(encounterId, medicationId, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, result, 'Medication removed successfully');
   });
 
