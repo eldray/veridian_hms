@@ -15,8 +15,9 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   // Image files are handled by the dedicated upload-image endpoint.
   const parseMultipartFields = multer().none();
 
-  // Any signed-in staff member may read patient/clinical context needed for their workflow.
-  // Mutating patient demographics and EMR records remains role-restricted below.
+  // Patient demographics and EMR context are limited to the roles authorised for the
+  // Patients area (admin/super_admin are inherited by requirePatientManagement).
+  // Other departments use their own scoped worklists instead of this patient-wide API.
   router.use(protect);
 
   // Search and list patients
