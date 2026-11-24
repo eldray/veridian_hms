@@ -1581,3 +1581,40 @@ describe('requisition batch expiry day boundary', () => {
     expect(yesterdayExpiry.getTime()).toBeLessThan(startOfCurrentUtcDay(justAfterMidnight).getTime());
   });
 });
+
+describe('stock item detail history access scope', () => {
+  it('does not embed patient-linked medication or cross-department purchasing history in catalogue detail', async () => {
+    const findUnique = vi.fn().mockResolvedValue({ id: 'item-1', name: 'Gloves' });
+    const repository = new StockItemRepository({ stockItem: { findUnique } } as any);
+
+    await repository.findByIdWithRelations('item-1', {
+      departmentId: 'nursing',
+      includeAllStockLocations: false,
+    });
+
+    const query = findUnique.mock.calls[0][0];
+    expect(query.include).not.toHaveProperty('Medication');
+    expect(query.include).not.toHaveProperty('InvoiceItem');
+    expect(query.include).not.toHaveProperty('RequisitionItem');
+    expect(query.include.StockTransaction.where).toEqual({ departmentId: 'nursing' });
+    expect(query.include.StockBatch.where).toEqual({ departmentId: 'nursing', wardId: null });
+    expect(query.include.stockBalances.where).toEqual({ departmentId: 'nursing', wardId: null });
+  });
+
+  it('keeps department-scoped transaction history available while patient-linked history uses its own endpoint', async () => {
+    const findUnique = vi.fn().mockResolvedValue({ id: 'item-1', name: 'Gloves' });
+    const repository = new StockItemRepository({ stockItem: { findUnique } } as any);
+
+    await repository.findByIdWithRelations('item-1', {
+      departmentId: 'pharmacy',
+      includeAllStockLocations: false,
+    });
+
+    const query = findUnique.mock.calls[0][0];
+    expect(query.include.StockTransaction).toEqual({
+      where: { departmentId: 'pharmacy' },
+      orderBy: { transactionDate: 'desc' },
+      take: 20,
+    });
+  });
+});
