@@ -2371,9 +2371,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeProcedure(encounterId: string, procedureId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.procedure.findFirst({
-        where: { id: procedureId, attendanceId: encounterId }, select: { id: true, status: true },
+        where: { id: procedureId, attendanceId: encounterId },
+        select: { id: true, status: true, scheduledDate: true, duration: true, performedById: true, performedAt: true, createdById: true },
       });
       if (!current) throw new NotFoundError('Procedure in encounter', procedureId);
       if (current.status === 'completed' || current.status === 'cancelled') {
@@ -2385,6 +2387,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (current.status === 'scheduled') {
         const deleted = await tx.procedure.deleteMany({ where: { id: procedureId, attendanceId: encounterId, status: 'scheduled' } });
         if (deleted.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
+        await appendClinicalRecordAudit(tx, actorId, 'Procedure', procedureId, 'delete', {
+          id: current.id, status: current.status, scheduledDate: current.scheduledDate,
+          duration: current.duration, performedById: current.performedById,
+          performedAt: current.performedAt, createdById: current.createdById,
+        }, undefined, { workflow: 'procedure_order_removed' });
         return { id: procedureId, status: 'deleted' as const };
       }
       const cancelled = await tx.procedure.updateMany({
@@ -2392,6 +2399,15 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         data: { status: 'cancelled' },
       });
       if (cancelled.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
+      await appendClinicalRecordAudit(tx, actorId, 'Procedure', procedureId, 'update', {
+        id: current.id, status: current.status, scheduledDate: current.scheduledDate,
+        duration: current.duration, performedById: current.performedById,
+        performedAt: current.performedAt,
+      }, {
+        id: current.id, status: 'cancelled', scheduledDate: current.scheduledDate,
+        duration: current.duration, performedById: current.performedById,
+        performedAt: current.performedAt,
+      }, { workflow: 'procedure_order_cancelled' });
       return { id: procedureId, status: 'cancelled' as const };
     });
   }
