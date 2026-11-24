@@ -204,6 +204,9 @@ export class BillRepository extends BaseRepository<any, any, any> {
   }
 
   async addPayment(billId: string, paymentData: AddPaymentInput, receivedById: string) {
+    if (paymentData.paymentMethod === 'mobile_money') {
+      throw Object.assign(new ValidationError('Mobile Money payments must be confirmed through the MTN MoMo workflow.'), { statusCode: 409 });
+    }
     const idempotencyKey = paymentData.idempotencyKey;
     try {
       return await this.prisma.$transaction(async (tx) => {

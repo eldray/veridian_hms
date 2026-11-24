@@ -239,6 +239,13 @@ export class BillingRepository extends BaseRepository<any, any, any> {
   }
 
   async addPayment(id: string, paymentData: any) {
+    const hasConfirmedIntentId = typeof paymentData.internalMomoIntentId === 'string' && paymentData.internalMomoIntentId.length > 0;
+    if (paymentData.paymentMethod === 'mobile_money' && (!hasConfirmedIntentId || !paymentData.idempotencyKey)) {
+      throw Object.assign(new Error('Mobile Money payments must be confirmed through the MTN MoMo workflow.'), { statusCode: 409 });
+    }
+    if (paymentData.paymentMethod !== 'mobile_money' && hasConfirmedIntentId) {
+      throw Object.assign(new Error('A Mobile Money intent cannot be used for a manual payment.'), { statusCode: 409 });
+    }
     const idempotencyKey = paymentData.idempotencyKey;
     try {
       return await this.prisma.$transaction(async (tx) => {

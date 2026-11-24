@@ -472,6 +472,11 @@ export class BillingService extends BaseService {
   }
 
   async addPaymentToBill(id: string, data: AddPaymentDTO, userId: string) {
+    // This is the public/manual payment path. Provider-backed MoMo must only be
+    // posted by addConfirmedMomoPayment after the provider reports SUCCESSFUL.
+    if (data.paymentMethod === 'mobile_money' || (data as any).internalMomoIntentId) {
+      throw Object.assign(new Error('Mobile Money payments must be confirmed through the MTN MoMo workflow.'), { statusCode: 409 });
+    }
     return this.recordPaymentToBill(id, data, userId);
   }
 
@@ -481,7 +486,9 @@ export class BillingService extends BaseService {
    * bypass the pending-intent guard by choosing mobile_money as their method.
    */
   async addConfirmedMomoPayment(id: string, data: AddPaymentDTO, userId: string, momoIntentId: string) {
-    if (!momoIntentId) throw new Error('A verified Mobile Money intent is required.');
+    if (!momoIntentId || data.paymentMethod !== 'mobile_money' || !data.idempotencyKey) {
+      throw new Error('A verified Mobile Money intent and idempotency key are required.');
+    }
     return this.recordPaymentToBill(id, data, userId, momoIntentId);
   }
 

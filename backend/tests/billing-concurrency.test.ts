@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BillRepository } from '../src/modules/bill/BillRepository';
+import { BillingRepository } from '../src/modules/billing/BillingRepository';
+import { BillingService } from '../src/modules/billing/BillingService';
 
 describe('billing payment concurrency guards', () => {
   it('uses an atomic balance condition before recording a payment', async () => {
@@ -58,6 +60,49 @@ describe('billing payment concurrency guards', () => {
       where: { id: 'bill-1', balance: { gte: 80 }, status: { not: 'cancelled' } },
       data: { paidAmount: { increment: 80 }, balance: { decrement: 80 } },
     });
+  });
+  it('rejects Mobile Money on the current manual payment repository', async () => {
+    const transaction = vi.fn();
+    const repository = new BillRepository({ $transaction: transaction } as any);
+
+    await expect(repository.addPayment('bill-1', {
+      amount: 50,
+      paymentMethod: 'mobile_money' as any,
+      idempotencyKey: 'momo-manual-key',
+    }, 'cashier-1')).rejects.toThrow(/confirmed through the MTN MoMo workflow/i);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects Mobile Money and client-supplied intent IDs on the legacy manual service path', async () => {
+    const service = new BillingService({} as any);
+    const addPayment = vi.fn();
+    (service as any).repository.addPayment = addPayment;
+
+    await expect(service.addPaymentToBill('bill-1', {
+      amount: 50,
+      paymentMethod: 'mobile_money' as any,
+      idempotencyKey: 'momo-manual-key',
+    } as any, 'cashier-1')).rejects.toThrow(/confirmed through the MTN MoMo workflow/i);
+
+    await expect(service.addPaymentToBill('bill-1', {
+      amount: 50,
+      paymentMethod: 'cash' as any,
+      idempotencyKey: 'cash-key',
+      internalMomoIntentId: 'intent-from-client',
+    } as any, 'cashier-1')).rejects.toThrow(/confirmed through the MTN MoMo workflow/i);
+    expect(addPayment).not.toHaveBeenCalled();
+  });
+
+  it('requires a verified intent for direct legacy repository Mobile Money posting', async () => {
+    const transaction = vi.fn();
+    const repository = new BillingRepository({ $transaction: transaction } as any);
+
+    await expect(repository.addPayment('bill-1', {
+      amount: 50,
+      paymentMethod: 'mobile_money',
+      idempotencyKey: 'momo-manual-key',
+    })).rejects.toThrow(/confirmed through the MTN MoMo workflow/i);
+    expect(transaction).not.toHaveBeenCalled();
   });
 });
 
@@ -476,7 +521,7 @@ describe('pending MoMo intent cannot be bypassed with a manual mobile-money meth
     await expect(repository.addPayment('bill-1', {
       amount: 25,
       paymentMethod: 'mobile_money' as any,
-    }, 'cashier-1')).rejects.toThrow(/Mobile Money payment is still pending/i);
+    }, 'cashier-1')).rejects.toThrow(/Mobile Money payments must be confirmed through the MTN MoMo workflow/i);
 
     expect(tx.bill.updateMany).not.toHaveBeenCalled();
     expect(tx.payment.create).not.toHaveBeenCalled();

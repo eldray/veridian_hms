@@ -40,10 +40,10 @@ export const updateBillValidation = [
 
 export const addPaymentValidation = [
   body('amount').isFloat({ min: 0.01 }).withMessage('Payment amount must be greater than 0'),
-  body('paymentMethod').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid payment method'), // ✅ Fixed to paymentMethod
+  body('paymentMethod').isIn(['cash', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid payment method'), // ✅ Fixed to paymentMethod
   body('reference').optional().isString(),
   body('notes').optional().isString(),
-  body('idempotencyKey').optional().isUUID().withMessage('A valid payment idempotency key is required')
+  body('idempotencyKey').isUUID().withMessage('A valid payment idempotency key is required')
 ];
 
 export const voidLineItemValidation = [
@@ -148,7 +148,7 @@ export class BillController extends BaseController {
       } catch (error: any) {
         if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
         // Payment validation/race failures are expected client conflicts, not server crashes.
-        if (/exceeds the patient's outstanding balance|cancelled bill|payment is still pending|confirmed Mobile Money intent|already been used for another bill|already been used with different payment details|fully paid bill/i.test(error.message || '')) {
+        if (error?.statusCode === 409 || /exceeds the patient's outstanding balance|cancelled bill|payment is still pending|confirmed Mobile Money intent|confirmed through the MTN MoMo workflow|already been used for another bill|already been used with different payment details|fully paid bill/i.test(error.message || '')) {
           return this.conflict(res, error.message);
         }
         if (/payment amount must be greater than zero/i.test(error.message || '')) {
