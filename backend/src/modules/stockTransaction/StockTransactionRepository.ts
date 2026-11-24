@@ -288,7 +288,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       };
       await tx.stockTransaction.delete({ where: { id } });
       await appendStockMovementAudit(tx, 'delete', performedById, transaction, deletedTransaction);
-      return { success: true, message: 'Transaction deleted and stock reversed' };
+      return { success: true, message: 'Transaction deleted and stock reversed', deletedTransaction };
     });
   }
 
