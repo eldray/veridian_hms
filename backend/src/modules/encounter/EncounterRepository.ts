@@ -2132,18 +2132,27 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   const template = await this.prisma.procedureTemplate.findUnique({ where: { id: templateId } });
   if (!template) throw new NotFoundError('Procedure template', templateId);
 
-  return this.prisma.procedure.create({
-    data: {
-      attendanceId: encounterId,
-      templateId: template.id,
-      serviceCatalogId: serviceCatalogId ?? null,
-      status: 'scheduled',
-      scheduledDate,
-      notes: data.notes ?? null,
-      duration: data.duration ?? null,
-      createdById: actorId,
-    },
-    include: { ProcedureTemplate: true },
+  return this.prisma.$transaction(async (tx) => {
+    await this.requireOpenEncounter(encounterId, tx);
+    const created = await tx.procedure.create({
+      data: {
+        attendanceId: encounterId,
+        templateId: template.id,
+        serviceCatalogId: serviceCatalogId ?? null,
+        status: 'scheduled',
+        scheduledDate,
+        notes: data.notes ?? null,
+        duration: data.duration ?? null,
+        createdById: actorId,
+      },
+      include: { ProcedureTemplate: true },
+    });
+    await appendClinicalRecordAudit(tx, actorId, 'Procedure', created.id, 'create', undefined, {
+      id: created.id, templateId: created.templateId, serviceCatalogId: created.serviceCatalogId,
+      status: created.status, scheduledDate: created.scheduledDate, duration: created.duration,
+      createdById: created.createdById,
+    }, { workflow: 'procedure_scheduled' });
+    return created;
   });
 }
 
