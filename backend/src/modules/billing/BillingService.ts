@@ -911,10 +911,10 @@ export class BillingService extends BaseService {
     return this.repository.voidLineItem(lineItemId, userId, reason);
   }
 
-  async applyWaiver(billId: string, waiverId: string) {
+  async applyWaiver(billId: string, waiverId: string, userId?: string) {
     this.logInfo('Applying waiver to bill', { billId, waiverId });
     const bill = await this.repository.findById(billId);
     if (!bill) throw new Error('Bill not found');
-    return this.repository.applyWaiver(billId, waiverId);
+    return this.repository.applyWaiver(billId, waiverId, userId);
   }
 }
