@@ -703,6 +703,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         include: { patient: true, attendance: true, Newborn: true }
       });
 
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'DeliveryRecord', entityId: record.id, action: 'CREATE', performedById: data.createdById,
+        newState: { deliveryType: record.deliveryType, deliveryOutcome: record.deliveryOutcome, newbornCount: babies.length },
+        metadata: { source: 'antenatal.delivery.create', newbornCount: babies.length },
+      });
+
       // Close whichever booking was linked to the delivery, including the latest active
       // booking selected automatically when the request does not supply an ANC booking ID.
       if (booking?.id) {
@@ -717,6 +723,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         if (closed.count !== 1) {
           throw new ValidationError('The antenatal booking could not be closed; delivery was not saved');
         }
+        await appendAuditLogWithinTransaction(tx, {
+          entityType: 'AntenatalBooking', entityId: booking.id, action: 'UPDATE', performedById: data.createdById,
+          previousState: { isActive: true, isCompleted: false },
+          newState: { isActive: false, isCompleted: true },
+          metadata: { source: 'antenatal.delivery.close-booking', deliveryRecordId: record.id },
+        });
       }
       return record;
     });
@@ -1080,7 +1092,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('The selected delivery record must match the delivery attendance');
       }
 
-      return tx.postnatalRecord.create({
+      const created = await tx.postnatalRecord.create({
         data: {
           patientId: d.patientId, attendanceId: d.attendanceId, antenatalBookingId: d.antenatalBookingId,
           deliveryRecordId: d.deliveryRecordId, examinationDate, dayNumber: d.dayNumber ?? 1,
@@ -1100,6 +1112,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         },
         include: { patient: true, deliveryRecord: true }
       });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'PostnatalRecord', entityId: created.id, action: 'CREATE', performedById: d.createdById,
+        newState: { dayNumber: created.dayNumber },
+        metadata: { source: 'antenatal.postnatal.create' },
+      });
+      return created;
     });
   }
 
