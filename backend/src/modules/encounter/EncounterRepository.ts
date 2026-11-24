@@ -1748,8 +1748,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     }
   }
 
-  async removeMedication(encounterId: string, medicationId: string, userId: string) {
-    const actorId = await this.requireActorId(userId);
+  async removeMedication(encounterId: string, medicationId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.findFirst({
         where: { id: medicationId, attendanceId: encounterId },
