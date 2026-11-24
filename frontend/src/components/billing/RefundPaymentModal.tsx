@@ -96,6 +96,9 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
         reason: reason.trim(),
         idempotencyKey,
       });
+      // Rotate only after confirmed success. Network failures retain the key so
+      // retrying the same form cannot create a second refund.
+      setIdempotencyKey(uuid());
     } catch (err: any) {
       setError(err?.message || 'The refund could not be processed.');
     } finally {
