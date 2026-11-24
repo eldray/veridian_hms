@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { protect } from '../../middleware/authMiddleware';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 import { ClinicalReportsController } from './ClinicalReportsController';
 
 export function createClinicalReportsRoutes(prisma: PrismaClient): Router {
@@ -8,14 +8,16 @@ export function createClinicalReportsRoutes(prisma: PrismaClient): Router {
   const controller = new ClinicalReportsController(prisma);
 
   router.use(protect);
-  // Read-only clinical summaries are available to authenticated staff.
-  // Result entry, verification and clinical record mutations remain separately guarded.
 
-  router.get('/lab', controller.generateLabReport);
-  router.get('/scan', controller.generateScanReport);
-  router.get('/procedure', controller.generateProcedureReport);
-  router.get('/medication', controller.generateMedicationReport);
-  router.get('/vitals', controller.generateVitalsReport);
+  // These aggregate service reports follow the same role matrix as the Reports UI.
+  // They contain department workload and result-derived aggregates, not patient rows.
+  const serviceReportReaders = ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'sonographer'];
+
+  router.get('/lab', requireRole(serviceReportReaders), controller.generateLabReport);
+  router.get('/scan', requireRole(serviceReportReaders), controller.generateScanReport);
+  router.get('/procedure', requireRole(serviceReportReaders), controller.generateProcedureReport);
+  router.get('/medication', requireRole(serviceReportReaders), controller.generateMedicationReport);
+  router.get('/vitals', requireRole(serviceReportReaders), controller.generateVitalsReport);
 
   return router;
 }
