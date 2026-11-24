@@ -2050,8 +2050,8 @@ async addScan(encounterId: string, data: any, userId: string) {
     }, { timeout: 15000, maxWait: 5000 });
   }
 
-  async removeScan(encounterId: string, scanId: string, userId: string) {
-    const actorId = await this.requireActorId(userId);
+  async removeScan(encounterId: string, scanId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.scan.findFirst({
         where: { id: scanId, attendanceId: encounterId },
@@ -2388,8 +2388,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     }, { timeout: 15000, maxWait: 5000 });
   }
 
-  async removeProcedure(encounterId: string, procedureId: string, userId: string) {
-    const actorId = await this.requireActorId(userId);
+  async removeProcedure(encounterId: string, procedureId: string, userId?: string) {
+    const actorId = userId ? await this.requireActorId(userId) : undefined;
     return this.prisma.$transaction(async (tx) => {
       const current = await tx.procedure.findFirst({
         where: { id: procedureId, attendanceId: encounterId },
