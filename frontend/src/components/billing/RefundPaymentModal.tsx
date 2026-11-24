@@ -41,6 +41,30 @@ const refundableOn = (payment: RefundablePayment) =>
   Math.max(0, roundMoney(Number(payment.amount) - refundedOn(payment)));
 
 const METHODS = ['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque'];
+const refundAttemptStorageKey = (paymentId: string) => `veridian:refund-attempt:${paymentId}`;
+
+const getOrCreateRefundAttemptKey = (paymentId: string): string => {
+  try {
+    const storageKey = refundAttemptStorageKey(paymentId);
+    const existing = sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+    const key = uuid();
+    sessionStorage.setItem(storageKey, key);
+    return key;
+  } catch {
+    return uuid();
+  }
+};
+
+const rotateRefundAttemptKey = (paymentId: string): string => {
+  const key = uuid();
+  try {
+    sessionStorage.setItem(refundAttemptStorageKey(paymentId), key);
+  } catch {
+    // The in-memory key still protects retries while this dialog remains mounted.
+  }
+  return key;
+};
 
 /**
  * Money handed back against one payment.
@@ -65,7 +89,7 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
     setReason('');
     setError('');
     // Keep this key stable while the dialog remains open, including after a lost response.
-    setIdempotencyKey(uuid());
+    setIdempotencyKey(getOrCreateRefundAttemptKey(payment.id));
   }, [payment?.id]);
 
   if (!payment) return null;
@@ -98,7 +122,7 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
       });
       // Rotate only after confirmed success. Network failures retain the key so
       // retrying the same form cannot create a second refund.
-      setIdempotencyKey(uuid());
+      setIdempotencyKey(rotateRefundAttemptKey(payment.id));
     } catch (err: any) {
       setError(err?.message || 'The refund could not be processed.');
     } finally {
