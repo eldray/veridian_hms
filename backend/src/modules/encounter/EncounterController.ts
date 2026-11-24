@@ -381,6 +381,7 @@ export class EncounterController extends BaseController {
     const { status, ...updates } = req.body;
     const user = req.user!;
     const procedure = await this.service.updateProcedureStatus(procedureId, status, updates, user.id);
+    (req as any).auditHandled = true;
     return this.ok(res, procedure, 'Procedure status updated');
   });
 
