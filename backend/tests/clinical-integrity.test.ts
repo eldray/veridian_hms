@@ -676,7 +676,10 @@ describe('clinical encounter ownership', () => {
 
     expect(findFirst).toHaveBeenCalledWith({
       where: { id: 'lab-from-encounter-b', attendanceId: 'encounter-a' },
-      select: { id: true, status: true },
+      select: {
+        id: true, status: true, priority: true, performedById: true,
+        completedAt: true, requestedAt: true, createdById: true,
+      },
     });
     expect(updateMany).not.toHaveBeenCalled();
   });
@@ -1596,10 +1599,13 @@ describe('completed investigation cancellation protection', () => {
 describe('completed clinical record edit protection', () => {
   it('locks completed laboratory results from ordinary edits', async () => {
     const update = vi.fn();
-    const repository = new EncounterRepository({
+    const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
-      labTest: { findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }), update },
-    } as any);
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
+      labTest: { findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', attendanceId: 'attendance-1', status: 'completed' }), update },
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
     await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: 'changed' }, 'staff-1'))
       .rejects.toThrow(/completed laboratory result is locked/i);
     expect(update).not.toHaveBeenCalled();
