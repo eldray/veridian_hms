@@ -236,7 +236,14 @@ export default function TheatreProcedure() {
     setQueueLoading(true);
     try {
       const response: any = await getTheatreWorklist();
-      const rows: any[] = response?.data?.data || [];
+      // The API returns the standard envelope around a worklist object whose
+      // rows live in its own data array. Support intercepted/direct shapes too.
+      const payload = response?.data?.data ?? response?.data ?? response;
+      const rows: any[] = Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload)
+          ? payload
+          : [];
       setQueueRows(rows.map((row) => ({
         attendanceId: row.attendanceId,
         patientId: row.patientId,
