@@ -90,7 +90,7 @@ export default function RefundPaymentModal({ payment, billNumber, onClose, onSub
     setError('');
     // Keep this key stable while the dialog remains open, including after a lost response.
     setIdempotencyKey(getOrCreateRefundAttemptKey(payment.id));
-  }, [payment?.id]);
+  }, [payment]);
 
   if (!payment) return null;
 
