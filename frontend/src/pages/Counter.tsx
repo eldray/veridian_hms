@@ -45,14 +45,9 @@ export default function Counter() {
     const requestId = requestSeq.current + 1; requestSeq.current = requestId;
     if (!silent) setLoadingList(true);
     try {
-      const response = await listCounterTickets({ query: params.text || undefined, lens: params.lens || undefined, page: params.page, limit: params.size, sortBy: sort, sortOrder: sort === 'oldest' ? 'asc' : 'desc' } as any);
+      const response = await listCounterTickets({ query: params.text || undefined, lens: params.lens || undefined, page: params.page, limit: params.size, sortBy: sort, sortOrder: ['oldest', 'customerName', 'ticketNo', 'status'].includes(sort) ? 'asc' : 'desc' } as any);
       if (requestSeq.current !== requestId) return;
-      let rows = unwrap(response);
-      // If the backend ignores sortBy, sort the returned page the same way so the UI never lies about the active sort. Server sort (when honoured) wins because rows already arrive ordered.
-      const nameOf = (r: any) => identityOf(r)?.label || '';
-      if (sort === 'customerName') rows = [...rows].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
-      if (sort === 'ticketNo') rows = [...rows].sort((a, b) => String(a.attendanceNumber || '').localeCompare(String(b.attendanceNumber || '')));
-      if (sort === 'status') rows = [...rows].sort((a, b) => String(a.status || '').localeCompare(String(b.status || '')));
+      const rows = unwrap(response);
       const total = Number(response?.meta?.total ?? rows.length);
       const pages = Math.max(1, Number(response?.meta?.totalPages ?? Math.ceil(total / params.size)));
       setTickets(rows); setTotalTickets(total); setTotalPages(pages);
