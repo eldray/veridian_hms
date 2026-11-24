@@ -1,7 +1,7 @@
 import { PrismaClient, Prisma, BillStatus, PaymentMode } from '@prisma/client';
 import { ValidationError } from '../../utils/errors';
 import { BaseRepository } from '../../shared/base/BaseRepository';
-import { appendPaymentFinancialAudit, appendRefundFinancialAudit } from '../bill/financialAudit';
+import { appendPaymentFinancialAudit, appendRefundFinancialAudit, appendStructuredFinancialAudit } from '../bill/financialAudit';
 import { BillFilters } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
 import { resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
@@ -773,7 +773,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const newBalance = Math.max(0, money(newPatientPayable - toNumber(currentBill.paidAmount)));
       const newStatus: BillStatus = newBalance <= 0 ? 'paid' : (toNumber(currentBill.paidAmount) > 0 ? 'partial' : 'pending');
 
-      await tx.bill.update({
+      const updatedBill = await tx.bill.update({
         where: { id: lineItem.billId },
         data: {
           subtotal: newSubtotal,
@@ -787,16 +787,56 @@ export class BillingRepository extends BaseRepository<any, any, any> {
           updatedAt: new Date()
         }
       });
+      await appendStructuredFinancialAudit(
+        tx, userId, 'BillLineItem', lineItem.id, 'update',
+        {
+          id: lineItem.id, billId: lineItem.billId, isVoided: lineItem.isVoided,
+          quantity: lineItem.quantity, lineTotal: toNumber(lineItem.lineTotal),
+          patientPayableAmount: toNumber(lineItem.patientPayableAmount),
+          insuranceCoveredAmount: toNumber(lineItem.insuranceCoveredAmount),
+        },
+        {
+          id: updatedLineItem.id, billId: updatedLineItem.billId, isVoided: updatedLineItem.isVoided,
+          quantity: updatedLineItem.quantity, lineTotal: toNumber(updatedLineItem.lineTotal),
+          patientPayableAmount: toNumber(updatedLineItem.patientPayableAmount),
+          insuranceCoveredAmount: toNumber(updatedLineItem.insuranceCoveredAmount),
+          voidedAt: updatedLineItem.voidedAt, voidedById: updatedLineItem.voidedById,
+        },
+        { source: 'billing_repository_line_item_void' },
+      );
+      await appendStructuredFinancialAudit(
+        tx, userId, 'Bill', updatedBill.id, 'update',
+        {
+          subtotal: toNumber(currentBill.subtotal), taxAmount: toNumber(currentBill.taxAmount),
+          totalAmount: toNumber(currentBill.totalAmount), insuranceCovered: toNumber(currentBill.insuranceCovered),
+          patientPayable: toNumber(currentBill.patientPayable), waiverAmount: toNumber(currentBill.waiverAmount),
+          paidAmount: toNumber(currentBill.paidAmount), balance: toNumber(currentBill.balance), status: currentBill.status,
+        },
+        {
+          subtotal: toNumber(updatedBill.subtotal), taxAmount: toNumber(updatedBill.taxAmount),
+          totalAmount: toNumber(updatedBill.totalAmount), insuranceCovered: toNumber(updatedBill.insuranceCovered),
+          patientPayable: toNumber(updatedBill.patientPayable), waiverAmount: toNumber(updatedBill.waiverAmount),
+          paidAmount: toNumber(updatedBill.paidAmount), balance: toNumber(updatedBill.balance), status: updatedBill.status,
+        },
+        { source: 'billing_repository_line_item_void' },
+      );
 
       // Voiding a corporate charge must reverse the same amount from account
       // utilization that was added when the bill was created.
       if (currentBill.paymentMode === 'corporate' && currentBill.corporateAccountId) {
         const removedCharge = Math.max(0, toNumber(currentBill.totalAmount) - newTotal);
         if (removedCharge > 0) {
-          await tx.corporateAccount.update({
+          const corporateAfter = await tx.corporateAccount.update({
             where: { id: currentBill.corporateAccountId },
-            data: { currentBalance: { decrement: removedCharge } }
+            data: { currentBalance: { decrement: removedCharge } },
+            select: { id: true, currentBalance: true },
           });
+          await appendStructuredFinancialAudit(
+            tx, userId, 'CorporateAccount', corporateAfter.id, 'update',
+            { currentBalance: toNumber(corporateAfter.currentBalance) + removedCharge },
+            { currentBalance: toNumber(corporateAfter.currentBalance) },
+            { source: 'billing_repository_line_item_void', billId: lineItem.billId },
+          );
         }
       }
       if (currentBill.attendanceId) await this.syncAttendanceFinancials(tx, currentBill.attendanceId, { ...currentBill, totalAmount: newTotal, balance: newBalance });
