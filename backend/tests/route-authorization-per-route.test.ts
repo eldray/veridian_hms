@@ -93,6 +93,14 @@ describe('route authorization, route by route', () => {
     expect(source).toContain("router.get('/:id/ward-charges', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'])");
   });
 
+  it('restricts legacy billing invoice detail and item reads by staff role', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'billing', 'BillingRoutes.ts'), 'utf8');
+    expect(source).toContain("router.get('/invoices/:id', requireRole(BILL_READERS)");
+    expect(source).toContain("router.get('/invoices/:id/items', requireRole(BILL_ITEM_READERS)");
+    expect(source).toContain("const BILL_READERS = ['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'];");
+    expect(source).toContain("const BILL_ITEM_READERS = [...BILL_READERS, 'pharmacist'];");
+  });
+
   it('restricts patient-linked bill and payment detail reads to care, records and finance roles', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src', 'modules', 'bill', 'BillRoutes.ts'), 'utf8');
     for (const route of [
