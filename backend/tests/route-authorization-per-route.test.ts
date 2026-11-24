@@ -105,9 +105,21 @@ describe('route authorization, route by route', () => {
     const current = fs.readFileSync(path.join(modulesDir, 'bill', 'BillController.ts'), 'utf8');
     const legacy = fs.readFileSync(path.join(modulesDir, 'billing', 'BillingController.ts'), 'utf8');
     expect(current).toContain("body('idempotencyKey').isUUID().withMessage('A valid payment idempotency key is required')");
+    expect(current).toContain("body('paymentMethod').isIn(['cash', 'card', 'bank_transfer', 'cheque'])");
     expect(legacy).toContain("body('idempotencyKey').isUUID().withMessage('A valid payment idempotency key is required')");
+    expect(legacy).toContain("body('paymentMethod').isIn(['cash', 'card', 'bank_transfer', 'cheque'])");
     expect(current).not.toContain("body('idempotencyKey').optional().isUUID()");
     expect(legacy).not.toContain("body('idempotencyKey').optional().isUUID()");
+  });
+
+  it('keeps provider-backed Mobile Money off the manual payment endpoints', () => {
+    const current = fs.readFileSync(path.join(modulesDir, 'bill', 'BillController.ts'), 'utf8');
+    const legacy = fs.readFileSync(path.join(modulesDir, 'billing', 'BillingController.ts'), 'utf8');
+    const service = fs.readFileSync(path.join(modulesDir, 'billing', 'BillingService.ts'), 'utf8');
+    expect(current).toContain("body('paymentMethod').isIn(['cash', 'card', 'bank_transfer', 'cheque'])");
+    expect(legacy).toContain("body('paymentMethod').isIn(['cash', 'card', 'bank_transfer', 'cheque'])");
+    expect(service).toContain("if (data.paymentMethod === 'mobile_money' || (data as any).internalMomoIntentId)");
+    expect(service).toContain("async addConfirmedMomoPayment");
   });
 
   it('restricts patient-linked bill and payment detail reads to care, records and finance roles', () => {
