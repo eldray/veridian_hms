@@ -758,7 +758,7 @@ export class EncounterService extends BaseService {
   async addDiagnosis(id: string, data: AddDiagnosisDTO, userId: string) { return this.repository.addDiagnosis(id, data, userId); }
   async updateDiagnosis(id: string, diagnosisRowId: string, data: any, userId?: string) { return this.repository.updateDiagnosis(id, diagnosisRowId, data, userId); }
   async setPrimaryDiagnosis(id: string, diagnosisId: string, userId: string) { return this.addDiagnosis(id, { diagnosisId, diagnosisType: 'primary' }, userId); }
-  async removeDiagnosis(id: string, diagnosisId: string) { return this.repository.removeDiagnosis(id, diagnosisId); }
+  async removeDiagnosis(id: string, diagnosisId: string, userId?: string) { return this.repository.removeDiagnosis(id, diagnosisId, userId); }
   
   /** Latest vitals reading for each of many encounters in ONE query (the nursing board used to ask once per patient). */
   async getLatestVitals(ids: string[]) {
