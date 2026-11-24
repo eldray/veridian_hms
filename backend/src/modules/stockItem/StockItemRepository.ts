@@ -128,10 +128,11 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     return this.getModel().findUnique({
       where: { id },
       include: {
-        Medication: { include: { Attendance: { select: { attendanceNumber: true, Patient: { select: { surname: true, otherNames: true, folderNumber: true } } } } }, orderBy: { prescribedAt: 'desc' }, take: 50 },
+        // Patient-linked dispensing history has its own role-restricted endpoint
+        // (/:id/medications). Purchasing invoices and requisition histories also
+        // have dedicated, permission-scoped screens; embedding them here exposed
+        // cross-department and patient-linked records to every catalogue reader.
         StockTransaction: { where: includeAllStockLocations ? {} : locationWhere, orderBy: { transactionDate: 'desc' }, take: 20 },
-        InvoiceItem: { include: { Invoice: { select: { invoiceNumber: true, supplierName: true, invoiceDate: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
-        RequisitionItem: { include: { Requisition: { select: { requisitionNumber: true, status: true, urgency: true, createdAt: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
         StockBatch: {
           where: includeAllStockLocations ? {} : { departmentId: departmentId ?? null, wardId: null },
           include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
