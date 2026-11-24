@@ -11,11 +11,11 @@ export function createReportRoutes(prisma: PrismaClient): Router {
   router.use(protect);
 
   router.get('/financial', requireRole(['admin', 'accounts']), (req, res) => controller.getFinancialReport(req, res));
-  router.get('/clinical', (req, res) => controller.getClinicalReport(req, res));
+  router.get('/clinical', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer']), (req, res) => controller.getClinicalReport(req, res));
   router.get('/revenue', requireRole(['admin', 'accounts']), (req, res) => controller.getRevenueReport(req, res));
   router.get('/insurance-claims', requireRole(['admin', 'accounts']), (req, res) => controller.getInsuranceClaimsReport(req, res));
-  router.get('/attendance', (req, res) => controller.getAttendanceReport(req, res));
-  router.get('/demographic', (req, res) => controller.getDemographicReport(req, res));
+  router.get('/attendance', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), (req, res) => controller.getAttendanceReport(req, res));
+  router.get('/demographic', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']), (req, res) => controller.getDemographicReport(req, res));
   router.post('/export', requireRole(['admin', 'accounts', 'records']), (req, res) => controller.exportReport(req, res));
   router.get('/export', requireRole(['admin', 'accounts', 'records']), (req, res) => controller.exportReport(req, res));
 
@@ -24,7 +24,6 @@ export function createReportRoutes(prisma: PrismaClient): Router {
   // This widget returns identifiable patient and NHIS membership details; keep it
   // with the NHIS expiry report rather than exposing it to every signed-in role.
   router.get('/nhis-expiring-soon', requireRole(['admin', 'accounts', 'records']), (req, res) => controller.getNhisExpiringSoon(req, res));
-
 
   return router;
 }
