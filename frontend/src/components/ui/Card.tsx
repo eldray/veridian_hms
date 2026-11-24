@@ -13,10 +13,12 @@ export interface CardProps {
   /** Set false for tables that should bleed to the card edge. */
   padded?: boolean;
   className?: string;
+  /** Optional layout classes for the content wrapper, useful for bounded scroll panels. */
+  contentClassName?: string;
 }
 
 /** Surface with an optional titled strip. Section titles all read the same size. */
-export function Card({ title, description, icon: Icon, accent = 'cyan', actions, children, padded = true, className }: CardProps) {
+export function Card({ title, description, icon: Icon, accent = 'cyan', actions, children, padded = true, className, contentClassName }: CardProps) {
   const hasHeader = !!(title || actions || Icon);
   return (
     <div className={cn('bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-hidden', className)}>
@@ -39,7 +41,7 @@ export function Card({ title, description, icon: Icon, accent = 'cyan', actions,
           {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
         </div>
       )}
-      <div className={padded ? 'p-4' : undefined}>{children}</div>
+      <div className={cn(padded ? 'p-4' : undefined, contentClassName)}>{children}</div>
     </div>
   );
 }
