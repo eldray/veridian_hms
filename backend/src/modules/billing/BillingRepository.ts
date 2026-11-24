@@ -146,7 +146,6 @@ export class BillingRepository extends BaseRepository<any, any, any> {
             claimNumber: true,
             status: true,
             totalClaimAmount: true,
-            submissionDate: false,
             ...latestSubmissionEvent,
           }
         },
