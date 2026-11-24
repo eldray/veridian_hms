@@ -502,10 +502,6 @@ export class BillingRepository extends BaseRepository<any, any, any> {
   }
 
   /**
-   * Every charged line in a date window    });
-  }
-
-  /**
    * Every charged line in a date window, for the revenue-lines report. The bill travels with
    * each line because it is the bill that carries the payer and the customer — the alternative
    * was a lookup per row.
