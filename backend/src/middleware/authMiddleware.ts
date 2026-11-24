@@ -31,6 +31,9 @@ interface DecodedToken {
   version?: number;
 }
 
+export const isAccessTokenVersionCurrent = (tokenVersion: unknown, userVersion: number): boolean =>
+  Number.isInteger(tokenVersion) && tokenVersion === userVersion;
+
 const isSuperAdmin = (role?: string) => String(role || '').toLowerCase() === 'super_admin';
 const isSystemAdmin = (role?: string) => String(role || '').toLowerCase() === 'admin';
 
@@ -92,7 +95,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
     // A password reset/change increments the persisted account version. Any
     // access JWT minted before that change is rejected immediately, not merely
     // after its expiry. Tokens without a version are intentionally rejected.
-    if (decoded.version !== currentUser.version) {
+    if (!isAccessTokenVersionCurrent(decoded.version, currentUser.version)) {
       res.status(401).json({ success: false, message: 'Session expired. Please sign in again.' });
       return;
     }
