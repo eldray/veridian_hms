@@ -181,6 +181,7 @@ export class AntenatalController extends BaseController {
       // The repository creates the delivery and closes the linked ANC booking
       // in one transaction, so a failed closure cannot leave a partial delivery.
       const record = await this.service.createDeliveryRecord(data);
+      (req as any).auditHandled = true;
       return this.created(res, record, 'Delivery record created successfully');
     })
   ];
@@ -245,6 +246,7 @@ export class AntenatalController extends BaseController {
       
       const data: CreatePostnatalRecordInput = { ...req.body, examinationDate: new Date(req.body.examinationDate), createdById: req.user!.id };
       const record = await this.service.createPostnatalRecord(data);
+      (req as any).auditHandled = true;
       return this.created(res, record, 'Postnatal record created successfully');
     })
   ];
