@@ -66,6 +66,22 @@ const routes = scan();
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 describe('route authorization, route by route', () => {
+
+  it('matches report API read permissions to the report registry role matrix', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'report', 'ReportRoutes.ts'), 'utf8');
+    expect(source).toContain("router.get('/clinical', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer'])");
+    expect(source).toContain("router.get('/attendance', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records'])");
+    expect(source).toContain("router.get('/demographic', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'])");
+  });
+
+  it('restricts clinical service aggregate reports to the authorised service staff roles', () => {
+    const source = fs.readFileSync(path.join(modulesDir, 'clinicalReports', 'ClinicalReportsRoutes.ts'), 'utf8');
+    for (const route of ['/lab', '/scan', '/procedure', '/medication', '/vitals']) {
+      expect(source).toMatch(new RegExp(`router\\.get\\('${route}', requireRole\\(serviceReportReaders\\)`));
+    }
+    expect(source).toContain("const serviceReportReaders = ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'sonographer'];");
+  });
+
   it('restricts encounter worklists and vital-sign reads to their authorised departments', () => {
     const source = fs.readFileSync(path.join(modulesDir, 'encounter', 'EncounterRoutes.ts'), 'utf8');
     const expected = [
