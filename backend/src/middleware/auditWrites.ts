@@ -35,7 +35,7 @@ function safeBody(body: any): any {
   if (!body || typeof body !== 'object' || Object.keys(body).length === 0) return null;
   const cleaned = redact(body);
   const text = JSON.stringify(cleaned);
-  return text.length > MAX_BODY_CHARS ? { note: 'Request body too large to store', size: text.length } : cleaned;
+  return text.length > MAX_BODY_CHARS ? { note: 'Audit payload too large to store', size: text.length } : cleaned;
 }
 
 /** "stock-transactions" -> "StockTransaction" */
