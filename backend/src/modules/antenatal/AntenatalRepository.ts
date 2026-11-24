@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import {
@@ -106,7 +107,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('Gestational age must be between 0 and 42 weeks');
     }
 
-    return this.getModel().create({
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.antenatalBooking.create({
       data: {
         patientId: data.patientId, attendanceId: data.attendanceId, currentAttendanceId: data.attendanceId,
         bookingDate: new Date(), lmp, edd, gravida, para,
@@ -128,6 +130,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         isActive: true, isCompleted: false, createdById: data.createdById
       },
       include: { patient: true }
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'AntenatalBooking', entityId: created.id, action: 'CREATE', performedById: data.createdById,
+        newState: { isActive: true, isCompleted: false }, metadata: { source: 'antenatal.booking.create' },
+      });
+      return created;
     });
   }
 
@@ -357,17 +365,22 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       // Encounter creation already seeds a blank ANC visit. Update that record instead
       // of attempting a second insert for the same attendance and losing the submitted form.
       if (existingVisit) {
-        return tx.aNCVisit.update({
+        const updated = await tx.aNCVisit.update({
           where: { id: existingVisit.id },
           // Attribute the completed clinical entry to the person who recorded it,
           // not necessarily the user who created the attendance or blank seed row.
           data: { ...visitFields, recordedById: data.recordedById },
           include: { recordedBy: { select: { fullName: true, role: true } } },
         });
+        await appendAuditLogWithinTransaction(tx, {
+          entityType: 'ANCVisit', entityId: updated.id, action: 'UPDATE', performedById: data.recordedById,
+          metadata: { source: 'antenatal.visit.create', mode: 'complete-seeded-visit', changedFields: Object.keys(visitFields) },
+        });
+        return updated;
       }
 
       const visitCount = await tx.aNCVisit.count({ where: { bookingId: booking.id } });
-      return tx.aNCVisit.create({
+      const created = await tx.aNCVisit.create({
         data: {
           bookingId: booking.id,
           attendanceId: attendance.id,
@@ -377,6 +390,11 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         },
         include: { recordedBy: { select: { fullName: true, role: true } } },
       });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'ANCVisit', entityId: created.id, action: 'CREATE', performedById: data.recordedById,
+        newState: { visitNumber: created.visitNumber }, metadata: { source: 'antenatal.visit.create', changedFields: Object.keys(visitFields) },
+      });
+      return created;
     });
   }
 

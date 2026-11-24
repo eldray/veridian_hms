@@ -993,6 +993,8 @@ describe('maternal record integrity', () => {
   it('updates the ANC visit seeded by encounter creation rather than inserting a duplicate', async () => {
     const savedVisit = { id: 'visit-1', bookingId: 'booking-1', attendanceId: 'attendance-1' };
     const tx: any = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal' }) },
       antenatalBooking: { findUnique: vi.fn().mockResolvedValue({ id: 'booking-1', patientId: 'patient-1', isActive: true, isCompleted: false }) },
       aNCVisit: {
@@ -1159,10 +1161,16 @@ describe('maternal record integrity', () => {
   it('does not invent today as the administration date for historical TT/IPTp doses', async () => {
     const create = vi.fn().mockResolvedValue({ id: 'booking-1' });
     const findFirst = vi.fn().mockResolvedValue(null);
+    const tx: any = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+      antenatalBooking: { create },
+    };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal' }) },
-      antenatalBooking: { findFirst, create },
+      antenatalBooking: { findFirst },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
     const repository = new AntenatalRepository(prisma);
 
