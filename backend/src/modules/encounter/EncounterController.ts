@@ -188,7 +188,7 @@ export class EncounterController extends BaseController {
 
   updateDiagnosis = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id, diagnosisId } = req.params;
-    const updated = await this.service.updateDiagnosis(id, diagnosisId, req.body);
+    const updated = await this.service.updateDiagnosis(id, diagnosisId, req.body, req.user?.id);
     return this.ok(res, updated, 'Diagnosis updated successfully');
   });
 
@@ -203,7 +203,7 @@ export class EncounterController extends BaseController {
 
   removeDiagnosis = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id, diagnosisId } = req.params;
-    await this.service.removeDiagnosis(id, diagnosisId);
+    await this.service.removeDiagnosis(id, diagnosisId, req.user?.id);
     return this.ok(res, null, 'Diagnosis removed successfully');
   });
 
