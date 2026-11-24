@@ -163,8 +163,10 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
   });
 
   router.post('/records', requireRole(writeRoles), async (req: AuthRequest, res: Response) => {
-    const { patientId, attendanceId, vaccineId, doseNumber, administeredAt, recordedById } = req.body ?? {};
-    const recordedBy = req.user?.id || recordedById;
+    const { patientId, attendanceId, vaccineId, doseNumber, administeredAt } = req.body ?? {};
+    // Performer and recorder identities come from the authenticated session, never
+    // from client-supplied IDs that could falsely attribute clinical activity.
+    const recordedBy = req.user!.id;
     if (!patientId || !attendanceId || !vaccineId || !doseNumber || !administeredAt || !recordedBy) {
       return res.status(400).json({ success: false, message: 'Patient, attendance, vaccine, dose, administration date and recording staff are required.' });
     }
@@ -192,7 +194,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
         doseVolume: req.body.doseVolume || null, route: req.body.route || null, administrationSite: req.body.administrationSite || null,
         batchNumber: req.body.batchNumber || null, expiryDate,
         nextDoseDue, adverseReaction: req.body.adverseReaction || null,
-        notes: req.body.notes || null, administeredById: req.body.administeredById || req.user?.id || null, recordedById: recordedBy
+        notes: req.body.notes || null, administeredById: req.user!.id, recordedById: recordedBy
       }});
 
       if (vaccine.stockItemId && vaccine.StockItem) {
