@@ -1595,14 +1595,19 @@ describe('completed investigation cancellation protection', () => {
 
 describe('completed clinical record edit protection', () => {
   it('locks completed laboratory results from ordinary edits', async () => {
-    const update = vi.fn();
+    const updateMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      labTest: { findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }), updateMany },
+      attendance: { findUnique: vi.fn() },
+    };
     const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
-      labTest: { findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }), update },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
     await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: 'changed' }, 'staff-1'))
       .rejects.toThrow(/completed laboratory result is locked/i);
-    expect(update).not.toHaveBeenCalled();
+    expect(updateMany).not.toHaveBeenCalled();
   });
 
   it('locks completed procedure records from ordinary edits', async () => {
