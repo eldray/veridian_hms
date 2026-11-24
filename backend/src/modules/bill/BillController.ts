@@ -40,7 +40,7 @@ export const updateBillValidation = [
 
 export const addPaymentValidation = [
   body('amount').isFloat({ min: 0.01 }).withMessage('Payment amount must be greater than 0'),
-  body('paymentMethod').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid payment method'), // ✅ Fixed to paymentMethod
+  body('paymentMethod').isIn(['cash', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid payment method'), // ✅ Fixed to paymentMethod
   body('reference').optional().isString(),
   body('notes').optional().isString(),
   body('idempotencyKey').isUUID().withMessage('A valid payment idempotency key is required')
