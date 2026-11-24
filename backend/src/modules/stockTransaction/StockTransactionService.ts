@@ -138,21 +138,21 @@ export class StockTransactionService extends BaseService {
     return tx;
   }
 
-  async update(id: string, data: any, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+  async update(id: string, data: any, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}, performedById?: string) {
     this.logInfo('Updating transaction notes', { id });
     const existing = await this.repo.findByIdWithRelations(id, filters);
     if (!existing) throw new Error('Stock transaction not found');
-    return this.repo.updateNotes(id, data.notes, data.reference);
+    return this.repo.updateNotes(id, data.notes, data.reference, performedById);
   }
 
-  async delete(id: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+  async delete(id: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}, performedById?: string) {
     this.logInfo('Deleting and reversing transaction', { id });
     // Enforce the same location scope used by read/update operations before
     // allowing a reversal. Without this check, a user could delete another
     // department's stock movement by guessing its transaction ID.
     const existing = await this.repo.findByIdWithRelations(id, filters);
     if (!existing) throw new NotFoundError('Stock transaction not found');
-    return this.repo.deleteSafely(id);
+    return this.repo.deleteSafely(id, performedById);
   }
 
   async getLowStockAlerts(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
