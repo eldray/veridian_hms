@@ -15,18 +15,19 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   // Image files are handled by the dedicated upload-image endpoint.
   const parseMultipartFields = multer().none();
 
-  // Any signed-in staff member may read patient/clinical context needed for their workflow.
-  // Mutating patient demographics and EMR records remains role-restricted below.
+  // Patient demographics and EMR context are limited to the roles authorised for the
+  // Patients area (admin/super_admin are inherited by requirePatientManagement).
+  // Other departments use their own scoped worklists instead of this patient-wide API.
   router.use(protect);
 
   // Search and list patients
-  router.get('/', controller.searchPatients);
-  router.get('/stats', controller.getStats);
-  router.get('/recent', controller.getRecentPatients);
-  router.get('/corporate/:corporateAccountId', controller.getPatientsByCorporateAccount);
-  router.get('/nhis/:nhisNumber', controller.getPatientByNHIS);
-  router.get('/:id/corporate-summary', controller.getPatientCorporateSummary);
-  router.get('/:id', controller.getPatientById);
+  router.get('/', requirePatientManagement, controller.searchPatients);
+  router.get('/stats', requirePatientManagement, controller.getStats);
+  router.get('/recent', requirePatientManagement, controller.getRecentPatients);
+  router.get('/corporate/:corporateAccountId', requirePatientManagement, controller.getPatientsByCorporateAccount);
+  router.get('/nhis/:nhisNumber', requirePatientManagement, controller.getPatientByNHIS);
+  router.get('/:id/corporate-summary', requirePatientManagement, controller.getPatientCorporateSummary);
+  router.get('/:id', requirePatientManagement, controller.getPatientById);
   router.post('/', requirePatientManagement, parseMultipartFields, controller.createPatient);
   router.post('/generate-ccc', requirePatientManagement, controller.generateCCC);
   router.put('/:id', requirePatientManagement, parseMultipartFields, controller.updatePatient);
@@ -40,9 +41,9 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   // NEW: EMR (Allergies & Histories) Routes
   // ==========================================
   router.post('/:id/allergies', requirePatientManagement, validateBody(createAllergySchema), controller.addAllergy);
-  router.get('/:id/allergies', controller.getAllergies);
+  router.get('/:id/allergies', requirePatientManagement, controller.getAllergies);
   router.post('/:id/medical-history', requirePatientManagement, validateBody(createMedicalHistorySchema), controller.addMedicalHistory);
-  router.get('/:id/medical-history', controller.getMedicalHistories);
+  router.get('/:id/medical-history', requirePatientManagement, controller.getMedicalHistories);
 
   return router;
 }
