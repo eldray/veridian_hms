@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import { getCounterService } from '../../services/CounterService';
@@ -304,7 +304,7 @@ export class CounterRepository extends BaseRepository<any, any, any> {
     // base pagination helper (which is bound to this repository's own model).
     // Sorting must happen before skip/take so every page is part of the same ordering.
     const direction = sortOrder ?? (sortBy === 'oldest' ? 'asc' : 'desc');
-    const orderBy = sortBy === 'customerName'
+    const orderBy: Prisma.AttendanceOrderByWithRelationInput[] = sortBy === 'customerName'
       ? [{ CounterClient: { name: direction } }, { Patient: { surname: direction } }, { id: 'asc' }]
       : sortBy === 'ticketNo'
         ? [{ attendanceNumber: direction }, { id: 'asc' }]
