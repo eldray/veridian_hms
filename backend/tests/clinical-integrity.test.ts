@@ -177,8 +177,12 @@ describe('overdue MAR dose transitions', () => {
 describe('atomic MAR dose writes', () => {
   it('claims only an eligible dose for administration and rejects a lost race', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
-    const findUnique = vi.fn().mockResolvedValue({ id: 'dose-1' });
-    const prisma: any = { medicationDose: { updateMany, findUnique } };
+    const findUnique = vi.fn().mockResolvedValue({ id: 'dose-1', status: 'due' });
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      medicationDose: { updateMany, findUnique },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
     const repository = new NursingRepository(prisma);
 
     await expect(repository.administerDose('dose-1', 'nurse-1', {}))
@@ -203,8 +207,14 @@ describe('atomic MAR dose writes', () => {
 
   it('does not record a medication variance after the encounter has closed', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
-    const findUnique = vi.fn().mockResolvedValue({ id: 'dose-1' });
-    const repository = new NursingRepository({ medicationDose: { updateMany, findUnique } } as any);
+    const findUnique = vi.fn().mockResolvedValue({ id: 'dose-1', status: 'due' });
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      medicationDose: { updateMany, findUnique },
+    };
+    const repository = new NursingRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
 
     await expect(repository.recordDoseVariance('dose-1', 'nurse-1', { status: 'refused', reason: 'Patient refused' }))
       .rejects.toThrow(/encounter\/prescription is closed/i);

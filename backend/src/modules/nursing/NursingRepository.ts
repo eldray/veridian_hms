@@ -2,6 +2,7 @@
 import { PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { ConflictError, NotFoundError } from '../../utils/errors';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 import {
   MarFilters,
   NursingNoteFilters,
@@ -112,37 +113,59 @@ export class NursingRepository extends BaseRepository<any, any, any> {
     userId: string,
     data: { administeredAt?: Date; site?: string; notes?: string },
   ) {
-    // Conditional write closes the gap between the service's pre-check and this
-    // mutation: two MAR sessions cannot both record the same dose, and closed
-    // encounters/cancelled prescriptions cannot pass the final database filter.
-    const result = await this.prisma.medicationDose.updateMany({
-      where: {
-        id: doseId,
-        status: { in: ['scheduled', 'due', 'late'] },
-        medication: {
-          is: {
-            status: { not: 'cancelled' },
-            Attendance: { is: { status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] } } },
+    return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "MedicationDose" WHERE "id" = ${doseId} FOR UPDATE`;
+      }
+      const current = await tx.medicationDose.findUnique({
+        where: { id: doseId },
+        select: { id: true, status: true },
+      });
+      if (!current) throw new NotFoundError('Medication dose', doseId);
+
+      const result = await tx.medicationDose.updateMany({
+        where: {
+          id: doseId,
+          status: { in: ['scheduled', 'due', 'late'] },
+          medication: {
+            is: {
+              status: { not: 'cancelled' },
+              Attendance: { is: { status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] } } },
+            },
           },
         },
-      },
-      data: {
-        status: 'administered',
-        administeredAt: data.administeredAt ?? new Date(),
-        administeredById: userId,
-        site: data.site ?? undefined,
-        notes: data.notes ?? undefined,
-      },
-    });
-    if (result.count !== 1) {
-      const existing = await this.prisma.medicationDose.findUnique({ where: { id: doseId }, select: { id: true } });
-      if (!existing) throw new NotFoundError('Medication dose', doseId);
-      throw new ConflictError('This dose is no longer awaiting administration or its encounter/prescription is closed');
-    }
-    return this.prisma.medicationDose.findUniqueOrThrow({
-      where: { id: doseId },
-      include: this.doseInclude(),
-    });
+        data: {
+          status: 'administered',
+          administeredAt: data.administeredAt ?? new Date(),
+          administeredById: userId,
+          site: data.site ?? undefined,
+          notes: data.notes ?? undefined,
+        },
+      });
+      if (result.count !== 1) {
+        throw new ConflictError('This dose is no longer awaiting administration or its encounter/prescription is closed');
+      }
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'MedicationDose',
+        entityId: doseId,
+        action: 'update',
+        performedById: userId,
+        previousState: { status: current.status },
+        newState: { status: 'administered' },
+        metadata: {
+          operation: 'mar_dose_administered',
+          fromStatus: current.status,
+          toStatus: 'administered',
+          siteRecorded: Boolean(data.site),
+          notesRecorded: Boolean(data.notes),
+          clinicalContentOmitted: true,
+        },
+      });
+      return tx.medicationDose.findUniqueOrThrow({
+        where: { id: doseId },
+        include: this.doseInclude(),
+      });
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async recordDoseVariance(
@@ -150,35 +173,58 @@ export class NursingRepository extends BaseRepository<any, any, any> {
     userId: string,
     data: { status: DoseStatus; reason?: string; notes?: string },
   ) {
-    // A variance is still a clinical action; apply the same closed-encounter and
-    // cancelled-prescription guard at the point of write.
-    const result = await this.prisma.medicationDose.updateMany({
-      where: {
-        id: doseId,
-        status: { in: ['scheduled', 'due', 'late', 'missed', 'refused', 'held'] },
-        medication: {
-          is: {
-            status: { not: 'cancelled' },
-            Attendance: { is: { status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] } } },
+    return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "MedicationDose" WHERE "id" = ${doseId} FOR UPDATE`;
+      }
+      const current = await tx.medicationDose.findUnique({
+        where: { id: doseId },
+        select: { id: true, status: true },
+      });
+      if (!current) throw new NotFoundError('Medication dose', doseId);
+
+      const result = await tx.medicationDose.updateMany({
+        where: {
+          id: doseId,
+          status: { in: ['scheduled', 'due', 'late', 'missed', 'refused', 'held'] },
+          medication: {
+            is: {
+              status: { not: 'cancelled' },
+              Attendance: { is: { status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] } } },
+            },
           },
         },
-      },
-      data: {
-        status: data.status,
-        varianceReason: data.reason ?? null,
-        notes: data.notes ?? undefined,
-        administeredById: userId,
-      },
-    });
-    if (result.count !== 1) {
-      const existing = await this.prisma.medicationDose.findUnique({ where: { id: doseId }, select: { id: true } });
-      if (!existing) throw new NotFoundError('Medication dose', doseId);
-      throw new ConflictError('This dose is no longer eligible for a variance or its encounter/prescription is closed');
-    }
-    return this.prisma.medicationDose.findUniqueOrThrow({
-      where: { id: doseId },
-      include: this.doseInclude(),
-    });
+        data: {
+          status: data.status,
+          varianceReason: data.reason ?? null,
+          notes: data.notes ?? undefined,
+          administeredById: userId,
+        },
+      });
+      if (result.count !== 1) {
+        throw new ConflictError('This dose is no longer eligible for a variance or its encounter/prescription is closed');
+      }
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'MedicationDose',
+        entityId: doseId,
+        action: 'update',
+        performedById: userId,
+        previousState: { status: current.status },
+        newState: { status: data.status },
+        metadata: {
+          operation: 'mar_dose_variance_recorded',
+          fromStatus: current.status,
+          toStatus: data.status,
+          reasonProvided: Boolean(data.reason),
+          notesProvided: Boolean(data.notes),
+          clinicalContentOmitted: true,
+        },
+      });
+      return tx.medicationDose.findUniqueOrThrow({
+        where: { id: doseId },
+        include: this.doseInclude(),
+      });
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async markOverdueAsDue(now: Date = new Date()) {

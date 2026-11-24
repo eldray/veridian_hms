@@ -71,11 +71,13 @@ export class NursingController extends BaseController {
 
   administerDose = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const dose = await this.service.administerDose(req.params.id, req.user!.userId, req.body);
+    (req as any).auditHandled = true;
     return this.ok(res, dose, 'Dose administered');
   });
 
   recordVariance = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const dose = await this.service.recordVariance(req.params.id, req.user!.userId, req.body);
+    (req as any).auditHandled = true;
     return this.ok(res, dose, 'Variance recorded');
   });
 
