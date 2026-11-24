@@ -57,6 +57,8 @@ export class CounterService extends BaseService {
       dateTo: filters.dateTo,
       page,
       limit,
+      sortBy: filters.sortBy,
+      sortOrder: filters.sortOrder,
     });
     return {
       data: result.data,

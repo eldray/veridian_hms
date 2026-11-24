@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import { getCounterService } from '../../services/CounterService';
@@ -167,49 +167,76 @@ export class CounterRepository extends BaseRepository<any, any, any> {
     reason?: string | null;
     actorId: string;
   }) {
-    let patientId: string | null = null;
-    let counterClientId: string | null = null;
+    // Allocate the display number before entering the transaction. A failed create may
+    // leave a harmless gap, but can never leave an orphan CounterClient behind.
+    const attendanceNumber = getCounterService().nextAttendanceNumber();
 
-    if (data.patientId) {
-      const patient = await this.prisma.patient.findUnique({
-        where: { id: data.patientId },
-        select: { id: true },
+    return this.prisma.$transaction(async (tx) => {
+      let patientId: string | null = null;
+      let counterClientId: string | null = null;
+
+      if (data.patientId) {
+        const patient = await tx.patient.findUnique({
+          where: { id: data.patientId },
+          select: { id: true },
+        });
+        if (!patient) throw new NotFoundError('Patient', data.patientId);
+        patientId = patient.id;
+      } else if (data.clientId) {
+        const client = await tx.counterClient.findUnique({
+          where: { id: data.clientId },
+          select: { id: true },
+        });
+        if (!client) throw new NotFoundError('Counter customer', data.clientId);
+        counterClientId = client.id;
+      } else if (data.client?.name) {
+        const name = data.client.name.trim();
+        const wanted = this.normalizeName(name);
+        const wantedPhone = (data.client.phone || '').replace(/\\D/g, '');
+        const candidates = await tx.counterClient.findMany({
+          where: { name: { equals: name, mode: 'insensitive' } },
+          orderBy: { createdAt: 'desc' },
+          take: 25,
+        });
+        const existing = candidates.find((client: any) => {
+          if (this.normalizeName(client.name) !== wanted) return false;
+          const candidatePhone = (client.phone || '').replace(/\\D/g, '');
+          return wantedPhone ? candidatePhone === wantedPhone : !candidatePhone;
+        });
+        const client = existing ?? await tx.counterClient.create({
+          data: {
+            name,
+            ageYears: data.client.ageYears ?? null,
+            phone: data.client.phone?.trim() || null,
+          },
+          select: { id: true },
+        });
+        counterClientId = client.id;
+      }
+
+      if (!patientId && !counterClientId) {
+        throw new ValidationError('A counter ticket needs a name, an existing counter customer or a registered patient');
+      }
+      if (patientId && counterClientId) {
+        throw new ValidationError('A counter ticket is either a registered patient or a walk-in, not both');
+      }
+
+      return tx.attendance.create({
+        data: {
+          attendanceNumber,
+          patientId,
+          counterClientId,
+          attendanceType: 'walk_in',
+          encounterCategory: 'opd',
+          paymentMode: 'cash',
+          status: 'pending',
+          complaints: data.reason?.trim() || null,
+          createdById: data.actorId,
+          dateTime: new Date(),
+        },
+        include: TICKET_INCLUDE,
       });
-      if (!patient) throw new NotFoundError('Patient', data.patientId);
-      patientId = patient.id;
-    } else if (data.clientId) {
-      counterClientId = (await this.findClientById(data.clientId)).id;
-    } else if (data.client?.name) {
-      const existing = await this.findMatchingClient(data.client.name, data.client.phone);
-      counterClientId = existing
-        ? existing.id
-        : (await this.createClient({ name: data.client.name, ageYears: data.client.ageYears, phone: data.client.phone })).id;
-    }
-
-    if (!patientId && !counterClientId) {
-      throw new ValidationError('A counter ticket needs a name, an existing counter customer or a registered patient');
-    }
-    // The database enforces exactly-one-of; check here so the staff member gets a
-    // readable message instead of a foreign-key error.
-    if (patientId && counterClientId) {
-      throw new ValidationError('A counter ticket is either a registered patient or a walk-in, not both');
-    }
-
-    return this.prisma.attendance.create({
-      data: {
-        attendanceNumber: getCounterService().nextAttendanceNumber(),
-        patientId,
-        counterClientId,
-        attendanceType: 'walk_in',
-        encounterCategory: 'opd',
-        paymentMode: 'cash',
-        status: 'pending',
-        complaints: data.reason?.trim() || null,
-        createdById: data.actorId,
-        dateTime: new Date(),
-      },
-      include: TICKET_INCLUDE,
-    });
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   /** Every read and write on a ticket funnels through here: it must exist and be a counter ticket. */
@@ -239,8 +266,10 @@ export class CounterRepository extends BaseRepository<any, any, any> {
     dateTo?: Date;
     page: number;
     limit: number;
+    sortBy?: 'newest' | 'oldest' | 'customerName' | 'ticketNo' | 'status';
+    sortOrder?: 'asc' | 'desc';
   }) {
-    const { query, status, lens, dateFrom, dateTo, page, limit } = filters;
+    const { query, status, lens, dateFrom, dateTo, page, limit, sortBy = 'newest', sortOrder } = filters;
     const where: any = { attendanceType: 'walk_in' };
     if (status) where.status = status;
     const lensFilter = lens ? TICKET_LENS[lens] : undefined;
@@ -273,11 +302,20 @@ export class CounterRepository extends BaseRepository<any, any, any> {
 
     // Tickets are Attendance rows, not CounterClient rows, so this list cannot use the
     // base pagination helper (which is bound to this repository's own model).
+    // Sorting must happen before skip/take so every page is part of the same ordering.
+    const direction = sortOrder ?? (sortBy === 'oldest' ? 'asc' : 'desc');
+    const orderBy: Prisma.AttendanceOrderByWithRelationInput[] = sortBy === 'customerName'
+      ? [{ CounterClient: { name: direction } }, { Patient: { surname: direction } }, { id: 'asc' }]
+      : sortBy === 'ticketNo'
+        ? [{ attendanceNumber: direction }, { id: 'asc' }]
+        : sortBy === 'status'
+          ? [{ status: direction }, { dateTime: 'desc' }, { id: 'asc' }]
+          : [{ dateTime: sortBy === 'oldest' ? 'asc' : 'desc' }, { id: 'asc' }];
     const [data, total] = await Promise.all([
       this.prisma.attendance.findMany({
         where,
         include: TICKET_INCLUDE,
-        orderBy: [{ dateTime: 'desc' }, { id: 'asc' }],
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

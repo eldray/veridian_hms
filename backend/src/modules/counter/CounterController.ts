@@ -43,6 +43,8 @@ export class CounterController extends BaseController {
       dateTo: req.query.toDate ? new Date(String(req.query.toDate)) : undefined,
       page: parsePage(req.query.page),
       limit: parsePageSize(req.query.limit, 50),
+      sortBy: req.query.sortBy ? String(req.query.sortBy) as any : undefined,
+      sortOrder: req.query.sortOrder === 'asc' ? 'asc' : req.query.sortOrder === 'desc' ? 'desc' : undefined,
     });
     return this.paginated(res, result.data, {
       page: result.pagination.page,
