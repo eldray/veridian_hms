@@ -266,8 +266,10 @@ export class CounterRepository extends BaseRepository<any, any, any> {
     dateTo?: Date;
     page: number;
     limit: number;
+    sortBy?: 'newest' | 'oldest' | 'customerName' | 'ticketNo' | 'status';
+    sortOrder?: 'asc' | 'desc';
   }) {
-    const { query, status, lens, dateFrom, dateTo, page, limit } = filters;
+    const { query, status, lens, dateFrom, dateTo, page, limit, sortBy = 'newest', sortOrder } = filters;
     const where: any = { attendanceType: 'walk_in' };
     if (status) where.status = status;
     const lensFilter = lens ? TICKET_LENS[lens] : undefined;
@@ -300,11 +302,20 @@ export class CounterRepository extends BaseRepository<any, any, any> {
 
     // Tickets are Attendance rows, not CounterClient rows, so this list cannot use the
     // base pagination helper (which is bound to this repository's own model).
+    // Sorting must happen before skip/take so every page is part of the same ordering.
+    const direction = sortOrder ?? (sortBy === 'oldest' ? 'asc' : 'desc');
+    const orderBy = sortBy === 'customerName'
+      ? [{ CounterClient: { name: direction } }, { Patient: { surname: direction } }, { id: 'asc' }]
+      : sortBy === 'ticketNo'
+        ? [{ attendanceNumber: direction }, { id: 'asc' }]
+        : sortBy === 'status'
+          ? [{ status: direction }, { dateTime: 'desc' }, { id: 'asc' }]
+          : [{ dateTime: sortBy === 'oldest' ? 'asc' : 'desc' }, { id: 'asc' }];
     const [data, total] = await Promise.all([
       this.prisma.attendance.findMany({
         where,
         include: TICKET_INCLUDE,
-        orderBy: [{ dateTime: 'desc' }, { id: 'asc' }],
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),
