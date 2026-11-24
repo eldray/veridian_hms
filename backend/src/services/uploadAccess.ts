@@ -21,8 +21,22 @@ const CLINICAL_IMAGE_ROLES = new Set<string>([
   'sonographer',
 ]);
 
-// Generated documents are opened by the staff who work on the underlying
-// record type. A bill is finance work; a discharge summary is clinical work.
+// Generated documents are scoped by their actual content, not just their parent
+// encounter. Otherwise a laboratory or pharmacy role could open prescriptions,
+// discharge summaries or other encounter documents unrelated to their work.
+const DOCUMENT_TEMPLATE_ROLES: Record<string, Set<string>> = {
+  receipt: new Set(['accounts', 'records']),
+  bill_statement: new Set(['accounts', 'records']),
+  referral_letter: new Set(['doctor', 'nurse', 'midwife', 'records']),
+  discharge_summary: new Set(['doctor', 'nurse', 'midwife', 'records']),
+  admission_letter: new Set(['doctor', 'nurse', 'midwife', 'records']),
+  lab_result: new Set(['doctor', 'nurse', 'midwife', 'records', 'lab_tech', 'sonographer']),
+  scan_report: new Set(['doctor', 'nurse', 'midwife', 'records', 'sonographer']),
+  prescription: new Set(['doctor', 'nurse', 'midwife', 'records', 'pharmacist']),
+  nhia_claim_form: new Set(['accounts', 'records']),
+};
+
+// Fallback for older generated documents whose template relation is unavailable.
 const DOCUMENT_ENTITY_ROLES: Record<string, Set<string>> = {
   bill: new Set(['accounts', 'records']),
   referral: new Set(['doctor', 'nurse', 'midwife', 'records']),
@@ -42,7 +56,7 @@ type UploadAccessDb = {
   hospital: { findFirst: (args: any) => Promise<{ id: string } | null> };
   document: { findFirst: (args: any) => Promise<{ staff: { userId: string } } | null> };
   generatedDocument: {
-    findFirst: (args: any) => Promise<{ entityType: string; generatedById: string } | null>;
+    findFirst: (args: any) => Promise<{ entityType: string; generatedById: string; template?: { templateType?: string } | null } | null>;
   };
 };
 
@@ -54,10 +68,13 @@ function storedUrls(category: string, filename: string): string[] {
 
 export function canAccessGeneratedDocument(
   viewer: FileViewer,
-  document: { entityType: string; generatedById: string },
+  document: { entityType: string; generatedById: string; templateType?: string | null },
 ): boolean {
   const role = String(viewer.role || '').toLowerCase();
-  if (ADMIN_ROLES.has(role) || document.generatedById === viewer.id) return true;
+  if (ADMIN_ROLES.has(role)) return true;
+  if (document.templateType) {
+    return DOCUMENT_TEMPLATE_ROLES[document.templateType]?.has(role) ?? false;
+  }
   return DOCUMENT_ENTITY_ROLES[document.entityType]?.has(role) ?? false;
 }
 
@@ -118,7 +135,7 @@ export async function canAccessUpload(
         }),
         db.generatedDocument.findFirst({
           where: { filePath: { in: urls } },
-          select: { entityType: true, generatedById: true },
+          select: { entityType: true, generatedById: true, template: { select: { templateType: true } } },
         }),
       ]);
 
@@ -131,7 +148,11 @@ export async function canAccessUpload(
       }
 
       if (generated) {
-        return canAccessGeneratedDocument(viewer, generated);
+        return canAccessGeneratedDocument(viewer, {
+          entityType: generated.entityType,
+          generatedById: generated.generatedById,
+          templateType: generated.template?.templateType,
+        });
       }
 
       return false;

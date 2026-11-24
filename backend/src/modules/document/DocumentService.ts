@@ -555,6 +555,7 @@ export class DocumentService {
       fileName: document.filePath.split('/').pop(),
       entityType: document.entityType,
       generatedById: document.generatedById,
+      templateType: document.template?.templateType,
     };
   }
 }

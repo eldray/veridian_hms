@@ -22,10 +22,10 @@ export const createDocumentRoutes = () => {
   router.post('/statement/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateBillStatement);
 
   // Reprint an existing generated document without creating a duplicate record.
-  router.post('/reprint/:id', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts']), documentController.reprintDocument);
+  router.post('/reprint/:id', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer', 'pharmacist', 'accounts']), documentController.reprintDocument);
 
   // Document retrieval routes
-  router.get('/entity/:entityType/:entityId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts']), documentController.getDocumentsByEntity);
+  router.get('/entity/:entityType/:entityId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer', 'pharmacist', 'accounts']), documentController.getDocumentsByEntity);
   // The sonographer may generate a result sheet (POST /lab-result above names them), so the
   // download has to accept them too — otherwise the print button creates a document the
   // desk cannot open and the file is only ever visible as a 403.
