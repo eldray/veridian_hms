@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import PayslipEditor from '../components/PayslipEditor';
 import PayslipPresetModal from '../components/PayslipPresetModal';
-import { PageHeader } from '../components/ui';
+import { cn, INPUT, PageHeader, SELECT } from '../components/ui';
 
 const formatCedis = (v: number | string | undefined | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0);
@@ -223,7 +223,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
                 <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]"
+                  className={cn(SELECT, 'w-full')}
                 >
                   <option value="LICENSE">License</option>
                   <option value="CERTIFICATE">Certificate</option>
@@ -240,7 +240,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Medical License 2026"
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]"
+                  className={cn(INPUT, 'w-full')}
                   required
                 />
               </div>
@@ -251,7 +251,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
                   type="date"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]"
+                  className={cn(INPUT, 'w-full')}
                 />
               </div>
 
@@ -261,7 +261,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]"
+                  className={cn(INPUT, 'w-full')}
                   required
                 />
                 <p className="text- text-[var(--text-tertiary)] mt-1">PDF, JPG, PNG, DOC, DOCX · Max 10 MB</p>
@@ -462,7 +462,7 @@ export default function UserDetail() {
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Full Name *</label>
                 <input type="text" value={userForm.fullName} onChange={(e) => setUserForm({ ...userForm, fullName: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
+                  className={cn(INPUT, 'w-full')} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Username (read-only)</label>
@@ -471,17 +471,17 @@ export default function UserDetail() {
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Email</label>
                 <input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
+                  className={cn(INPUT, 'w-full')} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Phone</label>
                 <input type="tel" value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
+                  className={cn(INPUT, 'w-full')} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Role</label>
                 <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
+                  className={cn(SELECT, 'w-full')}>
                   {(canManageSuperAdmin || userForm.role === 'super_admin') && (
                     <option value="super_admin" disabled={!canManageSuperAdmin}>Super Admin</option>
                   )}
@@ -500,7 +500,7 @@ export default function UserDetail() {
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Seniority</label>
                 <select value={userForm.seniority} onChange={(e) => setUserForm({ ...userForm, seniority: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
+                  className={cn(SELECT, 'w-full')}>
                   <option value="TRAINEE">Trainee</option>
                   <option value="JUNIOR">Junior</option>
                   <option value="SENIOR">Senior</option>
@@ -510,12 +510,12 @@ export default function UserDetail() {
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">License Number</label>
                 <input type="text" value={userForm.licenseNumber} onChange={(e) => setUserForm({ ...userForm, licenseNumber: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
+                  className={cn(INPUT, 'w-full')} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Specialization</label>
                 <input type="text" value={userForm.specialization} onChange={(e) => setUserForm({ ...userForm, specialization: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
+                  className={cn(INPUT, 'w-full')} />
               </div>
               <div className="md:col-span-2">
                 <label className="flex items-center gap-2">
@@ -545,7 +545,7 @@ export default function UserDetail() {
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Employment Type</label>
                 <select value={hrForm.employmentType} onChange={(e) => setHrForm({ ...hrForm, employmentType: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
+                  className={cn(SELECT, 'w-full')}>
                   <option value="PERMANENT">Permanent</option>
                   <option value="CONTRACT">Contract</option>
                   <option value="LOCUM">Locum</option>
@@ -556,7 +556,7 @@ export default function UserDetail() {
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Date Joined</label>
                 <input type="date" value={hrForm.dateJoined} onChange={(e) => setHrForm({ ...hrForm, dateJoined: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
+                  className={cn(INPUT, 'w-full')} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Job Grade</label>
@@ -573,12 +573,12 @@ export default function UserDetail() {
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Next of Kin</label>
                 <input type="text" value={hrForm.nextOfKinName} onChange={(e) => setHrForm({ ...hrForm, nextOfKinName: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
+                  className={cn(INPUT, 'w-full')} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Next of Kin Phone</label>
                 <input type="tel" value={hrForm.nextOfKinPhone} onChange={(e) => setHrForm({ ...hrForm, nextOfKinPhone: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
+                  className={cn(INPUT, 'w-full')} />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Bio / Notes</label>
