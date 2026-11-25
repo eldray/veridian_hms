@@ -161,7 +161,7 @@ export default function NewAttendanceModal({
         if (nhisActive === true && !isExpired) {
           if (!nhisCCC.trim()) {
             errors.push('NHIS CCC code is required for an active NHIS membership');
-          } else if (!/^\\d{5}$/.test(nhisCCC.trim())) {
+          } else if (!/^\d{5}$/.test(nhisCCC.trim())) {
             errors.push('NHIS CCC code must be exactly 5 digits');
           }
         }
@@ -609,17 +609,17 @@ export default function NewAttendanceModal({
                     <input
                       type="text"
                       value={nhisCCC}
-                      onChange={(e) => setNhisCCC(e.target.value.replace(/\\D/g, '').slice(0, 5))}
+                      onChange={(e) => setNhisCCC(e.target.value.replace(/\D/g, '').slice(0, 5))}
                       placeholder="Enter 5-digit CCC code"
                       className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
                       required
                       disabled={isLoading}
                       inputMode="numeric"
-                      pattern="\\d{5}"
+                      pattern="\d{5}"
                       title="NHIS CCC code must be exactly 5 digits"
                     />
                     <p className={`text-xs mt-1 ${
-                      nhisCCC.trim() && /^\\d{5}$/.test(nhisCCC.trim())
+                      nhisCCC.trim() && /^\d{5}$/.test(nhisCCC.trim())
                         ? 'text-[var(--icon-green-text)]'
                         : 'text-yellow-700 dark:text-yellow-500'
                     }`}>
