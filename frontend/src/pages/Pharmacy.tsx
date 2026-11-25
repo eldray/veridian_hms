@@ -256,8 +256,8 @@ export default function Pharmacy() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div role="region" aria-label="Pharmacy patient queue" tabIndex={0} className="overflow-x-auto overscroll-x-contain focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--icon-cyan-text)]">
+            <table className="w-full min-w-[1120px] text-sm">
               <thead className={TH_ROW}>
                 <tr>
                   <th className={TH}>Patient</th>
