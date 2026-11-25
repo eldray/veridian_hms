@@ -86,6 +86,21 @@ export class ReportController {
     }
   };
 
+  // ==================== OPD/IPD PATIENT BILLING REGISTER ====================
+  getPatientBillingRegister = async (req: Request, res: Response) => {
+    try {
+      const { startDate, endDate } = this.parseDateFilters(req.query);
+      const { attendanceCategory, paymentMode } = req.query as any;
+      const report = await this.service.getPatientBillingRegister({
+        startDate, endDate, attendanceCategory, paymentMode,
+      });
+      return res.json({ success: true, data: report });
+    } catch (error) {
+      console.error('Patient billing register error:', error);
+      return res.status(500).json({ success: false, message: 'Error generating OPD/IPD patient billing register' });
+    }
+  };
+
   // ==================== INSURANCE CLAIMS REPORT ====================
   getInsuranceClaimsReport = async (req: Request, res: Response) => {
     try {
