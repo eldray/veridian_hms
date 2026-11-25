@@ -219,6 +219,99 @@ export class ReportService {
     };
   }
 
+  // ==================== OPD/IPD PATIENT BILLING REGISTER ====================
+  async getPatientBillingRegister(filters: ReportFilters) {
+    const { startDate, endDate, attendanceCategory, paymentMode } = filters;
+    const range = parseReportRange(startDate, endDate);
+    const where: any = {
+      patientId: { not: null },
+      encounterCategory: attendanceCategory === 'opd' || attendanceCategory === 'ipd'
+        ? attendanceCategory : { in: ['opd', 'ipd'] },
+      status: { not: 'cancelled' },
+    };
+    if (range) where.dateTime = range;
+    if (paymentMode) where.paymentMode = paymentMode;
+
+    const attendances = await this.prisma.attendance.findMany({
+      where,
+      orderBy: [{ dateTime: 'desc' }, { attendanceNumber: 'desc' }],
+      take: 10000,
+      include: {
+        Patient: { select: {
+          surname: true, otherNames: true, dateOfBirth: true, folderNumber: true,
+          gender: true, phoneNumber: true, contact: true, nhisNumber: true,
+        } },
+        Admission: { select: { admissionDate: true, dischargeDate: true } },
+        InsuranceProvider: { select: { name: true } },
+        CorporateAccount: { select: { companyName: true } },
+        User_Attendance_createdByIdToUser: { select: { username: true, fullName: true } },
+        Bill: { include: { BillLineItem: { where: { isVoided: false }, select: {
+          serviceType: true, lineTotal: true,
+        } } } },
+      },
+    });
+
+    const rows = attendances.map(attendance => {
+      const patient = attendance.Patient!;
+      const bill = attendance.Bill;
+      const lineItems = bill?.BillLineItem || [];
+      const drugs = money(lineItems.filter(item => item.serviceType === 'medication')
+        .reduce((sum, item) => sum + toNum(item.lineTotal), 0));
+      const services = money(lineItems.filter(item => item.serviceType !== 'medication')
+        .reduce((sum, item) => sum + toNum(item.lineTotal), 0));
+      const age = this.calculateAge(patient.dateOfBirth, attendance.dateTime);
+      const status = attendance.status === 'completed' || attendance.status === 'discharged'
+        ? 'Complete' : attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1);
+      return {
+        attendanceId: attendance.id,
+        attendanceNumber: attendance.attendanceNumber,
+        beginDate: attendance.dateTime,
+        beginTime: attendance.dateTime,
+        endDate: attendance.encounterCategory === 'ipd'
+          ? (attendance.Admission?.dischargeDate || null) : attendance.dateTime,
+        encounterCategory: attendance.encounterCategory.toUpperCase(),
+        name: `${patient.surname} ${patient.otherNames || ''}`.trim(),
+        age,
+        cardNo: patient.nhisNumber || attendance.nhisCCC || '—',
+        folderNo: patient.folderNumber,
+        gender: patient.gender,
+        phoneNo: patient.phoneNumber || patient.contact || '',
+        mode: attendance.paymentMode.toUpperCase(),
+        patientBalance: money(attendance.outstandingBalance),
+        patientBill: money(bill?.patientPayable ?? 0),
+        accreditorBill: money(bill?.insuranceCovered ?? 0),
+        drugs,
+        services,
+        total: money(bill?.totalAmount ?? attendance.totalBill),
+        status,
+        accreditor: attendance.InsuranceProvider?.name
+          || attendance.CorporateAccount?.companyName
+          || (attendance.paymentMode === 'cash' ? 'Self Pay' : attendance.paymentMode.toUpperCase()),
+        createdBy: attendance.User_Attendance_createdByIdToUser?.username
+          || attendance.User_Attendance_createdByIdToUser?.fullName || '',
+        createdOn: attendance.createdAt,
+        billStatus: bill?.status || null,
+      };
+    });
+
+    const total = rows.reduce((sum, row) => sum + row.total, 0);
+    return {
+      reportType: 'OPD/IPD PATIENT BILLING REGISTER' as const,
+      period: this.periodOf(startDate, endDate),
+      summary: {
+        totalAttendances: rows.length,
+        opd: rows.filter(row => row.encounterCategory === 'OPD').length,
+        ipd: rows.filter(row => row.encounterCategory === 'IPD').length,
+        totalBilled: money(total),
+        totalPatientBalance: money(rows.reduce((sum, row) => sum + row.patientBalance, 0)),
+        totalPatientBill: money(rows.reduce((sum, row) => sum + row.patientBill, 0)),
+        totalAccreditorBill: money(rows.reduce((sum, row) => sum + row.accreditorBill, 0)),
+      },
+      entries: rows,
+      generatedAt: new Date(),
+    };
+  }
+
   // ==================== INSURANCE CLAIMS REPORT ====================
   async getInsuranceClaimsReport(filters: ReportFilters) {
     const { startDate, endDate, insuranceProviderId, status, corporateAccountId } = filters;
