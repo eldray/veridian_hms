@@ -92,10 +92,10 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
   };
 
   const formatCurrency = (amount: any): string => {
-    if (amount === null || amount === undefined) return '$0.00';
+    if (amount === null || amount === undefined) return '₵0.00';
     
-    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return isNaN(num) ? '$0.00' : `$${num.toFixed(2)}`;
+    const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
+    return Number.isFinite(num) ? `₵${num.toFixed(2)}` : '₵0.00';
   };
 
   const getArrayLength = (arr: any): number => {

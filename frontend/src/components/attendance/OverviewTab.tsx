@@ -8,6 +8,11 @@ interface OverviewTabProps {
   getClinicianName: (attendance: any) => string;
 }
 
+const formatCurrency = (amount: unknown): string => {
+  const value = typeof amount === 'string' ? Number.parseFloat(amount) : Number(amount);
+  return `₵${(Number.isFinite(value) ? value : 0).toFixed(2)}`;
+};
+
 export const OverviewTab: React.FC<OverviewTabProps> = ({ 
   attendance, 
   patient, 
@@ -210,14 +215,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <div className="flex justify-between items-center bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                   <span className="font-bold text-[var(--text-primary)]">Total Bill</span>
                   <span className="font-bold text-xl text-[var(--text-primary)]">
-                    ${attendance.totalBill?.toFixed(2) || '0.00'}
+                    {formatCurrency(attendance.totalBill)}
                   </span>
                 </div>
                 {(attendance.outstandingBalance || 0) > 0 && (
                   <div className="flex justify-between items-center bg-[var(--icon-red-bg)] rounded-xl p-4 border border-[var(--border-color)] mt-3">
                     <span className="font-semibold text-[var(--icon-red-text)]">Outstanding</span>
                     <span className="font-bold text-lg text-[var(--icon-red-text)]">
-                      ${(attendance.outstandingBalance || 0).toFixed(2)}
+                      {formatCurrency(attendance.outstandingBalance)}
                     </span>
                   </div>
                 )}

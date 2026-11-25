@@ -134,7 +134,7 @@ const AttendanceDetails: React.FC<{
           {attendance.totalBill && attendance.totalBill > 0 && (
             <div className="text-right">
               <div className="text-xs font-semibold text-gray-900">
-                ${attendance.totalBill.toFixed(2)}
+                ₵{Number(attendance.totalBill).toFixed(2)}
               </div>
               <div className="text-xs text-gray-500">
                 Bill
