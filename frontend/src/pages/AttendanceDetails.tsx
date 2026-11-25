@@ -21,7 +21,7 @@ import { latestRecordedPayment, printThermalReceipt } from '../utils/receiptPrin
 import { 
   ArrowLeft, Edit, FileText, Pill, FlaskConical, Scissors, DollarSign, 
   User, Calendar, Stethoscope, Activity, CreditCard, Shield, X,
-  AlertCircle, Loader, Trash2, Plus, ChevronLeft, ChevronRight,
+  AlertCircle, Loader, Trash2, Plus, ChevronRight,
   Clock, MapPin, Phone, Mail, Clipboard, Heart, Thermometer, 
   Droplet, Ruler, Weight, Brain, Bone, Eye, Microscope, Scan,
   Syringe, Hospital, CheckCircle, XCircle, AlertTriangle, TrendingUp,
