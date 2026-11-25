@@ -19,6 +19,31 @@ async function appendMaternalUpdateAudit(tx: any, entityType: string, entityId: 
   });
 }
 
+async function requireOpenMaternalAttendance(tx: any, attendanceId: string, patientId: string, attendanceType: string, label: string) {
+  // Serialize maternal writes with encounter finalization/discharge, then validate
+  // the current state while holding the row lock in this transaction.
+  if (typeof tx.$queryRawUnsafe === 'function') {
+    await tx.$queryRawUnsafe('SELECT "id" FROM "Attendance" WHERE "id" = $1 FOR UPDATE', attendanceId);
+  } else if (typeof tx.$queryRaw === 'function') {
+    await tx.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${attendanceId} FOR UPDATE`;
+  }
+  const attendance = await tx.attendance.findUnique({
+    where: { id: attendanceId },
+    select: { id: true, patientId: true, attendanceType: true, status: true, finalizedAt: true },
+  });
+  if (!attendance) throw new NotFoundError(label, attendanceId);
+  if (attendance.patientId !== patientId) {
+    throw new ValidationError(`${label} must belong to the selected patient`);
+  }
+  if (attendance.attendanceType !== attendanceType) {
+    throw new ValidationError(`${label} must be linked to a ${attendanceType} attendance`);
+  }
+  if (attendance.finalizedAt || ['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(attendance.status))) {
+    throw new ConflictError('This clinical record is finalized or the encounter is closed. Use the facility-approved correction/addendum process.');
+  }
+  return attendance;
+}
+
 export class AntenatalRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'antenatalBooking');
@@ -118,6 +143,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      await requireOpenMaternalAttendance(tx, data.attendanceId, data.patientId, 'antenatal', 'Antenatal attendance');
       const created = await tx.antenatalBooking.create({
       data: {
         patientId: data.patientId, attendanceId: data.attendanceId, currentAttendanceId: data.attendanceId,
@@ -326,20 +352,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
     return this.prisma.$transaction(async (tx) => {
       const [attendance, booking] = await Promise.all([
-        tx.attendance.findUnique({
-          where: { id: data.attendanceId },
-          select: { id: true, patientId: true, attendanceType: true },
-        }),
         tx.antenatalBooking.findUnique({ where: { id: data.bookingId } }),
       ]);
-      if (!attendance) throw new NotFoundError('ANC attendance', data.attendanceId);
       if (!booking) throw new NotFoundError('Antenatal booking', data.bookingId);
-      if (attendance.patientId !== booking.patientId) {
-        throw new ValidationError('ANC visit attendance and booking must belong to the same patient');
-      }
-      if (attendance.attendanceType !== 'antenatal') {
-        throw new ValidationError('ANC visit must be linked to an antenatal attendance');
-      }
+      const attendance = await requireOpenMaternalAttendance(
+        tx, data.attendanceId, booking.patientId, 'antenatal', 'ANC attendance',
+      );
 
       const existingVisit = await tx.aNCVisit.findUnique({ where: { attendanceId: data.attendanceId } });
       if (existingVisit && existingVisit.bookingId !== booking.id) {
@@ -647,17 +665,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       }
     }
     return this.prisma.$transaction(async (tx) => {
-      const attendance = await tx.attendance.findUnique({
-        where: { id: data.attendanceId },
-        select: { id: true, patientId: true, attendanceType: true },
-      });
-      if (!attendance) throw new NotFoundError('Delivery attendance', data.attendanceId);
-      if (attendance.patientId !== data.patientId) {
-        throw new ValidationError('Delivery patient must match the patient on the selected attendance');
-      }
-      if (attendance.attendanceType !== 'delivery') {
-        throw new ValidationError('Delivery record must be linked to a delivery attendance');
-      }
+      const attendance = await requireOpenMaternalAttendance(
+        tx, data.attendanceId, data.patientId, 'delivery', 'Delivery attendance',
+      );
       const deliveryDate = new Date(data.deliveryDate);
       if (Number.isNaN(deliveryDate.getTime())) throw new ValidationError('Delivery date must be valid');
       if (deliveryDate.getTime() > Date.now()) throw new ValidationError('Delivery date cannot be in the future');
