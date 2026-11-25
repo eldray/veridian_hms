@@ -37,7 +37,7 @@ type ClinicalAssessmentValue,
 } from '../components/medical-entries/ClinicalAssessmentModal';
 import { useAdmissionStore } from '../store/admissionStore';
 import {
-ChevronLeft, RefreshCw, Stethoscope, Pill, FlaskConical, Info, Building2,
+RefreshCw, Stethoscope, Pill, FlaskConical, Info, Building2,
 Scissors, Scan, FileText, Activity, AlertCircle, Plus, Trash2,
 Hospital, User, Calendar, DollarSign, Heart, Thermometer,
 Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle,
