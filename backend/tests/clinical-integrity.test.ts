@@ -2929,6 +2929,70 @@ describe('daily notes on closed admissions', () => {
   });
 });
 
+describe('rendered service writes and encounter closure', () => {
+  it('serializes a single service write with encounter closure', async () => {
+    const create = vi.fn();
+    const openAttendance = { id: 'enc-1', status: 'pending' };
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'discharged' }) },
+      serviceRendered: { create },
+    };
+    const prisma: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue(openAttendance) },
+      serviceCatalog: { findUnique: vi.fn().mockResolvedValue({ id: 'service-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('doctor-1');
+
+    await expect(repository.addService('enc-1', { serviceCatalogId: 'service-1' }, 'doctor-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('serializes bulk service writes with encounter closure', async () => {
+    const createMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'discharged' }) },
+      serviceRendered: { createMany },
+    };
+    const prisma: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'pending' }) },
+      serviceCatalog: { findMany: vi.fn().mockResolvedValue([{ id: 'service-1', isActive: true }]) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('doctor-1');
+
+    await expect(repository.addServices('enc-1', [{ serviceCatalogId: 'service-1' }], 'doctor-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it('locks and validates the encounter before removing a rendered service', async () => {
+    const findFirst = vi.fn();
+    const deleteMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'discharged' }) },
+      serviceRendered: { findFirst, deleteMany },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.removeService('enc-1', 'service-rendered-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(findFirst).not.toHaveBeenCalled();
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+});
+
 describe('stage-aware clinical order removal', () => {
   const buildRepository = (order: 'labTest' | 'scan' | 'procedure' | 'medication', status: string, billLine: any = null) => {
     const tx: any = {
