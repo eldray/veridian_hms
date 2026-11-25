@@ -581,7 +581,7 @@ export class ReportService {
       { key: 'years70Plus', label: '70+' },
     ];
     const normalizeNcdName = (value: string) => value.toLowerCase().normalize('NFKD')
-      .replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+      .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     const ncdRows = new Map<string, any>();
     const makeNcdRow = (condition: string) => {
       const row: any = { condition, total: 0 };
