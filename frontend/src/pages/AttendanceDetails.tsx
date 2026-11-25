@@ -896,7 +896,7 @@ export default function AttendanceDetails() {
   // ── Loading State ─────────────────────────────
   if (isLoading && !refreshing) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Attendance Details</h1>
@@ -922,7 +922,7 @@ export default function AttendanceDetails() {
   // ── Error State ───────────────────────────────
   if (attendanceError || !currentAttendance) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Attendance Details</h1>
@@ -959,7 +959,7 @@ export default function AttendanceDetails() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-4">
       <PageHeader
         title="Attendance Details"
         subtitle={`Record #${currentAttendance.attendanceNumber || currentAttendance.id?.slice(-8)}`}
@@ -1006,9 +1006,9 @@ export default function AttendanceDetails() {
       {patient && (
         <section
           aria-label="Patient and visit summary"
-          className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5 shadow-sm"
+          className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 sm:p-4 shadow-sm"
         >
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="lg" className="rounded-xl bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
               <div className="min-w-0">
@@ -1048,20 +1048,20 @@ export default function AttendanceDetails() {
               </span>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--border-color)] pt-4 sm:grid-cols-4">
-            <div className="rounded-lg bg-[var(--bg-main)] p-3">
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-color)] pt-3 sm:grid-cols-4">
+            <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Diagnoses</p>
               <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterDiagnoses.length}</p>
             </div>
-            <div className="rounded-lg bg-[var(--bg-main)] p-3">
+            <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Medicines</p>
               <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterMedications.length}</p>
             </div>
-            <div className="rounded-lg bg-[var(--bg-main)] p-3">
+            <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Lab / scans</p>
               <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterLabTests.length + encounterScans.length}</p>
             </div>
-            <div className="rounded-lg bg-[var(--bg-main)] p-3">
+            <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Visit charges</p>
               <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{formatCurrency(currentAttendance.totalBill || 0)}</p>
             </div>
@@ -1120,7 +1120,7 @@ export default function AttendanceDetails() {
       )}
 
       {/* Stats Banner */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+      <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)]">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <p className="text-sm font-semibold text-[var(--text-primary)]">
@@ -1158,7 +1158,7 @@ export default function AttendanceDetails() {
       </div>
 
       {/* Quick Action Buttons */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
         {canEnterMedicalEntries && (
           <button
             onClick={handleGoToMedicalEntries}
@@ -1237,15 +1237,15 @@ export default function AttendanceDetails() {
       {/* Main Content Card */}
       <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
         {/* Tabs Navigation */}
-        <div className="border-b border-[var(--border-color)] p-4">
-          <nav className="flex flex-wrap gap-2">
+        <div className="border-b border-[var(--border-color)] p-3">
+          <nav className="flex flex-wrap gap-1.5">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 text-sm ${
+                  className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all duration-200 text-sm ${
                     activeTab === tab.id
                       ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
@@ -1267,10 +1267,10 @@ export default function AttendanceDetails() {
         </div>
 
         {/* Tab Content */}
-        <div className="p-6">
+        <div className="p-4">
           {/* OVERVIEW TAB */}
           {activeTab === 'overview' && (
-            <div className="space-y-6">
+            <div className="space-y-3">
               {/* Visit Summary: one-screen clinical snapshot; source records remain unchanged. */}
               <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5 space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -1358,12 +1358,12 @@ export default function AttendanceDetails() {
                 </div>
               </section>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Left Column - Patient Info & Medical Details */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className="lg:col-span-2 space-y-4">
                   {/* Patient Information Card */}
                   {patient && (
-                    <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
+                    <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
                       <div className="flex items-center gap-3 mb-4">
                         <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="md" className="rounded-lg bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
                         <div>
@@ -1402,7 +1402,7 @@ export default function AttendanceDetails() {
                   )}
 
                   {/* Medical Information */}
-                  <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
+                  <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
                         <Heart className="w-5 h-5 text-[var(--icon-green-text)]" />
@@ -1413,7 +1413,7 @@ export default function AttendanceDetails() {
                       </div>
                     </div>
                     
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
                         <p className="text-xs text-[var(--text-secondary)] font-medium mb-2 flex items-center gap-2">
                           <Clipboard className="w-3 h-3" />
@@ -1446,7 +1446,7 @@ export default function AttendanceDetails() {
 
                   {/* Diagnoses */}
                   {encounterDiagnoses.length > 0 && (
-                    <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
+                    <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center">
                           <Brain className="w-5 h-5 text-[var(--icon-purple-text)]" />
@@ -1486,7 +1486,7 @@ export default function AttendanceDetails() {
                 </div>
 
                 {/* Right Column - Attendance Details & Stats */}
-                <div className="space-y-6">
+                <div className="space-y-3">
                   {/* Attendance Status Card */}
                   <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                     <div className="flex items-center gap-3 mb-3">
@@ -1685,7 +1685,7 @@ export default function AttendanceDetails() {
                   ))}
                 </Table>
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <Pill className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                   <p className="text-[var(--text-secondary)]">No medications prescribed for this attendance.</p>
                   {canAddClinical && (
@@ -1703,7 +1703,7 @@ export default function AttendanceDetails() {
 
           {/* LAB TESTS TAB */}
           {activeTab === 'lab-tests' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {encounterLabTests.length > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-xs text-[var(--text-secondary)]">Open a test to read its recorded parameters; print the sheet for the patient file.</p>
@@ -1754,7 +1754,7 @@ export default function AttendanceDetails() {
                   ))}
                 </Table>
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <FlaskConical className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                   <p className="text-[var(--text-secondary)]">No lab tests requested for this attendance.</p>
                   {canAddClinical && (
@@ -1772,7 +1772,7 @@ export default function AttendanceDetails() {
 
           {/* SCANS TAB */}
           {activeTab === 'scans' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {encounterScans.length > 0 && (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-xs text-[var(--text-secondary)]">Open a scan to read its findings and impression; print the report for the patient file.</p>
@@ -1826,7 +1826,7 @@ export default function AttendanceDetails() {
                   ))}
                 </Table>
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <Scan className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                   <p className="text-[var(--text-secondary)]">No imaging requested for this attendance.</p>
                   {canAddClinical && (
@@ -1858,7 +1858,7 @@ export default function AttendanceDetails() {
                   ))}
                 </Table>
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <Scissors className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                   <p className="text-[var(--text-secondary)]">No procedures scheduled for this attendance.</p>
                   {canAddClinical && (
@@ -1884,7 +1884,7 @@ export default function AttendanceDetails() {
                   isAntenatal={currentAttendance.attendanceType === 'antenatal'}
                 />
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-8">
                   <Heart className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                   <p className="text-[var(--text-secondary)]">No vitals recorded for this attendance.</p>
                   {canEnterVitals && (
@@ -1902,7 +1902,7 @@ export default function AttendanceDetails() {
 
           {/* BILLING TAB */}
           {activeTab === 'billing' && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-semibold text-[var(--text-primary)]">Attendance billing</h2>
@@ -1921,7 +1921,7 @@ export default function AttendanceDetails() {
                 )}
               </div>
               {attendanceBills.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {attendanceBills.map((bill: any) => {
                     const paidSoFar = latestRecordedPayment(bill);
                     return (
@@ -2101,10 +2101,10 @@ export default function AttendanceDetails() {
             const hasAnything = hasDiagnoses || hasComplaint || hasMedicalNotes || hasNotes;
 
             return (
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {/* DIAGNOSES — same source the Overview tab uses, now shown here too */}
                 {hasDiagnoses && (
-                  <div className="bg-[var(--bg-main)] rounded-xl p-5 border border-[var(--border-color)]">
+                  <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                     <div className="flex items-center gap-3 mb-4">
                       <Brain className="w-5 h-5 text-[var(--icon-purple-text)]" />
                       <h3 className="text-lg font-bold text-[var(--text-primary)]">Diagnoses</h3>
@@ -2154,16 +2154,16 @@ export default function AttendanceDetails() {
 
                 {/* ALL CLINICAL NOTES — every populated key, not just four hard-coded ones */}
                 {hasNotes && (
-                  <div className="bg-[var(--bg-main)] rounded-xl p-5 border border-[var(--border-color)]">
+                  <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                     <div className="flex items-center gap-3 mb-4">
                       <Clipboard className="w-5 h-5 text-[var(--icon-cyan-text)]" />
                       <h3 className="text-lg font-bold text-[var(--text-primary)]">Clinical Notes</h3>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {noteEntries.map((entry) => (
                         <div
                           key={entry.key}
-                          className="bg-[var(--bg-card)] rounded-lg p-4 border border-[var(--border-color)]"
+                          className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]"
                         >
                           <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">{entry.label}</p>
                           <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{entry.text}</p>
@@ -2211,7 +2211,7 @@ export default function AttendanceDetails() {
 
                 {/* Action Buttons for Adding Clinical Data (unchanged) */}
                 {canAddClinical && (
-                  <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
+                  <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <div>
                         <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Quick Clinical Actions</h3>
