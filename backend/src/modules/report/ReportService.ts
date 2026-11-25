@@ -420,7 +420,6 @@ export class ReportService {
         staffProfile: { select: { department: { select: { name: true } } } },
       },
     }) : [];
-    const userById = new Map(users.map(user => [user.id, user]));
     const entries = users.map(user => ({
       department: (user.department?.name || user.staffProfile?.department?.name || 'UNASSIGNED').toUpperCase(),
       username: (user.username || user.fullName || 'UNKNOWN').toUpperCase(),
