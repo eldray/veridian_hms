@@ -17,7 +17,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  Search,
   X,
   Loader,
   Shield,
@@ -35,7 +34,7 @@ import {
   Clock,
   AlertCircle
 } from 'lucide-react';
-import { PageHeader } from '../components/ui';
+import { FilterSelect, PageHeader, SearchInput } from '../components/ui';
 import { GDRGMDC } from '../types';
 import {
   createGDRGTariff,
@@ -571,19 +570,9 @@ export default function GDRGManagement() {
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
         <div className="p-2.5">
           <div className="flex flex-wrap gap-2">
-            <div className="flex-1 min-w-[200px] relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
-              <input type="text" placeholder="Search by code, description, NHIS code..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]" />
-            </div>
-            <select value={filterMDC} onChange={e => { setFilterMDC(e.target.value); setCurrentPage(1); }} className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
-              <option value="">All MDC</option>
-              {GDRG_MDC_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-            </select>
-            <select value={filterActive} onChange={e => { setFilterActive(e.target.value); setCurrentPage(1); }} className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
-              <option value="all">All Status</option>
-              <option value="active">Active Only</option>
-              <option value="inactive">Inactive Only</option>
-            </select>
+            <SearchInput className="min-w-[200px]" placeholder="Search by code, description, NHIS code..." value={searchTerm} onChange={value => { setSearchTerm(value); setCurrentPage(1); }} />
+            <FilterSelect aria-label="MDC filter" value={filterMDC} onChange={value => { setFilterMDC(value); setCurrentPage(1); }} options={[{ value: '', label: 'All MDC' }, ...GDRG_MDC_OPTIONS]} />
+            <FilterSelect aria-label="Tariff status filter" value={filterActive} onChange={value => { setFilterActive(value); setCurrentPage(1); }} options={[{ value: 'all', label: 'All Status' }, { value: 'active', label: 'Active Only' }, { value: 'inactive', label: 'Inactive Only' }]} />
           </div>
         </div>
       </div>
@@ -708,10 +697,7 @@ export default function GDRGManagement() {
               <button onClick={() => { setShowDiagnosisModal(false); setSearchDiagnosisTerm(''); setSelectedDiagnosis(null); }} className="p-1.5 hover:bg-[var(--bg-main)] rounded-lg"><X className="w-4 h-4 text-[var(--text-secondary)]" /></button>
             </div>
             <div className="p-3">
-              <div className="relative mb-3">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
-                <input type="text" placeholder="Search by diagnosis name or ICD code..." value={searchDiagnosisTerm} onChange={(e) => setSearchDiagnosisTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
-              </div>
+              <SearchInput className="mb-3" placeholder="Search by diagnosis name or ICD code..." value={searchDiagnosisTerm} onChange={setSearchDiagnosisTerm} />
               <div className="max-h-96 overflow-y-auto space-y-1">
                 {loadingDiagnoses ? (
                   <div className="text-center py-6"><Loader className="w-6 h-6 animate-spin mx-auto text-[var(--icon-cyan-text)]" /></div>
@@ -742,10 +728,7 @@ export default function GDRGManagement() {
               <button onClick={() => { setShowProcedureModal(false); setSearchProcedureTerm(''); setSelectedProcedure(null); }} className="p-1.5 hover:bg-[var(--bg-main)] rounded-lg"><X className="w-4 h-4 text-[var(--text-secondary)]" /></button>
             </div>
             <div className="p-3">
-              <div className="relative mb-3">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
-                <input type="text" placeholder="Search by procedure name or code..." value={searchProcedureTerm} onChange={(e) => setSearchProcedureTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]" />
-              </div>
+              <SearchInput className="mb-3" placeholder="Search by procedure name or code..." value={searchProcedureTerm} onChange={setSearchProcedureTerm} />
               <div className="max-h-96 overflow-y-auto space-y-1">
                 {loadingProcedures ? (
                   <div className="text-center py-6"><Loader className="w-6 h-6 animate-spin mx-auto text-[var(--icon-cyan-text)]" /></div>
