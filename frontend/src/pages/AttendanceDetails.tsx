@@ -12,6 +12,7 @@ import MedicalReportModal from '../components/MedicalReportModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { getPatientName } from '../utils/patient';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { PageHeader } from '../components/ui';
 import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import { canAccessPage } from '../config/access';
@@ -1002,69 +1003,49 @@ export default function AttendanceDetails() {
         )}
       />
 
-      {/* Patient-centred visit snapshot: concise context without changing the Medical Entries form. */}
-      {patient && (
-        <section
-          aria-label="Patient and visit summary"
-          className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 sm:p-4 shadow-sm"
-        >
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex min-w-0 items-start gap-3">
-              <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="lg" className="rounded-xl bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
-              <div className="min-w-0">
-                <h2 className="break-words text-lg font-bold text-[var(--text-primary)]">
-                  {getPatientFullName(patient)}
-                  {isCounterTicket && (
-                    <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]">
-                      Walk-in
-                    </span>
-                  )}
-                </h2>
-                <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                  {isCounterTicket
-                    ? `Counter customer · age ${patient?.ageYears ?? 'not given'}`
-                    : `Folder No. ${patient?.folderNumber || 'Not recorded'}`}
-                  {!isCounterTicket && patient?.age !== undefined && patient?.age !== null && patient?.age !== '' ? ` · ${patient.age} years` : ''}
-                  {patient?.gender ? ` · ${patient.gender}` : ''}
-                </p>
-                <p className="mt-1 break-words text-xs text-[var(--text-secondary)]">
-                  {patient?.contact || patient?.phone || 'No contact number recorded'}
-                  {patient?.address ? ` · ${patient.address}` : ''}
-                </p>
-              </div>
+      {/* Use the shared patient/visit header used across clinical workspaces. Walk-in
+          tickets keep their explicit counter-customer identity because they have no folder. */}
+      {patient && !isCounterTicket && (
+        <PatientVisitHeader
+          patient={patient}
+          attendance={currentAttendance}
+          icon={Calendar}
+          accent="cyan"
+          fields={[
+            { label: 'Visit Type', value: getAttendanceTypeLabel(currentAttendance.attendanceType) },
+            { label: 'Payment Mode', value: getPaymentModeLabel(currentAttendance.paymentMode), tone: 'pill' },
+          ]}
+        />
+      )}
+      {patient && isCounterTicket && (
+        <section aria-label="Walk-in customer and visit summary" className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 sm:p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="md" className="rounded-lg bg-[var(--icon-orange-bg)]" fallbackClassName="text-[var(--icon-orange-text)]" />
+            <div className="min-w-0 flex-1">
+              <h2 className="break-words text-sm font-bold text-[var(--text-primary)]">{getPatientFullName(patient)} <span className="ml-1 text-[10px] font-semibold uppercase text-[var(--icon-orange-text)]">Walk-in</span></h2>
+              <p className="text-xs text-[var(--text-secondary)]">Counter customer · Age {patient?.ageYears ?? 'not given'} · {patient?.gender || 'Gender not recorded'}</p>
             </div>
-            <div className="flex flex-wrap gap-2 lg:max-w-[52%] lg:justify-end">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)]">
-                <Activity className="h-3.5 w-3.5 text-[var(--icon-cyan-text)]" />
-                {currentAttendance.status ? currentAttendance.status.replace(/_/g, ' ') : 'Status not recorded'}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)]">
-                {getPaymentModeIcon(currentAttendance.paymentMode)}
-                {getPaymentModeLabel(currentAttendance.paymentMode)}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)]">
-                <Calendar className="h-3.5 w-3.5 text-[var(--icon-cyan-text)]" />
-                {getAttendanceTypeLabel(currentAttendance.attendanceType)}
-              </span>
-            </div>
+            <StatusBadge status={currentAttendance.status || 'pending'} />
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--border-color)] pt-3 sm:grid-cols-4">
-            <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Diagnoses</p>
-              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterDiagnoses.length}</p>
-            </div>
-            <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Medicines</p>
-              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterMedications.length}</p>
-            </div>
-            <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Lab / scans</p>
-              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterLabTests.length + encounterScans.length}</p>
-            </div>
-            <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Visit charges</p>
-              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{formatCurrency(currentAttendance.totalBill || 0)}</p>
-            </div>
+        </section>
+      )}
+      {patient && (
+        <section aria-label="Attendance summary" className="grid grid-cols-2 gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 sm:grid-cols-4">
+          <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Diagnoses</p>
+            <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterDiagnoses.length}</p>
+          </div>
+          <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Medicines</p>
+            <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterMedications.length}</p>
+          </div>
+          <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Lab / scans</p>
+            <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterLabTests.length + encounterScans.length}</p>
+          </div>
+          <div className="rounded-lg bg-[var(--bg-main)] p-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Visit charges</p>
+            <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{formatCurrency(currentAttendance.totalBill || 0)}</p>
           </div>
         </section>
       )}
