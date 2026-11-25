@@ -92,8 +92,10 @@ export default function RequisitionsPage() {
     urgency: 'routine' as 'routine' | 'urgent' | 'emergency',
     requiredDate: '',
     notes: '',
-    requisitionItems: [emptyLine()] as FormLine[],
+    requisitionItems: [] as FormLine[],
   });
+  // Select and configure one draft line, then add it to the document table.
+  const [draftLine, setDraftLine] = useState<FormLine>(() => emptyLine());
 
   // ─────────────────────────────────────────────────────────────
   // Load
@@ -243,6 +245,7 @@ export default function RequisitionsPage() {
   const handleEdit = (requisition: Requisition) => {
     if (requisition.status !== 'draft' || !(requisition.requestedById === user?.id || hasRole(['admin', 'super_admin']))) return;
     setEditingRequisition(requisition);
+    setDraftLine(emptyLine());
     setFormData(prev => ({
       ...prev,
       requesterType: requisition.requestingWardId ? 'ward' : 'department',
@@ -288,8 +291,9 @@ export default function RequisitionsPage() {
       urgency: 'routine',
       requiredDate: '',
       notes: '',
-      requisitionItems: [emptyLine()],
+      requisitionItems: [],
     });
+    setDraftLine(emptyLine());
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -372,8 +376,12 @@ export default function RequisitionsPage() {
   };
 
   // Form helpers
-  const addRequisitionItem = () => {
-    setFormData(prev => ({ ...prev, requisitionItems: [...prev.requisitionItems, emptyLine()] }));
+  const addDraftRequisitionItem = () => {
+    if (!draftLine.picked || !draftLine.stockItemId) { toastError('Select an item', 'Search for and select a stock item before adding it.'); return; }
+    if (!Number.isSafeInteger(draftLine.quantityRequested) || draftLine.quantityRequested <= 0) { toastError('Check quantity', 'Enter a positive whole-number quantity.'); return; }
+    if (formData.requisitionItems.some(item => item.stockItemId === draftLine.stockItemId)) { toastError('Duplicate item', 'This stock item is already on the requisition. Update its quantity in the table instead.'); return; }
+    setFormData(prev => ({ ...prev, requisitionItems: [...prev.requisitionItems, draftLine] }));
+    setDraftLine(emptyLine());
   };
 
   const removeRequisitionItem = (index: number) => {
@@ -394,11 +402,8 @@ export default function RequisitionsPage() {
   };
 
   const changeSupplier = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      supplyingDepartmentId: id,
-      requisitionItems: prev.requisitionItems.some(i => i.stockItemId) ? [emptyLine()] : prev.requisitionItems,
-    }));
+    setFormData(prev => ({ ...prev, supplyingDepartmentId: id, requisitionItems: [] }));
+    setDraftLine(emptyLine());
   };
 
   const loadItemOptions = async (inputValue: string): Promise<RequisitionStockLookupItem[]> => {
@@ -930,75 +935,72 @@ export default function RequisitionsPage() {
                   </div>
                 </section>
 
-                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <h3 className="text-sm font-bold text-[var(--text-primary)]">Requisition items</h3>
-                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{pickedItemCount}</span>
+                <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2"><h3 className="text-sm font-bold text-[var(--text-primary)]">Requisition items</h3><span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{pickedItemCount}</span></div>
+                  {!formData.supplyingDepartmentId && <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] text-xs"><AlertCircle className="w-3.5 h-3.5 shrink-0" />Select the supplying department above before searching for stock items.</div>}
+                  {!editingRequisition && (
+                    <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)] p-3 md:p-4 space-y-3">
+                      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_140px_minmax(0,1.2fr)_auto] gap-3 items-end">
+                        <label className="block text-xs font-semibold text-[var(--text-secondary)]">Search stock item
+                          <AsyncSelect<RequisitionStockLookupItem, false>
+                            key={formData.supplyingDepartmentId} cacheOptions={false} defaultOptions
+                            isDisabled={!formData.supplyingDepartmentId} loadOptions={loadItemOptions}
+                            value={draftLine.picked}
+                            onChange={(selected) => setDraftLine(line => ({ ...line, stockItemId: selected?.id || '', picked: selected || null }))}
+                            getOptionValue={(option) => option.id}
+                            getOptionLabel={(option) => `${option.name}${option.strength && option.strength !== 'N/A' ? ' ' + option.strength : ''}`}
+                            isOptionDisabled={(option) => formData.requisitionItems.some(line => line.stockItemId === option.id)}
+                            formatOptionLabel={(option, meta) => (
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0"><div className="truncate">{option.name}{option.strength && option.strength !== 'N/A' ? ` ${option.strength}` : ''}</div><div className="text-xs opacity-60">{option.drugCode} · {option.unitOfMeasure}</div></div>
+                                {meta.context === 'menu' && <div className="text-right text-xs shrink-0"><div className={cn('font-semibold', option.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]')}>{supplierName}: {option.supplierQty}</div><div className="opacity-70">You: {option.requesterQty}</div></div>}
+                              </div>
+                            )}
+                            placeholder={formData.supplyingDepartmentId ? 'Type item name, strength or code…' : 'Select supplier first'}
+                            noOptionsMessage={({ inputValue }) => inputValue ? `No items match "${inputValue}"` : 'Type to search stock items'}
+                            loadingMessage={() => 'Searching…'} isClearable className="mt-1 text-sm" classNamePrefix="react-select"
+                            styles={{
+                              control: (base) => ({ ...base, backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', minHeight: '40px', fontSize: '13px' }),
+                              menu: (base) => ({ ...base, zIndex: 9999, minWidth: 360 }),
+                              menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                              singleValue: (base) => ({ ...base, color: 'var(--text-primary)' }),
+                              input: (base) => ({ ...base, color: 'var(--text-primary)' }),
+                            }}
+                          />
+                        </label>
+                        <label className="block text-xs font-semibold text-[var(--text-secondary)]">Quantity
+                          <input type="number" min="1" step="1" value={draftLine.quantityRequested} onChange={event => setDraftLine(line => ({ ...line, quantityRequested: Number.parseInt(event.target.value, 10) || 0 }))} className={cn(INPUT, 'mt-1 w-full text-center')} />
+                        </label>
+                        <label className="block text-xs font-semibold text-[var(--text-secondary)]">Reason / purpose
+                          <input type="text" value={draftLine.purpose} onChange={event => setDraftLine(line => ({ ...line, purpose: event.target.value }))} placeholder="Optional reason for this item" className={cn(INPUT, 'mt-1 w-full')} />
+                        </label>
+                        <Button type="button" variant="soft" icon={Plus} disabled={!formData.supplyingDepartmentId || !draftLine.stockItemId} onClick={addDraftRequisitionItem}>Add item</Button>
+                      </div>
+                      {draftLine.picked && <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[var(--text-secondary)]"><span>Supplier balance: <strong className={draftLine.picked.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}>{draftLine.picked.supplierQty} {draftLine.picked.unitOfMeasure}</strong></span><span>Your balance: <strong className="text-[var(--text-primary)]">{draftLine.picked.requesterQty} {draftLine.picked.unitOfMeasure}</strong></span>{draftLine.quantityRequested > draftLine.picked.supplierQty && <span className="text-[var(--icon-red-text)]">Requested quantity exceeds available stock</span>}</div>}
                     </div>
-                    <Button type="button" size="sm" variant="outline" icon={Plus}
-                      disabled={!!editingRequisition || !formData.supplyingDepartmentId} onClick={addRequisitionItem}>Add item</Button>
-                  </div>
-                  {!formData.supplyingDepartmentId && <div className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] text-xs"><AlertCircle className="w-3.5 h-3.5 shrink-0" />Select the supplying department above before adding stock items.</div>}
+                  )}
                   <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
-                    <table className="w-full min-w-[1050px] text-sm">
-                      <thead className={TH_ROW}><tr><th className={TH}>Stock item</th><th className={cn(TH, 'w-36')}>Supplier balance</th><th className={cn(TH, 'w-28 text-center')}>Quantity</th><th className={TH}>Reason / purpose</th><th className={cn(TH, 'w-12 text-center')}></th></tr></thead>
+                    <table className="w-full min-w-[900px] text-sm">
+                      <thead className={TH_ROW}><tr><th className={TH}>Stock item</th><th className={cn(TH, 'w-36')}>Supplier balance</th><th className={cn(TH, 'w-28 text-center')}>Quantity</th><th className={TH}>Reason / purpose</th>{!editingRequisition && <th className={cn(TH, 'w-12 text-center')}></th>}</tr></thead>
                       <tbody>
                         {formData.requisitionItems.map((item, index) => {
                           const picked = item.picked;
                           const over = !!picked && item.quantityRequested > picked.supplierQty;
-                          const chosenIds = new Set(formData.requisitionItems.map(l => l.stockItemId).filter(Boolean));
                           return (
-                            <tr key={index} className={TR}>
-                              <td className={cn(TD, 'min-w-[380px]')}>
-                                <AsyncSelect<RequisitionStockLookupItem, false>
-                                  key={`${formData.supplyingDepartmentId}-${index}`} cacheOptions={false} defaultOptions
-                                  isDisabled={!!editingRequisition || !formData.supplyingDepartmentId}
-                                  loadOptions={loadItemOptions} value={picked || null}
-                                  onChange={(sel) => updateRequisitionItem(index, { stockItemId: sel?.id || '', picked: sel || null })}
-                                  getOptionValue={(o) => o.id}
-                                  getOptionLabel={(o) => `${o.name}${o.strength && o.strength !== 'N/A' ? ' ' + o.strength : ''}`}
-                                  isOptionDisabled={(o) => chosenIds.has(o.id) && o.id !== item.stockItemId}
-                                  formatOptionLabel={(o, meta) => (
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className="min-w-0"><div className="truncate">{o.name}{o.strength && o.strength !== 'N/A' ? ` ${o.strength}` : ''}</div><div className="text-xs opacity-60">{o.drugCode} · {o.unitOfMeasure}</div></div>
-                                      {meta.context === 'menu' && <div className="text-right text-xs shrink-0"><div className={cn('font-semibold', o.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]')}>{supplierName}: {o.supplierQty}</div><div className="opacity-70">You: {o.requesterQty}</div></div>}
-                                    </div>
-                                  )}
-                                  placeholder={formData.supplyingDepartmentId ? 'Search by name or code…' : 'Select supplier first'}
-                                  noOptionsMessage={({ inputValue }) => inputValue ? `No items match "${inputValue}"` : 'Type to search items'}
-                                  loadingMessage={() => 'Searching…'} isClearable className="text-sm" classNamePrefix="react-select"
-                                  styles={{
-                                    control: (base) => ({ ...base, backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', minHeight: '38px', fontSize: '13px' }),
-                                    option: (base) => ({ ...base, fontSize: '13px' }),
-                                    menu: (base) => ({ ...base, zIndex: 9999, minWidth: 380 }),
-                                    singleValue: (base) => ({ ...base, color: 'var(--text-primary)' }),
-                                    input: (base) => ({ ...base, color: 'var(--text-primary)' }),
-                                  }}
-                                />
-                                {picked && <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">At {requesterDeptName}: {picked.requesterQty} {picked.unitOfMeasure}</p>}
-                              </td>
-                              <td className={TD}>
-                                {picked ? <span className={cn('text-xs font-semibold', picked.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]')}>{picked.supplierQty} {picked.unitOfMeasure}</span> : <span className="text-xs text-[var(--text-tertiary)]">—</span>}
-                                {over && <p className="mt-1 text-[10px] text-[var(--icon-red-text)]">Only {picked?.supplierQty} available</p>}
-                              </td>
-                              <td className={TD}><input type="number" min="1" step="1" required disabled={!!editingRequisition}
-                                value={item.quantityRequested} onChange={e => updateRequisitionItem(index, { quantityRequested: parseInt(e.target.value) || 0 })}
-                                className={cn(INPUT, 'w-full text-center', over && 'border-[var(--icon-red-text)]')} /></td>
-                              <td className={TD}><input type="text" placeholder="Optional reason for this item" disabled={!!editingRequisition}
-                                value={item.purpose} onChange={e => updateRequisitionItem(index, { purpose: e.target.value })}
-                                className={cn(INPUT, 'w-full')} /></td>
-                              <td className={cn(TD, 'text-center')}><Button type="button" size="xs" variant="ghost" iconOnly icon={Trash2}
-                                className="text-[var(--icon-red-text)]" title="Remove item" disabled={!!editingRequisition}
-                                onClick={() => removeRequisitionItem(index)} /></td>
+                            <tr key={item.stockItemId || index} className={TR}>
+                              <td className={cn(TD, 'min-w-[320px]')}><div className="font-medium text-[var(--text-primary)]">{picked ? `${picked.name}${picked.strength && picked.strength !== 'N/A' ? ` ${picked.strength}` : ''}` : getStockItemName(item.stockItemId)}</div>{picked?.drugCode && <div className="mt-0.5 text-xs text-[var(--text-tertiary)]">{picked.drugCode} · {picked.unitOfMeasure}</div>}</td>
+                              <td className={TD}>{picked ? <span className={cn('text-xs font-semibold', picked.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]')}>{picked.supplierQty} {picked.unitOfMeasure}</span> : <span className="text-xs text-[var(--text-tertiary)]">—</span>}{over && <p className="mt-1 text-[10px] text-[var(--icon-red-text)]">Only {picked?.supplierQty} available</p>}</td>
+                              <td className={TD}><input type="number" min="1" step="1" required disabled={!editingRequisition} value={item.quantityRequested} onChange={event => updateRequisitionItem(index, { quantityRequested: Number.parseInt(event.target.value, 10) || 0 })} className={cn(INPUT, 'w-full text-center', over && 'border-[var(--icon-red-text)]')} /></td>
+                              <td className={TD}><input type="text" placeholder="Optional reason for this item" disabled={!editingRequisition} value={item.purpose} onChange={event => updateRequisitionItem(index, { purpose: event.target.value })} className={cn(INPUT, 'w-full')} /></td>
+                              {!editingRequisition && <td className={cn(TD, 'text-center')}><Button type="button" size="xs" variant="ghost" iconOnly icon={Trash2} className="text-[var(--icon-red-text)]" title="Remove item" onClick={() => removeRequisitionItem(index)} /></td>}
                             </tr>
                           );
                         })}
-                        {formData.requisitionItems.length === 0 && <tr><td colSpan={5} className="px-3 py-8 text-center text-xs text-[var(--text-tertiary)]">No items added yet. Select a supplier, then click Add item.</td></tr>}
+                        {formData.requisitionItems.length === 0 && <tr><td colSpan={editingRequisition ? 4 : 5} className="px-3 py-8 text-center text-xs text-[var(--text-tertiary)]">No items added yet. Search for a stock item above, enter its quantity, then click Add item.</td></tr>}
                       </tbody>
                     </table>
                   </div>
-                  {formData.requisitionItems.some(item => item.picked && item.quantityRequested > item.picked.supplierQty) && <p className="mt-2 text-xs text-[var(--icon-red-text)]">One or more requested quantities exceed the supplier's available balance. Review the highlighted rows before submitting.</p>}
+                  {formData.requisitionItems.some(item => item.picked && item.quantityRequested > item.picked.supplierQty) && <p className="text-xs text-[var(--icon-red-text)]">One or more requested quantities exceed the supplier's available balance. Review the highlighted rows before submitting.</p>}
                 </section>
 
                 <section className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_1fr] gap-3 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 shadow-sm items-end">
