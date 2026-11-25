@@ -170,6 +170,8 @@ export const verifyNHISEligibility = async (
   checkedById: string
 ): Promise<{ success: boolean; message: string; data?: any }> => {
   try {
+    const normalizedPolicyNumber = String(policyNumber ?? '').trim();
+    if (!normalizedPolicyNumber) return { success: false, message: 'NHIS membership number is required', data: null };
     const config = await getNHISApiConfig();
 
     if (!config) {
@@ -191,7 +193,7 @@ export const verifyNHISEligibility = async (
     }
 
     const response = await axios.get<NHISEligibilityResponse>(
-      `${config.eligibilityEndpoint}/${encodeURIComponent(policyNumber)}`,
+      `${config.eligibilityEndpoint}/${encodeURIComponent(normalizedPolicyNumber)}`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -214,7 +216,7 @@ export const verifyNHISEligibility = async (
     // Persist the NHIA response as the authoritative verification record. Patient.nhisActive
     // alone is not proof: registration can set it from coverage dates without an NHIA check.
     const patient = await prisma.patient.findFirst({
-      where: { nhisNumber: policyNumber },
+      where: { nhisNumber: normalizedPolicyNumber },
     });
 
     if (patient) {
@@ -251,7 +253,7 @@ export const verifyNHISEligibility = async (
         await tx.nHISEligibilityCheck.create({
           data: {
             patientId: patient.id,
-            membershipId: policyNumber.trim(),
+            membershipId: normalizedPolicyNumber,
             checkMethod: 'nhia_portal',
             status,
             memberName: result.data.fullName || null,
@@ -259,7 +261,7 @@ export const verifyNHISEligibility = async (
               ? parsedExpiry
               : null,
             responseReference: null,
-            rawResponse: result.data,
+            rawResponse: JSON.parse(JSON.stringify(result.data)),
             checkedById,
           },
         });
