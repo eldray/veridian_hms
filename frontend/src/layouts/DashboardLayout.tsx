@@ -15,7 +15,7 @@ import {
   ChevronLeft, ChevronRight, Sun, Moon, Eye, Trash2,
 } from 'lucide-react';
 
-const TOPBAR_H = 52;
+const TOPBAR_H = 60;
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -135,7 +135,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   const currentUnread = unreadCount || notifications?.filter(n => !n.isRead)?.length || 0;
-  const sidebarWidth = sidebarCollapsed ? 'w-[60px]' : 'w-[220px]';
+  const sidebarWidth = sidebarCollapsed ? 'w-[64px]' : 'w-[248px]';
   const displayName = user?.fullName || user?.username || 'User';
   const roleLabel = (user?.role || 'Staff').replace(/_/g, ' ');
   const avatarUrl = (user as any)?.avatarUrl || (user as any)?.profileImage || (user as any)?.imageUrl || '';
@@ -165,7 +165,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <div className="flex items-center h-full px-4 gap-3">
+        <div className="flex items-center h-full px-4 sm:px-5 gap-3">
 
           {/* Left: hamburger + brand */}
           <div className="flex items-center gap-3 flex-shrink-0">
@@ -211,10 +211,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   />
                 )}
                 <div className="text-center sm:text-left min-w-0">
-                  <p className="text-[13px] font-bold leading-tight tracking-tight truncate" style={{ color: 'var(--text-primary)' }}>
+                  <p className="text-sm font-bold leading-tight tracking-tight truncate" style={{ color: 'var(--text-primary)' }}>
                     {hospital?.name || 'Veridian Hospital'}
                   </p>
-                  <p className="text-[10px] leading-tight mt-0.5 font-medium tracking-wide uppercase truncate" style={{ color: 'var(--text-tertiary)' }}>
+                  <p className="text-[11px] leading-tight mt-0.5 font-medium tracking-wide uppercase truncate" style={{ color: 'var(--text-tertiary)' }}>
                     {hospital?.nhisFacilityType || 'Medical Center'}&nbsp;·&nbsp;{hospital?.nhisFacilityCode || 'GHS-ACC-001'}
                   </p>
                 </div>
@@ -531,11 +531,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           }}
         >
           <div
-            className="flex items-center justify-between px-3 py-2.5 border-b"
+            className="flex items-center justify-between px-3.5 py-3 border-b"
             style={{ borderColor: 'var(--border-color)' }}
           >
             {!sidebarCollapsed && (
-              <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: 'var(--text-tertiary)' }}>
                 Navigation
               </span>
             )}
@@ -561,7 +561,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           <nav
-            className="flex-1 overflow-y-auto py-2 px-2 space-y-1"
+            className="flex-1 overflow-y-auto py-3 px-2.5 space-y-1.5"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}
           >
             {navGroupsFor(user?.role).map(group => {
@@ -570,7 +570,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div key={group.label}>
                   {!sidebarCollapsed && (
                     <p
-                      className="px-2 pt-3 pb-1 text-[10px] font-bold tracking-widest uppercase select-none"
+                      className="px-2 pt-4 pb-1.5 text-[11px] font-bold tracking-widest uppercase select-none"
                       style={{ color: 'var(--text-tertiary)' }}
                     >
                       {group.label}
@@ -579,7 +579,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   {sidebarCollapsed && (
                     <div className="border-t my-2" style={{ borderColor: 'var(--border-color)' }} />
                   )}
-                  <div className="space-y-0.5">
+                  <div className="space-y-1">
                     {groupItems.map(item => {
                       const isActive =
                         (item.path === '/dashboard' && location.pathname === '/dashboard') ||
@@ -593,7 +593,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                           title={sidebarCollapsed ? item.name : undefined}
                           aria-current={isActive ? 'page' : undefined}
                           className={`relative flex items-center gap-2.5 rounded-lg transition-all duration-150 ${
-                            sidebarCollapsed ? 'justify-center px-1.5 py-2' : 'px-3 py-2'
+                            sidebarCollapsed ? 'justify-center px-1.5 py-2.5' : 'px-3 py-2.5'
                           }`}
                           style={{
                             background: isActive ? 'var(--bg-main)' : 'transparent',
@@ -609,12 +609,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                             />
                           )}
                           <Icon
-                            className="w-3.5 h-3.5 flex-shrink-0 transition-colors"
+                            className="w-4 h-4 flex-shrink-0 transition-colors"
                             style={{ color: isActive ? 'var(--icon-cyan-text)' : 'var(--text-tertiary)' }}
                           />
                           {!sidebarCollapsed && (
                             <span
-                              className="text-[11px] font-medium truncate"
+                              className="text-xs font-medium truncate"
                               style={{ color: isActive ? 'var(--text-primary)' : undefined }}
                             >
                               {item.name}
@@ -629,17 +629,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             })}
           </nav>
 
-          <div className="px-3 py-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+          <div className="px-3.5 py-3.5 border-t" style={{ borderColor: 'var(--border-color)' }}>
             {sidebarCollapsed ? (
               <div className="flex justify-center">
                 <Heart className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
               </div>
             ) : (
               <div>
-                <p className="text-[10px] font-semibold tracking-wider uppercase" style={{ color: 'var(--text-tertiary)' }}>
+                <p className="text-[11px] font-semibold tracking-wider uppercase" style={{ color: 'var(--text-tertiary)' }}>
                   Veridian HMS · v{appVersion}
                 </p>
-                <p className="text-[9px] mt-0.5 opacity-80" style={{ color: 'var(--text-tertiary)' }}>
+                <p className="text-[10px] mt-0.5 opacity-80" style={{ color: 'var(--text-tertiary)' }}>
                   © {year} Veridian Health Systems
                 </p>
               </div>
@@ -650,11 +650,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <main
           className={`flex-1 transition-all duration-300 ${
             location.pathname === '/dashboard/theatre'
-              ? 'h-[calc(100dvh-52px)] min-h-0 overflow-hidden'
-              : 'min-h-[calc(100vh-52px)]'
-          } ${sidebarCollapsed ? 'lg:ml-[60px]' : 'lg:ml-[220px]'}`}
+              ? 'h-[calc(100dvh-60px)] min-h-0 overflow-hidden'
+              : 'min-h-[calc(100vh-60px)]'
+          } ${sidebarCollapsed ? 'lg:ml-[64px]' : 'lg:ml-[248px]'}`}
         >
-          <div className={location.pathname === '/dashboard/theatre' ? 'h-full min-h-0 overflow-hidden p-4' : 'p-4'}>
+          <div className={location.pathname === '/dashboard/theatre' ? 'h-full min-h-0 overflow-hidden p-4' : 'p-5'}>
             <Suspense
               fallback={
                 <div

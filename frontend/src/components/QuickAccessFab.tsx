@@ -165,12 +165,12 @@ export function QuickAccessFab() {
 
   if (!open) {
     return (
-      <div className="fixed bottom-4 right-4 z-40 print:hidden" style={{ width: 44, height: 44 }}>
+      <div className="fixed bottom-4 right-4 z-30 print:hidden" style={{ width: 40, height: 40 }}>
         {radialOpen && (
           <div
             role="menu"
             aria-label="Quick links"
-            className="absolute bottom-[52px] right-0 w-60 max-h-[min(60vh,420px)] overflow-y-auto rounded-xl border p-2 shadow-2xl backdrop-blur-xl"
+            className="absolute bottom-[48px] right-0 z-10 w-56 max-w-[calc(100vw-2rem)] max-h-[min(55vh,400px)] overflow-y-auto overscroll-contain rounded-xl border p-2 shadow-xl backdrop-blur-xl"
             style={{
               background: 'color-mix(in srgb, var(--bg-card) 94%, transparent)',
               borderColor: 'var(--border-color)',
@@ -221,14 +221,14 @@ export function QuickAccessFab() {
           aria-expanded={radialOpen}
           aria-keyshortcuts="Control+K Meta+K"
           title="Quick access (Ctrl+K)"
-          className="absolute inset-0 z-20 flex h-11 w-11 items-center justify-center rounded-full border transition-all duration-200 hover:scale-105 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+          className="absolute inset-0 z-20 flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-200 hover:scale-105 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
           style={{
             background: 'rgba(18,107,145,.68)',
             color: '#fff',
             borderColor: 'rgba(255,255,255,.28)',
             backdropFilter: 'blur(10px)',
             WebkitBackdropFilter: 'blur(10px)',
-            opacity: 0.78,
+            opacity: 0.64,
             boxShadow: '0 4px 14px rgba(2,12,27,.18)',
           }}
         >
