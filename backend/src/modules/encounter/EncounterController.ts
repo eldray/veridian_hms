@@ -426,7 +426,7 @@ export class EncounterController extends BaseController {
 
   removeService = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, serviceRenderedId } = req.params;
-    await this.service.removeService(encounterId, serviceRenderedId);
+    await this.service.removeService(encounterId, serviceRenderedId, req.user!.id);
     return this.ok(res, null, 'Service removed successfully');
   });
 
