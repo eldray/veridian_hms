@@ -281,7 +281,7 @@ export default function Pharmacy() {
                   const nextMed = nextPendingMedication(item);
                   const dispensedTimes = (item.medications || [])
                     .filter((med: any) => med.dispensedAt)
-                    .map((med: any) => new Date(med.dispensedAt).toLocaleTimeString());
+                    .map((med: any) => new Date(med.dispensedAt).toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }));
 
                   return (
                     <tr
@@ -303,7 +303,7 @@ export default function Pharmacy() {
                       <td className={TD_MONO}>{item.patient?.folderNumber || '—'}</td>
                       <td className={TD_MONO}>{item.attendanceNumber || '—'}</td>
                       <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
-                        {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleString() : '—'}
+                        {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleString('en-GH', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
                       </td>
                       <td className={TD}>
                         <div className="flex items-center gap-1 text-[var(--text-secondary)]">
