@@ -312,6 +312,115 @@ export class ReportService {
     };
   }
 
+  // ==================== USER ACTIVITY / PATIENTS SEEN BY STAFF ====================
+  // Count each patient attendance once per staff member, even when the same staff member
+  // records several services for that attendance. Attribution follows the recorded actor
+  // for each workflow, not audit-log events or the attendance registrar alone.
+  async getPatientsSeenByStaffReport(filters: ReportFilters) {
+    const { startDate, endDate } = filters;
+    const range = parseReportRange(startDate, endDate);
+    const patientAttendance = {
+      Attendance: { patientId: { not: null }, status: { not: 'cancelled' } },
+    };
+    const activityRange = (field: string) => range ? { [field]: range } : { [field]: { not: null } };
+
+    const [
+      attendances, labTests, medications, ancVisits, postnatalRecords,
+      renderedServices, scans, procedures,
+    ] = await Promise.all([
+      this.prisma.attendance.findMany({
+        where: { patientId: { not: null }, status: { not: 'cancelled' }, ...(range ? { dateTime: range } : {}) },
+        select: { id: true, createdById: true, providerId: true },
+      }),
+      this.prisma.labTest.findMany({
+        where: { performedById: { not: null }, completedAt: activityRange('completedAt'), ...patientAttendance },
+        select: { attendanceId: true, performedById: true },
+      }),
+      this.prisma.medication.findMany({
+        where: { dispensedById: { not: null }, dispensedAt: activityRange('dispensedAt'), ...patientAttendance },
+        select: { attendanceId: true, dispensedById: true },
+      }),
+      this.prisma.aNCVisit.findMany({
+        where: { visitDate: activityRange('visitDate'), ...patientAttendance },
+        select: { attendanceId: true, recordedById: true },
+      }),
+      this.prisma.postnatalRecord.findMany({
+        where: { examinationDate: activityRange('examinationDate'), ...patientAttendance },
+        select: { attendanceId: true, createdById: true },
+      }),
+      this.prisma.serviceRendered.findMany({
+        where: { date: activityRange('date'), ...patientAttendance },
+        select: { attendanceId: true, performedById: true },
+      }),
+      this.prisma.scan.findMany({
+        where: { performedById: { not: null }, completedAt: activityRange('completedAt'), ...patientAttendance },
+        select: { attendanceId: true, performedById: true },
+      }),
+      this.prisma.procedure.findMany({
+        where: { performedById: { not: null }, performedAt: activityRange('performedAt'), ...patientAttendance },
+        select: { attendanceId: true, performedById: true },
+      }),
+    ]);
+
+    const attendanceByUser = new Map<string, Set<string>>();
+    const add = (userId: string | null | undefined, attendanceId: string) => {
+      if (!userId) return;
+      const ids = attendanceByUser.get(userId) || new Set<string>();
+      ids.add(attendanceId);
+      attendanceByUser.set(userId, ids);
+    };
+
+    for (const attendance of attendances) {
+      add(attendance.createdById, attendance.id);
+      add(attendance.providerId, attendance.id);
+    }
+    for (const row of labTests) add(row.performedById, row.attendanceId);
+    for (const row of medications) add(row.dispensedById, row.attendanceId);
+    for (const row of ancVisits) add(row.recordedById, row.attendanceId);
+    for (const row of postnatalRecords) add(row.createdById, row.attendanceId);
+    for (const row of renderedServices) add(row.performedById, row.attendanceId);
+    for (const row of scans) add(row.performedById, row.attendanceId);
+    for (const row of procedures) add(row.performedById, row.attendanceId);
+
+    const userIds = Array.from(attendanceByUser.keys());
+    const users = userIds.length ? await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true, username: true, fullName: true,
+        department: { select: { name: true } },
+        staffProfile: { select: { department: { select: { name: true } } } },
+      },
+    }) : [];
+    const userById = new Map(users.map(user => [user.id, user]));
+    const entries = users.map(user => ({
+      department: (user.department?.name || user.staffProfile?.department?.name || 'UNASSIGNED').toUpperCase(),
+      username: (user.username || user.fullName || 'UNKNOWN').toUpperCase(),
+      patientsSeen: attendanceByUser.get(user.id)?.size || 0,
+      userId: user.id,
+    })).sort((a, b) => a.department.localeCompare(b.department) || a.username.localeCompare(b.username));
+
+    const departmentTotals = Array.from(entries.reduce((map, row) => {
+      map.set(row.department, (map.get(row.department) || 0) + row.patientsSeen);
+      return map;
+    }, new Map<string, number>()).entries())
+      .map(([department, patientsSeen]) => ({ department, patientsSeen }))
+      .sort((a, b) => a.department.localeCompare(b.department));
+
+    return {
+      reportType: 'USER ACTIVITY / PATIENTS SEEN BY STAFF' as const,
+      period: this.periodOf(startDate, endDate),
+      summary: {
+        totalStaff: entries.length,
+        totalPatientStaffAttendances: entries.reduce((sum, row) => sum + row.patientsSeen, 0),
+        departments: departmentTotals.length,
+      },
+      departmentTotals,
+      entries,
+      methodology: 'A patient attendance is counted once per staff member when that staff member is recorded as the attendance registrar or clinician, or as the performer/recorder of a completed laboratory test, dispensed medication, ANC/postnatal visit, rendered service, scan or procedure. Repeat activities by the same staff member on the same attendance count once. The same attendance may count for more than one staff member.',
+      generatedAt: new Date(),
+    };
+  }
+
   // ==================== INSURANCE CLAIMS REPORT ====================
   async getInsuranceClaimsReport(filters: ReportFilters) {
     const { startDate, endDate, insuranceProviderId, status, corporateAccountId } = filters;
