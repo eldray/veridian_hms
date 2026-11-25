@@ -132,7 +132,7 @@ export function parseExcelRows(allRows: unknown[][]): ExcelRow[] {
     headers.forEach((header, index) => {
       if (header) record[header] = values[index] ?? null;
     });
-    return record as ExcelRow;
+    return record as unknown as ExcelRow;
   }).filter(row => {
     if (!row['Code'] || !row['Generic Name'] || !row['Unit of Pricing']) return false;
     if (row['Code'] === 'Code') return false;
@@ -155,7 +155,8 @@ export class ExcelToJSONConverter {
       if (!worksheet) throw new Error('The workbook contains no worksheets');
       const allRows: unknown[][] = [];
       worksheet.eachRow({ includeEmpty: true }, row => {
-        allRows.push(row.values.slice(1) as unknown[]);
+        const values = row.values as unknown[];
+        allRows.push(values.slice(1));
       });
       this.excelData = parseExcelRows(allRows);
       console.log(`Valid rows: ${this.excelData.length}`);
