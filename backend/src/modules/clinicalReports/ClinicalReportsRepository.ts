@@ -12,7 +12,7 @@ export class ClinicalReportsRepository extends BaseRepository<any, any, any> {
       where: { requestedAt: { gte: filters.startDate, lte: filters.endDate } },
       include: {
         LabTestTemplate: true,
-        Attendance: { include: { Patient: { select: { gender: true } } } },
+        Attendance: { include: { Patient: { select: { gender: true, dateOfBirth: true } } } },
         ServiceCatalog: true,
         User_LabTest_performedByIdToUser: { select: { fullName: true, username: true } },
         User_LabTest_verifiedByIdToUser: { select: { fullName: true, username: true } },
