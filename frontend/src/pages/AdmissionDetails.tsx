@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { useHospitalStore } from '../store/hospitalStore';
+import { PageHeader } from '../components/ui';
 
 export default function AdmissionDetails() {
   const goBack = useSmartBack('/dashboard/admissions');
@@ -242,10 +243,13 @@ export default function AdmissionDetails() {
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
-      <div className="flex items-center gap-3">
-        <button onClick={goBack} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] px-3 py-2 text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-card)]"><ArrowLeft className="h-3.5 w-3.5" /> Back to Admissions</button>
-        <div><h1 className="text-lg font-bold text-[var(--text-primary)]">Admission Details</h1><p className="text-xs text-[var(--text-secondary)]">Admission record and inpatient care overview</p></div>
-      </div>
+      <PageHeader
+        title="Admission Details"
+        subtitle="Admission record and inpatient care overview"
+        icon={Hospital}
+        accent="green"
+        onBack={goBack}
+      />
       <PatientVisitHeader
         patient={patient}
         attendance={{ ...attendance, status: admission?.status === 'cancelled' ? 'cancelled' : admission?.dischargeDate ? 'discharged' : attendance?.status }}
