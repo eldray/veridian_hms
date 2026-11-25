@@ -55,6 +55,28 @@ describe('encounter clinical documentation persistence', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
+  it('persists the selected corporate account on a corporate encounter', async () => {
+    const attendanceCreate = vi.fn().mockResolvedValue({ id: 'attendance-corporate-1' });
+    const tx = { attendance: { create: attendanceCreate } };
+    const prisma = {
+      attendance: { findFirst: vi.fn().mockResolvedValue(null) },
+      $transaction: vi.fn(async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new EncounterService(prisma as any);
+
+    await service.createEncounter({
+      patientId: 'patient-1',
+      attendanceType: 'general_consultation',
+      paymentMode: 'corporate',
+      corporateAccountId: 'corporate-account-1',
+    } as any, 'doctor-1');
+
+    expect(attendanceCreate.mock.calls[0][0].data).toMatchObject({
+      paymentMode: 'corporate',
+      corporateAccountId: 'corporate-account-1',
+    });
+  });
+
   it('rejects an invalid clinical outcome before starting encounter creation', async () => {
     const transaction = vi.fn();
     const service = new EncounterService({ $transaction: transaction } as any);
