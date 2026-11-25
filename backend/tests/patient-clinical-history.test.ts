@@ -8,6 +8,71 @@ import { PatientService } from '../src/modules/patient/PatientService';
 import { ValidationError } from '../src/utils/errors';
 
 describe('patient clinical history registration', () => {
+  it('ignores forged patient identity and registration metadata on create', async () => {
+    const create = vi.fn().mockResolvedValue({ id: 'server-patient-id' });
+    const service = new PatientService({
+      patient: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create,
+      },
+    } as any);
+
+    await service.createPatient({
+      ...validPatient,
+      id: 'forged-patient-id',
+      registeredBy: 'forged-recorder',
+      registeredAt: '2000-01-01T00:00:00.000Z',
+      createdAt: '2000-01-01T00:00:00.000Z',
+      updatedAt: '2000-01-01T00:00:00.000Z',
+      allergies: [{
+        id: 'forged-allergy-id',
+        patientId: 'another-patient',
+        allergen: 'Penicillin',
+        reaction: 'Rash',
+      }],
+    } as any);
+
+    const data = create.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('id');
+    expect(data).not.toHaveProperty('createdAt');
+    expect(data).not.toHaveProperty('updatedAt');
+    expect(data.registeredBy).toBe('system');
+    expect(data.registeredAt).toBeInstanceOf(Date);
+    expect(data.allergies.create).toEqual([{
+      allergen: 'Penicillin',
+      reaction: 'Rash',
+      severity: undefined,
+      notes: undefined,
+    }]);
+  });
+
+  it('ignores forged patient identity and registration metadata on update', async () => {
+    const update = vi.fn().mockResolvedValue({ id: 'patient-1' });
+    const service = new PatientService({
+      patient: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'patient-1', ...validPatient }),
+        update,
+      },
+    } as any);
+
+    await service.updatePatient('patient-1', {
+      surname: 'Updated',
+      id: 'another-patient',
+      registeredBy: 'forged-recorder',
+      registeredAt: '2000-01-01T00:00:00.000Z',
+      createdAt: '2000-01-01T00:00:00.000Z',
+      updatedAt: '2000-01-01T00:00:00.000Z',
+    } as any);
+
+    const data = update.mock.calls[0][0].data;
+    expect(data.surname).toBe('Updated');
+    expect(data).not.toHaveProperty('id');
+    expect(data).not.toHaveProperty('registeredBy');
+    expect(data).not.toHaveProperty('registeredAt');
+    expect(data).not.toHaveProperty('createdAt');
+    expect(data).not.toHaveProperty('updatedAt');
+  });
+
   const validPatient = {
     folderNumber: 'PAT-CLINICAL-001',
     surname: 'Test',
