@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Vitals } from '../../types';
 import { Activity } from 'lucide-react';
+import { TH, TH_ROW, TD, TD_MUTED, TR } from '../ui';
 
 interface VitalsHistoryProps {
   previousVitals: Vitals[];
@@ -10,48 +11,46 @@ export const VitalsHistory: React.FC<VitalsHistoryProps> = ({ previousVitals }) 
   if (previousVitals.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-      <h3 className="text-base font-semibold mb-3 flex items-center gap-2 text-gray-900">
-        <Activity className="w-4 h-4 text-blue-600" />
+    <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+        <Activity aria-hidden="true" className="h-4 w-4 text-[var(--icon-cyan-text)]" />
         Previous Vitals History
       </h3>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]" tabIndex={0} role="region" aria-label="Previous vitals history table">
+        <table className="min-w-full divide-y divide-[var(--border-color)] text-sm">
+          <thead className={TH_ROW}>
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date & Time</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">BP</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Temp</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Pulse</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Resp</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">SpO2</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Weight</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Height</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">BMI</th>
+              <th scope="col" className={TH}>Date &amp; Time</th>
+              <th scope="col" className={TH}>BP</th>
+              <th scope="col" className={TH}>Temp</th>
+              <th scope="col" className={TH}>Pulse</th>
+              <th scope="col" className={TH}>Resp</th>
+              <th scope="col" className={TH}>SpO2</th>
+              <th scope="col" className={TH}>Weight</th>
+              <th scope="col" className={TH}>Height</th>
+              <th scope="col" className={TH}>BMI</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="divide-y divide-[var(--border-color)]">
             {previousVitals.map((vital, index) => {
               const key = (vital as any)._id || `vital-${index}`;
               return (
-                <tr key={key} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 text-xs text-gray-900">
-                    {new Date(vital.recordedAt).toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{vital.bloodPressure || '-'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{vital.temperature || '-'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{vital.pulse || '-'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{vital.respiration || '-'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{vital.spo2 || '-'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{vital.weight || '-'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{vital.height || '-'}</td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{vital.bmi || '-'}</td>
+                <tr key={key} className={TR}>
+                  <td className={TD}>{new Date(vital.recordedAt).toLocaleString('en-GH')}</td>
+                  <td className={TD_MUTED}>{vital.bloodPressure || '-'}</td>
+                  <td className={TD_MUTED}>{vital.temperature || '-'}</td>
+                  <td className={TD_MUTED}>{vital.pulse || '-'}</td>
+                  <td className={TD_MUTED}>{vital.respiration || '-'}</td>
+                  <td className={TD_MUTED}>{vital.spo2 || '-'}</td>
+                  <td className={TD_MUTED}>{vital.weight || '-'}</td>
+                  <td className={TD_MUTED}>{vital.height || '-'}</td>
+                  <td className={TD_MUTED}>{vital.bmi || '-'}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   );
 };
