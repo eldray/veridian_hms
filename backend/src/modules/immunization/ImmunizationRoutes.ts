@@ -174,12 +174,15 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     if (Number.isNaN(date.getTime())) return res.status(400).json({ success: false, message: 'Invalid administration date.' });
     const [patient, attendance, vaccine] = await Promise.all([
       prisma.patient.findUnique({ where: { id: patientId }, select: { id: true } }),
-      prisma.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, patientId: true, attendanceType: true } }),
+      prisma.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, patientId: true, attendanceType: true, status: true, finalizedAt: true } }),
       prisma.vaccine.findUnique({ where: { id: vaccineId }, select: { id: true, code: true, isActive: true, stockItemId: true, StockItem: { select: { id: true, name: true, category: true, isActive: true } } } })
     ]);
     if (!patient) return res.status(404).json({ success: false, message: 'Patient not found.' });
     if (!attendance || attendance.patientId !== patientId) return res.status(400).json({ success: false, message: 'Attendance must belong to the selected patient.' });
     if (attendance.attendanceType !== 'immunization') return res.status(400).json({ success: false, message: 'Vaccination records must be linked to an Immunization attendance.' });
+    if (attendance.finalizedAt || ['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(attendance.status)) {
+      return res.status(409).json({ success: false, message: 'This immunization encounter is closed or finalized. Use the facility-approved correction/addendum process.' });
+    }
     if (!vaccine || !vaccine.isActive) return res.status(400).json({ success: false, message: 'Vaccine is missing or inactive.' });
     const expiryDate = req.body.expiryDate ? new Date(req.body.expiryDate) : null;
     const nextDoseDue = req.body.nextDoseDue ? new Date(req.body.nextDoseDue) : null;
@@ -187,6 +190,21 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     if (nextDoseDue && Number.isNaN(nextDoseDue.getTime())) return res.status(400).json({ success: false, message: 'Invalid next-dose due date.' });
     if (expiryDate && expiryDate < date) return res.status(400).json({ success: false, message: 'Vaccine expiry must be on or after administration date.' });
     const record = await prisma.$transaction(async (tx) => {
+      // Serialize vaccination creation with encounter finalization. A preflight read
+      // alone is insufficient because the encounter could be finalized before this write.
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${attendanceId} FOR UPDATE`;
+      }
+      const currentAttendance = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, patientId: true, attendanceType: true, status: true, finalizedAt: true },
+      });
+      if (!currentAttendance || currentAttendance.patientId !== patientId || currentAttendance.attendanceType !== 'immunization') {
+        throw new Error('The selected immunization encounter is no longer valid for this patient.');
+      }
+      if (currentAttendance.finalizedAt || ['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(currentAttendance.status)) {
+        throw new Error('This immunization encounter is closed or finalized. Use the facility-approved correction/addendum process.');
+      }
       // Create the clinical record and consume the linked vaccine product in the
       // same database transaction. A stock failure rolls the record back too.
       const created = await tx.immunizationRecord.create({ data: {
