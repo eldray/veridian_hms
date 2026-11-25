@@ -1,5 +1,6 @@
 // src/components/attendance/AttendanceList.tsx
 import { Link } from 'react-router-dom';
+import { PatientAvatar } from '../patients/PatientAvatar';
 import { Eye, Edit } from 'lucide-react';
 import { Badge, Button, humanStatus, statusTone, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR } from '../ui';
 
@@ -103,9 +104,9 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({
                   <td className={TD}>
                     <div className="flex flex-col items-start gap-1">
                       <span className="font-medium">{getPaymentModeLabel(attendance.paymentMode)}</span>
-                      {totalBill > 0 && (
-                        <span className="text-xs text-[var(--text-secondary)] font-semibold">
-                          ${totalBill.toFixed(2)}
+                      {Number(totalBill) > 0 && Number.isFinite(Number(totalBill)) && (
+                        <span className="text-xs text-[var(--text-secondary)] font-semibold tabular-nums">
+                          ₵{Number(totalBill).toFixed(2)}
                         </span>
                       )}
                     </div>
