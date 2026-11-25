@@ -1,0 +1,66 @@
+name: Remove vulnerable SheetJS dependency
+
+on:
+  push:
+    branches:
+      - security/remove-sheetjs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: remove-sheetjs-dependency
+  cancel-in-progress: false
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: security/remove-sheetjs
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Replace SheetJS and regenerate lockfile
+        run: |
+          npm install exceljs@^4 --save
+          npm uninstall xlsx --save
+          npm uninstall @types/xlsx --save-dev
+      - name: Validate schema, run backend tests and build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veridian_test
+        run: |
+          npx prisma validate
+          npx prisma generate
+          npm test
+          npm run build
+      - name: Report remaining backend vulnerabilities
+        if: always()
+        run: npm audit --json > ../backend-npm-audit-after-sheetjs.json || true
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-audit-after-sheetjs-removal
+          path: backend-npm-audit-after-sheetjs.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Commit regenerated dependency files
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "Dependency manifests already current."
+            exit 0
+          fi
+          git commit -m "chore(deps): replace vulnerable SheetJS with ExcelJS"
+          git push origin HEAD:security/remove-sheetjs

@@ -1,8 +1,8 @@
 // src/scripts/parseNHISMedicines.ts
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -116,40 +116,49 @@ const DRUG_USE_MAP: Record<string, { category: string; description: string }> = 
   allopurinol: { category: 'Antigout', description: 'Gout and hyperuricemia treatment' },
 };
 
-class ExcelToJSONConverter {
+export function parseExcelRows(allRows: unknown[][]): ExcelRow[] {
+  let headerRowIndex = -1;
+  for (let i = 0; i < Math.min(10, allRows.length); i++) {
+    const row = allRows[i];
+    if (row.includes('Code') && row.includes('Generic Name')) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+  if (headerRowIndex < 0) throw new Error('Could not find Code and Generic Name columns in the first 10 rows');
+  const headers = allRows[headerRowIndex].map(value => value == null ? '' : String(value).trim());
+  return allRows.slice(headerRowIndex + 1).map(values => {
+    const record: Record<string, unknown> = {};
+    headers.forEach((header, index) => {
+      if (header) record[header] = values[index] ?? null;
+    });
+    return record as unknown as ExcelRow;
+  }).filter(row => {
+    if (!row['Code'] || !row['Generic Name'] || !row['Unit of Pricing']) return false;
+    if (row['Code'] === 'Code') return false;
+    const price = parseFloat(String(row['Price(GH¢)'] ?? ''));
+    return Number.isFinite(price) && price > 0;
+  });
+}
+
+export class ExcelToJSONConverter {
   private excelData: ExcelRow[] = [];
 
   constructor(private filePath: string) {}
 
-  public readExcelFile(): void {
+  public async readExcelFile(): Promise<void> {
     try {
       console.log(`Reading Excel from: ${this.filePath}`);
-      const workbook = XLSX.readFile(this.filePath);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const allRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-      let headerRowIndex = 0;
-      for (let i = 0; i < Math.min(10, allRows.length); i++) {
-        const row = allRows[i];
-        if (Array.isArray(row) && row.includes('Code') && row.includes('Generic Name')) {
-          headerRowIndex = i;
-          break;
-        }
-      }
-
-      this.excelData = XLSX.utils.sheet_to_json(worksheet, {
-        range: headerRowIndex,
-        defval: null
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.readFile(this.filePath);
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) throw new Error('The workbook contains no worksheets');
+      const allRows: unknown[][] = [];
+      worksheet.eachRow({ includeEmpty: true }, row => {
+        const values = row.values as unknown[];
+        allRows.push(values.slice(1));
       });
-
-      this.excelData = this.excelData.filter(row => {
-        if (!row['Code'] || !row['Generic Name'] || !row['Unit of Pricing']) return false;
-        if (row['Code'] === 'Code') return false;
-        const price = parseFloat(row['Price(GH¢)'] as any);
-        return !isNaN(price) && price > 0;
-      });
-
+      this.excelData = parseExcelRows(allRows);
       console.log(`Valid rows: ${this.excelData.length}`);
     } catch (error) {
       console.error('Excel read error:', error);
@@ -234,21 +243,24 @@ class ExcelToJSONConverter {
     Object.entries(catCount).forEach(([c, n]) => console.log(`  ${c}: ${n}`));
   }
 
-  public convert(excelPath: string, jsonPath: string): void {
-    this.readExcelFile();
+  public async convert(excelPath: string, jsonPath: string): Promise<void> {
+    this.filePath = excelPath;
+    await this.readExcelFile();
     this.saveToFile(jsonPath);
   }
 }
 
 // === RUN ===
-const main = () => {
+const main = async () => {
   const root = path.resolve(__dirname, '..', '..');
   const excelFile = path.join(root, 'NHIS_Medicines.xlsx');
   const jsonFile = path.join(root, 'nhis-medicines.json');
 
   console.log('Starting NHIS → StockItem conversion...');
-  new ExcelToJSONConverter(excelFile).convert(excelFile, jsonFile);
+  await new ExcelToJSONConverter(excelFile).convert(excelFile, jsonFile);
   console.log('Done!');
 };
 
-main();
+if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
+  main().catch(error => { console.error(error); process.exitCode = 1; });
+}
