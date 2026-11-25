@@ -16,12 +16,15 @@ const PATIENT_WRITE_FIELDS = [
   'nhisActive', 'phoneNumber',
 ] as const;
 
-function pickPatientWriteFields(data: Record<string, unknown>) {
+function pickPatientWriteFields<T extends object>(
+  data: T,
+): Pick<T, Extract<keyof T, (typeof PATIENT_WRITE_FIELDS)[number]>> {
+  const source = data as Record<string, unknown>;
   return Object.fromEntries(
     PATIENT_WRITE_FIELDS
-      .filter((field) => data[field] !== undefined)
-      .map((field) => [field, data[field]]),
-  );
+      .filter((field) => source[field] !== undefined)
+      .map((field) => [field, source[field]]),
+  ) as Pick<T, Extract<keyof T, (typeof PATIENT_WRITE_FIELDS)[number]>>;
 }
 
 function cleanAllergyEntries(entries: CreateAllergyDTO[]) {
@@ -228,7 +231,7 @@ export class PatientService extends BaseService {
       surgicalHistories,
       familyHistories,
     } = data;
-    const persistedData = pickPatientWriteFields(data as unknown as Record<string, unknown>);
+    const persistedData = pickPatientWriteFields(data);
     const insuranceProviderId = corporateAccount
       ? corporateAccount.insuranceProviderId
       : data.insuranceProviderId;
