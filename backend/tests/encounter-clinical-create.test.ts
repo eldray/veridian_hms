@@ -90,4 +90,99 @@ describe('encounter clinical documentation persistence', () => {
 
     expect(transaction).not.toHaveBeenCalled();
   });
+
+  it('rejects an NHIS attendance when the patient has no NHIA verification record', async () => {
+    const attendanceCreate = vi.fn();
+    const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const tx = {
+      patient: { findUnique: vi.fn().mockResolvedValue({
+        id: 'patient-1', nhisNumber: '0012345678', nhisActive: true, nhisExpiryDate: expiry,
+      }) },
+      nHISEligibilityCheck: { findFirst: vi.fn().mockResolvedValue(null) },
+      attendance: { create: attendanceCreate },
+    };
+    const prisma = {
+      attendance: { findFirst: vi.fn().mockResolvedValue(null) },
+      insuranceProvider: { findFirst: vi.fn().mockResolvedValue({ id: 'nhis-provider-1' }) },
+      $transaction: vi.fn(async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new EncounterService(prisma as any);
+
+    await expect(service.createEncounter({
+      patientId: 'patient-1',
+      attendanceType: 'general_consultation',
+      paymentMode: 'nhis',
+      nhisCCC: '12345',
+    } as any, 'staff-1')).rejects.toThrow(/has not been verified as active with NHIA/i);
+
+    expect(attendanceCreate).not.toHaveBeenCalled();
+  });
+
+  it('creates an NHIS attendance only when the latest NHIA check matches the current active membership', async () => {
+    const attendanceCreate = vi.fn().mockResolvedValue({ id: 'attendance-nhis-1' });
+    const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const tx = {
+      patient: { findUnique: vi.fn().mockResolvedValue({
+        id: 'patient-1', nhisNumber: '0012345678', nhisActive: true, nhisExpiryDate: expiry,
+      }) },
+      nHISEligibilityCheck: { findFirst: vi.fn().mockResolvedValue({
+        membershipId: '0012345678',
+        status: 'active',
+        membershipExpiry: expiry,
+        checkTimestamp: new Date(),
+      }) },
+      attendance: { create: attendanceCreate },
+    };
+    const prisma = {
+      attendance: { findFirst: vi.fn().mockResolvedValue(null) },
+      insuranceProvider: { findFirst: vi.fn().mockResolvedValue({ id: 'nhis-provider-1' }) },
+      $transaction: vi.fn(async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new EncounterService(prisma as any);
+
+    await service.createEncounter({
+      patientId: 'patient-1',
+      attendanceType: 'general_consultation',
+      paymentMode: 'nhis',
+      nhisCCC: '12345',
+    } as any, 'staff-1');
+
+    expect(attendanceCreate.mock.calls[0][0].data).toMatchObject({
+      paymentMode: 'nhis',
+      nhisCCC: '12345',
+      insuranceProviderId: 'nhis-provider-1',
+    });
+  });
+
+  it('rejects an NHIS attendance when the latest verification belongs to a different membership number', async () => {
+    const attendanceCreate = vi.fn();
+    const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const tx = {
+      patient: { findUnique: vi.fn().mockResolvedValue({
+        id: 'patient-1', nhisNumber: '0012345678', nhisActive: true, nhisExpiryDate: expiry,
+      }) },
+      nHISEligibilityCheck: { findFirst: vi.fn().mockResolvedValue({
+        membershipId: '0099999999',
+        status: 'active',
+        membershipExpiry: expiry,
+        checkTimestamp: new Date(),
+      }) },
+      attendance: { create: attendanceCreate },
+    };
+    const prisma = {
+      attendance: { findFirst: vi.fn().mockResolvedValue(null) },
+      insuranceProvider: { findFirst: vi.fn().mockResolvedValue({ id: 'nhis-provider-1' }) },
+      $transaction: vi.fn(async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx)),
+    };
+    const service = new EncounterService(prisma as any);
+
+    await expect(service.createEncounter({
+      patientId: 'patient-1',
+      attendanceType: 'general_consultation',
+      paymentMode: 'nhis',
+      nhisCCC: '12345',
+    } as any, 'staff-1')).rejects.toThrow(/has not been verified as active with NHIA/i);
+
+    expect(attendanceCreate).not.toHaveBeenCalled();
+  });
 });
