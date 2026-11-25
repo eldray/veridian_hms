@@ -161,6 +161,14 @@ export class EncounterService extends BaseService {
   // MATERNAL HANDLERS (Updated to accept `tx`)
   // ============================================
   private async handleAntenatalEncounter(tx: any, encounterId: string, patientId: string, userId: string) {
+    // The automatic booking path must serialize on the same patient row as manual
+    // booking creation; otherwise two concurrent encounter registrations can create
+    // separate active pregnancies for one patient.
+    if (typeof tx.$queryRaw === 'function') {
+      await tx.$queryRaw`SELECT "id" FROM "Patient" WHERE "id" = ${patientId} FOR UPDATE`;
+    } else if (typeof tx.$queryRawUnsafe === 'function') {
+      await tx.$queryRawUnsafe('SELECT "id" FROM "Patient" WHERE "id" = $1 FOR UPDATE', patientId);
+    }
     const existingBooking = await tx.antenatalBooking.findFirst({ where: { patientId, isActive: true, isCompleted: false } });
     const attendance = await tx.attendance.findUnique({ where: { id: encounterId }, select: { dateTime: true } });
 

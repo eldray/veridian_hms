@@ -24,6 +24,32 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     super(prisma, 'antenatalBooking');
   }
 
+  /** Serialize maternity writes with encounter closure/finalization. */
+  private async requireOpenMaternalAttendance(
+    tx: any, attendanceId: string, patientId: string, expectedType: string, label: string,
+  ) {
+    if (typeof tx.$queryRaw === 'function') {
+      await tx.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${attendanceId} FOR UPDATE`;
+    } else if (typeof tx.$queryRawUnsafe === 'function') {
+      await tx.$queryRawUnsafe('SELECT "id" FROM "Attendance" WHERE "id" = $1 FOR UPDATE', attendanceId);
+    }
+    const attendance = await tx.attendance.findUnique({
+      where: { id: attendanceId },
+      select: { id: true, patientId: true, attendanceType: true, status: true, finalizedAt: true },
+    });
+    if (!attendance) throw new NotFoundError(label, attendanceId);
+    if (attendance.patientId !== patientId) {
+      throw new ValidationError(`${label} patient must match the patient on the selected attendance`);
+    }
+    if (attendance.attendanceType !== expectedType) {
+      throw new ValidationError(`${label} must be linked to a ${expectedType} attendance`);
+    }
+    if (attendance.finalizedAt || ['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(attendance.status))) {
+      throw new ConflictError('This clinical record is finalized or the encounter is closed. Use the facility-approved correction/addendum process.');
+    }
+    return attendance;
+  }
+
   // ===================== ANTENATAL BOOKING =====================
   async createBooking(data: CreateAntenatalBookingInput): Promise<any> {
     if (!data?.patientId?.trim() || !data?.attendanceId?.trim() || !data?.createdById?.trim()) {
@@ -118,6 +144,22 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Serialize pregnancy creation across different attendances for the same patient.
+      // Locking the patient row prevents two concurrent bookings from both passing the
+      // active-booking check while holding different attendance locks.
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Patient" WHERE "id" = ${data.patientId} FOR UPDATE`;
+      } else if (typeof tx.$queryRawUnsafe === 'function') {
+        await tx.$queryRawUnsafe('SELECT "id" FROM "Patient" WHERE "id" = $1 FOR UPDATE', data.patientId);
+      }
+      await this.requireOpenMaternalAttendance(tx, data.attendanceId, data.patientId, 'antenatal', 'Antenatal attendance');
+      const activeBookingInTransaction = await tx.antenatalBooking.findFirst({
+        where: { patientId: data.patientId, isActive: true, isCompleted: false },
+        select: { id: true },
+      });
+      if (activeBookingInTransaction) {
+        throw new ConflictError('An active pregnancy booking already exists for this patient. Update that booking or close it before creating another.');
+      }
       const created = await tx.antenatalBooking.create({
       data: {
         patientId: data.patientId, attendanceId: data.attendanceId, currentAttendanceId: data.attendanceId,
@@ -233,6 +275,14 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       clean.itnGivenDate = itnGivenDate;
     }
     return this.prisma.$transaction(async (tx) => {
+      const existingBooking = await tx.antenatalBooking.findUnique({
+        where: { id }, select: { id: true, patientId: true, attendanceId: true, currentAttendanceId: true },
+      });
+      if (!existingBooking) throw new NotFoundError('Antenatal booking', id);
+      await this.requireOpenMaternalAttendance(
+        tx, clean.currentAttendanceId ?? existingBooking.currentAttendanceId ?? existingBooking.attendanceId,
+        existingBooking.patientId, 'antenatal', 'Antenatal attendance',
+      );
       const updated = await tx.antenatalBooking.update({ where: { id }, data: clean, include: { patient: true } });
       await appendMaternalUpdateAudit(tx, 'AntenatalBooking', id, actorId, 'antenatal.booking.update', Object.keys(clean));
       return updated;
@@ -325,21 +375,11 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const [attendance, booking] = await Promise.all([
-        tx.attendance.findUnique({
-          where: { id: data.attendanceId },
-          select: { id: true, patientId: true, attendanceType: true },
-        }),
-        tx.antenatalBooking.findUnique({ where: { id: data.bookingId } }),
-      ]);
-      if (!attendance) throw new NotFoundError('ANC attendance', data.attendanceId);
+      const booking = await tx.antenatalBooking.findUnique({ where: { id: data.bookingId } });
       if (!booking) throw new NotFoundError('Antenatal booking', data.bookingId);
-      if (attendance.patientId !== booking.patientId) {
-        throw new ValidationError('ANC visit attendance and booking must belong to the same patient');
-      }
-      if (attendance.attendanceType !== 'antenatal') {
-        throw new ValidationError('ANC visit must be linked to an antenatal attendance');
-      }
+      const attendance = await this.requireOpenMaternalAttendance(
+        tx, data.attendanceId, booking.patientId, 'antenatal', 'ANC attendance',
+      );
 
       const existingVisit = await tx.aNCVisit.findUnique({ where: { attendanceId: data.attendanceId } });
       if (existingVisit && existingVisit.bookingId !== booking.id) {
@@ -526,6 +566,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
     if (Object.keys(clean).length === 0) throw new ValidationError('No valid ANC visit fields were provided');
     return this.prisma.$transaction(async (tx) => {
+      const existingVisit = await tx.aNCVisit.findUnique({
+        where: { id }, select: { id: true, attendanceId: true, booking: { select: { patientId: true } } },
+      });
+      if (!existingVisit) throw new NotFoundError('ANC visit', id);
+      await this.requireOpenMaternalAttendance(
+        tx, existingVisit.attendanceId, existingVisit.booking.patientId, 'antenatal', 'ANC attendance',
+      );
       const updated = await tx.aNCVisit.update({ where: { id }, data: clean, include: { recordedBy: { select: { fullName: true, role: true } } } });
       await appendMaternalUpdateAudit(tx, 'ANCVisit', id, actorId, 'antenatal.visit.update', Object.keys(clean));
       return updated;
@@ -647,17 +694,16 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       }
     }
     return this.prisma.$transaction(async (tx) => {
-      const attendance = await tx.attendance.findUnique({
-        where: { id: data.attendanceId },
-        select: { id: true, patientId: true, attendanceType: true },
+      const deliveryAttendance = await this.requireOpenMaternalAttendance(
+        tx, data.attendanceId, data.patientId, 'delivery', 'Delivery attendance',
+      );
+      // One delivery record belongs to a delivery attendance; multiple births are
+      // represented by NewbornRecord rows. Returning the existing record makes retries safe.
+      const existingDelivery = await tx.deliveryRecord.findFirst({
+        where: { attendanceId: deliveryAttendance.id },
+        include: { Newborn: true, patient: true, attendance: true },
       });
-      if (!attendance) throw new NotFoundError('Delivery attendance', data.attendanceId);
-      if (attendance.patientId !== data.patientId) {
-        throw new ValidationError('Delivery patient must match the patient on the selected attendance');
-      }
-      if (attendance.attendanceType !== 'delivery') {
-        throw new ValidationError('Delivery record must be linked to a delivery attendance');
-      }
+      if (existingDelivery) return existingDelivery;
       const deliveryDate = new Date(data.deliveryDate);
       if (Number.isNaN(deliveryDate.getTime())) throw new ValidationError('Delivery date must be valid');
       if (deliveryDate.getTime() > Date.now()) throw new ValidationError('Delivery date cannot be in the future');
@@ -845,9 +891,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.deliveryRecord.findUnique({
         where: { id },
-        select: { id: true, patientId: true, deliveryDate: true, deliveryOutcome: true, antenatalBookingId: true },
+        select: { id: true, patientId: true, attendanceId: true, deliveryDate: true, deliveryOutcome: true, antenatalBookingId: true },
       });
       if (!existing) throw new NotFoundError('Delivery record', id);
+      await this.requireOpenMaternalAttendance(
+        tx, existing.attendanceId, existing.patientId, 'delivery', 'Delivery attendance',
+      );
 
       // Once a delivery is linked to an antenatal booking, do not silently switch or
       // clear that link: the previous booking would otherwise remain marked completed

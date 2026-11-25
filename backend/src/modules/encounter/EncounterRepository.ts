@@ -580,37 +580,45 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     if (!['pending', 'cancelled'].includes(status)) {
       throw new ValidationError('Use the dedicated admission, completion, discharge, referral or absconded workflow to change an encounter to that status');
     }
-    const current = await this.prisma.attendance.findUnique({
-      where: { id },
-      include: {
-        _count: { select: {
-          AttendanceDiagnosis: true, LabTest: true, Medication: true, Procedure: true, Scan: true,
-          ServiceRendered: true, Vitals: true, nursingNotes: true, nursingTasks: true,
-          antenatalVisits: true, deliveryRecords: true, abortionRecords: true, postnatalRecords: true,
-          familyPlanningServices: true,
-        } },
-        Bill: { select: { id: true } },
-        Admission: { select: { id: true } },
-      },
+    const actorId = status === 'cancelled' ? await this.requireActorId(userId) : undefined;
+    return this.prisma.$transaction(async (tx) => {
+      // Use the same row lock as clinical writers and finalization. The activity
+      // check and cancellation now share one transaction, closing the check/write race.
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${id} FOR UPDATE`;
+      } else if (typeof tx.$queryRawUnsafe === 'function') {
+        await tx.$queryRawUnsafe('SELECT "id" FROM "Attendance" WHERE "id" = $1 FOR UPDATE', id);
+      }
+      const current = await tx.attendance.findUnique({
+        where: { id },
+        include: {
+          _count: { select: {
+            AttendanceDiagnosis: true, LabTest: true, Medication: true, Procedure: true, Scan: true,
+            ServiceRendered: true, Vitals: true, nursingNotes: true, nursingTasks: true,
+            antenatalVisits: true, deliveryRecords: true, abortionRecords: true, postnatalRecords: true,
+            familyPlanningServices: true,
+          } },
+          Bill: { select: { id: true } },
+          Admission: { select: { id: true } },
+        },
+      });
+      if (!current) throw new NotFoundError('Encounter', id);
+      if (status === 'pending') {
+        if (current.status !== 'pending') throw new ConflictError('A non-pending encounter cannot be reset to pending through a generic status update');
+        return current;
+      }
+      if (current.status !== 'pending') throw new ConflictError('Only a pending encounter can be cancelled');
+      const count = current._count || {};
+      const hasClinicalActivity = Object.values(count).some((value: any) => Number(value) > 0);
+      if (hasClinicalActivity || current.Bill || current.Admission) {
+        throw new ConflictError('An encounter with clinical activity, billing or an admission cannot be cancelled through a generic status update');
+      }
+      await tx.attendance.update({
+        where: { id },
+        data: { status: 'cancelled', updatedById: actorId },
+      });
+      return tx.attendance.findUnique({ where: { id } });
     });
-    if (!current) throw new NotFoundError('Encounter', id);
-    if (status === 'pending') {
-      if (current.status !== 'pending') throw new ConflictError('A non-pending encounter cannot be reset to pending through a generic status update');
-      return current;
-    }
-    if (current.status !== 'pending') throw new ConflictError('Only a pending encounter can be cancelled');
-    const count = current._count || {};
-    const hasClinicalActivity = Object.values(count).some((value: any) => Number(value) > 0);
-    if (hasClinicalActivity || current.Bill || current.Admission) {
-      throw new ConflictError('An encounter with clinical activity, billing or an admission cannot be cancelled through a generic status update');
-    }
-    const actorId = await this.requireActorId(userId);
-    const updated = await this.prisma.attendance.updateMany({
-      where: { id, status: 'pending' },
-      data: { status: 'cancelled', updatedById: actorId },
-    });
-    if (updated.count !== 1) throw new ConflictError('Encounter status changed; refresh and try again');
-    return this.prisma.attendance.findUnique({ where: { id } });
   }
 
   async finalizeClinicalRecord(id: string, userId: string) {

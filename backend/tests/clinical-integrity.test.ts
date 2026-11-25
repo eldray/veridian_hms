@@ -14,8 +14,16 @@ const antenatalTransactionMock = (modelName: string, model: Record<string, any>)
       findMany: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
     },
-    [modelName]: model,
+    attendance: { findUnique: vi.fn().mockResolvedValue({
+      id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal',
+      status: 'pending', finalizedAt: null,
+    }) },
+    aNCVisit: { findUnique: vi.fn().mockResolvedValue({
+      id: 'visit-1', attendanceId: 'attendance-1', booking: { patientId: 'patient-1' },
+    }) },
+    deliveryRecord: { findFirst: vi.fn().mockResolvedValue(null) },
   };
+  tx[modelName] = { ...(tx[modelName] ?? {}), ...model };
   return {
     tx,
     prisma: { $transaction: vi.fn(async (callback: any) => callback(tx)) },
@@ -985,7 +993,7 @@ describe('newborn record validation', () => {
     auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'delivery' }) },
       antenatalBooking: { findFirst: vi.fn().mockResolvedValue(null), findUnique: vi.fn() },
-      deliveryRecord: { create },
+      deliveryRecord: { findFirst: vi.fn().mockResolvedValue(null), create },
     };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
@@ -1161,7 +1169,7 @@ describe('maternal record integrity', () => {
     auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'delivery-attendance', patientId: 'patient-b' }) },
       antenatalBooking: { findUnique: vi.fn() },
-      deliveryRecord: { create: deliveryCreate },
+      deliveryRecord: { findFirst: vi.fn().mockResolvedValue(null), create: deliveryCreate },
     };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
@@ -1199,7 +1207,7 @@ describe('maternal record integrity', () => {
         findFirst: bookingFindFirst,
         updateMany: bookingUpdateMany,
       },
-      deliveryRecord: { create: deliveryCreate },
+      deliveryRecord: { findFirst: vi.fn().mockResolvedValue(null), create: deliveryCreate },
     };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
@@ -1249,7 +1257,7 @@ describe('maternal record integrity', () => {
         findFirst: vi.fn(),
         updateMany: bookingUpdateMany,
       },
-      deliveryRecord: { create: deliveryCreate },
+      deliveryRecord: { findFirst: vi.fn().mockResolvedValue(null), create: deliveryCreate },
     };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
@@ -1293,7 +1301,11 @@ describe('maternal record integrity', () => {
     const tx: any = {
       $queryRawUnsafe: vi.fn().mockResolvedValue([]),
       auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
-      antenatalBooking: { create },
+      attendance: { findUnique: vi.fn().mockResolvedValue({
+        id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal',
+        status: 'pending', finalizedAt: null,
+      }) },
+      antenatalBooking: { create, findFirst: vi.fn().mockResolvedValue(null) },
     };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
@@ -2230,9 +2242,10 @@ describe('delivery-to-ANC booking link integrity', () => {
     const tx = {
     $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'delivery-attendance-1', patientId: 'patient-1', attendanceType: 'delivery', status: 'pending', finalizedAt: null }) },
       deliveryRecord: {
         findUnique: vi.fn().mockResolvedValue({
-          id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-10T10:00:00.000Z'),
+          id: 'delivery-1', patientId: 'patient-1', attendanceId: 'delivery-attendance-1', deliveryDate: new Date('2026-10-10T10:00:00.000Z'),
           deliveryOutcome: 'live_birth', antenatalBookingId: 'booking-1',
         }),
         update: deliveryUpdate,
@@ -2256,9 +2269,10 @@ describe('delivery-to-ANC booking link integrity', () => {
     const tx = {
     $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'delivery-attendance-1', patientId: 'patient-1', attendanceType: 'delivery', status: 'pending', finalizedAt: null }) },
       deliveryRecord: {
         findUnique: vi.fn().mockResolvedValue({
-          id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-10T10:00:00.000Z'),
+          id: 'delivery-1', patientId: 'patient-1', attendanceId: 'delivery-attendance-1', deliveryDate: new Date('2026-10-10T10:00:00.000Z'),
           deliveryOutcome: 'live_birth', antenatalBookingId: 'booking-1',
         }),
         update: deliveryUpdate,
@@ -2704,9 +2718,10 @@ describe('newborn follow-up preservation during delivery edits', () => {
     const tx = {
     $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'delivery-attendance-1', patientId: 'patient-1', attendanceType: 'delivery', status: 'pending', finalizedAt: null }) },
       deliveryRecord: {
         findUnique: vi.fn().mockResolvedValue({
-          id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-20'),
+          id: 'delivery-1', patientId: 'patient-1', attendanceId: 'delivery-attendance-1', deliveryDate: new Date('2026-10-20'),
           deliveryOutcome: 'live_birth', antenatalBookingId: null,
         }),
         update: deliveryUpdate,
@@ -2745,9 +2760,10 @@ describe('newborn follow-up preservation during delivery edits', () => {
     const tx = {
     $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'delivery-attendance-1', patientId: 'patient-1', attendanceType: 'delivery', status: 'pending', finalizedAt: null }) },
       deliveryRecord: {
         findUnique: vi.fn().mockResolvedValue({
-          id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-20'),
+          id: 'delivery-1', patientId: 'patient-1', attendanceId: 'delivery-attendance-1', deliveryDate: new Date('2026-10-20'),
           deliveryOutcome: 'live_birth', antenatalBookingId: null,
         }),
         update: deliveryUpdate,
@@ -3200,5 +3216,55 @@ describe('stage-aware clinical order removal', () => {
     await expect(repository.removeMedication('enc-1', 'order-1', 'user-1'))
       .rejects.toThrow(/dispensing return or clinical correction/i);
     expect(tx.medication.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('maternal writes respect encounter finalization', () => {
+  it('locks and rejects a closed ANC attendance before writing a visit', async () => {
+    const tx: any = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({
+        id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal',
+        status: 'discharged', finalizedAt: null,
+      }) },
+      antenatalBooking: { findUnique: vi.fn().mockResolvedValue({
+        id: 'booking-1', patientId: 'patient-1', isActive: true, isCompleted: false,
+      }) },
+      aNCVisit: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn(), count: vi.fn() },
+    };
+    const repository = new AntenatalRepository({ $transaction: vi.fn(async (cb: any) => cb(tx)) } as any);
+    await expect(repository.createVisit({
+      bookingId: 'booking-1', attendanceId: 'attendance-1',
+      visitDate: new Date('2026-11-20T10:00:00.000Z'), recordedById: 'midwife-1',
+      gravida: 2, para: 0,
+    } as any)).rejects.toThrow(/encounter is closed/i);
+    expect(tx.$queryRawUnsafe).toHaveBeenCalledWith(expect.stringContaining('FOR UPDATE'), 'attendance-1');
+    expect(tx.aNCVisit.update).not.toHaveBeenCalled();
+    expect(tx.aNCVisit.create).not.toHaveBeenCalled();
+  });
+
+  it('locks and rejects a finalized delivery attendance before creating a delivery record', async () => {
+    const deliveryCreate = vi.fn();
+    const tx: any = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({
+        id: 'attendance-1', patientId: 'patient-1', attendanceType: 'delivery',
+        status: 'pending', finalizedAt: new Date('2026-11-24T06:00:00.000Z'),
+      }) },
+      antenatalBooking: { findFirst: vi.fn(), findUnique: vi.fn() },
+      deliveryRecord: { findFirst: vi.fn().mockResolvedValue(null), create: deliveryCreate },
+    };
+    const repository = new AntenatalRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
+      $transaction: vi.fn(async (cb: any) => cb(tx)),
+    } as any);
+    await expect(repository.createDeliveryRecord({
+      patientId: 'patient-1', attendanceId: 'attendance-1', attendant: 'midwife-1',
+      deliveryDate: new Date('2026-11-20T08:00:00.000Z'),
+      deliveryType: 'spontaneous_vertex', deliveryOutcome: 'live_birth',
+      maternalOutcome: 'alive', createdById: 'midwife-1',
+    } as any)).rejects.toThrow(/finalized/i);
+    expect(tx.$queryRawUnsafe).toHaveBeenCalledWith(expect.stringContaining('FOR UPDATE'), 'attendance-1');
+    expect(deliveryCreate).not.toHaveBeenCalled();
   });
 });
