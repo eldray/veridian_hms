@@ -104,6 +104,54 @@ describe('finalized clinical record immutability', () => {
     expect(vitalsCreate).not.toHaveBeenCalled();
   });
 
+  it('ignores client-supplied vital ownership links and recorder metadata', async () => {
+    const create = vi.fn(async ({ data }: any) => ({
+      ...data,
+      id: 'vital-1',
+      recordedAt: new Date('2026-11-25T08:00:00.000Z'),
+    }));
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'enc-open',
+          status: 'pending',
+          finalizedAt: null,
+          patientId: 'patient-valid',
+          attendanceType: 'opd',
+          dateTime: new Date('2026-11-25T07:00:00.000Z'),
+        }),
+      },
+      vitals: { create },
+      auditLog: { create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('nurse-authenticated');
+
+    await repository.addVitals('enc-open', {
+      temperature: 37,
+      attendanceId: 'enc-closed',
+      patientId: 'patient-other',
+      recordedById: 'admin-forged',
+      recordedAt: '2020-01-01T00:00:00.000Z',
+      id: 'forged-vital-id',
+    } as any, 'nurse-authenticated');
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        temperature: 37,
+        attendanceId: 'enc-open',
+        patientId: 'patient-valid',
+        recordedById: 'nurse-authenticated',
+      }),
+    }));
+    const persisted = create.mock.calls[0][0].data;
+    expect(persisted).not.toHaveProperty('id');
+    expect(persisted).not.toHaveProperty('recordedAt', '2020-01-01T00:00:00.000Z');
+  });
+
   it('blocks edits to an existing vital observation after finalization', async () => {
     const vitalsUpdate = vi.fn();
     const tx: any = {
