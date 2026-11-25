@@ -153,9 +153,10 @@ export class ExcelToJSONConverter {
       await workbook.xlsx.readFile(this.filePath);
       const worksheet = workbook.worksheets[0];
       if (!worksheet) throw new Error('The workbook contains no worksheets');
-      const allRows = worksheet.getSheetValues().map(row =>
-        Array.isArray(row) ? row.slice(1) : [],
-      );
+      const allRows: unknown[][] = [];
+      worksheet.eachRow({ includeEmpty: true }, row => {
+        allRows.push(row.values.slice(1) as unknown[]);
+      });
       this.excelData = parseExcelRows(allRows);
       console.log(`Valid rows: ${this.excelData.length}`);
     } catch (error) {
