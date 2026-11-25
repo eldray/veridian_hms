@@ -17,6 +17,7 @@ export interface ReportFilters {
   period?: string;
   diagnosisCode?: string;
   attendanceType?: string;
+  attendanceCategory?: 'opd' | 'ipd';
   paymentMode?: string;
   serviceCategory?: string;
   insuranceProviderId?: string;
