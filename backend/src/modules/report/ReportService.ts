@@ -445,7 +445,7 @@ export class ReportService {
       },
       departmentTotals,
       entries,
-      methodology: 'A patient attendance is counted once per staff member when that staff member is recorded as the attendance registrar or clinician, or as the performer/recorder of a completed laboratory test, dispensed medication, ANC/postnatal visit, rendered service, scan or procedure. Repeat activities by the same staff member on the same attendance count once. The same attendance may count for more than one staff member.',
+      methodology: 'A patient attendance is counted once per staff member when that staff member is recorded as the attendance registrar or clinician, or as the performer/recorder of a completed laboratory test, dispensed medication, ANC/postnatal visit, rendered service, scan, procedure, vital-signs record, family-planning service, immunization, nursing note or completed nursing task. Repeat activities by the same staff member on the same attendance count once. The same attendance may count for more than one staff member.',
       generatedAt: new Date(),
     };
   }
