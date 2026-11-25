@@ -13,33 +13,36 @@ export const AttendanceDetailsHeader: React.FC<AttendanceDetailsHeaderProps> = (
   patient,
   canEdit,
   onBack
-}) => (
-  <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 shadow-sm">
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-center gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label="Go back"
-          className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2 text-[var(--text-secondary)] transition-colors hover:bg-[var(--border-color)] hover:text-[var(--text-primary)]"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-            {currentAttendance.attendanceNumber || `ATT-${currentAttendance._id?.slice(-8)}`}
-          </h1>
-          <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
-            {patient?.fullName || `Patient ${currentAttendance.patientId?.toString().slice(-6) || 'Unknown'}`} · {new Date(currentAttendance.dateTime).toLocaleDateString()}
-          </p>
+}) => {
+  return (
+    <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-xl p-4 text-white shadow-md">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="p-2 hover:bg-white/20 rounded-lg transition-all duration-200"
+            title="Go back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold">
+              {currentAttendance.attendanceNumber || `ATT-${currentAttendance._id?.slice(-8)}`}
+            </h1>
+            <p className="text-blue-100 text-sm mt-0.5">
+              {patient?.fullName || `Patient ${currentAttendance.patientId?.toString().slice(-6) || 'Unknown'}`} • {new Date(currentAttendance.dateTime).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <button className="flex items-center gap-1.5 px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-all duration-200 border border-white/20 font-semibold text-sm">
+              <Edit className="w-4 h-4" />
+              <span>Edit Record</span>
+            </button>
+          )}
         </div>
       </div>
-      {canEdit && (
-        <button type="button" className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--border-color)]">
-          <Edit className="h-4 w-4" />
-          Edit record
-        </button>
-      )}
     </div>
-  </div>
-);
+  );
+};
