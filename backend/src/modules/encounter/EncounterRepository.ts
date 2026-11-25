@@ -944,10 +944,15 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       presentingPart,
       fetalMovement,
       oedema,
-      recordedById: _recordedById,
-      recordedAt: _recordedAt,
-      ...vitalsData
-    } = data as AddVitalsDTO & { recordedById?: string; recordedAt?: Date | string };
+    } = data;
+    // Never forward client-supplied identifiers, ownership links, or timestamps to Prisma.
+    // The encounter and patient links are assigned from the locked, validated encounter.
+    const vitalsData: Record<string, unknown> = {};
+    for (const key of ['bloodPressure', 'temperature', 'pulse', 'respiration', 'spo2', 'weight', 'height', 'muac', 'notes']) {
+      if (data[key as keyof AddVitalsDTO] !== undefined) {
+        vitalsData[key] = data[key as keyof AddVitalsDTO];
+      }
+    }
     const hasAntenatalData =
       fetalHeartRate !== undefined ||
       fundalHeight !== undefined ||
@@ -971,9 +976,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
       const savedVitals = await tx.vitals.create({
         data: {
-          attendanceId: encounterId,
-          patientId: attendance.patientId,
           ...vitalsData,
+          attendanceId: attendance.id,
+          patientId: attendance.patientId,
           recordedById: actorId,
           recordedAt: new Date(),
         },
