@@ -2980,6 +2980,28 @@ describe('rendered service writes and encounter closure', () => {
     expect(createMany).not.toHaveBeenCalled();
   });
 
+  it('blocks rendered service removal when its linked bill line has payment history', async () => {
+    const deleteMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'pending' }) },
+      serviceRendered: { findFirst: vi.fn().mockResolvedValue({ id: 'service-rendered-1' }), deleteMany },
+      billLineItem: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'bill-line-1',
+          billId: 'bill-1',
+          bill: { id: 'bill-1', attendanceId: 'enc-1', paidAmount: 25, status: 'partial' },
+        }),
+      },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.removeService('enc-1', 'service-rendered-1', 'doctor-1'))
+      .rejects.toThrow(/payment history/i);
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
   it('locks and validates the encounter before removing a rendered service', async () => {
     const findFirst = vi.fn();
     const deleteMany = vi.fn();
