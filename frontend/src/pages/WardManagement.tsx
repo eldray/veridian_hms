@@ -12,6 +12,7 @@ import {
   Filter, X, Info, Percent, FileText, Stethoscope,
 } from 'lucide-react';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { PageHeader } from '../components/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -502,51 +503,34 @@ export default function WardManagement() {
   return (
     <div className="space-y-5 p-4 sm:p-6" style={{ background: 'var(--bg-main)', minHeight: '100vh' }}>
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={goBack}
-            aria-label="Go back"
-            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm font-medium"
-            style={{ color: 'var(--text-secondary)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
-              Ward Management
-            </h1>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              Manage ward profiles, bed capacity, occupancy and inpatient rates
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-2 flex-wrap">
-          <Link
-            to="/dashboard/admissions"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border transition-all text-sm font-medium"
-            style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}
-          >
-            <Users className="w-4 h-4" />
-            <span className="hidden sm:inline">View</span> Admissions
-          </Link>
-          {canManageWards && (
-            <button
-              onClick={() => { resetWardForm(); setEditingWard(null); setShowWardForm(true); }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
-              style={{ background: 'var(--icon-cyan-text)', boxShadow: 'var(--shadow-sm)' }}
+      <PageHeader
+        title="Ward Management"
+        subtitle="Manage ward profiles, bed capacity, occupancy and inpatient rates"
+        icon={Building}
+        onBack={goBack}
+        actions={(
+          <>
+            <Link
+              to="/dashboard/admissions"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border transition-all text-sm font-medium"
+              style={{ borderColor: 'var(--border-color)', color: 'var(--text-primary)', background: 'var(--bg-card)' }}
             >
-              <Plus className="w-4 h-4" />
-              Add Ward
-            </button>
-          )}
-        </div>
-      </div>
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">View</span> Admissions
+            </Link>
+            {canManageWards && (
+              <button
+                onClick={() => { resetWardForm(); setEditingWard(null); setShowWardForm(true); }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+                style={{ background: 'var(--icon-cyan-text)', boxShadow: 'var(--shadow-sm)' }}
+              >
+                <Plus className="w-4 h-4" />
+                Add Ward
+              </button>
+            )}
+          </>
+        )}
+      />
 
 {/* ── Stats tiles ─────────────────────────────────────────────────── */}
 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

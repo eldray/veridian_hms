@@ -26,6 +26,7 @@ import UserRegistrationModal from '../components/UserRegistrationModal';
 import type { User } from '../types';
 import { describeApiError } from '../utils/apiError';
 import api from '../api/api';
+import { PageHeader } from '../components/ui';
 
 const formatCedis = (v: number | string | undefined | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0);
@@ -408,22 +409,20 @@ export default function UserManagement() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <button onClick={goBack} className="p-2 rounded-lg hover:bg-[var(--bg-main)]"><ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" /></button>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2"><Hospital className="w-5 h-5 text-[var(--icon-cyan-text)]" />HR &amp; User Management</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Users, payroll, documents, shifts and leave</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={() => getAllUsers()} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm text-[var(--text-primary)]"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh</button>
-          {activeTab === 'directory' && canAdministerAccounts && (
-            <button onClick={() => setShowRegisterModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"><Plus className="w-4 h-4" /> Add User</button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={<>HR &amp; User Management</>}
+        subtitle="Users, payroll, documents, shifts and leave"
+        icon={Hospital}
+        onBack={goBack}
+        actions={(
+          <>
+            <button onClick={() => getAllUsers()} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm text-[var(--text-primary)]"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh</button>
+            {activeTab === 'directory' && canAdministerAccounts && (
+              <button onClick={() => setShowRegisterModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"><Plus className="w-4 h-4" /> Add User</button>
+            )}
+          </>
+        )}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
