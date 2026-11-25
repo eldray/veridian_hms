@@ -329,6 +329,16 @@ export default function NewAttendanceModal({
   const resolvedNhisNumber = resolvedPatient?.nhisNumber || resolvedPatient?.insuranceDetails?.memberId || resolvedPatient?.insuranceDetails?.insuranceNumber || '';
   const resolvedNhisActive = resolvedPatient?.nhisActive ?? resolvedPatient?.insuranceDetails?.isActive;
   const resolvedNhisExpiry = resolvedPatient?.nhisExpiryDate || resolvedPatient?.insuranceDetails?.endDate;
+  const resolvedNhisExpiryDate = resolvedNhisExpiry
+    ? new Date(`${String(resolvedNhisExpiry).slice(0, 10)}T23:59:59`)
+    : null;
+  const resolvedNhisDetailsComplete = Boolean(resolvedNhisNumber && resolvedNhisExpiry);
+  const resolvedNhisExpired = !resolvedNhisExpiryDate ||
+    Number.isNaN(resolvedNhisExpiryDate.getTime()) ||
+    resolvedNhisExpiryDate.getTime() < Date.now();
+  const resolvedNhisEligible = resolvedNhisDetailsComplete &&
+    resolvedNhisActive === true &&
+    !resolvedNhisExpired;
   const selectedCorporateAccount = corporateAccounts.find((a: any) => a.id === selectedCorporateAccountId);
 
   const currentInsuranceProvider = paymentMode === 'private_insurance'
@@ -555,8 +565,7 @@ export default function NewAttendanceModal({
             {/* Verify membership details and active status before requesting the attendance CCC. */}
             {paymentMode === 'nhis' && (
               <div className={`rounded-lg p-3 border ${
-                resolvedNhisActive === true && resolvedNhisNumber && resolvedNhisExpiry &&
-                new Date(`${String(resolvedNhisExpiry).slice(0, 10)}T23:59:59`).getTime() >= Date.now()
+                resolvedNhisEligible
                   ? 'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)]'
                   : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
               }`}>
@@ -569,7 +578,7 @@ export default function NewAttendanceModal({
                   <span>Status: <strong>{resolvedNhisActive === true ? 'Active' : resolvedNhisActive === false ? 'Inactive' : 'Not verified'}</strong></span>
                   <span>Expiry: <strong>{resolvedNhisExpiry ? new Date(resolvedNhisExpiry).toLocaleDateString() : 'Not recorded'}</strong></span>
                 </div>
-                {(!resolvedNhisNumber || !resolvedNhisExpiry) ? (
+                {!resolvedNhisDetailsComplete ? (
                   <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
                     <p className="text-sm font-semibold text-[var(--text-primary)]">NHIS details required first</p>
                     <p className="text-xs text-[var(--text-secondary)] mt-1">
@@ -584,8 +593,7 @@ export default function NewAttendanceModal({
                       </Link>
                     )}
                   </div>
-                ) : resolvedNhisActive !== true ||
-                  new Date(`${String(resolvedNhisExpiry).slice(0, 10)}T23:59:59`).getTime() < Date.now() ? (
+                ) : !resolvedNhisEligible ? (
                   <p className="text-xs font-medium text-[var(--icon-red-text)]">
                     {resolvedNhisActive === false
                       ? 'NHIS membership is inactive. Update or verify the patient’s NHIS details before proceeding.'
