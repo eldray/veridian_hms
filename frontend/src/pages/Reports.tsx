@@ -72,7 +72,7 @@ import {
   getGHSDeliveryReport as apiGetDelivery, getFamilyPlanningReport as apiGetFP,
   getFinancialReport as apiGetFinancial, getLabReport as apiGetLab,
   getScanReport as apiGetScans, getProcedureReport as apiGetProcedures,
-  getMedicationReport as apiGetMedications, getInsuranceClaimsReport as apiGetClaims, getPatientBillingRegister,
+  getMedicationReport as apiGetMedications, getInsuranceClaimsReport as apiGetClaims, getPatientBillingRegister, getPatientsSeenByStaffReport,
   getStockMovementReport as apiGetStockMovement,
   getIDSRAlerts, createIDSRAlert, acknowledgeIDSRAlert, getGHSEPIReport, getGHSFormAReport as apiGetFormA, getGHSMalariaReport as apiGetMalaria, getGHSIDSRReport as apiGetIDSR,
 } from '../api';
@@ -217,6 +217,10 @@ export default function Reports() {
   const [monthlyOverview, setMonthlyOverview] = useState<Record<string, any> | null>(null);
   const [epiReport, setEpiReport] = useState<any>(null);
   const [patientBillingReport, setPatientBillingReport] = useState<any>(null);
+  const [patientsSeenReport, setPatientsSeenReport] = useState<any>(null);
+  const [patientsSeenSearch, setPatientsSeenSearch] = useState('');
+  const [patientsSeenDepartment, setPatientsSeenDepartment] = useState('all');
+  const [patientsSeenPage, setPatientsSeenPage] = useState(1);
   const [patientBillingCategory, setPatientBillingCategory] = useState<'all' | 'opd' | 'ipd'>('all');
   const [patientBillingSearch, setPatientBillingSearch] = useState('');
   const [expandedBillingRow, setExpandedBillingRow] = useState<string | null>(null);
@@ -282,6 +286,11 @@ export default function Reports() {
           setPatientBillingReport(response?.data?.data ?? response?.data ?? response);
           break;
         }
+        case 'patients-seen-by-staff': {
+          const response: any = await getPatientsSeenByStaffReport(f);
+          setPatientsSeenReport(response?.data?.data ?? response?.data ?? response);
+          break;
+        }
         case 'opd-attendance': await getGHSOPDReport(f); break;
         case 'opd-morbidity': await getMorbidityMortalityReport(f); break;
         case 'top-diagnoses': await getTopDiagnoses(f, 10); break;
@@ -324,7 +333,7 @@ export default function Reports() {
 
   const getActiveReport = () => {
     const map: Record<string, any> = {
-      'monthly-overview': monthlyOverview, 'patient-billing-register': patientBillingReport,
+      'monthly-overview': monthlyOverview, 'patient-billing-register': patientBillingReport, 'patients-seen-by-staff': patientsSeenReport,
       'opd-attendance': opdReport, 'consulting-room-register': consultingRoomRegister,
       'opd-morbidity': morbidityMortalityReport, 'top-diagnoses': topDiagnoses, 'form-a': formAReport,
       'ipd': ipdReport, 'malaria': malariaReport, 'idsr': idsrReport, 'epi': epiReport, 'delivery-report': deliveryReport, 'family-planning': familyPlanningReport,
@@ -345,7 +354,10 @@ export default function Reports() {
   const reportsForCategory = useCallback((groupId: ReportsTab) => {
     const list = [
       ...(groupId === 'ghs' ? GHS_REPORTS.map(item => ({ ...item, roles: item.roles || GHS_REPORT_ROLES })) : []),
-      ...(groupId === 'financial' ? [{ key: 'patient-billing-register', label: 'OPD/IPD Patient Billing Register', icon: ClipboardList, color: 'cyan', roles: ['admin', 'accounts', 'records'] }] : []),
+      ...(groupId === 'financial' ? [
+        { key: 'patient-billing-register', label: 'OPD/IPD Patient Billing Register', icon: ClipboardList, color: 'cyan', roles: ['admin', 'accounts', 'records'] },
+        { key: 'patients-seen-by-staff', label: 'Patients Seen by Staff', icon: Users, color: 'cyan', roles: ['admin', 'accounts', 'records'] },
+      ] : []),
       // FIX #8 — ReportShape carries no icon/color, so shell pills share ListOrdered/green by design.
       ...shellReportsForGroup(groupId).map(shape => ({ key: shape.key, label: shape.label, icon: ListOrdered, color: 'green', roles: shape.roles })),
     ].filter(item => allowedForRole(item.roles));
@@ -371,7 +383,7 @@ export default function Reports() {
   const getReportTitle = () => {
     if (shellReport) return shellReport.label;
     const m: Record<string, string> = {
-      'monthly-overview': 'Monthly Facility Overview', 'patient-billing-register': 'OPD/IPD Patient Billing Register',
+      'monthly-overview': 'Monthly Facility Overview', 'patient-billing-register': 'OPD/IPD Patient Billing Register', 'patients-seen-by-staff': 'Patients Seen by Staff',
       'opd-attendance': 'OPD Attendance', 'consulting-room-register': 'Consulting Room Register',
       'opd-morbidity': 'OPD Morbidity (Form A)', 'top-diagnoses': 'Top 10 Diagnoses',
       'form-a': 'Form A — Maternal Health', 'ipd': 'IPD & Mortality', 'malaria': 'Malaria Data',
@@ -1036,6 +1048,81 @@ export default function Reports() {
     );
   };
 
+  // -------------------------------------------------------------------------
+  // User Activity / Patients Seen by Staff
+  // -------------------------------------------------------------------------
+  const renderPatientsSeenByStaff = () => {
+    const report = patientsSeenReport as any;
+    if (!report) return <EmptyState message="No staff patient-activity data available" />;
+    const entries = Array.isArray(report.entries) ? report.entries : [];
+    const departments = Array.from(new Set(entries.map((row: any) => String(row.department || 'UNASSIGNED')))).sort();
+    const needle = patientsSeenSearch.trim().toLowerCase();
+    const filtered = entries.filter((row: any) =>
+      (patientsSeenDepartment === 'all' || row.department === patientsSeenDepartment) &&
+      (!needle || [row.department, row.username, row.fullName].some(value => String(value || '').toLowerCase().includes(needle)))
+    );
+    const pageSize = 25;
+    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const safePage = Math.min(patientsSeenPage, totalPages);
+    const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+    const total = filtered.reduce((sum: number, row: any) => sum + Number(row.patientsSeen || 0), 0);
+    const departmentTotals = (report.departmentTotals || []).filter((row: any) =>
+      patientsSeenDepartment === 'all' || row.department === patientsSeenDepartment
+    );
+    return <div className="space-y-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+        <StatCard label="Staff with activity" value={filtered.length.toLocaleString('en-GH')} icon={Users} accent="cyan" />
+        <StatCard label="Patient attendances attributed" value={total.toLocaleString('en-GH')} icon={Activity} accent="green" />
+        <StatCard label="Departments" value={departmentTotals.length.toLocaleString('en-GH')} icon={Hospital} accent="purple" />
+      </div>
+      <Card title="Patients seen by staff" description="One attendance is counted once per staff member, even if they recorded multiple services for that patient." icon={Users} padded={false}>
+        <div className="flex flex-wrap items-center gap-2 p-3 border-b border-[var(--border-color)]">
+          <input value={patientsSeenSearch} onChange={e => { setPatientsSeenSearch(e.target.value); setPatientsSeenPage(1); }} placeholder="Search department or username…" className="min-w-[220px] flex-1 px-3 py-2 text-xs rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)]" />
+          <select value={patientsSeenDepartment} onChange={e => { setPatientsSeenDepartment(e.target.value); setPatientsSeenPage(1); }} className="px-3 py-2 text-xs rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)]">
+            <option value="all">All departments</option>
+            {departments.map((department: string) => <option key={department} value={department}>{department}</option>)}
+          </select>
+          <span className="text-[11px] text-[var(--text-tertiary)]">{filtered.length.toLocaleString('en-GH')} staff</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-xs">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+              <tr>
+                <th className={cn(TEXT_TH, 'w-14')}>NB</th>
+                <th className={TEXT_TH}>Department</th>
+                <th className={TEXT_TH}>Username</th>
+                <th className={NUM_TH}>PatientsSeen</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {visible.map((row: any, index: number) => <tr key={row.userId || row.username} className="hover:bg-[var(--bg-main)]">
+                <td className={TEXT_TD}>{(safePage - 1) * pageSize + index + 1}</td>
+                <td className={TEXT_TD}>{row.department || 'UNASSIGNED'}</td>
+                <td className={TEXT_TD}>{row.username}</td>
+                <td className={NUM_TD_BOLD}>{Number(row.patientsSeen || 0).toLocaleString('en-GH')}</td>
+              </tr>)}
+              {!visible.length && <tr><td colSpan={4} className="px-3 py-8 text-center text-xs text-[var(--text-tertiary)]">No staff activity found for this filter and period.</td></tr>}
+            </tbody>
+            <tfoot className="bg-[var(--bg-main)] border-t-2 border-[var(--border-color)]">
+              <tr><td colSpan={3} className={cn(TEXT_TD, 'font-bold')}>FILTERED TOTAL</td><td className={NUM_TD_BOLD}>{total.toLocaleString('en-GH')}</td></tr>
+            </tfoot>
+          </table>
+        </div>
+        {patientsSeenDepartment === 'all' && departmentTotals.length > 0 && <div className="border-t border-[var(--border-color)] p-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Department totals</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {departmentTotals.map((row: any) => <div key={row.department} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2">
+              <span className="text-[11px] text-[var(--text-secondary)] truncate">{row.department}</span>
+              <strong className="text-xs tabular-nums text-[var(--text-primary)]">{Number(row.patientsSeen || 0).toLocaleString('en-GH')}</strong>
+            </div>)}
+          </div>
+        </div>}
+      </Card>
+      <Pagination page={safePage} totalPages={totalPages} itemsPerPage={pageSize} totalItems={filtered.length} noun="staff" onChange={setPatientsSeenPage} pageSizeOptions={[25]} />
+      <p className="text-[11px] text-[var(--text-tertiary)]">{report.methodology}</p>
+    </div>;
+  };
+
   const renderMonthlyOverview = () => {
     if (!monthlyOverview) return <EmptyState message="No monthly overview data available" />;
     const read = (obj: any, paths: string[], formLabel?: string) => {
@@ -1148,7 +1235,7 @@ export default function Reports() {
   const renderReportContent = () => {
     if (shellReport) return <GenericReportPage shape={shellReport} dateFrom={dateRange.start} dateTo={dateRange.end} />;
     const map: Record<string, () => React.ReactNode> = {
-      'monthly-overview': renderMonthlyOverview, 'patient-billing-register': renderPatientBillingRegister, 'consulting-room-register': renderConsultingRoomRegister, 'opd-attendance': renderOPDAttendanceReport,
+      'monthly-overview': renderMonthlyOverview, 'patient-billing-register': renderPatientBillingRegister, 'patients-seen-by-staff': renderPatientsSeenByStaff, 'consulting-room-register': renderConsultingRoomRegister, 'opd-attendance': renderOPDAttendanceReport,
       'opd-morbidity': renderFullMorbidityReport, 'top-diagnoses': renderTopDiagnoses, 'form-a': renderFormAReport,
       'ipd': renderIPDReport, 'malaria': renderMalariaReport, 'idsr': renderIDSRReport, 'epi': renderEPIReport, 'delivery-report': renderDeliveryReport, 'family-planning': renderFamilyPlanningReport,
     };
