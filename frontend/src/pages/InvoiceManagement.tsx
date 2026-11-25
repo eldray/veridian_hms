@@ -143,8 +143,9 @@ export default function InvoiceManagement() {
   const [formData, setFormData] = useState({
     invoiceNumber: '', supplierName: '', invoiceDate: new Date().toISOString().split('T')[0], totalAmount: 0, notes: '',
     receivingLocationType: 'department' as 'department' | 'ward', receivedAtDepartmentId: '', receivedAtWardId: '',
-    invoiceItems: [{ stockItemId: '', quantity: 1, unitCost: 0, batchNumber: '', expiryDate: '' }],
+    invoiceItems: [],
   });
+  const [draftInvoiceItem, setDraftInvoiceItem] = useState({ stockItemId: '', quantity: 1, unitCost: 0, batchNumber: '', expiryDate: '' });
 
   useEffect(() => { loadData(); }, []);
   const loadData = async () => {
@@ -221,20 +222,29 @@ export default function InvoiceManagement() {
   };
   const handleEdit = (invoice: Invoice) => {
     setEditingInvoice(invoice);
+    setDraftInvoiceItem({ stockItemId: '', quantity: 1, unitCost: 0, batchNumber: '', expiryDate: '' });
     setFormData({
       invoiceNumber: invoice.invoiceNumber, supplierName: invoice.supplierName, invoiceDate: invoice.invoiceDate.split('T')[0],
       totalAmount: invoice.totalAmount, notes: invoice.notes || '',
       receivingLocationType: invoice.receivedAtWardId ? 'ward' : 'department',
       receivedAtDepartmentId: invoice.receivedAtDepartmentId || '', receivedAtWardId: invoice.receivedAtWardId || '',
-      invoiceItems: invoice.InvoiceItem?.map(item => ({ stockItemId: item.stockItemId, quantity: item.quantity, unitCost: item.unitCost, batchNumber: item.batchNumber || '', expiryDate: item.expiryDate ? item.expiryDate.split('T')[0] : '' })) || [{ stockItemId: '', quantity: 1, unitCost: 0, batchNumber: '', expiryDate: '' }],
+      invoiceItems: invoice.InvoiceItem?.map(item => ({ stockItemId: item.stockItemId, quantity: item.quantity, unitCost: item.unitCost, batchNumber: item.batchNumber || '', expiryDate: item.expiryDate ? item.expiryDate.split('T')[0] : '' })) || [],
     });
     setShowForm(true);
   };
   const resetForm = () => {
-    setFormData({ invoiceNumber: '', supplierName: '', invoiceDate: new Date().toISOString().split('T')[0], totalAmount: 0, notes: '', receivingLocationType: 'department', receivedAtDepartmentId: '', receivedAtWardId: '', invoiceItems: [{ stockItemId: '', quantity: 1, unitCost: 0, batchNumber: '', expiryDate: '' }] });
+    setFormData({ invoiceNumber: '', supplierName: '', invoiceDate: new Date().toISOString().split('T')[0], totalAmount: 0, notes: '', receivingLocationType: 'department', receivedAtDepartmentId: '', receivedAtWardId: '', invoiceItems: [] });
+    setDraftInvoiceItem({ stockItemId: '', quantity: 1, unitCost: 0, batchNumber: '', expiryDate: '' });
     setEditingInvoice(null);
   };
-  const addInvoiceItem = () => setFormData(prev => ({ ...prev, invoiceItems: [...prev.invoiceItems, { stockItemId: '', quantity: 1, unitCost: 0, batchNumber: '', expiryDate: '' }] }));
+  const addDraftInvoiceItem = () => {
+    if (!draftInvoiceItem.stockItemId) { toastError('Select an item', 'Search for and select a stock item before adding it.'); return; }
+    if (!Number.isSafeInteger(draftInvoiceItem.quantity) || draftInvoiceItem.quantity <= 0) { toastError('Check quantity', 'Enter a positive whole-number quantity.'); return; }
+    if (!Number.isFinite(draftInvoiceItem.unitCost) || draftInvoiceItem.unitCost <= 0) { toastError('Check unit cost', 'Enter a unit cost greater than zero.'); return; }
+    if (formData.invoiceItems.some(item => item.stockItemId === draftInvoiceItem.stockItemId)) { toastError('Duplicate item', 'This stock item is already on the invoice. Update its existing line instead.'); return; }
+    setFormData(prev => ({ ...prev, invoiceItems: [...prev.invoiceItems, draftInvoiceItem], totalAmount: calculateTotalWithItems([...prev.invoiceItems, draftInvoiceItem]) }));
+    setDraftInvoiceItem({ stockItemId: '', quantity: 1, unitCost: 0, batchNumber: '', expiryDate: '' });
+  };
   const removeInvoiceItem = (index: number) => setFormData(prev => ({ ...prev, invoiceItems: prev.invoiceItems.filter((_, i) => i !== index) }));
   const updateInvoiceItem = (index: number, field: string, value: any) => {
     // Single functional update — the pasted version called setFormData twice, the second
@@ -451,16 +461,30 @@ ${invoice.notes ? `<div class="notes"><span class="label">Notes</span>${escape(i
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Invoice Date *</label><input type="date" required value={formData.invoiceDate} onChange={e => setFormData({ ...formData, invoiceDate: e.target.value })} className={cn(INPUT, 'w-full')} /></div>
               </div>
               </section>
-              <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm">
-              <div>
-                <div className="flex items-center justify-between mb-3 pb-3 border-b border-[var(--border-color)]">
-                  <h3 className="font-semibold text-[var(--text-primary)] text-sm">Invoice Items *</h3>
-                  {!editingInvoice && (<Button type="button" size="sm" variant="outline" icon={Plus} onClick={addInvoiceItem}>Add Item</Button>)}
-                </div>
-                {editingInvoice && (
-                  <div className="mb-4 flex items-start gap-2.5 p-3 bg-[var(--icon-yellow-bg)]/20 border border-[var(--icon-yellow-bg)]/30 rounded-lg text-xs text-[var(--text-secondary)]">
-                    <AlertCircle className="w-4.5 h-4.5 text-[var(--icon-yellow-text)] shrink-0 mt-0.5" />
-                    <span>Items cannot be modified after an invoice is created to preserve stock logs. To change items, please close this form, delete the invoice, and create a new one.</span>
+              <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 md:p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 pb-3 border-b border-[var(--border-color)]"><Package className="w-4 h-4 text-[var(--icon-cyan-text)]" /><h3 className="text-sm font-bold text-[var(--text-primary)]">Invoice items</h3><span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{formData.invoiceItems.length}</span></div>
+                {editingInvoice && <div className="flex items-start gap-2.5 p-3 bg-[var(--icon-yellow-bg)]/20 border border-[var(--icon-yellow-bg)]/30 rounded-lg text-xs text-[var(--text-secondary)]"><AlertCircle className="w-4 h-4 text-[var(--icon-yellow-text)] shrink-0 mt-0.5" /><span>Items cannot be modified after an invoice is created to preserve stock logs. To change items, close this form, delete the invoice, and create a new one.</span></div>}
+                {!editingInvoice && (
+                  <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)] p-3 md:p-4 space-y-3">
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_110px_140px_150px_160px_auto] gap-3 items-end">
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)]">Search stock item
+                        <SearchableStockItemSelect value={draftInvoiceItem.stockItemId} onChange={(value) => setDraftInvoiceItem(item => ({ ...item, stockItemId: value }))} items={activeStockItems.filter(item => !formData.invoiceItems.some(line => line.stockItemId === item.id))} placeholder="Search by name, code or category…" />
+                      </label>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)]">Quantity
+                        <input type="number" min="1" step="1" value={draftInvoiceItem.quantity} onChange={event => setDraftInvoiceItem(item => ({ ...item, quantity: Number.parseInt(event.target.value, 10) || 0 }))} className={cn(INPUT, 'mt-1 w-full text-center')} />
+                      </label>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)]">Unit cost
+                        <input type="number" min="0.01" step="0.01" value={draftInvoiceItem.unitCost || ''} onChange={event => setDraftInvoiceItem(item => ({ ...item, unitCost: Number.parseFloat(event.target.value) || 0 }))} className={cn(INPUT, 'mt-1 w-full text-right')} />
+                      </label>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)]">Batch number
+                        <input type="text" value={draftInvoiceItem.batchNumber} onChange={event => setDraftInvoiceItem(item => ({ ...item, batchNumber: event.target.value }))} placeholder="Optional" className={cn(INPUT, 'mt-1 w-full')} />
+                      </label>
+                      <label className="block text-xs font-semibold text-[var(--text-secondary)]">Expiry date
+                        <input type="date" value={draftInvoiceItem.expiryDate} onChange={event => setDraftInvoiceItem(item => ({ ...item, expiryDate: event.target.value }))} className={cn(INPUT, 'mt-1 w-full')} />
+                      </label>
+                      <Button type="button" variant="soft" icon={Plus} onClick={addDraftInvoiceItem} disabled={!draftInvoiceItem.stockItemId}>Add item</Button>
+                    </div>
+                    <p className="text-xs text-[var(--text-tertiary)]">Select a stock item, enter its quantity and cost, then add it to the invoice table.</p>
                   </div>
                 )}
                 <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
@@ -468,40 +492,27 @@ ${invoice.notes ? `<div class="notes"><span class="label">Notes</span>${escape(i
                     <thead className={TH_ROW}><tr>
                       <th className={TH}>Stock item</th><th className={cn(TH, 'w-28 text-center')}>Quantity</th>
                       <th className={cn(TH, 'w-36 text-right')}>Unit cost</th><th className={cn(TH, 'w-40')}>Batch number</th>
-                      <th className={cn(TH, 'w-44')}>Expiry date</th><th className={cn(TH, 'w-12 text-center')}></th>
+                      <th className={cn(TH, 'w-44')}>Expiry date</th>{!editingInvoice && <th className={cn(TH, 'w-12 text-center')}></th>}
                     </tr></thead>
                     <tbody>
                       {formData.invoiceItems.map((item, index) => (
-                        <tr key={index} className={TR}>
-                          <td className={cn(TD, 'min-w-[320px]')}>
-                            {editingInvoice ? <span className="font-medium">{getStockItemName(item.stockItemId)}</span>
-                              : <SearchableStockItemSelect value={item.stockItemId} onChange={(value) => updateInvoiceItem(index, 'stockItemId', value)} items={activeStockItems} placeholder="Search stock item…" />}
-                          </td>
-                          <td className={TD}><input type="number" min="1" required disabled={!!editingInvoice} value={item.quantity}
-                            onChange={e => updateInvoiceItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                            className={cn(INPUT, 'w-full text-center disabled:opacity-75')} /></td>
-                          <td className={TD}><input type="number" step="0.01" min="0" required disabled={!!editingInvoice} value={item.unitCost}
-                            onChange={e => updateInvoiceItem(index, 'unitCost', parseFloat(e.target.value) || 0)}
-                            className={cn(INPUT, 'w-full text-right disabled:opacity-75')} /></td>
-                          <td className={TD}><input type="text" placeholder="Optional" disabled={!!editingInvoice} value={item.batchNumber}
-                            onChange={e => updateInvoiceItem(index, 'batchNumber', e.target.value)}
-                            className={cn(INPUT, 'w-full disabled:opacity-75')} /></td>
-                          <td className={TD}><input type="date" disabled={!!editingInvoice} value={item.expiryDate}
-                            onChange={e => updateInvoiceItem(index, 'expiryDate', e.target.value)}
-                            className={cn(INPUT, 'w-full disabled:opacity-75')} /></td>
-                          <td className={cn(TD, 'text-center')}>{!editingInvoice && <Button type="button" variant="ghost" size="xs" iconOnly icon={Trash2}
-                            aria-label="Remove item" className="text-[var(--icon-red-text)]" onClick={() => removeInvoiceItem(index)} />}</td>
+                        <tr key={item.stockItemId || index} className={TR}>
+                          <td className={cn(TD, 'min-w-[320px]')}><div className="font-medium text-[var(--text-primary)]">{getStockItemName(item.stockItemId)}</div><div className="mt-0.5 text-xs text-[var(--text-tertiary)]">{getStockItemUnit(item.stockItemId)}</div></td>
+                          <td className={TD}><input type="number" min="1" required disabled={!!editingInvoice} value={item.quantity} onChange={event => updateInvoiceItem(index, 'quantity', Number.parseInt(event.target.value, 10) || 0)} className={cn(INPUT, 'w-full text-center disabled:opacity-75')} /></td>
+                          <td className={TD}><input type="number" step="0.01" min="0" required disabled={!!editingInvoice} value={item.unitCost} onChange={event => updateInvoiceItem(index, 'unitCost', Number.parseFloat(event.target.value) || 0)} className={cn(INPUT, 'w-full text-right disabled:opacity-75')} /></td>
+                          <td className={TD}><input type="text" placeholder="Optional" disabled={!!editingInvoice} value={item.batchNumber} onChange={event => updateInvoiceItem(index, 'batchNumber', event.target.value)} className={cn(INPUT, 'w-full disabled:opacity-75')} /></td>
+                          <td className={TD}><input type="date" disabled={!!editingInvoice} value={item.expiryDate} onChange={event => updateInvoiceItem(index, 'expiryDate', event.target.value)} className={cn(INPUT, 'w-full disabled:opacity-75')} /></td>
+                          {!editingInvoice && <td className={cn(TD, 'text-center')}><Button type="button" variant="ghost" size="xs" iconOnly icon={Trash2} aria-label="Remove item" className="text-[var(--icon-red-text)]" onClick={() => removeInvoiceItem(index)} /></td>}
                         </tr>
                       ))}
+                      {formData.invoiceItems.length === 0 && <tr><td colSpan={editingInvoice ? 5 : 6} className="px-3 py-8 text-center text-xs text-[var(--text-tertiary)]">No items added yet. Search for a stock item above, enter quantity and cost, then click Add item.</td></tr>}
                     </tbody>
                     <tfoot className="bg-[var(--bg-main)] border-t border-[var(--border-color)]"><tr>
-                      <td colSpan={5} className="px-3 py-2.5 text-right text-sm font-semibold text-[var(--text-secondary)]">Invoice total</td>
+                      <td colSpan={editingInvoice ? 4 : 5} className="px-3 py-2.5 text-right text-sm font-semibold text-[var(--text-secondary)]">Invoice total</td>
                       <td className="px-3 py-2.5 text-right font-bold text-[var(--icon-cyan-text)]">${calculateTotal().toFixed(2)}</td>
                     </tr></tfoot>
                   </table>
                 </div>
-                {formData.invoiceItems.length === 0 && (<div className="text-center py-6 text-[var(--text-secondary)] text-sm border border-dashed border-[var(--border-color)] rounded-lg"><Package className="w-8 h-8 mx-auto mb-2 text-[var(--text-tertiary)]" />Click "Add Item" to add items to this invoice</div>)}
-              </div>
               </section>
               <section className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 shadow-sm items-end">
                 <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Notes</label><textarea placeholder="Additional notes about this invoice..." rows={2} value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={cn(INPUT, 'w-full resize-none')} /></div>
