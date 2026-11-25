@@ -238,11 +238,14 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     }
     const encounter = await db.attendance.findUnique({
       where: { id: encounterId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, finalizedAt: true },
     });
     if (!encounter) throw new NotFoundError('Encounter', encounterId);
     if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
       throw new ConflictError('Clinical service orders cannot be added or changed for a closed encounter');
+    }
+    if (encounter.finalizedAt) {
+      throw new ConflictError('This clinical record is finalized and cannot be changed. Use the facility-approved correction/addendum process.');
     }
     return encounter.id;
   }
