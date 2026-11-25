@@ -118,6 +118,8 @@ export interface ClinicalReport {
     startDate?: string;
     endDate?: string;
   };
+  summary?: { ncdNewCases?: number; ncdReAttendances?: number };
+  ncdMorbidityReport?: Array<Record<string, string | number>>;
   clinicalReport: Array<{
     diagnosis: string;
     icdCode: string;
