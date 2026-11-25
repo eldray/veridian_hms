@@ -235,11 +235,12 @@ export const generateCCC = async (req: AuthRequest, res: Response) => {
     }
 
     const { policyNumber, encounterId, totalAmount } = req.body;
+    if (!req.user?.userId) return res.status(401).json({ success: false, message: 'Authentication is required to record NHIS verification' });
     const result = await nhisEligibilityService.generateCCC(
       policyNumber,
       encounterId,
       parseFloat(totalAmount.toString()),
-      req.user?.userId || ''
+      req.user.userId
     );
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error: any) {
