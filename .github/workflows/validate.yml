@@ -47,6 +47,59 @@ jobs:
               - 'tsconfig*.json'
               - 'SECURITY.md'
 
+
+  dependency-audit:
+    name: Dependency vulnerability report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Audit backend dependencies
+        working-directory: backend
+        run: |
+          npm ci --ignore-scripts
+          npm audit --json > ../backend-npm-audit.json || true
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: |
+          npm ci --ignore-scripts
+          npm audit --json > ../frontend-npm-audit.json || true
+      - name: Summarise audit findings
+        if: always()
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          for (const file of ['backend-npm-audit.json', 'frontend-npm-audit.json']) {
+            if (!fs.existsSync(file)) {
+              console.log(`\n${file}: report was not generated`);
+              continue;
+            }
+            try {
+              const report = JSON.parse(fs.readFileSync(file, 'utf8'));
+              const counts = report.metadata?.vulnerabilities ?? {};
+              console.log(`\n${file}: ${JSON.stringify(counts)}`);
+              for (const [name, item] of Object.entries(report.vulnerabilities ?? {})) {
+                const via = (item.via ?? []).map(entry => typeof entry === 'string' ? entry : entry.title).filter(Boolean);
+                console.log(`- ${item.severity}: ${name}; direct=${item.isDirect}; range=${item.range}; fix=${JSON.stringify(item.fixAvailable)}; advisories=${via.join('; ')}`);
+              }
+            } catch (error) {
+              console.log(`\n${file}: could not parse report: ${error.message}`);
+            }
+          }
+          NODE
+      - name: Upload full audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-reports
+          path: '*-npm-audit.json'
+          if-no-files-found: warn
+          retention-days: 14
+
   backend:
     name: Backend schema, tests and TypeScript build
     needs: changes
