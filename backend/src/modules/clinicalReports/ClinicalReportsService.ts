@@ -24,6 +24,7 @@ export class ClinicalReportsService extends BaseService {
   async generateLabReport(filters: ClinicalReportFilters): Promise<LabReportData> {
     this.logInfo('Generating lab report', { startDate: filters.startDate, endDate: filters.endDate });
     const labTests = await this.repository.getLabTests(filters);
+    const scansForCases = await this.repository.getScans(filters);
     const completedTests = labTests.filter(t => t.status === 'completed');
     const totalTurnaround = completedTests.reduce((sum, t) => sum + (t.turnaroundMinutes || 0), 0);
 
@@ -56,6 +57,20 @@ export class ClinicalReportsService extends BaseService {
       return normalized.includes('negative') || normalized.includes('non reactive') || normalized.includes('nonreactive');
     };
     const indeterminate = (value: any) => /indeterminate|invalid|inconclusive/.test(normalizeResult(value));
+    const imagingCaseMap = new Map<string, any>();
+    for (const scan of scansForCases) {
+      const code = scan.ScanTemplate?.scanCode || scan.ServiceCatalog?.code || 'UN-CODED';
+      const description = scan.ScanTemplate?.name || scan.ServiceCatalog?.name || scan.description || 'Unknown scan';
+      const row = imagingCaseMap.get(code) || { code, description, cases: 0, male: 0, female: 0, unknown: 0 };
+      row.cases++;
+      const gender = String(scan.Attendance?.Patient?.gender || '').toLowerCase();
+      if (gender === 'male') row.male++;
+      else if (gender === 'female') row.female++;
+      else row.unknown++;
+      imagingCaseMap.set(code, row);
+    }
+    const imagingCaseBreakdown = Array.from(imagingCaseMap.values()).sort((a, b) => a.description.localeCompare(b.description));
+
     const labCaseMap = new Map<string, any>();
     for (const test of labTests) {
       const code = test.LabTestTemplate?.investigationCode || test.ServiceCatalog?.code || 'UN-CODED';
@@ -182,26 +197,13 @@ export class ClinicalReportsService extends BaseService {
       hivTestBreakdown: hivBreakdown,
       positivityRates: topTests.map(t => ({ testName: t.testName, rate: t.positiveRate.toFixed(1) })),
       labCaseBreakdown,
+      imagingCaseBreakdown,
     };
   }
 
   async generateScanReport(filters: ClinicalReportFilters): Promise<ScanReportData> {
     this.logInfo('Generating scan report');
     const scans = await this.repository.getScans(filters);
-    const imagingCaseMap = new Map<string, any>();
-    for (const scan of scans) {
-      const code = scan.ScanTemplate?.scanCode || scan.ServiceCatalog?.code || 'UN-CODED';
-      const description = scan.ScanTemplate?.name || scan.ServiceCatalog?.name || scan.description || 'Unknown scan';
-      const row = imagingCaseMap.get(code) || { code, description, cases: 0, male: 0, female: 0, unknown: 0 };
-      row.cases++;
-      const gender = String(scan.Attendance?.Patient?.gender || '').toLowerCase();
-      if (gender === 'male') row.male++;
-      else if (gender === 'female') row.female++;
-      else row.unknown++;
-      imagingCaseMap.set(code, row);
-    }
-    const imagingCaseBreakdown = Array.from(imagingCaseMap.values()).sort((a, b) => a.description.localeCompare(b.description));
-
     const completedScans = scans.filter(s => s.status === 'completed');
     const totalTurnaround = completedScans.reduce((sum, s) => sum + (s.turnaroundMinutes || 0), 0);
 
@@ -229,7 +231,6 @@ export class ClinicalReportsService extends BaseService {
         averageTurnaroundTime: completedScans.length > 0 ? Math.round(totalTurnaround / completedScans.length) : 0,
       },
       topScans: Object.entries(byType).map(([name, count]) => ({ scanName: name, count })).sort((a, b) => b.count - a.count).slice(0, 10),
-      imagingCaseBreakdown,
     };
   }
 
