@@ -1293,6 +1293,7 @@ describe('maternal record integrity', () => {
     const tx: any = {
       $queryRawUnsafe: vi.fn().mockResolvedValue([]),
       auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal', status: 'pending', finalizedAt: null }) },
       antenatalBooking: { create },
     };
     const prisma: any = {
@@ -3200,5 +3201,40 @@ describe('stage-aware clinical order removal', () => {
     await expect(repository.removeMedication('enc-1', 'order-1', 'user-1'))
       .rejects.toThrow(/dispensing return or clinical correction/i);
     expect(tx.medication.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('maternal creation and encounter finalization', () => {
+  it('rejects an ANC visit when its attendance was finalized before the transaction write', async () => {
+    const visitCreate = vi.fn();
+    const visitUpdate = vi.fn();
+    const tx: any = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({
+        id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal',
+        status: 'completed', finalizedAt: new Date('2026-11-20T10:00:00.000Z'),
+      }) },
+      antenatalBooking: { findUnique: vi.fn().mockResolvedValue({
+        id: 'booking-1', patientId: 'patient-1', isActive: true, isCompleted: false,
+      }) },
+      aNCVisit: {
+        findUnique: vi.fn(),
+        create: visitCreate,
+        update: visitUpdate,
+      },
+    };
+    const repository = new AntenatalRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.createVisit({
+      bookingId: 'booking-1', attendanceId: 'attendance-1',
+      visitDate: new Date('2026-11-20T09:00:00.000Z'), recordedById: 'midwife-1',
+    } as any)).rejects.toThrow(/finalized or the encounter is closed/i);
+
+    expect(tx.$queryRawUnsafe).toHaveBeenCalled();
+    expect(visitCreate).not.toHaveBeenCalled();
+    expect(visitUpdate).not.toHaveBeenCalled();
   });
 });
