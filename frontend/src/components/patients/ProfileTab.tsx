@@ -1,4 +1,4 @@
-// src/components/patients/ProfileTab.tsx - WITH DEBUGGING
+// src/components/patients/ProfileTab.tsx
 import { useState } from 'react';
 import { User, Info, CreditCard } from 'lucide-react';
 import { CompactBasicInfo } from './CompactBasicInfo';
@@ -44,7 +44,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ patient, insuranceProvid
               onClick={() => setActiveSection(section.id)}
               className={`flex items-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 flex-1 justify-center ${
                 activeSection === section.id
-                  ? 'bg-[var(--bg-card)] text-[var(--accent-color)] shadow-sm border border-[var(--border-color)]'
+                  ? 'bg-[var(--bg-card)] text-[var(--icon-blue-text)] shadow-sm border border-[var(--border-color)]'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]'
               }`}
             >
