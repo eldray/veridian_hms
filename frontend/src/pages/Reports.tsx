@@ -321,7 +321,7 @@ export default function Reports() {
   }, [runLoadReport]);
 
   useEffect(() => { loadReport(); return () => { if (loadDebounce.current) clearTimeout(loadDebounce.current); }; }, [loadReport]);
-  useEffect(() => { setRegisterPage(1); setDeliveryPage(1); }, [reportType, dateRange.start, dateRange.end]);
+  useEffect(() => { setRegisterPage(1); setDeliveryPage(1); setPatientsSeenPage(1); }, [reportType, dateRange.start, dateRange.end]);
   // FIX #34 — write safePage back so Pagination and the raw state cannot drift.
   // (The drift only happens when a report shrank under the current page.)
   useEffect(() => {
