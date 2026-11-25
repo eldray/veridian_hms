@@ -14,6 +14,7 @@ import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getTheatreWorklist, removeProcedureFromEncounter } from '../api';
 import { getPatientName } from '../utils/patient';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
+import { PageHeader } from '../components/ui';
 import { pickVisit } from '../utils/visitSelection';
 import {
   ChevronLeft, Scissors, ClipboardList, RefreshCw, AlertCircle,
@@ -916,45 +917,33 @@ export default function TheatreProcedure() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       {/* ── PAGE HEADER ─────────────────────────────────────────── */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={goBack}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
-              text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" /> Back
-          </button>
-          <div className="h-5 w-px bg-[var(--border-color)]" />
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-              <Scissors className="w-4 h-4 text-purple-600" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Theatre Management</h1>
-              <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">Scheduled · In progress · Documented</p>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowScheduleModal(true)}
-            disabled={!canAddEntries}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-              bg-purple-100 text-purple-700 hover:bg-purple-700 hover:text-white transition-all disabled:opacity-50"
-          >
-            <Plus className="w-3.5 h-3.5" /> New Procedure
-          </button>
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
-                           text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Theatre Management"
+        subtitle="Scheduled · In progress · Documented"
+        icon={Scissors}
+        accent="purple"
+        onBack={goBack}
+        actions={(
+          <>
+            <button
+              onClick={() => setShowScheduleModal(true)}
+              disabled={!canAddEntries}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                bg-purple-100 text-purple-700 hover:bg-purple-700 hover:text-white transition-all disabled:opacity-50"
+            >
+              <Plus className="w-3.5 h-3.5" /> New Procedure
+            </button>
+            <button
+              onClick={loadData}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
+                             text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </>
+        )}
+      />
 
       {/* ── SELECTOR ────────────────────────────────────────────── */}
       <PatientAttendanceSelector
