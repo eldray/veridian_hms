@@ -63,17 +63,17 @@ const PatientTypeBadge: React.FC<{ attendance: any; admission: any; size?: 'sm' 
   const iconCls = size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3';
 
   if (cat === 'daycase') return (
-    <span className={`inline-flex items-center rounded-full font-semibold bg-purple-100 text-purple-700 border border-purple-200 ${cls}`}>
+    <span className={`inline-flex items-center rounded-full font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)] ${cls}`}>
       <Sun className={iconCls} /> Day Surgery
     </span>
   );
   if (admType === 'detention_observation') return (
-    <span className={`inline-flex items-center rounded-full font-semibold bg-orange-100 text-orange-700 border border-orange-200 ${cls}`}>
+    <span className={`inline-flex items-center rounded-full font-semibold bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] border border-[var(--border-color)] ${cls}`}>
       <Moon className={iconCls} /> Observation
     </span>
   );
   if (cat === 'ipd') return (
-    <span className={`inline-flex items-center rounded-full font-semibold bg-blue-100 text-blue-700 border border-blue-200 ${cls}`}>
+    <span className={`inline-flex items-center rounded-full font-semibold bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border border-[var(--border-color)] ${cls}`}>
       <Hospital className={iconCls} /> IPD
     </span>
   );
@@ -86,10 +86,10 @@ const PaymentBadge: React.FC<{ mode?: string; size?: 'sm' | 'md' }> = ({ mode, s
     : 'px-2.5 py-1 text-xs';
 
   const map: Record<string, { label: string; cls: string }> = {
-    nhis: { label: 'NHIS', cls: 'bg-green-100 text-green-700 border-green-200' },
-    private_insurance: { label: 'PVT INS', cls: 'bg-purple-100 text-purple-700 border-purple-200' },
-    corporate: { label: 'CORP', cls: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
-    cash: { label: 'CASH', cls: 'bg-gray-100 text-gray-700 border-gray-200' },
+    nhis: { label: 'NHIS', cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--border-color)]' },
+    private_insurance: { label: 'PVT INS', cls: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--border-color)]' },
+    corporate: { label: 'CORP', cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--border-color)]' },
+    cash: { label: 'CASH', cls: 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]' },
   };
   const cfg = map[mode || 'cash'] || map.cash;
 
@@ -113,10 +113,10 @@ const VitalPill: React.FC<{ label: string; value?: string | number; unit?: strin
   label, value, unit, status,
 }) => {
   const colorMap = {
-    ok: 'bg-green-50 text-green-700 border-green-100',
-    warn: 'bg-yellow-50 text-yellow-700 border-yellow-100',
-    critical: 'bg-red-50 text-red-700 border-red-100',
-    none: 'bg-gray-50 text-gray-400 border-gray-100',
+    ok: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--border-color)]',
+    warn: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] border-[var(--border-color)]',
+    critical: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--border-color)]',
+    none: 'bg-[var(--bg-main)] text-[var(--text-tertiary)] border-[var(--border-color)]',
   };
   return (
     <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-medium ${colorMap[status]}`}>
@@ -132,8 +132,8 @@ type CareGroup = 'ipd' | 'daycase' | 'observation';
 // Compact per-vital cell for the list table: value only, colored by clinical status.
 const vitalTextCls: Record<'ok' | 'warn' | 'critical' | 'none', string> = {
   ok: 'text-green-700',
-  warn: 'text-yellow-600',
-  critical: 'text-red-600 font-bold',
+  warn: 'text-[var(--icon-orange-text)]',
+  critical: 'text-[var(--icon-red-text)] font-bold',
   none: 'text-[var(--text-tertiary)]',
 };
 
@@ -158,8 +158,8 @@ const formatAdmitted = (iso?: string): { date: string; time: string } => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return { date: '—', time: '' };
   return {
-    date: d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }),
-    time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    date: d.toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' }),
+    time: d.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }),
   };
 };
 
@@ -684,7 +684,7 @@ export default function Nursing() {
                   <span className="opacity-40">·</span>
                   <span className="inline-flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {new Date(att.dateTime || att.createdAt).toLocaleDateString([], {
+                    {new Date(att.dateTime || att.createdAt).toLocaleDateString('en-GH', {
                       month: 'short', day: 'numeric',
                     })}
                   </span>
@@ -721,19 +721,19 @@ export default function Nursing() {
                 {/* Badges row */}
                 <div className="px-4 pb-4 flex items-center gap-3 flex-wrap border-t border-[var(--border-color)] pt-3 mt-auto">
                   <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                    badges.alerts > 0 ? 'text-red-600' : 'text-[var(--text-tertiary)]'
+                    badges.alerts > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-tertiary)]'
                   }`}>
                     <AlertTriangle className="w-3.5 h-3.5" />
                     {badges.alerts} alert{badges.alerts !== 1 ? 's' : ''}
                   </span>
                   <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                    badges.medsDue > 0 ? 'text-yellow-600' : 'text-[var(--text-tertiary)]'
+                    badges.medsDue > 0 ? 'text-[var(--icon-orange-text)]' : 'text-[var(--text-tertiary)]'
                   }`}>
                     <Pill className="w-3.5 h-3.5" />
                     {badges.medsDue} due
                   </span>
                   <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                    badges.tasksPending > 0 ? 'text-cyan-600' : 'text-[var(--text-tertiary)]'
+                    badges.tasksPending > 0 ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-tertiary)]'
                   }`}>
                     <ClipboardList className="w-3.5 h-3.5" />
                     {badges.tasksPending} task{badges.tasksPending !== 1 ? 's' : ''}
@@ -745,7 +745,7 @@ export default function Nursing() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-2.5 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between text-xs font-semibold text-teal-600 group-hover:bg-teal-50 transition-colors">
+                <div className="px-4 py-2.5 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between text-xs font-semibold text-[var(--icon-cyan-text)] group-hover:bg-[var(--bg-hover)] transition-colors">
                   Open patient workspace
                   <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </div>
@@ -863,16 +863,16 @@ export default function Nursing() {
                         <VitalCell value={v?.spo2} unit="%" status={getVitalStatus('spo2', v?.spo2)} />
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <CountCell n={badges.alerts} cls="text-red-600" />
+                        <CountCell n={badges.alerts} cls="text-[var(--icon-red-text)]" />
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <CountCell n={badges.medsDue} cls="text-yellow-600" />
+                        <CountCell n={badges.medsDue} cls="text-[var(--icon-orange-text)]" />
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <CountCell n={badges.tasksPending} cls="text-cyan-600" />
+                        <CountCell n={badges.tasksPending} cls="text-[var(--icon-cyan-text)]" />
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <ChevronRight className="w-4 h-4 inline text-[var(--text-tertiary)] group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all" />
+                        <ChevronRight className="w-4 h-4 inline text-[var(--text-tertiary)] group-hover:text-[var(--icon-cyan-text)] group-hover:translate-x-0.5 transition-all" />
                       </td>
                     </tr>
                   );
