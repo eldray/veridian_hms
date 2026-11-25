@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { BillRepository } from '../src/modules/bill/BillRepository';
 import { BillingRepository } from '../src/modules/billing/BillingRepository';
 import { BillingService } from '../src/modules/billing/BillingService';
+import { BillService } from '../src/modules/bill/BillService';
 
 describe('billing payment concurrency guards', () => {
   it('uses an atomic balance condition before recording a payment', async () => {
@@ -165,9 +166,6 @@ describe('billing payment concurrency guards', () => {
   });
 
 
-import { BillingRepository } from '../src/modules/billing/BillingRepository';
-import { BillService } from '../src/modules/bill/BillService';
-import { BillingService } from '../src/modules/billing/BillingService';
 
 describe('legacy billing-module payment safeguards', () => {
   it('returns the existing payment for an idempotent retry without changing balances', async () => {
