@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import PayslipEditor from '../components/PayslipEditor';
 import PayslipPresetModal from '../components/PayslipPresetModal';
-import { PageHeader } from '../components/ui';
+import { cn, INPUT, PageHeader, SELECT } from '../components/ui';
 
 const formatCedis = (v: number | string | undefined | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0);
