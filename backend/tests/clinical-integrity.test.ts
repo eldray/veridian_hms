@@ -783,7 +783,12 @@ describe('clinical encounter ownership', () => {
   it('does not delete a rendered service through the wrong encounter URL', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const deleteMany = vi.fn();
-    const repository = new EncounterRepository({ serviceRendered: { findFirst, deleteMany } } as any);
+    const prisma: any = {
+      serviceRendered: { findFirst, deleteMany },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'encounter-a', status: 'pending' }) },
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.removeService('encounter-a', 'service-from-encounter-b'))
       .rejects.toThrow(/not found/i);
@@ -799,10 +804,12 @@ describe('clinical encounter ownership', () => {
     const findFirst = vi.fn().mockResolvedValue({ id: 'service-a' });
     const deleteMany = vi.fn();
     const attendanceFindUnique = vi.fn().mockResolvedValue({ id: 'encounter-a', status: 'completed' });
-    const repository = new EncounterRepository({
+    const prisma: any = {
       serviceRendered: { findFirst, deleteMany },
       attendance: { findUnique: attendanceFindUnique },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.removeService('encounter-a', 'service-a'))
       .rejects.toThrow(/closed|open|completed/i);
