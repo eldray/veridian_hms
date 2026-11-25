@@ -23,6 +23,10 @@ export interface LabReportData {
   topTests: Array<{ testName: string; count: number; completed: number; resulted: number; positive: number; positiveRate: number }>;
   allTests: Array<{ testName: string; count: number; completed: number; resulted: number; positive: number; positiveRate: number }>;
   hivTestBreakdown: Array<{ testName: string; ordered: number; completed: number; positive: number; negative: number; indeterminate: number; resultsEntered: number }>;
+  hivAgeSexBreakdown: Array<{
+    ageGroup: string; maleTested: number; femaleTested: number; totalTested: number;
+    malePositive: number; femalePositive: number; totalPositive: number;
+  }>; 
   positivityRates: Array<{ testName: string; rate: string }>;
   labCaseBreakdown: Array<{
     code: string; description: string; cases: number;
