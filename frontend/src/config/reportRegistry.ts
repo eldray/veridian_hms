@@ -443,7 +443,7 @@ export const REPORT_REGISTRY: ReportShape[] = [
     label: 'Laboratory',
     group: 'clinical',
     description:
-      'Laboratory workload by status, priority, test type and turnaround time, with separate HIV screening and confirmatory test indicators based only on recorded results.',
+      'Laboratory workload and GHS-style laboratory plus imaging case counts. Lab results are split by sex and positive/negative status; ultrasound and other imaging are counted by sex only.',
     // GET /clinical-reports/lab -> ClinicalReportsService.generateLabReport (dates only)
     source: { api: 'getLabReport' },
     roles: SERVICE_ORDER_ROLES,
