@@ -9,128 +9,118 @@ interface CompactPaymentInfoProps {
 }
 
 export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient, insuranceProviders, patientId }) => {
-  const getPaymentModeColor = (paymentMode: string) => {
-    switch (paymentMode) {
-      case 'cash': return 'border-gray-300 bg-gray-50';
-      case 'nhis': return 'border-green-300 bg-green-50';
-      case 'private_insurance': return 'border-purple-300 bg-purple-50';
-      default: return 'border-gray-200 bg-white';
-    }
+  const paymentModes = [
+    {
+      id: 'cash',
+      label: 'Cash',
+      description: 'Patient pays directly for services',
+      Icon: DollarSign,
+      accent: 'blue',
+    },
+    {
+      id: 'nhis',
+      label: 'NHIS',
+      description: 'National Health Insurance Scheme',
+      Icon: Shield,
+      accent: 'green',
+    },
+    {
+      id: 'private_insurance',
+      label: 'Private Insurance',
+      description: 'Private insurance coverage',
+      Icon: CreditCard,
+      accent: 'purple',
+    },
+  ] as const;
+
+  const formatDate = (value?: string) => {
+    if (!value) return 'Not provided';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? 'Not provided'
+      : date.toLocaleDateString('en-GH', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   return (
-    <div className="space-y-4">
-      {/* Current Payment Mode */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-center gap-3">
-          <CreditCard className="w-5 h-5 text-green-600" />
-          <div>
-            <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">Current Payment Mode</p>
-            <p className="text-lg font-bold text-green-900 capitalize">{patient.paymentMode || 'Not set'}</p>
-          </div>
+    <div className="space-y-3">
+      <section className="flex items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">
+          <CreditCard className="h-4 w-4" />
         </div>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Current Payment Mode</p>
+          <p className="text-base font-bold capitalize text-[var(--text-primary)]">{patient.paymentMode || 'Not set'}</p>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+        {paymentModes.map(({ id, label, description, Icon, accent }) => {
+          const isCurrent = patient.paymentMode === id;
+          const accentText = `var(--icon-${accent}-text)`;
+          const accentBg = `var(--icon-${accent}-bg)`;
+
+          return (
+            <section
+              key={id}
+              aria-current={isCurrent ? 'true' : undefined}
+              className={`rounded-lg border p-3 transition-colors ${isCurrent ? 'border-[var(--icon-blue-text)]' : 'border-[var(--border-color)]'} bg-[var(--bg-card)]`}
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <div
+                  className="flex h-8 w-8 items-center justify-center rounded-md"
+                  style={{ backgroundColor: accentBg, color: accentText }}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)]">{label}</h3>
+                  {isCurrent && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--icon-blue-text)]">Current mode</span>
+                  )}
+                </div>
+              </div>
+              <p className="mb-3 text-xs text-[var(--text-secondary)]">{description}</p>
+              {isCurrent && patientId && (
+                <Link
+                  to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=${id}`}
+                  className="inline-flex w-full items-center justify-center gap-1 rounded-md px-3 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--icon-blue-text)]"
+                  style={{ backgroundColor: accentText }}
+                >
+                  <Plus className="h-3 w-3" />
+                  Create Attendance
+                </Link>
+              )}
+            </section>
+          );
+        })}
       </div>
 
-      {/* Compact Payment Mode Cards */}
-      <div className="grid grid-cols-1 gap-3">
-        {/* Cash Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeColor('cash')} ${
-          patient.paymentMode === 'cash' ? 'ring-2 ring-gray-400' : ''
-        }`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'cash' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              <DollarSign className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-gray-900 text-sm">Cash</h3>
-          </div>
-          <p className="text-xs text-gray-600 mb-3">Patient pays directly for services</p>
-          {patient.paymentMode === 'cash' && patientId && (
-            <Link
-              to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=cash`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-gray-600 text-white rounded text-xs font-medium hover:bg-gray-700 transition-colors"
-            >
-              <Plus className="w-3 h-3" />
-              Create Attendance
-            </Link>
-          )}
-        </div>
-
-        {/* NHIS Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeColor('nhis')} ${
-          patient.paymentMode === 'nhis' ? 'ring-2 ring-green-400' : ''
-        }`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'nhis' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              <Shield className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-gray-900 text-sm">NHIS</h3>
-          </div>
-          <p className="text-xs text-gray-600 mb-3">National Health Insurance Scheme</p>
-          {patient.paymentMode === 'nhis' && patientId && (
-            <Link
-              to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=nhis`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors"
-            >
-              <Plus className="w-3 h-3" />
-              Create Attendance
-            </Link>
-          )}
-        </div>
-
-        {/* Private Insurance Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeColor('private_insurance')} ${
-          patient.paymentMode === 'private_insurance' ? 'ring-2 ring-purple-400' : ''
-        }`}>
-          <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'private_insurance' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              <CreditCard className="w-4 h-4" />
-            </div>
-            <h3 className="font-semibold text-gray-900 text-sm">Private Insurance</h3>
-          </div>
-          <p className="text-xs text-gray-600 mb-3">Private insurance coverage</p>
-          {patient.paymentMode === 'private_insurance' && patientId && (
-            <Link
-              to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=private_insurance`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700 transition-colors"
-            >
-              <Plus className="w-3 h-3" />
-              Create Attendance
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* Insurance Details */}
       {(patient.paymentMode === 'nhis' || patient.paymentMode === 'private_insurance') && patient.insuranceDetails && (
-        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-200">
-          <h4 className="font-semibold text-gray-900 mb-3 text-sm">Insurance Details</h4>
-          <div className="grid grid-cols-1 gap-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Insurance Number:</span>
-              <span className="font-medium">{patient.insuranceDetails.insuranceNumber}</span>
+        <section className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+          <h4 className="mb-3 text-sm font-semibold text-[var(--text-primary)]">Insurance Details</h4>
+          <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <dt className="text-xs text-[var(--text-secondary)]">Insurance Number</dt>
+              <dd className="break-words font-medium text-[var(--text-primary)]">{patient.insuranceDetails.insuranceNumber || 'Not provided'}</dd>
             </div>
             {patient.paymentMode === 'private_insurance' && (
-              <div className="flex justify-between">
-                <span className="text-gray-600">Provider:</span>
-                <span className="font-medium">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <dt className="text-xs text-[var(--text-secondary)]">Provider</dt>
+                <dd className="break-words font-medium text-[var(--text-primary)]">
                   {insuranceProviders.find(p => p.id === patient.insuranceDetails?.insuranceProvider)?.name || 'Not provided'}
-                </span>
+                </dd>
               </div>
             )}
-            <div className="flex justify-between">
-              <span className="text-gray-600">Start Date:</span>
-              <span className="font-medium">
-                {patient.insuranceDetails.startDate ? new Date(patient.insuranceDetails.startDate).toLocaleDateString() : 'Not provided'}
-              </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <dt className="text-xs text-[var(--text-secondary)]">Start Date</dt>
+              <dd className="font-medium text-[var(--text-primary)]">{formatDate(patient.insuranceDetails.startDate)}</dd>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">End Date:</span>
-              <span className="font-medium">
-                {patient.insuranceDetails.endDate ? new Date(patient.insuranceDetails.endDate).toLocaleDateString() : 'Not provided'}
-              </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <dt className="text-xs text-[var(--text-secondary)]">End Date</dt>
+              <dd className="font-medium text-[var(--text-primary)]">{formatDate(patient.insuranceDetails.endDate)}</dd>
             </div>
-          </div>
-        </div>
+          </dl>
+        </section>
       )}
     </div>
   );
