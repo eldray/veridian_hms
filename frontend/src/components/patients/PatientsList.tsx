@@ -1,6 +1,6 @@
 // src/components/patients/PatientsList.tsx
 import { Link } from 'react-router-dom';
-import { User, Phone, Calendar, Eye, Edit, Stethoscope } from 'lucide-react';
+import { Phone, Calendar, Eye, Edit, Stethoscope } from 'lucide-react';
 import { PatientAvatar } from './PatientAvatar';
 import { TABLE_SHELL, TH, TH_ROW, TD, TR, cn } from '../ui';
 
@@ -44,10 +44,10 @@ export const PatientsList: React.FC<PatientsListProps> = ({ patients, onAddAtten
         <thead className={TH_ROW}>
           <tr>
             <th className={cn(TH, "px-3 py-2")}>Patient</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Contact</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Details</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Payment</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
+            <th className={cn(TH, "px-3 py-2")}>Contact</th>
+            <th className={cn(TH, "px-3 py-2")}>Details</th>
+            <th className={cn(TH, "px-3 py-2")}>Payment</th>
+            <th className={cn(TH, "px-3 py-2")}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -64,24 +64,24 @@ export const PatientsList: React.FC<PatientsListProps> = ({ patients, onAddAtten
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-2">
+                <td className={cn(TD, "px-3 py-2")}>
                   <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
                     <Phone className="w-3 h-3 text-[var(--icon-green-text)]" />
                     {patient.contact}
                   </div>
                 </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-gray-600">
+                <td className={cn(TD, "px-3 py-2")}>
+                  <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
                     <Calendar className="w-3 h-3 text-[var(--icon-cyan-text)]" />
                     {patient.age || 'N/A'}y • {patient.gender}
                   </div>
                 </td>
-                <td className="px-3 py-2">
+                <td className={cn(TD, "px-3 py-2")}>
                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getPaymentModeColor(patient.paymentMode)}`}>
                     {getPaymentModeLabel(patient.paymentMode)}
                   </span>
                 </td>
-                <td className="px-3 py-2">
+                <td className={cn(TD, "px-3 py-2")}>
                   <div className="flex items-center gap-1">
                     <Link
                       to={`/dashboard/patients/${patientId}`}
