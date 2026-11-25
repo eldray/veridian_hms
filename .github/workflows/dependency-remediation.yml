@@ -1,0 +1,97 @@
+name: Prepare dependency security updates
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: dependency-remediation
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Update lockfiles and verify packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply compatible backend security updates
+        working-directory: backend
+        run: |
+          npm ci
+          # npm audit fix may return non-zero while an unfixable advisory (notably
+          # xlsx) remains. Keep its lockfile updates and let tests + the final
+          # audit report determine what is still outstanding.
+          npm audit fix || true
+          # Multer 1.x is deprecated and has known security issues; move to 2.x.
+          npm install multer@^2 --save
+          npm audit fix || true
+
+      - name: Apply compatible frontend security updates
+        working-directory: frontend
+        run: |
+          npm ci
+          npm audit fix || true
+
+      - name: Run backend tests and build
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veridian_test
+        run: |
+          npx prisma validate
+          npx prisma generate
+          npm test
+          npm run build
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Capture remaining vulnerability reports
+        if: always()
+        run: |
+          cd backend
+          npm audit --json > ../backend-npm-audit-after.json || true
+          cd ../frontend
+          npm audit --json > ../frontend-npm-audit-after.json || true
+
+      - name: Upload post-update audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-after-updates
+          path: '*-npm-audit-after.json'
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Open dependency update pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
+          branch: security/npm-audit-remediation
+          delete-branch: false
+          commit-message: 'chore(deps): apply compatible security updates'
+          title: 'Remediate npm dependency vulnerabilities'
+          body: |
+            ## Summary
+            - Apply non-forced, semver-compatible npm audit fixes in backend and frontend.
+            - Upgrade backend Multer from 1.x to 2.x.
+            - Regenerate package lockfiles through npm in CI.
+            - Run backend tests, Prisma validation/generation, backend build and frontend build.
+
+            ## Review notes
+            - No `--force` upgrades are used.
+            - Unfixed advisories (including packages without a published npm fix) are reported in the attached CI artifacts and must be assessed separately.
+            - Review package changes and all CI checks before merging.
