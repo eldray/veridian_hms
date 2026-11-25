@@ -165,6 +165,35 @@ export const getNHISAccessToken = async (): Promise<string | null> => {
  * Uses Patient.nhisNumber (the NHIS membership card number) for lookup,
  * then updates Patient.nhisExpiryDate and Patient.nhisActive on success.
  */
+const recordUnresolvedMembership = async (
+  policyNumber: string,
+  checkedById: string,
+  rawResponse: unknown,
+): Promise<void> => {
+  const patient = await prisma.patient.findFirst({
+    where: { nhisNumber: policyNumber },
+  });
+  if (!patient) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.patient.update({
+      where: { id: patient.id },
+      data: { nhisActive: false, updatedAt: new Date() },
+    });
+    await tx.nHISEligibilityCheck.create({
+      data: {
+        patientId: patient.id,
+        membershipId: policyNumber,
+        checkMethod: 'nhia_portal',
+        status: 'not_found',
+        membershipExpiry: null,
+        rawResponse: JSON.parse(JSON.stringify(rawResponse ?? {})),
+        checkedById,
+      },
+    });
+  });
+};
+
 export const verifyNHISEligibility = async (
   policyNumber: string,
   checkedById: string
@@ -206,6 +235,11 @@ export const verifyNHISEligibility = async (
     const result = response.data;
 
     if (!result.success || !result.data) {
+      await recordUnresolvedMembership(
+        normalizedPolicyNumber,
+        checkedById,
+        result,
+      );
       return {
         success: false,
         message: result.message || 'Policy not found or inactive',
@@ -282,6 +316,11 @@ export const verifyNHISEligibility = async (
     );
 
     if (error.response?.status === 404) {
+      await recordUnresolvedMembership(
+        String(policyNumber ?? '').trim(),
+        checkedById,
+        error.response?.data || { message: 'Policy number not found in NHIS database' },
+      );
       return {
         success: false,
         message: 'Policy number not found in NHIS database',
