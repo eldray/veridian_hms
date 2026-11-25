@@ -1078,21 +1078,21 @@ export default function AttendanceDetails() {
           aria-label="Patient allergy information"
           className={`rounded-xl border p-4 ${
             Array.isArray(patient.allergies) && patient.allergies.length > 0
-              ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30'
-              : 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20'
+              ? 'border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]'
+              : 'border-[var(--icon-orange-text)] bg-[var(--icon-orange-bg)]'
           }`}
         >
           <div className="flex items-start gap-3">
             <AlertTriangle className={`mt-0.5 h-5 w-5 shrink-0 ${
               Array.isArray(patient.allergies) && patient.allergies.length > 0
-                ? 'text-red-700 dark:text-red-300'
-                : 'text-amber-700 dark:text-amber-300'
+                ? 'text-[var(--icon-red-text)]'
+                : 'text-[var(--icon-orange-text)]'
             }`} />
             <div className="min-w-0 flex-1">
               <h2 className={`text-sm font-bold ${
                 Array.isArray(patient.allergies) && patient.allergies.length > 0
-                  ? 'text-red-800 dark:text-red-200'
-                  : 'text-amber-800 dark:text-amber-200'
+                  ? 'text-[var(--icon-red-text)]'
+                  : 'text-[var(--icon-orange-text)]'
               }`}>
                 {Array.isArray(patient.allergies) && patient.allergies.length > 0
                   ? 'RECORDED ALLERGIES — CHECK BEFORE PRESCRIBING'
@@ -1101,7 +1101,7 @@ export default function AttendanceDetails() {
               {Array.isArray(patient.allergies) && patient.allergies.length > 0 ? (
                 <ul className="mt-2 space-y-1.5">
                   {patient.allergies.map((allergy: any) => (
-                    <li key={allergy.id || `${allergy.allergen}-${allergy.reaction || ''}`} className="text-sm text-red-900 dark:text-red-100">
+                    <li key={allergy.id || `${allergy.allergen}-${allergy.reaction || ''}`} className="text-sm text-[var(--icon-red-text)]">
                       <span className="font-semibold">{allergy.allergen}</span>
                       {allergy.severity && <span> · {allergy.severity} severity</span>}
                       {allergy.reaction && <span> — Reaction: {allergy.reaction}</span>}
@@ -1110,7 +1110,7 @@ export default function AttendanceDetails() {
                   ))}
                 </ul>
               ) : (
-                <p className="mt-1 text-sm text-amber-900 dark:text-amber-100">
+                <p className="mt-1 text-sm text-[var(--icon-orange-text)]">
                   No allergy records were returned for this patient. Confirm allergy status directly with the patient or caregiver before prescribing or dispensing; do not assume this means “no known allergies.”
                 </p>
               )}
@@ -1135,22 +1135,22 @@ export default function AttendanceDetails() {
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            <span className="bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300">
+            <span className="bg-[var(--icon-blue-bg)] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--icon-blue-text)]">
               💊 Meds: {encounterMedications.length}
             </span>
-            <span className="bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300">
+            <span className="bg-[var(--icon-green-bg)] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--icon-green-text)]">
               🧪 Labs: {encounterLabTests.length}
             </span>
-            <span className="bg-cyan-100 dark:bg-cyan-900/50 px-2 py-1 rounded border border-cyan-200 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300">
+            <span className="bg-[var(--icon-cyan-bg)] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--icon-cyan-text)]">
               🩻 Scans: {encounterScans.length}
             </span>
-            <span className="bg-purple-100 dark:bg-purple-900/50 px-2 py-1 rounded border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300">
+            <span className="bg-[var(--icon-purple-bg)] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--icon-purple-text)]">
               ✂️ Procs: {encounterProcedures.length}
             </span>
-            <span className="bg-yellow-100 dark:bg-yellow-900/50 px-2 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300 font-bold">
+            <span className="bg-[var(--icon-orange-bg)] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--icon-orange-text)] font-semibold">
               💰 {formatCurrency(currentAttendance.totalBill || 0)}
             </span>
-            <span className="bg-red-100 dark:bg-red-900/50 px-2 py-1 rounded border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300">
+            <span className="bg-red-100 dark:bg-red-900/50 px-2 py-1 rounded border border-red-200 dark:border-red-700 text-[var(--icon-red-text)]">
               ❤️ Vitals: {vitalsList.length}
             </span>
           </div>
@@ -1363,7 +1363,7 @@ export default function AttendanceDetails() {
                 <div className="lg:col-span-2 space-y-6">
                   {/* Patient Information Card */}
                   {patient && (
-                    <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-blue-200 dark:border-blue-800">
+                    <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
                       <div className="flex items-center gap-3 mb-4">
                         <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="md" className="rounded-lg bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
                         <div>
@@ -1424,7 +1424,7 @@ export default function AttendanceDetails() {
                         </p>
                       </div>
                       {clinicalNotes.historyPresentingComplaint && (
-                        <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                        <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
                           <p className="text-xs text-[var(--text-secondary)] font-medium mb-2 flex items-center gap-2">
                             <History className="w-3 h-3" />
                             History of Presenting Complaint
@@ -1557,7 +1557,7 @@ export default function AttendanceDetails() {
                         <Heart className="w-5 h-5 text-[var(--icon-red-text)]" />
                         <h3 className="text-md font-bold text-[var(--text-primary)]">Latest Vitals</h3>
                         {hasAbnormalVitals && (
-                          <AlertTriangle className="w-4 h-4 text-red-500" />
+                          <AlertTriangle className="w-4 h-4 text-[var(--icon-red-text)]" />
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -1617,8 +1617,8 @@ export default function AttendanceDetails() {
                       </div>
                       {(currentAttendance.outstandingBalance || 0) > 0 && (
                         <div className="flex justify-between items-center bg-[var(--bg-main)] rounded-lg p-2 border border-[var(--border-color)]">
-                          <span className="text-sm font-semibold text-red-700 dark:text-red-400">Outstanding</span>
-                          <span className="font-bold text-red-700 dark:text-red-400">
+                          <span className="text-sm font-semibold text-[var(--icon-red-text)]">Outstanding</span>
+                          <span className="font-bold text-[var(--icon-red-text)]">
                             {formatCurrency(currentAttendance.outstandingBalance || 0)}
                           </span>
                         </div>
@@ -2186,7 +2186,7 @@ export default function AttendanceDetails() {
                 {/* FOLLOW-UP DATE */}
                 {(currentAttendance as any)?.followUpDate && (
                   <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
-                    <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 mb-2">Follow-up Date</p>
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Follow-up Date</p>
                     <p className="text-sm text-[var(--text-primary)]">
                       {new Date((currentAttendance as any).followUpDate).toLocaleDateString()}
                     </p>
@@ -2211,11 +2211,11 @@ export default function AttendanceDetails() {
 
                 {/* Action Buttons for Adding Clinical Data (unchanged) */}
                 {canAddClinical && (
-                  <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-blue-200 dark:border-blue-800">
+                  <div className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)]">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <div>
-                        <h3 className="text-sm font-bold text-blue-900 dark:text-blue-300 mb-1">Quick Clinical Actions</h3>
-                        <p className="text-xs text-blue-700 dark:text-blue-400">Add clinical data to this attendance record</p>
+                        <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Quick Clinical Actions</h3>
+                        <p className="text-xs text-[var(--text-secondary)]">Add clinical data to this attendance record</p>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <button onClick={() => handleAddClinical('diagnosis')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border border-[var(--border-color)] rounded-lg hover:opacity-80 transition-colors text-xs font-medium">
@@ -2263,7 +2263,7 @@ export default function AttendanceDetails() {
             <div className="flex gap-3">
               <button
                 onClick={handleDeleteAttendance}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                className="flex-1 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--border-color)] rounded-lg hover:opacity-80 transition-colors font-medium"
               >
                 Delete Attendance
               </button>
