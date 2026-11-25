@@ -12,7 +12,7 @@ const PATIENT_WRITE_FIELDS = [
   'dateOfBirth', 'contact', 'address', 'residenceCommunity',
   'residenceDistrict', 'residenceRegion', 'paymentMode', 'insuranceDetails',
   'additionalInfo', 'billingAddress', 'employer', 'imageUrl',
-  'insuranceProviderId', 'nhisNumber', 'cccId', 'nhisExpiryDate',
+  'nhisNumber', 'cccId', 'nhisExpiryDate',
   'nhisActive', 'phoneNumber',
 ] as const;
 
@@ -229,6 +229,9 @@ export class PatientService extends BaseService {
       familyHistories,
     } = data;
     const persistedData = pickPatientWriteFields(data as unknown as Record<string, unknown>);
+    const insuranceProviderId = corporateAccount
+      ? corporateAccount.insuranceProviderId
+      : data.insuranceProviderId;
     const patientData = {
       ...persistedData,
       insuranceDetails: data.insuranceDetails ?? undefined,
@@ -257,9 +260,9 @@ export class PatientService extends BaseService {
       nhisExpiryDate: data.nhisExpiryDate ? new Date(data.nhisExpiryDate) : undefined,
       registeredAt: new Date(),
       registeredBy: 'system',
-      insuranceProviderId: corporateAccount
-        ? corporateAccount.insuranceProviderId
-        : data.insuranceProviderId,
+      InsuranceProvider: insuranceProviderId
+        ? { connect: { id: insuranceProviderId } }
+        : undefined,
     };
 
     const patient = await this.prisma.patient.create({
@@ -315,6 +318,9 @@ export class PatientService extends BaseService {
       familyHistories,
     } = data;
     const persistedData = pickPatientWriteFields(data as unknown as Record<string, unknown>);
+    const insuranceProviderId = data.paymentMode === 'corporate' && corporateAccount
+      ? corporateAccount.insuranceProviderId
+      : data.insuranceProviderId;
     const updateData = {
       ...persistedData,
       ...(allergies !== undefined && {
@@ -354,11 +360,11 @@ export class PatientService extends BaseService {
         : data.employer === null
           ? Prisma.JsonNull
           : data.employer,
-      ...(data.paymentMode === 'corporate' && corporateAccount
-        ? {
-            insuranceProviderId: corporateAccount.insuranceProviderId,
-          }
-        : {})
+      ...(insuranceProviderId !== undefined && {
+        InsuranceProvider: insuranceProviderId
+          ? { connect: { id: insuranceProviderId } }
+          : { disconnect: true },
+      })
     };
     const patient = await this.prisma.patient.update({
       where: { id },
