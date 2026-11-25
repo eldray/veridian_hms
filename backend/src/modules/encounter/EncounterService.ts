@@ -124,7 +124,7 @@ export class EncounterService extends BaseService {
         }
 
         nhisCCC = String(data.nhisCCC ?? '').trim();
-        if (!/^\\d{5}$/.test(nhisCCC)) {
+        if (!/^\d{5}$/.test(nhisCCC)) {
           throw new ValidationError('A valid 5-digit NHIS CCC number is required for an eligible NHIS attendance');
         }
       }
