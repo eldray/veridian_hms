@@ -13,7 +13,7 @@ export class ReportService {
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
     // Reports over big date ranges take seconds; share one result per range for 60 s
-    cacheReadMethods(this, ['getDemographicReport','getFinancialReport','getInsuranceClaimsReport','getClinicalReport','getAttendanceReport','getRevenueReport','getNhisExpiryReport','getNhisClaimsWithExpiry'], 60000);
+    cacheReadMethods(this, ['getDemographicReport','getFinancialReport','getInsuranceClaimsReport','getClinicalReport','getAttendanceReport','getPatientsSeenByStaffReport','getRevenueReport','getNhisExpiryReport','getNhisClaimsWithExpiry'], 60000);
   }
 
   private calculateAge(dateOfBirth: Date, asOfDate: Date = new Date()): number {
