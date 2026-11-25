@@ -5,6 +5,60 @@ import { CreatePatientDTO, UpdatePatientDTO, PatientFilters, PatientSummary, Cre
 import { NotFoundError, ValidationError } from '../../utils/errors';
 import { getCounterService } from '../../services/CounterService'; 
 
+// Only patient-facing fields may be written from registration/edit requests.
+// Identity, registration timestamps and database-managed fields are always server-owned.
+const PATIENT_WRITE_FIELDS = [
+  'folderNumber', 'surname', 'otherNames', 'gender', 'maritalStatus',
+  'dateOfBirth', 'contact', 'address', 'residenceCommunity',
+  'residenceDistrict', 'residenceRegion', 'paymentMode', 'insuranceDetails',
+  'additionalInfo', 'billingAddress', 'employer', 'imageUrl',
+  'nhisNumber', 'cccId', 'nhisExpiryDate',
+  'nhisActive', 'phoneNumber',
+] as const;
+
+function pickPatientWriteFields<T extends object>(
+  data: T,
+): Pick<T, Extract<keyof T, (typeof PATIENT_WRITE_FIELDS)[number]>> {
+  const source = data as Record<string, unknown>;
+  return Object.fromEntries(
+    PATIENT_WRITE_FIELDS
+      .filter((field) => source[field] !== undefined)
+      .map((field) => [field, source[field]]),
+  ) as Pick<T, Extract<keyof T, (typeof PATIENT_WRITE_FIELDS)[number]>>;
+}
+
+function cleanAllergyEntries(entries: CreateAllergyDTO[]) {
+  return entries.map(({ allergen, reaction, severity, notes }) => ({
+    allergen,
+    ...(reaction !== undefined && { reaction }),
+    ...(severity !== undefined && { severity }),
+    ...(notes !== undefined && { notes }),
+  }));
+}
+
+function cleanMedicalHistoryEntries(entries: CreateMedicalHistoryDTO[]) {
+  return entries.map(({ condition, diagnosedAt, notes }) => ({
+    condition,
+    diagnosedAt: diagnosedAt ? new Date(diagnosedAt) : undefined,
+    notes,
+  }));
+}
+
+function cleanSurgicalHistoryEntries(entries: CreatePatientDTO['surgicalHistories']) {
+  return (entries || []).map(({ procedure, surgeryDate, notes }) => ({
+    procedure,
+    surgeryDate: surgeryDate ? new Date(surgeryDate) : undefined,
+    notes,
+  }));
+}
+
+function cleanFamilyHistoryEntries(entries: CreatePatientDTO['familyHistories']) {
+  return (entries || []).map(({ relation, condition, notes }) => ({
+    relation, condition, notes,
+  }));
+}
+
+
 export class PatientService extends BaseService {
   private repository: PatientRepository;
   private prisma: PrismaClient;
@@ -171,35 +225,31 @@ export class PatientService extends BaseService {
 
     const counterService = getCounterService();
     const {
-      corporateAccountId,
       corporateEmployeeId,
       allergies,
       medicalHistories,
       surgicalHistories,
       familyHistories,
-      ...persistedData
     } = data;
+    const persistedData = pickPatientWriteFields(data);
+    const insuranceProviderId = corporateAccount
+      ? corporateAccount.insuranceProviderId
+      : data.insuranceProviderId;
     const patientData = {
       ...persistedData,
       insuranceDetails: data.insuranceDetails ?? undefined,
-      ...(allergies !== undefined && { allergies: { create: allergies } }),
+      ...(allergies !== undefined && { allergies: { create: cleanAllergyEntries(allergies) } }),
       ...(medicalHistories !== undefined && {
         medicalHistories: {
-          create: medicalHistories.map(history => ({
-            ...history,
-            diagnosedAt: history.diagnosedAt ? new Date(history.diagnosedAt) : undefined,
-          })),
+          create: cleanMedicalHistoryEntries(medicalHistories),
         },
       }),
       ...(surgicalHistories !== undefined && {
         surgicalHistories: {
-          create: surgicalHistories.map(history => ({
-            ...history,
-            surgeryDate: history.surgeryDate ? new Date(history.surgeryDate) : undefined,
-          })),
+          create: cleanSurgicalHistoryEntries(surgicalHistories),
         },
       }),
-      ...(familyHistories !== undefined && { familyHistories: { create: familyHistories } }),
+      ...(familyHistories !== undefined && { familyHistories: { create: cleanFamilyHistoryEntries(familyHistories) } }),
       employer: corporateAccount
         ? {
             ...(data.employer || {}),
@@ -213,9 +263,9 @@ export class PatientService extends BaseService {
       nhisExpiryDate: data.nhisExpiryDate ? new Date(data.nhisExpiryDate) : undefined,
       registeredAt: new Date(),
       registeredBy: 'system',
-      insuranceProviderId: corporateAccount
-        ? corporateAccount.insuranceProviderId
-        : data.insuranceProviderId,
+      InsuranceProvider: insuranceProviderId
+        ? { connect: { id: insuranceProviderId } }
+        : undefined,
     };
 
     const patient = await this.prisma.patient.create({
@@ -264,39 +314,35 @@ export class PatientService extends BaseService {
     await this.checkDuplicates(data as CreatePatientDTO, id);
     const corporateAccount = await this.validateCorporateData(data as CreatePatientDTO);
     const {
-      corporateAccountId,
       corporateEmployeeId,
       allergies,
       medicalHistories,
       surgicalHistories,
       familyHistories,
-      ...persistedData
     } = data;
+    const persistedData = pickPatientWriteFields(data as unknown as Record<string, unknown>);
+    const insuranceProviderId = data.paymentMode === 'corporate' && corporateAccount
+      ? corporateAccount.insuranceProviderId
+      : data.insuranceProviderId;
     const updateData = {
       ...persistedData,
       ...(allergies !== undefined && {
-        allergies: { deleteMany: {}, create: allergies },
+        allergies: { deleteMany: {}, create: cleanAllergyEntries(allergies) },
       }),
       ...(medicalHistories !== undefined && {
         medicalHistories: {
           deleteMany: {},
-          create: medicalHistories.map(history => ({
-            ...history,
-            diagnosedAt: history.diagnosedAt ? new Date(history.diagnosedAt) : undefined,
-          })),
+          create: cleanMedicalHistoryEntries(medicalHistories),
         },
       }),
       ...(surgicalHistories !== undefined && {
         surgicalHistories: {
           deleteMany: {},
-          create: surgicalHistories.map(history => ({
-            ...history,
-            surgeryDate: history.surgeryDate ? new Date(history.surgeryDate) : undefined,
-          })),
+          create: cleanSurgicalHistoryEntries(surgicalHistories),
         },
       }),
       ...(familyHistories !== undefined && {
-        familyHistories: { deleteMany: {}, create: familyHistories },
+        familyHistories: { deleteMany: {}, create: cleanFamilyHistoryEntries(familyHistories) },
       }),
       dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
       nhisExpiryDate: data.nhisExpiryDate
@@ -317,11 +363,11 @@ export class PatientService extends BaseService {
         : data.employer === null
           ? Prisma.JsonNull
           : data.employer,
-      ...(data.paymentMode === 'corporate' && corporateAccount
-        ? {
-            insuranceProviderId: corporateAccount.insuranceProviderId,
-          }
-        : {})
+      ...(insuranceProviderId !== undefined && {
+        InsuranceProvider: insuranceProviderId
+          ? { connect: { id: insuranceProviderId } }
+          : { disconnect: true },
+      })
     };
     const patient = await this.prisma.patient.update({
       where: { id },
