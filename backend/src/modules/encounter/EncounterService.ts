@@ -104,6 +104,7 @@ export class EncounterService extends BaseService {
           patientClassification,
           attendanceType: data.attendanceType,
           paymentMode: data.paymentMode,
+          corporateAccountId: data.corporateAccountId,
           nhisCCC: data.nhisCCC,
           insuranceProviderId,
           // Persist the same clinical assessment fields accepted by the encounter repository.
