@@ -292,7 +292,7 @@ export class ReportController {
         contentType = 'text/csv; charset=utf-8';
         filename = `${base}.csv`;
       } else {
-        buffer = documentToXlsx(doc);
+        buffer = await documentToXlsx(doc);
         contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         filename = `${base}.xlsx`;
       }

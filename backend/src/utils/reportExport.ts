@@ -7,7 +7,7 @@
 // never return, so the Financial and Revenue exports came out empty and "Excel" / "PDF" were just CSV.
 // This works from the report's own shape instead, so every current and future report exports correctly.
 
-import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 // @ts-ignore  pdfkit has no type package in this project (@types/pdfkit is not installed)
 import PDFDocument from 'pdfkit';
 
@@ -259,19 +259,20 @@ function sheetName(title: string, used: Set<string>): string {
   return name;
 }
 
-function widths(aoa: Cell[][]): Array<{ wch: number }> {
+function widths(aoa: Cell[][]): number[] {
   const count = Math.max(0, ...aoa.map(r => r.length));
-  const out: Array<{ wch: number }> = [];
+  const out: number[] = [];
   for (let c = 0; c < count; c++) {
     let max = 8;
     for (const row of aoa.slice(0, 500)) max = Math.max(max, String(row[c] ?? '').length);
-    out.push({ wch: Math.min(60, max + 2) });
+    out.push(Math.min(60, max + 2));
   }
   return out;
 }
 
-export function documentToXlsx(doc: ReportDocument): Buffer {
-  const wb = XLSX.utils.book_new();
+export async function documentToXlsx(doc: ReportDocument): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Veridian HMS';
   const used = new Set<string>();
 
   const info: Cell[][] = [[doc.meta.title]];
@@ -281,17 +282,18 @@ export function documentToXlsx(doc: ReportDocument): Buffer {
   info.push([]);
   info.push(['Sheets in this file']);
   doc.tables.forEach(t => info.push([t.title]));
-  const infoSheet = XLSX.utils.aoa_to_sheet(info);
-  infoSheet['!cols'] = [{ wch: 60 }];
-  XLSX.utils.book_append_sheet(wb, infoSheet, sheetName('Report', used));
+  const infoSheet = wb.addWorksheet(sheetName('Report', used));
+  info.forEach(row => infoSheet.addRow(row));
+  infoSheet.getColumn(1).width = 60;
 
   for (const table of doc.tables) {
     const aoa: Cell[][] = [table.columns, ...table.rows];
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = widths(aoa);
-    XLSX.utils.book_append_sheet(wb, ws, sheetName(table.title, used));
+    const ws = wb.addWorksheet(sheetName(table.title, used));
+    ws.addRows(aoa);
+    widths(aoa).forEach((width, index) => { ws.getColumn(index + 1).width = width; });
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
   }
-  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+  return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
