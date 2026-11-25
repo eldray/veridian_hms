@@ -35,6 +35,7 @@ import {
   Clock,
   AlertCircle
 } from 'lucide-react';
+import { PageHeader } from '../components/ui';
 import { GDRGMDC } from '../types';
 import {
   createGDRGTariff,
@@ -544,28 +545,23 @@ export default function GDRGManagement() {
 
   return (
     <div className="space-y-3 p-3">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]">
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-9 h-9 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
-            <Shield className="w-4 h-4 text-[var(--icon-green-text)]" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">G-DRG Tariffs</h1>
-            <p className="text-xs text-[var(--text-secondary)]">Manage NHIS G-DRG tariffs for claims processing</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium">
-            <Plus className="w-4 h-4" /> Add Tariff
-          </button>
-          <button onClick={loadData} disabled={isLoading} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="G-DRG Tariffs"
+        subtitle="Manage NHIS G-DRG tariffs for claims processing"
+        icon={Shield}
+        accent="green"
+        onBack={goBack}
+        actions={(
+          <>
+            <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium">
+              <Plus className="w-4 h-4" /> Add Tariff
+            </button>
+            <button onClick={loadData} disabled={isLoading} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm disabled:opacity-50">
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </>
+        )}
+      />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <StatCard title="Total Tariffs" value={stats.total} icon={Shield} colorVar="text-[var(--icon-cyan-text)]" bgVar="bg-[var(--icon-cyan-bg)]" />
         <StatCard title="Active" value={stats.active} icon={CheckCircle} colorVar="text-[var(--icon-green-text)]" bgVar="bg-[var(--icon-green-bg)]" />
