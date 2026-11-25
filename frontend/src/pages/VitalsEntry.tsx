@@ -13,6 +13,7 @@ import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
+import { PageHeader } from '../components/ui';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getPatientName } from '../utils/patient';
 import {
@@ -411,42 +412,32 @@ export default function VitalsEntry() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={goBack}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
-          >
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-10 h-10 bg-[var(--icon-red-bg)] rounded-xl flex items-center justify-center">
-            <Activity className="w-5 h-5 text-[var(--icon-red-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Vital Signs</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Record and monitor patient vital signs</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* ✅ REFRESH BUTTON */}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          {/* Print button */}
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <Printer className="w-4 h-4" />
-            Print
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Vital Signs"
+        subtitle="Record and monitor patient vital signs"
+        icon={Activity}
+        accent="red"
+        onBack={goBack}
+        actions={(
+          <>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
+            >
+              <Printer className="w-4 h-4" />
+              Print
+            </button>
+          </>
+        )}
+      />
 
       {/* Patient & Attendance Selector */}
       <PatientAttendanceSelector
