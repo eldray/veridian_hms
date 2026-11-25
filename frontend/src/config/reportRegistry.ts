@@ -347,7 +347,7 @@ export const REPORT_REGISTRY: ReportShape[] = [
     label: 'Clinical Statistics',
     group: 'clinical',
     description:
-      'Diagnosis activity by condition, including the PHD monthly NCD morbidity return with new cases split by sex and age band.',
+      'Diagnosis activity by condition with ICD-10 code, morbidity group, age and sex summary.',
     // GET /reports/clinical -> ReportService.getClinicalReport (dates only)
     source: { api: 'getClinicalReport' },
     roles: CLINICAL_STATS_ROLES,
