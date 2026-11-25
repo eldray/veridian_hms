@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Calculator, FileText, Percent, Receipt, RefreshCw, ShieldCheck } from 'lucide-react';
 import { getBillingTaxSummary, type BillingTaxSummary } from '../api';
-import { Button, Card, cn, INPUT, PageHeader, StatCard, TD, TH, TH_ROW, TR } from '../components/ui';
+import { Button, Card, cn, INPUT, PageHeader, StatCard, TABLE_SHELL, TD, TH, TH_ROW, TR } from '../components/ui';
 import { useToast } from '../store/toastStore';
 import { useSmartBack } from '../utils/useSmartBack';
 
@@ -102,7 +102,7 @@ export default function TaxSummary() {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
         <Card title="Tax by component" icon={Percent}>
-          <div className="overflow-x-auto">
+          <div className={cn(TABLE_SHELL, "overflow-x-auto")}>
             <table className="w-full text-sm">
               <thead>
                 <tr className={TH_ROW}>
@@ -138,7 +138,7 @@ export default function TaxSummary() {
         </Card>
 
         <Card title="By payer type" icon={Receipt}>
-          <div className="overflow-x-auto">
+          <div className={cn(TABLE_SHELL, "overflow-x-auto")}>
             <table className="w-full text-sm">
               <thead>
                 <tr className={TH_ROW}>
@@ -169,7 +169,7 @@ export default function TaxSummary() {
       </div>
 
       <Card title="Daily filing" icon={FileText}>
-        <div className="overflow-x-auto">
+        <div className={cn(TABLE_SHELL, "overflow-x-auto")}>
           <table className="w-full text-sm">
             <thead>
               <tr className={TH_ROW}>
