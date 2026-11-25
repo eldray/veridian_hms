@@ -177,17 +177,18 @@ export class ClinicalReportsService extends BaseService {
       ageGroup: band.label, maleTested: 0, femaleTested: 0,
       malePositive: 0, femalePositive: 0, totalTested: 0, totalPositive: 0,
     }]));
-    for (const item of hivResults) {
-      const patient = item.test.Attendance?.Patient;
+    const hivResultByTestId = new Map(hivResults.map(item => [item.test.id, item]));
+    for (const test of hivTests) {
+      const patient = test.Attendance?.Patient;
       if (!patient?.dateOfBirth) continue;
-      const age = this.calculateAge(patient.dateOfBirth, item.test.requestedAt || item.test.createdAt);
+      const age = this.calculateAge(patient.dateOfBirth, test.requestedAt || test.createdAt);
       const band = hivAgeBands.find(candidate => age >= candidate.min && age <= candidate.max);
       if (!band) continue;
       const row = hivAgeSexMap.get(band.key)!;
       row.totalTested++;
       if (patient.gender === 'male') row.maleTested++;
       else if (patient.gender === 'female') row.femaleTested++;
-      if (item.positive) {
+      if (hivResultByTestId.get(test.id)?.positive) {
         row.totalPositive++;
         if (patient.gender === 'male') row.malePositive++;
         else if (patient.gender === 'female') row.femalePositive++;
