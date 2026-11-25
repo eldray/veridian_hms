@@ -135,15 +135,36 @@ export default function NewAttendanceModal({
     const errors: string[] = [];
 
     if (paymentMode === 'nhis') {
-      if (!nhisCCC.trim()) {
-        errors.push('NHIS CCC code is required for NHIS patients');
-      } else if (!/^\d{5}$/.test(nhisCCC.trim())) {
-        errors.push('NHIS CCC code must be exactly 5 digits');
-      }
-      const nhisActive = resolvedPatient?.nhisActive ?? resolvedPatient?.insuranceDetails?.isActive;
-      if (nhisActive !== true) errors.push(nhisActive === false ? 'NHIS membership is inactive' : 'NHIS membership status is not verified as active');
+      const memberNumber = String(
+        resolvedPatient?.nhisNumber ||
+        resolvedPatient?.insuranceDetails?.memberId ||
+        resolvedPatient?.insuranceDetails?.insuranceNumber ||
+        ''
+      ).trim();
       const expiry = resolvedPatient?.nhisExpiryDate || resolvedPatient?.insuranceDetails?.endDate;
-      if (expiry && new Date(expiry).getTime() < Date.now()) errors.push('NHIS membership has expired');
+      const hasMembershipDetails = Boolean(memberNumber && expiry);
+
+      // Establish membership details and eligibility before requesting the visit-specific CCC.
+      if (!hasMembershipDetails) {
+        errors.push('Patient NHIS details are missing. Update the patient record with the NHIS membership number and expiry date first.');
+      } else {
+        const nhisActive = resolvedPatient?.nhisActive ?? resolvedPatient?.insuranceDetails?.isActive;
+        if (nhisActive !== true) {
+          errors.push(nhisActive === false
+            ? 'NHIS membership is inactive. Update the patient record before using NHIS.'
+            : 'NHIS membership status is not verified. Verify the patient record before using NHIS.');
+        }
+        const expiryDate = new Date(`${String(expiry).slice(0, 10)}T23:59:59`);
+        const isExpired = Number.isNaN(expiryDate.getTime()) || expiryDate.getTime() < Date.now();
+        if (isExpired) errors.push('NHIS membership has expired or has an invalid expiry date');
+        if (nhisActive === true && !isExpired) {
+          if (!nhisCCC.trim()) {
+            errors.push('NHIS CCC code is required for an active NHIS membership');
+          } else if (!/^\d{5}$/.test(nhisCCC.trim())) {
+            errors.push('NHIS CCC code must be exactly 5 digits');
+          }
+        }
+      }
     }
 
     if (paymentMode === 'private_insurance') {
@@ -304,9 +325,19 @@ export default function NewAttendanceModal({
 
   // ✅ FIXED: currentInsuranceProvider uses resolvedPatient + fallback object when list is loading
   const resolvedProviderId = resolveInsuranceProviderId(resolvedPatient);
-  const resolvedNhisNumber = resolvedPatient?.nhisNumber || resolvedPatient?.insuranceDetails?.memberId || resolvedPatient?.insuranceDetails?.insuranceNumber || nhisCCC;
+  const resolvedNhisNumber = resolvedPatient?.nhisNumber || resolvedPatient?.insuranceDetails?.memberId || resolvedPatient?.insuranceDetails?.insuranceNumber || '';
   const resolvedNhisActive = resolvedPatient?.nhisActive ?? resolvedPatient?.insuranceDetails?.isActive;
   const resolvedNhisExpiry = resolvedPatient?.nhisExpiryDate || resolvedPatient?.insuranceDetails?.endDate;
+  const resolvedNhisExpiryDate = resolvedNhisExpiry
+    ? new Date(`${String(resolvedNhisExpiry).slice(0, 10)}T23:59:59`)
+    : null;
+  const resolvedNhisDetailsComplete = Boolean(resolvedNhisNumber && resolvedNhisExpiry);
+  const resolvedNhisExpired = !resolvedNhisExpiryDate ||
+    Number.isNaN(resolvedNhisExpiryDate.getTime()) ||
+    resolvedNhisExpiryDate.getTime() < Date.now();
+  const resolvedNhisEligible = resolvedNhisDetailsComplete &&
+    resolvedNhisActive === true &&
+    !resolvedNhisExpired;
   const selectedCorporateAccount = corporateAccounts.find((a: any) => a.id === selectedCorporateAccountId);
 
   const currentInsuranceProvider = paymentMode === 'private_insurance'
@@ -530,50 +561,76 @@ export default function NewAttendanceModal({
               </p>
             </div>
 
-            {/* NHIS CCC Code */}
+            {/* Verify membership details and active status before requesting the attendance CCC. */}
             {paymentMode === 'nhis' && (
               <div className={`rounded-lg p-3 border ${
-                nhisCCC.trim() && /^\d{5}$/.test(nhisCCC.trim())
+                resolvedNhisEligible
                   ? 'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)]'
                   : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
               }`}>
                 <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2 flex items-center gap-1">
                   <Shield className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
-                  NHIS Information
+                  NHIS Membership
                 </h3>
                 <div className="mb-2 text-xs text-[var(--text-secondary)] flex flex-wrap gap-x-3 gap-y-1">
                   <span>Member No: <strong>{resolvedNhisNumber || 'Not recorded'}</strong></span>
                   <span>Status: <strong>{resolvedNhisActive === true ? 'Active' : resolvedNhisActive === false ? 'Inactive' : 'Not verified'}</strong></span>
                   <span>Expiry: <strong>{resolvedNhisExpiry ? new Date(resolvedNhisExpiry).toLocaleDateString() : 'Not recorded'}</strong></span>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                    NHIS CCC Code *
-                  </label>
-                  <input
-                    type="text"
-                    value={nhisCCC}
-                    onChange={(e) => setNhisCCC(e.target.value.replace(/\D/g, '').slice(0, 5))}
-                    placeholder="Enter 5-digit CCC code"
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
-                    required
-                    disabled={isLoading}
-                    pattern="\d{5}"
-                    title="NHIS CCC code must be exactly 5 digits"
-                  />
-                  <p className={`text-xs mt-1 ${
-                    nhisCCC.trim() && /^\d{5}$/.test(nhisCCC.trim())
-                      ? 'text-[var(--icon-green-text)]'
-                      : 'text-yellow-700 dark:text-yellow-500'
-                  }`}>
-                    {nhisCCC.trim()
-                      ? nhisCCC.trim().length === 5
-                        ? 'Valid NHIS CCC code format'
-                        : 'CCC code must be exactly 5 digits'
-                      : 'Required for NHIS claim processing'
-                    }
+                {!resolvedNhisDetailsComplete ? (
+                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">NHIS details required first</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1">
+                      This patient does not have a complete NHIS membership number and expiry date on record. Update the patient’s NHIS details before creating an NHIS attendance. The CCC is requested only after membership details are recorded and confirmed active.
+                    </p>
+                    {(patientId || resolvedPatient?.id || resolvedPatient?._id) && (
+                      <Link
+                        to={`/dashboard/patients/register?edit=true&id=${patientId || resolvedPatient?.id || resolvedPatient?._id}`}
+                        className="inline-flex mt-2 text-xs font-semibold text-[var(--icon-cyan-text)] hover:underline"
+                      >
+                        Open patient record to enter NHIS details
+                      </Link>
+                    )}
+                  </div>
+                ) : !resolvedNhisEligible ? (
+                  <p className="text-xs font-medium text-[var(--icon-red-text)]">
+                    {resolvedNhisActive === false
+                      ? 'NHIS membership is inactive. Update or verify the patient’s NHIS details before proceeding.'
+                      : resolvedNhisActive !== true
+                        ? 'NHIS membership status has not been verified. Verify the patient’s NHIS details before proceeding.'
+                        : 'NHIS membership has expired. Update the patient’s NHIS details before proceeding.'}
                   </p>
-                </div>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                      NHIS CCC Code *
+                    </label>
+                    <input
+                      type="text"
+                      value={nhisCCC}
+                      onChange={(e) => setNhisCCC(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                      placeholder="Enter 5-digit CCC code"
+                      className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
+                      required
+                      disabled={isLoading}
+                      inputMode="numeric"
+                      pattern="\d{5}"
+                      title="NHIS CCC code must be exactly 5 digits"
+                    />
+                    <p className={`text-xs mt-1 ${
+                      nhisCCC.trim() && /^\d{5}$/.test(nhisCCC.trim())
+                        ? 'text-[var(--icon-green-text)]'
+                        : 'text-yellow-700 dark:text-yellow-500'
+                    }`}>
+                      {nhisCCC.trim()
+                        ? nhisCCC.trim().length === 5
+                          ? 'Valid NHIS CCC code format'
+                          : 'CCC code must be exactly 5 digits'
+                        : 'Required for an active NHIS membership'
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
