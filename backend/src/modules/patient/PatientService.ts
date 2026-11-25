@@ -26,7 +26,10 @@ function pickPatientWriteFields(data: Record<string, unknown>) {
 
 function cleanAllergyEntries(entries: CreateAllergyDTO[]) {
   return entries.map(({ allergen, reaction, severity, notes }) => ({
-    allergen, reaction, severity, notes,
+    allergen,
+    ...(reaction !== undefined && { reaction }),
+    ...(severity !== undefined && { severity }),
+    ...(notes !== undefined && { notes }),
   }));
 }
 
