@@ -10,27 +10,9 @@ interface CompactPaymentInfoProps {
 
 export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient, insuranceProviders, patientId }) => {
   const paymentModes = [
-    {
-      id: 'cash',
-      label: 'Cash',
-      description: 'Patient pays directly for services',
-      Icon: DollarSign,
-      accent: 'blue',
-    },
-    {
-      id: 'nhis',
-      label: 'NHIS',
-      description: 'National Health Insurance Scheme',
-      Icon: Shield,
-      accent: 'green',
-    },
-    {
-      id: 'private_insurance',
-      label: 'Private Insurance',
-      description: 'Private insurance coverage',
-      Icon: CreditCard,
-      accent: 'purple',
-    },
+    { id: 'cash', label: 'Cash', description: 'Patient pays directly for services', Icon: DollarSign, accent: 'blue' },
+    { id: 'nhis', label: 'NHIS', description: 'National Health Insurance Scheme', Icon: Shield, accent: 'green' },
+    { id: 'private_insurance', label: 'Private Insurance', description: 'Private insurance coverage', Icon: CreditCard, accent: 'purple' },
   ] as const;
 
   const formatDate = (value?: string) => {
@@ -62,14 +44,11 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
           return (
             <section
               key={id}
-              aria-current={isCurrent ? 'true' : undefined}
+              aria-current={isCurrent ? true : undefined}
               className={`rounded-lg border p-3 transition-colors ${isCurrent ? 'border-[var(--icon-blue-text)]' : 'border-[var(--border-color)]'} bg-[var(--bg-card)]`}
             >
               <div className="mb-2 flex items-center gap-2">
-                <div
-                  className="flex h-8 w-8 items-center justify-center rounded-md"
-                  style={{ backgroundColor: accentBg, color: accentText }}
-                >
+                <div className="flex h-8 w-8 items-center justify-center rounded-md" style={{ backgroundColor: accentBg, color: accentText }}>
                   <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
