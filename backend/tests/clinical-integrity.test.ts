@@ -22,8 +22,8 @@ const antenatalTransactionMock = (modelName: string, model: Record<string, any>)
       id: 'visit-1', attendanceId: 'attendance-1', booking: { patientId: 'patient-1' },
     }) },
     deliveryRecord: { findFirst: vi.fn().mockResolvedValue(null) },
-    [modelName]: model,
   };
+  tx[modelName] = { ...(tx[modelName] ?? {}), ...model };
   return {
     tx,
     prisma: { $transaction: vi.fn(async (callback: any) => callback(tx)) },
