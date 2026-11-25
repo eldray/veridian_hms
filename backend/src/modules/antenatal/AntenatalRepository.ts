@@ -275,6 +275,14 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       clean.itnGivenDate = itnGivenDate;
     }
     return this.prisma.$transaction(async (tx) => {
+      const existingBooking = await tx.antenatalBooking.findUnique({
+        where: { id }, select: { id: true, patientId: true, attendanceId: true, currentAttendanceId: true },
+      });
+      if (!existingBooking) throw new NotFoundError('Antenatal booking', id);
+      await this.requireOpenMaternalAttendance(
+        tx, clean.currentAttendanceId ?? existingBooking.currentAttendanceId ?? existingBooking.attendanceId,
+        existingBooking.patientId, 'antenatal', 'Antenatal attendance',
+      );
       const updated = await tx.antenatalBooking.update({ where: { id }, data: clean, include: { patient: true } });
       await appendMaternalUpdateAudit(tx, 'AntenatalBooking', id, actorId, 'antenatal.booking.update', Object.keys(clean));
       return updated;
@@ -558,6 +566,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
     if (Object.keys(clean).length === 0) throw new ValidationError('No valid ANC visit fields were provided');
     return this.prisma.$transaction(async (tx) => {
+      const existingVisit = await tx.aNCVisit.findUnique({
+        where: { id }, select: { id: true, attendanceId: true, booking: { select: { patientId: true } } },
+      });
+      if (!existingVisit) throw new NotFoundError('ANC visit', id);
+      await this.requireOpenMaternalAttendance(
+        tx, existingVisit.attendanceId, existingVisit.booking.patientId, 'antenatal', 'ANC attendance',
+      );
       const updated = await tx.aNCVisit.update({ where: { id }, data: clean, include: { recordedBy: { select: { fullName: true, role: true } } } });
       await appendMaternalUpdateAudit(tx, 'ANCVisit', id, actorId, 'antenatal.visit.update', Object.keys(clean));
       return updated;
