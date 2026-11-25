@@ -387,19 +387,11 @@ export default function RequisitionsPage() {
   const removeRequisitionItem = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      requisitionItems:
-        prev.requisitionItems.length > 1
-          ? prev.requisitionItems.filter((_, i) => i !== index)
-          : [emptyLine()],
+      requisitionItems: prev.requisitionItems.filter((_, i) => i !== index),
     }));
   };
 
-  const updateRequisitionItem = (index: number, patch: Partial<FormLine>) => {
-    setFormData(prev => ({
-      ...prev,
-      requisitionItems: prev.requisitionItems.map((item, i) => (i === index ? { ...item, ...patch } : item)),
-    }));
-  };
+
 
   const changeSupplier = (id: string) => {
     setFormData(prev => ({ ...prev, supplyingDepartmentId: id, requisitionItems: [] }));
