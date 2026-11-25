@@ -375,11 +375,28 @@ export const REPORT_REGISTRY: ReportShape[] = [
         ],
       },
     ],
+              emptyNote: 'No diagnosis was recorded on a visit in this period.',
+  },
+
+  {
+    key: 'ncd-morbidity',
+    label: 'PHD Monthly NCD Morbidity',
+    group: 'clinical',
+    description: 'Monthly NCD morbidity return: new cases by condition, sex and age band, with re-attendances shown separately.',
+    source: { api: 'getClinicalReport' },
+    roles: CLINICAL_STATS_ROLES,
+    periodField: 'period',
+    cards: [
+      { label: 'New NCD cases', field: 'summary.ncdNewCases', value: 'number' },
+      { label: 'Re-attendances', field: 'summary.ncdReAttendances', value: 'number' },
+    ],
+    tables: [
       {
         title: 'PHD – Monthly NCD Morbidity (New Cases Only)',
         source: 'ncdMorbidityReport',
         rowKey: 'condition',
-        defaultSort: 'ordered',
+        defaultSort: 'total',
+        sumColumns: ['total'],
         columns: [
           { header: 'Diseases/Condition', field: 'condition', value: 'text', width: 245 },
           { header: 'Male <28 days', field: 'male_under28Days', value: 'number' },
@@ -408,9 +425,10 @@ export const REPORT_REGISTRY: ReportShape[] = [
           { header: 'Female 60-69yrs', field: 'female_years60To69', value: 'number' },
           { header: 'Female 70+', field: 'female_years70Plus', value: 'number' },
         ],
-        note: 'New cases use diagnosis classification NEW_DIAGNOSIS. Re-attendances count OLD_DIAGNOSIS entries. Age is calculated at the attendance date; total includes cases with unclassified sex or missing date of birth.',
+        note: 'New cases use NEW_DIAGNOSIS classification. Re-attendances count OLD_DIAGNOSIS entries. Age is calculated on the attendance date; the Total column includes records with unknown sex or missing date of birth.',
       },
-        emptyNote: 'No diagnosis was recorded on a visit in this period.',
+    ],
+    emptyNote: 'No NCD diagnosis entries were recorded in this period.',
   },
 
   {
