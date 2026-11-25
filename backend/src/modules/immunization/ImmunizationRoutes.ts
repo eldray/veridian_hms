@@ -2,6 +2,7 @@ import { Request, Response, Router } from 'express';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { protect, requireRole, AuthRequest } from '../../middleware/authMiddleware';
 import { StockTransactionRepository } from '../stockTransaction/StockTransactionRepository';
+import { ConflictError, ValidationError } from '../../utils/errors';
 
 export function createImmunizationRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -200,10 +201,10 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
         select: { id: true, patientId: true, attendanceType: true, status: true, finalizedAt: true },
       });
       if (!currentAttendance || currentAttendance.patientId !== patientId || currentAttendance.attendanceType !== 'immunization') {
-        throw new Error('The selected immunization encounter is no longer valid for this patient.');
+        throw new ValidationError('The selected immunization encounter is no longer valid for this patient.');
       }
       if (currentAttendance.finalizedAt || ['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(currentAttendance.status)) {
-        throw new Error('This immunization encounter is closed or finalized. Use the facility-approved correction/addendum process.');
+        throw new ConflictError('This immunization encounter is closed or finalized. Use the facility-approved correction/addendum process.');
       }
       // Create the clinical record and consume the linked vaccine product in the
       // same database transaction. A stock failure rolls the record back too.
