@@ -85,6 +85,25 @@ describe('finalized clinical record immutability', () => {
     expect(tx.attendanceDiagnosis.create).not.toHaveBeenCalled();
   });
 
+  it('blocks adding new vital observations after clinical finalization', async () => {
+    const vitalsCreate = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue(finalized) },
+      vitals: { create: vitalsCreate },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('nurse-1');
+
+    await expect(repository.addVitals('enc-finalized', { temperature: 37 }, 'nurse-1'))
+      .rejects.toThrow(/clinical record is finalized/i);
+
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(vitalsCreate).not.toHaveBeenCalled();
+  });
+
   it('blocks edits to an existing vital observation after finalization', async () => {
     const vitalsUpdate = vi.fn();
     const tx: any = {

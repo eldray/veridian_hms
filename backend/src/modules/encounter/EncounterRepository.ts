@@ -951,11 +951,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const attendance = await tx.attendance.findUnique({
-        where: { id: encounterId },
-        select: { id: true, patientId: true, attendanceType: true, dateTime: true },
-      });
-      if (!attendance) throw new NotFoundError('Encounter', encounterId);
+      // Lock and validate the encounter just like vitals edits/deletions. This prevents
+      // new observations from being appended after discharge or clinical finalization.
+      const attendance = await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       // Vital signs are charted against a registered patient; a counter ticket has none.
       if (!attendance.patientId) throw new ValidationError('Vital signs need a registered patient. Register this counter customer first.');
 
