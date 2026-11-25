@@ -6,6 +6,7 @@ import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
 import { useNavigate } from 'react-router-dom';
 import { useSmartBack } from '../utils/useSmartBack';
+import { PageHeader } from '../components/ui';
 import {
   ChevronLeft, ChevronRight, Save, User, Mail, Phone, IdCard, Stethoscope, Lock, Eye, EyeOff,
   Shield, Briefcase, Calendar, Activity, CheckCircle, AlertCircle, TrendingUp,
@@ -105,12 +106,12 @@ export default function UserProfile() {
   ];
   return (
     <div className="w-full space-y-6 p-6">
-      {/* ── Page header ── */}
-      <div className="flex items-center gap-3">
-        <button onClick={goBack} className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]" aria-label="Go back"><ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" /></button>
-        <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center shrink-0"><User className="w-5 h-5 text-[var(--icon-cyan-text)]" /></div>
-        <div className="min-w-0"><h1 className="text-xl font-bold text-[var(--text-primary)] leading-tight">My Profile</h1><p className="text-sm text-[var(--text-secondary)] truncate">Manage your account, shifts, and leave requests</p></div>
-      </div>
+      <PageHeader
+        title="My Profile"
+        subtitle="Manage your account, shifts, and leave requests"
+        icon={User}
+        onBack={goBack}
+      />
 
       {/* ── HERO / USER DETAILS ── */}
       <section className="w-full overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
