@@ -517,6 +517,23 @@ export const REPORT_REGISTRY: ReportShape[] = [
       countTable('By state', 'summary.byStatus', 'State', 'Tests'),
       countTable('By priority', 'summary.byPriority', 'Priority', 'Tests'),
       {
+        title: 'PHD – Monthly HIV Testing by Age and Sex',
+        source: 'hivAgeSexBreakdown',
+        rowKey: 'ageGroup',
+        defaultSort: 'ordered',
+        sumColumns: ['maleTested', 'femaleTested', 'totalTested', 'malePositive', 'femalePositive', 'totalPositive'],
+        columns: [
+          { header: 'Age group', field: 'ageGroup', value: 'text', width: 100 },
+          { header: 'Male tested', field: 'maleTested', value: 'number' },
+          { header: 'Female tested', field: 'femaleTested', value: 'number' },
+          { header: 'Total tested', field: 'totalTested', value: 'number' },
+          { header: 'Male HIV positive', field: 'malePositive', value: 'number' },
+          { header: 'Female HIV positive', field: 'femalePositive', value: 'number' },
+          { header: 'Total HIV positive', field: 'totalPositive', value: 'number' },
+        ],
+        note: 'Counts are HIV test events. Age is calculated at the test request date. Pending tests count under tested but not positive. Patients without date of birth are excluded from age-band rows. A positive screening result is not treated as confirmed diagnosis.',
+      },
+      {
         title: 'HIV Test Results Breakdown',
         source: 'hivTestBreakdown',
         rowKey: 'testName',
