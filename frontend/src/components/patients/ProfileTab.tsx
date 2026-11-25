@@ -1,4 +1,3 @@
-// src/components/patients/ProfileTab.tsx - WITH DEBUGGING
 import { useState } from 'react';
 import { User, Info, CreditCard } from 'lucide-react';
 import { CompactBasicInfo } from './CompactBasicInfo';
@@ -20,72 +19,53 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ patient, insuranceProvid
     { id: 'payment' as const, label: 'Payment', icon: CreditCard }
   ];
 
-  // ✅ ADD DEBUGGING
-  console.log('🔍 ProfileTab rendering:', {
-    patient: patient ? {
-      id: patient.id || patient._id,
-      fullName: patient.fullName,
-      folderNumber: patient.folderNumber
-    } : 'NO PATIENT',
-    activeSection,
-    insuranceProvidersCount: insuranceProviders?.length || 0,
-    patientId
-  });
-
   if (!patient) {
     return (
-      <div className="text-center py-8">
-        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-          <User className="w-6 h-6 text-gray-400" />
+      <div className="rounded-lg border p-6 text-center" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }} role="status">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-tertiary)' }}>
+          <User className="h-6 w-6" aria-hidden="true" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Patient Data</h3>
-        <p className="text-gray-600 text-sm">Patient information could not be loaded</p>
+        <h3 className="mb-1 text-base font-semibold" style={{ color: 'var(--text-primary)' }}>No Patient Data</h3>
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Patient information could not be loaded</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Debug Info - Remove this after fixing */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-        <h4 className="font-semibold text-yellow-800 text-sm mb-2">Debug Info</h4>
-        <div className="text-xs text-yellow-700 space-y-1">
-          <div><strong>Patient ID:</strong> {patient.id || patient._id}</div>
-          <div><strong>Full Name:</strong> {patient.fullName}</div>
-          <div><strong>Folder Number:</strong> {patient.folderNumber}</div>
-          <div><strong>Active Section:</strong> {activeSection}</div>
-        </div>
-      </div>
-
-      {/* Compact Section Navigation */}
-      <div className="flex gap-2 p-2 bg-gray-50 rounded-lg">
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5 rounded-lg border p-1.5" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border-color)' }} role="tablist" aria-label="Patient profile sections">
         {sections.map((section) => {
           const Icon = section.icon;
+          const selected = activeSection === section.id;
           return (
             <button
               key={section.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
               onClick={() => setActiveSection(section.id)}
-              className={`flex items-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 flex-1 justify-center ${
-                activeSection === section.id
-                  ? 'bg-white text-blue-600 shadow-sm border border-blue-200'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className="flex min-w-[110px] flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              style={{
+                backgroundColor: selected ? 'var(--bg-card)' : 'transparent',
+                color: selected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                border: selected ? '1px solid var(--border-color)' : '1px solid transparent',
+                boxShadow: selected ? 'var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.08))' : 'none'
+              }}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="h-4 w-4" aria-hidden="true" />
               {section.label}
             </button>
           );
         })}
       </div>
 
-      {/* Section Content */}
-      <div className="min-h-[400px]">
+      <div className="min-h-[240px]">
         {activeSection === 'basic' && <CompactBasicInfo patient={patient} />}
         {activeSection === 'payment' && (
-          <CompactPaymentInfo 
-            patient={patient} 
-            insuranceProviders={insuranceProviders} 
-            patientId={patientId} 
+          <CompactPaymentInfo
+            patient={patient}
+            insuranceProviders={insuranceProviders}
+            patientId={patientId}
           />
         )}
         {activeSection === 'additional' && <CompactAdditionalInfo patient={patient} />}
