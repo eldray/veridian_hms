@@ -160,6 +160,41 @@ export class ClinicalReportsService extends BaseService {
       if (item.indeterminate) row.indeterminate++;
     });
     const hivBreakdown = Object.entries(hivTestCounts).map(([testName, counts]) => ({ testName, ...counts })).sort((a,b) => b.ordered-a.ordered);
+    const hivAgeBands = [
+      { key: '0_4', label: '0-4', min: 0, max: 4 },
+      { key: '5_9', label: '5-9', min: 5, max: 9 },
+      { key: '10_14', label: '10-14', min: 10, max: 14 },
+      { key: '15_19', label: '15-19', min: 15, max: 19 },
+      { key: '20_24', label: '20-24', min: 20, max: 24 },
+      { key: '25_29', label: '25-29', min: 25, max: 29 },
+      { key: '30_34', label: '30-34', min: 30, max: 34 },
+      { key: '35_39', label: '35-39', min: 35, max: 39 },
+      { key: '40_44', label: '40-44', min: 40, max: 44 },
+      { key: '45_49', label: '45-49', min: 45, max: 49 },
+      { key: '50_plus', label: '50+', min: 50, max: Number.POSITIVE_INFINITY },
+    ];
+    const hivAgeSexMap = new Map(hivAgeBands.map(band => [band.key, {
+      ageGroup: band.label, maleTested: 0, femaleTested: 0,
+      malePositive: 0, femalePositive: 0, totalTested: 0, totalPositive: 0,
+    }]));
+    for (const item of hivResults) {
+      const patient = item.test.Attendance?.Patient;
+      if (!patient?.dateOfBirth) continue;
+      const age = this.calculateAge(patient.dateOfBirth, item.test.requestedAt || item.test.createdAt);
+      const band = hivAgeBands.find(candidate => age >= candidate.min && age <= candidate.max);
+      if (!band) continue;
+      const row = hivAgeSexMap.get(band.key)!;
+      row.totalTested++;
+      if (patient.gender === 'male') row.maleTested++;
+      else if (patient.gender === 'female') row.femaleTested++;
+      if (item.positive) {
+        row.totalPositive++;
+        if (patient.gender === 'male') row.malePositive++;
+        else if (patient.gender === 'female') row.femalePositive++;
+      }
+    }
+    const hivAgeSexBreakdown = hivAgeBands.map(band => hivAgeSexMap.get(band.key)!);
+
     const hivPositive = hivResults.filter(r => r.positive).length;
     const hivNegative = hivResults.filter(r => r.negative).length;
     const hivIndeterminate = hivResults.filter(r => r.indeterminate).length;
@@ -195,6 +230,7 @@ export class ClinicalReportsService extends BaseService {
       topTests,
       allTests,
       hivTestBreakdown: hivBreakdown,
+      hivAgeSexBreakdown,
       positivityRates: topTests.map(t => ({ testName: t.testName, rate: t.positiveRate.toFixed(1) })),
       labCaseBreakdown,
       imagingCaseBreakdown,
