@@ -30,6 +30,7 @@ import {
   MessageSquare  
 } from 'lucide-react';
 import type { AttendanceStatus, AttendanceType, PaymentMode } from '../types';
+import HIVTestingPanel from '../components/hivTesting/HIVTestingPanel';
 
 /**
  * `GET /api/encounters/:id` answers with Prisma's relation names (`LabTest`, `Medication`,
@@ -369,7 +370,7 @@ export default function AttendanceDetails() {
   const { hospital } = useHospitalStore();
 
   // ── State ─────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'overview' | 'medications' | 'lab-tests' | 'scans' | 'procedures' | 'billing' | 'vitals' | 'clinical'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'medications' | 'lab-tests' | 'scans' | 'procedures' | 'billing' | 'vitals' | 'clinical' | 'hiv-testing'>('overview');
   const [refreshing, setRefreshing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -888,11 +889,13 @@ export default function AttendanceDetails() {
     { id: 'scans', label: 'Scans', icon: Scan, count: encounterScans.length },
     { id: 'procedures', label: 'Procedures', icon: Scissors, count: encounterProcedures.length },
     { id: 'vitals', label: 'Vitals', icon: Heart, count: vitalsList.length },
+    { id: 'hiv-testing', label: 'HIV / HTS', icon: Shield },
     { id: 'billing', label: 'Billing', icon: DollarSign, count: attendanceBills.length },
   ].filter(tab => canReadFullClinicalRecord || tab.id === 'overview' ||
     (tab.id === 'lab-tests' && hasRole(['lab_tech'])) ||
     (tab.id === 'scans' && hasRole(['sonographer'])) ||
-    (tab.id === 'billing' && canOpenBilling));
+    (tab.id === 'billing' && canOpenBilling) ||
+    (tab.id === 'hiv-testing' && hasRole(['admin', 'doctor', 'nurse', 'midwife'])));
 
   // ── Loading State ─────────────────────────────
   if (isLoading && !refreshing) {
@@ -1879,6 +1882,11 @@ export default function AttendanceDetails() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* HIV TESTING SERVICES — restricted to authorised clinical roles */}
+          {activeTab === 'hiv-testing' && hasRole(['admin', 'doctor', 'nurse', 'midwife']) && patient?.id && (
+            <HIVTestingPanel patientId={patient.id} attendanceId={currentAttendance?.id} />
           )}
 
           {/* BILLING TAB */}
