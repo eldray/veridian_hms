@@ -21,28 +21,25 @@ export const AttendanceDetailsTabs: React.FC<AttendanceDetailsTabsProps> = ({
   ];
 
   return (
-    <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-1.5 shadow-sm">
-      <nav aria-label="Attendance sections" className="flex flex-wrap gap-1">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1.5">
+      <nav className="flex flex-wrap gap-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
-          const selected = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              type="button"
-              aria-current={selected ? 'page' : undefined}
               onClick={() => onTabChange(tab.id as any)}
-              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] ${
-                selected
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'
+              className={`flex items-center gap-2 py-2 px-3 rounded-lg font-medium transition-all duration-200 text-sm ${
+                activeTab === tab.id
+                  ? 'bg-gradient-to-r from-blue-600 to-teal-600 text-white shadow-md'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
-              <Icon className="h-4 w-4" />
+              <Icon className="w-4 h-4" />
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
-                <span className={`rounded-md px-1.5 py-0.5 text-xs font-semibold ${
-                  selected ? 'bg-[var(--bg-card)] text-[var(--text-primary)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
+                <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                  activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
                 }`}>
                   {tab.count}
                 </span>
