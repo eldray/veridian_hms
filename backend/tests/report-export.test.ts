@@ -34,8 +34,8 @@ describe('report exports', () => {
     expect(workbook.worksheets.map(sheet => sheet.name)).toEqual(['Report', 'Rows']);
     expect(workbook.getWorksheet('Report')?.getCell('A1').value).toBe('Monthly Facility Overview');
     expect(workbook.getWorksheet('Rows')?.getRow(1).values).toEqual([undefined, 'Section', 'Indicator', 'Value', 'Unit']);
-    expect(workbook.getWorksheet('Rows')?.getCell('C2').value).toBe('Attendances');
-    expect(workbook.getWorksheet('Rows')?.getCell('D3').value).toBe(1250.5);
+    expect(workbook.getWorksheet('Rows')?.getCell('B2').value).toBe('Attendances');
+    expect(workbook.getWorksheet('Rows')?.getCell('C3').value).toBe(1250.5);
   });
 
   it('creates a genuine PDF document with a PDF signature', async () => {
