@@ -95,6 +95,3 @@ jobs:
             - No `--force` upgrades are used.
             - Unfixed advisories (including packages without a published npm fix) are reported in the attached CI artifacts and must be assessed separately.
             - Review package changes and all CI checks before merging.
-          labels: |
-            dependencies
-            security
