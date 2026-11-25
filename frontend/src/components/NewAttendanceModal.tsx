@@ -1,6 +1,7 @@
 // src/components/NewAttendanceModal.tsx - FIXED VERSION
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
