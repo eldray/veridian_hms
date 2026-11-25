@@ -1,0 +1,96 @@
+name: Clean up unused dependencies and update test tooling
+
+on:
+  push:
+    branches:
+      - security/trim-unused-and-update-test-tooling
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependency-tooling-cleanup
+  cancel-in-progress: false
+
+jobs:
+  update-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out cleanup branch
+        uses: actions/checkout@v4
+        with:
+          ref: security/trim-unused-and-update-test-tooling
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Update backend test and generator tooling
+        working-directory: backend
+        run: |
+          npm install --save-dev vitest@^5.1.1 @vitest/coverage-v8@^5.1.1 ts-morph@^28.0.0
+          npm pkg set 'overrides.uuid=^11.1.1'
+          npm install
+
+      - name: Remove unused frontend localization packages
+        working-directory: frontend
+        run: npm uninstall i18next react-i18next
+
+      - name: Validate backend dependencies, schema, tests and build
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veridian_test
+        run: |
+          npm ci
+          npx prisma validate
+          npx prisma generate
+          npm test
+          npm run test:coverage
+          npm run build
+
+      - name: Validate frontend dependencies and production build
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Generate dependency vulnerability reports
+        if: always()
+        run: |
+          (cd backend && npm audit --json > ../backend-npm-audit-after-tooling-cleanup.json) || true
+          (cd frontend && npm audit --json > ../frontend-npm-audit-after-tooling-cleanup.json) || true
+          node <<'NODE'
+          const fs = require('node:fs');
+          for (const file of ['backend-npm-audit-after-tooling-cleanup.json', 'frontend-npm-audit-after-tooling-cleanup.json']) {
+            if (!fs.existsSync(file)) continue;
+            const report = JSON.parse(fs.readFileSync(file, 'utf8'));
+            console.log(file, report.metadata?.vulnerabilities ?? {});
+            for (const [name, item] of Object.entries(report.vulnerabilities ?? {})) {
+              console.log('-', item.severity, name, 'direct=' + item.isDirect, 'fix=' + JSON.stringify(item.fixAvailable));
+            }
+          }
+          NODE
+
+      - name: Upload dependency audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit-after-tooling-cleanup
+          path: '*-npm-audit-after-tooling-cleanup.json'
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Commit validated dependency manifests and lockfiles
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/package.json backend/package-lock.json frontend/package.json frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "Dependency manifests already current."
+            exit 0
+          fi
+          git commit -m "chore(deps): remove unused localization and patch test tooling"
+          git push origin HEAD:security/trim-unused-and-update-test-tooling
