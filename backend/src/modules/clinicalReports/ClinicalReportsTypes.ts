@@ -29,6 +29,10 @@ export interface LabReportData {
     malePositive: number; femalePositive: number; totalPositive: number;
     maleNegative: number; femaleNegative: number; totalNegative: number; unknown: number;
   }>;
+  imagingCaseBreakdown: Array<{
+    code: string; description: string; cases: number;
+    male: number; female: number; unknown: number;
+  }>;
 }
 
 // ── Scan Report ─────────────────────────────────────────────────────────────
@@ -44,10 +48,6 @@ export interface ScanReportData {
   period: ClinicalReportPeriod;
   summary: ScanReportSummary;
   topScans: Array<{ scanName: string; count: number }>;
-  imagingCaseBreakdown: Array<{
-    code: string; description: string; cases: number;
-    male: number; female: number; unknown: number;
-  }>;
 }
 
 // ── Procedure Report ────────────────────────────────────────────────────────
