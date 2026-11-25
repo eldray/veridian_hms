@@ -3017,6 +3017,28 @@ describe('rendered service writes and encounter closure', () => {
     await expect(repository.removeService('enc-1', 'service-rendered-1'))
       .rejects.toThrow(/closed encounter/i);
     expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(tx.$queryRaw.mock.calls[0][0].join('')).toMatch(/SELECT "id" FROM "Attendance".*FOR UPDATE/);
+    expect(findFirst).not.toHaveBeenCalled();
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('blocks rendered service changes when the encounter is finalized but still pending', async () => {
+    const findFirst = vi.fn();
+    const deleteMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({
+        id: 'enc-1', status: 'pending', finalizedAt: new Date('2026-11-25T10:00:00Z'),
+      }) },
+      serviceRendered: { findFirst, deleteMany },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.removeService('enc-1', 'service-rendered-1'))
+      .rejects.toThrow(/finalized/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
     expect(findFirst).not.toHaveBeenCalled();
     expect(deleteMany).not.toHaveBeenCalled();
   });
