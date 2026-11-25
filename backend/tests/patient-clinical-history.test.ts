@@ -41,8 +41,6 @@ describe('patient clinical history registration', () => {
     expect(data.allergies.create).toEqual([{
       allergen: 'Penicillin',
       reaction: 'Rash',
-      severity: undefined,
-      notes: undefined,
     }]);
   });
 
