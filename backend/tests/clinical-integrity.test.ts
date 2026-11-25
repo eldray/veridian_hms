@@ -783,7 +783,12 @@ describe('clinical encounter ownership', () => {
   it('does not delete a rendered service through the wrong encounter URL', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const deleteMany = vi.fn();
-    const repository = new EncounterRepository({ serviceRendered: { findFirst, deleteMany } } as any);
+    const prisma: any = {
+      serviceRendered: { findFirst, deleteMany },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'encounter-a', status: 'pending' }) },
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.removeService('encounter-a', 'service-from-encounter-b'))
       .rejects.toThrow(/not found/i);
@@ -799,10 +804,12 @@ describe('clinical encounter ownership', () => {
     const findFirst = vi.fn().mockResolvedValue({ id: 'service-a' });
     const deleteMany = vi.fn();
     const attendanceFindUnique = vi.fn().mockResolvedValue({ id: 'encounter-a', status: 'completed' });
-    const repository = new EncounterRepository({
+    const prisma: any = {
       serviceRendered: { findFirst, deleteMany },
       attendance: { findUnique: attendanceFindUnique },
-    } as any);
+    };
+    prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
+    const repository = new EncounterRepository(prisma);
 
     await expect(repository.removeService('encounter-a', 'service-a'))
       .rejects.toThrow(/closed|open|completed/i);
@@ -2926,6 +2933,114 @@ describe('daily notes on closed admissions', () => {
     expect(update).toHaveBeenCalledOnce();
     expect(result.note.notes).toBe('Patient reviewed');
     expect(result.admission.dailyNotes).toHaveLength(1);
+  });
+});
+
+describe('rendered service writes and encounter closure', () => {
+  it('serializes a single service write with encounter closure', async () => {
+    const create = vi.fn();
+    const openAttendance = { id: 'enc-1', status: 'pending' };
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'discharged' }) },
+      serviceRendered: { create },
+    };
+    const prisma: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue(openAttendance) },
+      serviceCatalog: { findUnique: vi.fn().mockResolvedValue({ id: 'service-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('doctor-1');
+
+    await expect(repository.addService('enc-1', { serviceCatalogId: 'service-1' }, 'doctor-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('serializes bulk service writes with encounter closure', async () => {
+    const createMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'discharged' }) },
+      serviceRendered: { createMany },
+    };
+    const prisma: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'pending' }) },
+      serviceCatalog: { findMany: vi.fn().mockResolvedValue([{ id: 'service-1', isActive: true }]) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('doctor-1');
+
+    await expect(repository.addServices('enc-1', [{ serviceCatalogId: 'service-1' }], 'doctor-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it('blocks rendered service removal when its linked bill line has payment history', async () => {
+    const deleteMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'pending' }) },
+      serviceRendered: { findFirst: vi.fn().mockResolvedValue({ id: 'service-rendered-1' }), deleteMany },
+      billLineItem: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'bill-line-1',
+          billId: 'bill-1',
+          bill: { id: 'bill-1', attendanceId: 'enc-1', paidAmount: 25, status: 'partial' },
+        }),
+      },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.removeService('enc-1', 'service-rendered-1', 'doctor-1'))
+      .rejects.toThrow(/payment history/i);
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('locks and validates the encounter before removing a rendered service', async () => {
+    const findFirst = vi.fn();
+    const deleteMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'discharged' }) },
+      serviceRendered: { findFirst, deleteMany },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.removeService('enc-1', 'service-rendered-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(tx.$queryRaw.mock.calls[0][0].join('')).toMatch(/SELECT "id" FROM "Attendance".*FOR UPDATE/);
+    expect(findFirst).not.toHaveBeenCalled();
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('blocks rendered service changes when the encounter is finalized but still pending', async () => {
+    const findFirst = vi.fn();
+    const deleteMany = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      attendance: { findUnique: vi.fn().mockResolvedValue({
+        id: 'enc-1', status: 'pending', finalizedAt: new Date('2026-11-25T10:00:00Z'),
+      }) },
+      serviceRendered: { findFirst, deleteMany },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.removeService('enc-1', 'service-rendered-1'))
+      .rejects.toThrow(/finalized/i);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(findFirst).not.toHaveBeenCalled();
+    expect(deleteMany).not.toHaveBeenCalled();
   });
 });
 

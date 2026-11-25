@@ -231,13 +231,21 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   private async requireOpenEncounter(encounterId: string, db: any = this.prisma) {
+    // Serialize clinical service writes with discharge/finalization when called in a
+    // transaction. A plain status read can otherwise race with encounter closure.
+    if (typeof db.$queryRaw === 'function') {
+      await db.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${encounterId} FOR UPDATE`;
+    }
     const encounter = await db.attendance.findUnique({
       where: { id: encounterId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, finalizedAt: true },
     });
     if (!encounter) throw new NotFoundError('Encounter', encounterId);
     if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
       throw new ConflictError('Clinical service orders cannot be added or changed for a closed encounter');
+    }
+    if (encounter.finalizedAt) {
+      throw new ConflictError('This clinical record is finalized and cannot be changed. Use the facility-approved correction/addendum process.');
     }
     return encounter.id;
   }
@@ -2516,15 +2524,18 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     });
     if (!service) throw new NotFoundError('Service', data.serviceCatalogId);
     if (!service.isActive) throw new ValidationError('Inactive services cannot be added to an encounter');
-    return this.prisma.serviceRendered.create({
-      data: {
-        attendanceId: encounterId,
-        serviceItemId: data.serviceCatalogId,
-        quantity,
-        date: new Date(),
-        performedById: actorId,
-        notes: data.notes,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      await this.requireOpenEncounter(encounterId, tx);
+      return tx.serviceRendered.create({
+        data: {
+          attendanceId: encounterId,
+          serviceItemId: data.serviceCatalogId,
+          quantity,
+          date: new Date(),
+          performedById: actorId,
+          notes: data.notes,
+        },
+      });
     });
   }
 
@@ -2570,22 +2581,33 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (!service.isActive) throw new ValidationError('Inactive services cannot be added to an encounter');
     }
 
-    const created = await this.prisma.serviceRendered.createMany({ data: rows });
+    const created = await this.prisma.$transaction(async (tx) => {
+      await this.requireOpenEncounter(encounterId, tx);
+      return tx.serviceRendered.createMany({ data: rows });
+    });
     return { added: created.count };
   }
 
-  async removeService(encounterId: string, serviceRenderedId: string) {
-    const current = await this.prisma.serviceRendered.findFirst({
-      where: { id: serviceRenderedId, attendanceId: encounterId },
-      select: { id: true },
+  async removeService(encounterId: string, serviceRenderedId: string, userId?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      await this.requireOpenEncounter(encounterId, tx);
+      const current = await tx.serviceRendered.findFirst({
+        where: { id: serviceRenderedId, attendanceId: encounterId },
+        select: { id: true },
+      });
+      if (!current) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
+      // Preserve the bill trail: a linked unpaid line may be voided atomically,
+      // but a paid line requires an explicit refund/credit adjustment first.
+      await this.removeLinkedClinicalBillLine(
+        tx, encounterId, `service-rendered:${serviceRenderedId}`, userId,
+        'Rendered service removed from Medical Entries',
+      );
+      const result = await tx.serviceRendered.deleteMany({
+        where: { id: serviceRenderedId, attendanceId: encounterId },
+      });
+      if (result.count !== 1) throw new ConflictError('Rendered service changed; refresh and try again');
+      return { id: serviceRenderedId, removed: true };
     });
-    if (!current) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
-    await this.requireOpenEncounter(encounterId);
-    const result = await this.prisma.serviceRendered.deleteMany({
-      where: { id: serviceRenderedId, attendanceId: encounterId },
-    });
-    if (result.count !== 1) throw new ConflictError('Rendered service changed; refresh and try again');
-    return { id: serviceRenderedId, removed: true };
   }
 
   async getConsumableUses(encounterId: string) {
