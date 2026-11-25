@@ -12,6 +12,7 @@ import MedicalReportModal from '../components/MedicalReportModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { getPatientName } from '../utils/patient';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { PageHeader } from '../components/ui';
 import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import { canAccessPage } from '../config/access';
 import { useHospitalStore } from '../store/hospitalStore';
@@ -959,52 +960,47 @@ export default function AttendanceDetails() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <button onClick={() => navigate('/dashboard/attendance')} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] text-sm font-medium"><ArrowLeft className="w-4 h-4" /> Back to Attendances</button>
-        {patient?.id && <button onClick={() => navigate(`/dashboard/patients/${patient.id}`)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] text-sm font-medium"><User className="w-4 h-4" /> Back to Patient</button>}
-      </div>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">Attendance Details</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Record #{currentAttendance.attendanceNumber || currentAttendance.id?.slice(-8)}
-          </p>
-          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            {patient ? getPatientFullName(patient) : 'Unknown Patient'} • Created {formatShortDate(currentAttendance.dateTime || currentAttendance.createdAt)}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <Loader className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-
-          {canEdit && (
+      <PageHeader
+        title="Attendance Details"
+        subtitle={`Record #${currentAttendance.attendanceNumber || currentAttendance.id?.slice(-8)}`}
+        meta={`${patient ? getPatientFullName(patient) : 'Unknown Patient'} · Created ${formatShortDate(currentAttendance.dateTime || currentAttendance.createdAt)}`}
+        icon={Calendar}
+        accent="cyan"
+        onBack={() => navigate('/dashboard/attendance')}
+        actions={(
+          <>
+            {patient?.id && (
+              <button onClick={() => navigate(`/dashboard/patients/${patient.id}`)} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] text-sm font-medium">
+                <User className="w-4 h-4" /> Back to Patient
+              </button>
+            )}
             <button
-              onClick={handleEditAttendance}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors shadow-sm text-sm font-semibold"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
             >
-              <Edit className="w-4 h-4" />
-              <span>Edit Attendance</span>
+              <Loader className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
-          )}
-
-          {canDelete && (
-            <button
-              onClick={() => setDeleteConfirm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-colors shadow-sm text-sm font-semibold"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Delete</span>
-            </button>
-          )}
-        </div>
-      </div>
+            {canEdit && (
+              <button
+                onClick={handleEditAttendance}
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors shadow-sm text-sm font-semibold"
+              >
+                <Edit className="w-4 h-4" /> Edit Attendance
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={() => setDeleteConfirm(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-colors shadow-sm text-sm font-semibold"
+              >
+                <Trash2 className="w-4 h-4" /> Delete
+              </button>
+            )}
+          </>
+        )}
+      />
 
       {/* Patient-centred visit snapshot: concise context without changing the Medical Entries form. */}
       {patient && (
