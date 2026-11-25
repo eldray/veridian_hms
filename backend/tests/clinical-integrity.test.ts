@@ -1301,6 +1301,10 @@ describe('maternal record integrity', () => {
     const tx: any = {
       $queryRawUnsafe: vi.fn().mockResolvedValue([]),
       auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({
+        id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal',
+        status: 'pending', finalizedAt: null,
+      }) },
       antenatalBooking: { create },
     };
     const prisma: any = {
