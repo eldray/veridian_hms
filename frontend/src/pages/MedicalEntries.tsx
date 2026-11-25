@@ -18,6 +18,7 @@ import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
+import { PageHeader } from '../components/ui';
 import { getPatientName } from '../utils/patient';
 import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import { DiagnosisModal } from '../components/medical-entries/modals/DiagnosisModal';
@@ -36,7 +37,7 @@ type ClinicalAssessmentValue,
 } from '../components/medical-entries/ClinicalAssessmentModal';
 import { useAdmissionStore } from '../store/admissionStore';
 import {
-ChevronLeft, RefreshCw, Stethoscope, Pill, FlaskConical, Info, Building2,
+RefreshCw, Stethoscope, Pill, FlaskConical, Info, Building2,
 Scissors, Scan, FileText, Activity, AlertCircle, Plus, Trash2,
 Hospital, User, Calendar, DollarSign, Heart, Thermometer,
 Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle,
@@ -1615,30 +1616,14 @@ Cancel
 </div>
 )}
 {/* ── PAGE HEADER ─────────────────────────────────────────────────── */}
-<div className="flex items-center justify-between flex-wrap gap-3">
-<div className="flex items-center gap-3">
-<button
-onClick={goBack}
-className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
-text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium"
->
-<ChevronLeft className="w-3.5 h-3.5" />
-Back
-</button>
-<div className="h-5 w-px bg-[var(--border-color)]" />
-<div className="flex items-center gap-2.5">
-<div className="w-8 h-8 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center">
-<FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-</div>
-<div>
-<div className="flex items-center gap-2">
-<h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Medical Entries</h1>
-</div>
-<p className="text-[10px] text-[var(--text-tertiary)] leading-tight">Clinical documentation</p>
-</div>
-</div>
-</div>
-<div className="flex items-center gap-2">
+<PageHeader
+title="Medical Entries"
+subtitle="Clinical documentation"
+icon={FileText}
+accent="cyan"
+onBack={goBack}
+actions={(
+<>
 <button
 onClick={handlePrintMedicalRecord}
 disabled={!selectedAttendanceId || !currentAttendance}
@@ -1656,8 +1641,9 @@ text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg
 >
 <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
 </button>
-</div>
-</div>
+</>
+)}
+/>
 {/* ── PATIENT / ATTENDANCE SELECTOR ───────────────────────────────── */}
 <PatientAttendanceSelector
 patients={patients}
