@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { BaseController } from '../../shared/base/BaseController';
 import { BackupService } from './BackupService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { unlink } from 'fs/promises';
 
 import prisma from '../../core/database/prisma.client';
 
@@ -26,8 +27,14 @@ export class BackupController extends BaseController {
 
     const validExtensions = ['.sql', '.backup', '.dump'];
     const ext = req.file.originalname.toLowerCase().slice(req.file.originalname.lastIndexOf('.'));
-    if (!validExtensions.includes(ext)) return this.badRequest(res, 'Invalid backup file. Only .sql, .backup, or .dump supported');
-    if (req.file.size === 0) return this.badRequest(res, 'Backup file is empty');
+    if (!validExtensions.includes(ext)) {
+      await unlink(req.file.path).catch(() => undefined);
+      return this.badRequest(res, 'Invalid backup file. Only .sql, .backup, or .dump supported');
+    }
+    if (req.file.size === 0) {
+      await unlink(req.file.path).catch(() => undefined);
+      return this.badRequest(res, 'Backup file is empty');
+    }
 
     // Wait for the restore to finish so the UI never reports success prematurely.
     // The service deletes the uploaded dump on both success and failure.
