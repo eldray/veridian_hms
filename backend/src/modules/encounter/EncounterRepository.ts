@@ -2585,7 +2585,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return { added: created.count };
   }
 
-  async removeService(encounterId: string, serviceRenderedId: string) {
+  async removeService(encounterId: string, serviceRenderedId: string, userId?: string) {
     return this.prisma.$transaction(async (tx) => {
       await this.requireOpenEncounter(encounterId, tx);
       const current = await tx.serviceRendered.findFirst({
@@ -2593,6 +2593,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         select: { id: true },
       });
       if (!current) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
+      // Preserve the bill trail: a linked unpaid line may be voided atomically,
+      // but a paid line requires an explicit refund/credit adjustment first.
+      await this.removeLinkedClinicalBillLine(
+        tx, encounterId, `service-rendered:${serviceRenderedId}`, userId,
+        'Rendered service removed from Medical Entries',
+      );
       const result = await tx.serviceRendered.deleteMany({
         where: { id: serviceRenderedId, attendanceId: encounterId },
       });
