@@ -555,6 +555,117 @@ export class ReportService {
       },
     });
 
+    const ncdConditions = [
+      'Complicated Hypertension', 'Pre Diabetes', 'Complicated Diabetes',
+      'Dyslipidaemia (High Cholesterol)', 'Acute Kidney Disease', 'Chronic Kidney Disease',
+      'Heart Failure', 'Heart Attack', 'Rheumatic / Valvular Heart Diseases',
+      'Hypertensive Heart Diseases', 'Cardiac Arrhythmia', 'Deep Vein Thrombosis',
+      'Pulmonary Embolism', 'Congenital Heart Disease', 'Leukemia',
+      'Brain and Spinal Cord Tumors', 'Neuroblastoma', 'Childhood Cancers',
+      'Rhabdomyosarcoma', 'Retinoblastoma', 'Bone Cancer', 'Lung Cancer',
+      'Stomach Cancer', 'Colorectal Cancer', 'Liver Cancer', 'Eczema',
+    ];
+    const ncdAgeBands = [
+      { key: 'under28Days', label: '<28 days' },
+      { key: 'months1To11', label: '1-11 months' },
+      { key: 'years1To4', label: '1-4 years' },
+      { key: 'years5To9', label: '5-9 years' },
+      { key: 'years10To14', label: '10-14 years' },
+      { key: 'years15To17', label: '15-17 years' },
+      { key: 'years18To19', label: '18-19 years' },
+      { key: 'years20To34', label: '20-34 years' },
+      { key: 'years35To49', label: '35-49 years' },
+      { key: 'years50To59', label: '50-59 years' },
+      { key: 'years60To69', label: '60-69 years' },
+      { key: 'years70Plus', label: '70+' },
+    ];
+    const normalizeNcdName = (value: string) => value.toLowerCase().normalize('NFKD')
+      .replace(/[\\u0300-\\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const ncdRows = new Map<string, any>();
+    const makeNcdRow = (condition: string) => {
+      const row: any = { condition, total: 0 };
+      for (const band of ncdAgeBands) {
+        row[`male_${band.key}`] = 0;
+        row[`female_${band.key}`] = 0;
+      }
+      return row;
+    };
+    ncdConditions.forEach(condition => ncdRows.set(condition, makeNcdRow(condition)));
+    const reAttendanceRow = makeNcdRow('Re-attendances');
+    const ageBandFor = (dob: Date, visitDate: Date): string | null => {
+      const days = Math.floor((new Date(visitDate).getTime() - new Date(dob).getTime()) / 86400000);
+      if (!Number.isFinite(days) || days < 0) return null;
+      if (days < 28) return 'under28Days';
+      if (days < 365) return 'months1To11';
+      const years = this.calculateAge(dob, visitDate);
+      if (years < 5) return 'years1To4';
+      if (years < 10) return 'years5To9';
+      if (years < 15) return 'years10To14';
+      if (years < 18) return 'years15To17';
+      if (years < 20) return 'years18To19';
+      if (years < 35) return 'years20To34';
+      if (years < 50) return 'years35To49';
+      if (years < 60) return 'years50To59';
+      if (years < 70) return 'years60To69';
+      return 'years70Plus';
+    };
+    const diagnosisAliases: Record<string, string[]> = {
+      'Complicated Hypertension': ['complicated hypertension'],
+      'Pre Diabetes': ['pre diabetes', 'prediabetes'],
+      'Complicated Diabetes': ['complicated diabetes'],
+      'Dyslipidaemia (High Cholesterol)': ['dyslipidaemia', 'dyslipidemia', 'high cholesterol'],
+      'Acute Kidney Disease': ['acute kidney disease', 'acute kidney injury'],
+      'Chronic Kidney Disease': ['chronic kidney disease', 'chronic renal disease'],
+      'Heart Failure': ['heart failure', 'cardiac failure'],
+      'Heart Attack': ['heart attack', 'myocardial infarction'],
+      'Rheumatic / Valvular Heart Diseases': ['rheumatic heart', 'valvular heart'],
+      'Hypertensive Heart Diseases': ['hypertensive heart'],
+      'Cardiac Arrhythmia': ['cardiac arrhythmia', 'cardiac dysrhythmia'],
+      'Deep Vein Thrombosis': ['deep vein thrombosis', 'dvt'],
+      'Pulmonary Embolism': ['pulmonary embolism'],
+      'Congenital Heart Disease': ['congenital heart disease'],
+      'Leukemia': ['leukemia', 'leukaemia'],
+      'Brain and Spinal Cord Tumors': ['brain tumor', 'brain tumour', 'spinal cord tumor', 'spinal cord tumour'],
+      'Neuroblastoma': ['neuroblastoma'],
+      'Childhood Cancers': ['childhood cancer'],
+      'Rhabdomyosarcoma': ['rhabdomyosarcoma'],
+      'Retinoblastoma': ['retinoblastoma'],
+      'Bone Cancer': ['bone cancer', 'bone tumour', 'bone tumor'],
+      'Lung Cancer': ['lung cancer'],
+      'Stomach Cancer': ['stomach cancer', 'gastric cancer'],
+      'Colorectal Cancer': ['colorectal cancer', 'colon cancer', 'rectal cancer'],
+      'Liver Cancer': ['liver cancer', 'hepatocellular carcinoma'],
+      'Eczema': ['eczema'],
+    };
+    const addNcdCase = (row: any, patient: any, visitDate: Date) => {
+      row.total++;
+      if (!patient?.dateOfBirth) return;
+      const band = ageBandFor(patient.dateOfBirth, visitDate);
+      if (!band) return;
+      if (patient.gender === 'male') row[`male_${band}`]++;
+      else if (patient.gender === 'female') row[`female_${band}`]++;
+    };
+    for (const row of rows) {
+      const patient = row.Attendance?.Patient;
+      const visitDate = row.Attendance?.dateTime;
+      if (!patient || !visitDate) continue;
+      if (row.classification === 'OLD_DIAGNOSIS') {
+        addNcdCase(reAttendanceRow, patient, visitDate);
+        continue;
+      }
+      if (row.classification !== 'NEW_DIAGNOSIS') continue;
+      const diagnosisName = normalizeNcdName(row.Diagnosis?.name || '');
+      if (!diagnosisName) continue;
+      for (const condition of ncdConditions) {
+        const aliases = (diagnosisAliases[condition] || [condition]).map(normalizeNcdName);
+        if (aliases.some(alias => diagnosisName === alias || diagnosisName.includes(alias))) {
+          addNcdCase(ncdRows.get(condition), patient, visitDate);
+          break;
+        }
+      }
+    }
+    const ncdMorbidityReport = [...ncdRows.values(), reAttendanceRow];
+
     interface Acc {
       diagnosis: string; icdCode: string | null; morbidityGroup: any;
       totalCases: number; ageSum: number; ageCount: number;
@@ -606,8 +717,11 @@ export class ReportService {
       summary: {
         totalDiagnoses: rows.length,
         distinctDiagnoses: reportData.length,
+        ncdNewCases: ncdConditions.reduce((sum, condition) => sum + ncdRows.get(condition).total, 0),
+        ncdReAttendances: reAttendanceRow.total,
       },
       clinicalReport: reportData,
+      ncdMorbidityReport,
       generatedAt: new Date(),
     };
   }
