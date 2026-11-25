@@ -7,7 +7,7 @@ import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
-  ChevronLeft, Save, User as UserIcon, Briefcase, DollarSign,
+  Save, User as UserIcon, Briefcase, DollarSign,
   FileText, Play, Check, Clock, Plus, X, Trash2, Pencil,
 } from 'lucide-react';
 import PayslipEditor from '../components/PayslipEditor';
