@@ -650,19 +650,17 @@ export class ReportService {
       const patient = row.Attendance?.Patient;
       const visitDate = row.Attendance?.dateTime;
       if (!patient || !visitDate) continue;
-      if (row.classification === 'OLD_DIAGNOSIS') {
-        addNcdCase(reAttendanceRow, patient, visitDate);
-        continue;
-      }
-      if (row.classification !== 'NEW_DIAGNOSIS') continue;
       const diagnosisName = normalizeNcdName(row.Diagnosis?.name || '');
       if (!diagnosisName) continue;
-      for (const condition of ncdConditions) {
+      const matchedCondition = ncdConditions.find(condition => {
         const aliases = (diagnosisAliases[condition] || [condition]).map(normalizeNcdName);
-        if (aliases.some(alias => diagnosisName === alias || diagnosisName.includes(alias))) {
-          addNcdCase(ncdRows.get(condition), patient, visitDate);
-          break;
-        }
+        return aliases.some(alias => diagnosisName === alias || diagnosisName.includes(alias));
+      });
+      if (!matchedCondition) continue;
+      if (row.classification === 'OLD_DIAGNOSIS') {
+        addNcdCase(reAttendanceRow, patient, visitDate);
+      } else if (row.classification === 'NEW_DIAGNOSIS') {
+        addNcdCase(ncdRows.get(matchedCondition), patient, visitDate);
       }
     }
     const ncdMorbidityReport = [...ncdRows.values(), reAttendanceRow];
