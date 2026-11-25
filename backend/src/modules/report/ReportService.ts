@@ -326,7 +326,8 @@ export class ReportService {
 
     const [
       attendances, labTests, medications, ancVisits, postnatalRecords,
-      renderedServices, scans, procedures,
+      renderedServices, scans, procedures, vitals, familyPlanning, immunizations,
+      nursingNotes, nursingTasks,
     ] = await Promise.all([
       this.prisma.attendance.findMany({
         where: { patientId: { not: null }, status: { not: 'cancelled' }, ...(range ? { dateTime: range } : {}) },
@@ -360,6 +361,26 @@ export class ReportService {
         where: { performedById: { not: null }, performedAt: activityRange(), ...patientAttendance },
         select: { attendanceId: true, performedById: true },
       }),
+      this.prisma.vitals.findMany({
+        where: { recordedAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, recordedById: true },
+      }),
+      this.prisma.familyPlanningService.findMany({
+        where: { attendanceId: { not: null }, serviceDate: activityRange(), Attendance: { patientId: { not: null }, status: { not: 'cancelled' } } },
+        select: { attendanceId: true, providedById: true },
+      }),
+      this.prisma.immunizationRecord.findMany({
+        where: { administeredAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, recordedById: true, administeredById: true },
+      }),
+      this.prisma.nursingNote.findMany({
+        where: { attendanceId: { not: null }, createdAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, createdById: true },
+      }),
+      this.prisma.nursingTask.findMany({
+        where: { completedById: { not: null }, completedAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, completedById: true },
+      }),
     ]);
 
     const attendanceByUser = new Map<string, Set<string>>();
@@ -381,6 +402,14 @@ export class ReportService {
     for (const row of renderedServices) add(row.performedById, row.attendanceId);
     for (const row of scans) add(row.performedById, row.attendanceId);
     for (const row of procedures) add(row.performedById, row.attendanceId);
+    for (const row of vitals) add(row.recordedById, row.attendanceId);
+    for (const row of familyPlanning) add(row.providedById, row.attendanceId!);
+    for (const row of immunizations) {
+      add(row.recordedById, row.attendanceId);
+      add(row.administeredById, row.attendanceId);
+    }
+    for (const row of nursingNotes) add(row.createdById, row.attendanceId!);
+    for (const row of nursingTasks) add(row.completedById, row.attendanceId);
 
     const userIds = Array.from(attendanceByUser.keys());
     const users = userIds.length ? await this.prisma.user.findMany({
