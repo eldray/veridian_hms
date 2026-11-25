@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import PayslipEditor from '../components/PayslipEditor';
 import PayslipPresetModal from '../components/PayslipPresetModal';
+import { PageHeader } from '../components/ui';
 
 const formatCedis = (v: number | string | undefined | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0);
@@ -422,22 +423,13 @@ export default function UserDetail() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button onClick={goBack} className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-main)]">
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-            <UserIcon className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">{p.fullName}</h1>
-            <p className="text-sm text-[var(--text-secondary)]">
-              @{p.username} · {p.role.replace(/_/g, ' ')} {sp && `· ${sp.employeeId}`}
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title={p.fullName}
+        subtitle={`@${p.username} · ${p.role.replace(/_/g, ' ')}${sp ? ` · ${sp.employeeId}` : ''}`}
+        icon={UserIcon}
+        accent="cyan"
+        onBack={goBack}
+      />
 
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1 max-w-lg">
         {[
