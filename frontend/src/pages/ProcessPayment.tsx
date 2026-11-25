@@ -1,0 +1,623 @@
+// src/pages/ProcessPayment.tsx - FIXED VERSION
+import { useState, FormEvent, useEffect, useRef } from 'react'; 
+import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { uuid } from '../utils/uuid';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useSmartBack } from '../utils/useSmartBack';
+import { useBillingStore } from '../store/billingStore';
+import { usePatientStore } from '../store/patientStore';
+import { useAuthStore } from '../store/authStore';
+import { useToast } from '../store/toastStore';
+import { 
+  Save, 
+  DollarSign, 
+  CreditCard, 
+  Smartphone, 
+  Building2, 
+  Banknote,
+  FileText,
+  BarChart3,
+  User,
+  Calendar,
+  Tag,
+  CheckCircle,
+  MessageSquare,
+  Printer,
+  Undo2,
+} from 'lucide-react';
+import {
+  Button, Card, cn, Field, INPUT, LinkButton, PageHeader, StatCard,
+} from '../components/ui';
+import type { PaymentMethod } from '../types';
+import SendDocumentModal from '../components/SendDocumentModal';
+import RefundPaymentModal, { type RefundSubmission } from '../components/billing/RefundPaymentModal';
+import { useHospitalStore } from '../store/hospitalStore';
+import { latestRecordedPayment, printThermalReceipt } from '../utils/receiptPrinter';
+import { checkMomoPaymentStatus, initiateMomoPayment } from '../api/momo';
+import { CURRENCY_CODE, formatCurrency } from '../utils/currency';
+
+const paymentAttemptStorageKey = (billId: string) => `veridian:payment-attempt:${billId}`;
+
+const getOrCreatePaymentAttemptKey = (billId: string) => {
+  try {
+    const storageKey = paymentAttemptStorageKey(billId);
+    const existingKey = sessionStorage.getItem(storageKey);
+    if (existingKey) return existingKey;
+    const newKey = uuid();
+    sessionStorage.setItem(storageKey, newKey);
+    return newKey;
+  } catch {
+    // Storage may be unavailable in restricted browser contexts; in-memory
+    // idempotency still protects retries while this page remains mounted.
+    return uuid();
+  }
+};
+
+export default function ProcessPayment() {
+  const navigate = useNavigate();
+  const goBack = useSmartBack('/dashboard/billing');
+  const { billId } = useParams<{ billId: string }>();
+  const { getBill, addPaymentToBill, refundBillPayment, currentBill, isLoading, getBillingBreakdown } = useBillingStore();
+  const { patients, currentPatient, fetchPatient } = usePatientStore();
+  const { user, hasRole } = useAuthStore();
+  const { hospital } = useHospitalStore();
+  const canProcessPayment = hasRole(['admin', 'accounts', 'records']);
+  // Handing money back is finance-only; records may take a payment but not reverse it.
+  const canRefund = hasRole(['admin', 'accounts']);
+  const { success, error: toastError } = useToast();
+
+  const [amount, setAmount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
+  const [reference, setReference] = useState('');
+  const [momoPhone, setMomoPhone] = useState('');
+  const [billingBreakdown, setBillingBreakdown] = useState<any>(null);
+  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [showSendReceipt, setShowSendReceipt] = useState(false);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [refundTarget, setRefundTarget] = useState<any | null>(null);
+  const paymentAttemptKey = useRef(getOrCreatePaymentAttemptKey(billId || 'pending'));
+  const mountedRef = useRef(true);
+
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
+  useEffect(() => {
+    if (!billId) return;
+    paymentAttemptKey.current = getOrCreatePaymentAttemptKey(billId);
+  }, [billId]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (billId) {
+        try {
+          setIsPageLoading(true);
+          // The bill row already carries its patient, so this screen never downloads the
+          // patient register just to print a name in the header.
+          await getBill(billId);
+          const bill: any = useBillingStore.getState().currentBill;
+          if (bill && !bill.Patient?.surname && bill.patientId) {
+            await fetchPatient(bill.patientId).catch(() => undefined);
+          }
+
+          // Get billing breakdown
+          const breakdown = await getBillingBreakdown(billId);
+          setBillingBreakdown(breakdown);
+        } catch (error) {
+          toastError('Error loading bill', 'Failed to load bill details');
+        } finally {
+          setIsPageLoading(false);
+        }
+      }
+    };
+    loadData();
+  }, [billId, getBill, fetchPatient, getBillingBreakdown, toastError]);
+
+  useEffect(() => {
+    if (currentBill) {
+      setAmount(currentBill.balance || 0);
+    }
+  }, [currentBill]);
+
+  const bill = currentBill;
+  // A counter ticket bills a walk-in who is not in the patient register; their name lives
+  // on bill.CounterClient, so the register lookup alone shows "Unknown Patient" for them.
+  const counterClient: any = (bill as any)?.CounterClient || (bill as any)?.counterClient || null;
+  const patient = bill
+    ? ((bill as any).Patient?.surname
+        ? (bill as any).Patient
+        : patients.find(p => p.id === bill.patientId)
+          || (currentPatient?.id === bill.patientId ? currentPatient : null))
+    : null;
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    if (isSubmittingPayment) return;
+    if (!bill || !user) {
+      toastError('Missing data', 'Bill or user information not available');
+      return;
+    }
+
+    if (amount <= 0) {
+      toastError('Invalid amount', 'Payment amount must be greater than 0');
+      return;
+    }
+    if (amount > (bill.balance || 0)) {
+      toastError('Overpayment', 'Payment amount cannot exceed outstanding balance');
+      return;
+    }
+    if (paymentMethod === 'mobile_money' && !momoPhone.trim()) {
+      toastError('Mobile number required', 'Enter the Ghana mobile number that should receive the payment prompt.');
+      return;
+    }
+
+    try {
+      setIsSubmittingPayment(true);
+      let paymentResult: any;
+      if (paymentMethod === 'mobile_money') {
+        const intent = await initiateMomoPayment({
+          billId: bill.id,
+          amount,
+          payerPhone: momoPhone.trim(),
+          idempotencyKey: paymentAttemptKey.current,
+        });
+        success('Payment request sent', 'Ask the patient to approve the MoMo prompt on their phone. Do not record a separate cash payment while this request is pending.');
+        let finalStatus = intent;
+        // The payer approves on their own phone, so this waits — but with a budget, a
+        // backoff and an unmount guard. The old fixed 24 x 5 s loop kept the button busy
+        // for two minutes, even after staff navigated away from the bill.
+        const WAIT_BUDGET_MS = 60_000;
+        let waited = 0;
+        while (
+          waited < WAIT_BUDGET_MS &&
+          mountedRef.current &&
+          finalStatus.status !== 'successful' &&
+          finalStatus.status !== 'failed'
+        ) {
+          const step = waited < 30_000 ? 2_000 : 5_000;
+          await new Promise(resolve => window.setTimeout(resolve, step));
+          waited += step;
+          if (!mountedRef.current) break;
+          finalStatus = await checkMomoPaymentStatus(intent.id);
+        }
+        if (finalStatus.status === 'failed') {
+          paymentAttemptKey.current = uuid();
+          try { if (billId) sessionStorage.setItem(paymentAttemptStorageKey(billId), paymentAttemptKey.current); } catch { /* optional storage */ }
+          throw new Error(finalStatus.failureReason || 'The mobile money transaction failed or was declined.');
+        }
+        if (finalStatus.status !== 'successful') {
+          throw new Error('The MoMo request is still pending. Check the payer’s phone and wait for approval, then retry the status check before taking another payment.');
+        }
+        if (!finalStatus.paymentId) {
+          throw new Error('MoMo confirmed success, but the HMS payment reference is not available yet. Do not collect payment again; ask accounts to verify the transaction.');
+        }
+        paymentResult = { payment: { id: finalStatus.paymentId } };
+      } else {
+        paymentResult = await addPaymentToBill(bill.id, {
+          amount,
+          paymentMethod,
+          reference: reference || undefined,
+          transactionDate: new Date().toISOString(),
+          receivedById: user.id,
+          idempotencyKey: paymentAttemptKey.current,
+        });
+      }
+
+      // Rotate only after the server confirms success. If the response is lost,
+      // a reload/retry still uses the same key and cannot post the payment twice.
+      paymentAttemptKey.current = uuid();
+      try {
+        if (billId) sessionStorage.setItem(paymentAttemptStorageKey(billId), paymentAttemptKey.current);
+      } catch {
+        // The in-memory key remains usable if session storage is unavailable.
+      }
+      success(
+        'Payment recorded', 
+        `${formatCurrency(amount)} received via ${paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod.replace('_', ' ')}`
+      );
+      // Receipt generation is deliberately separate from payment posting: a receipt-template
+      // failure must never make a successfully committed payment look unsuccessful.
+      const recordedPayment = paymentResult?.payment ?? paymentResult?.data?.payment;
+      try {
+        printReceipt({
+          id: recordedPayment?.id,
+          amount,
+          paymentMethod,
+          reference: reference || undefined,
+          transactionDate: new Date().toISOString(),
+          User: { fullName: user?.fullName },
+        }, true);
+      } catch {
+        toastError('Payment recorded; receipt unavailable', 'The payment was saved, but the thermal receipt could not be opened for printing.');
+      }
+      navigate('/dashboard/billing');
+    } catch (error: any) {
+      const message = error.message || 'Failed to process payment';
+      if (paymentMethod === 'mobile_money' && /pending|status|verify|outcome is unknown|not confirmed/i.test(message)) {
+        toastError('Mobile Money status not confirmed', `${message} Do not collect a second payment until this attempt is verified.`);
+      } else {
+        toastError('Payment failed', message);
+      }
+    } finally {
+      setIsSubmittingPayment(false);
+    }
+  };
+
+  const paymentMethods: Array<{ value: PaymentMethod; label: string; icon: any }> = [
+    { value: 'cash', label: 'Cash', icon: Banknote },
+    { value: 'card', label: 'Card', icon: CreditCard },
+    { value: 'mobile_money', label: 'Mobile Money', icon: Smartphone },
+    { value: 'bank_transfer', label: 'Bank Transfer', icon: Building2 },
+    { value: 'cheque', label: 'Cheque', icon: FileText },
+  ];
+
+  const getPatientName = (patient: any) => {
+    if (!patient) return 'Unknown Patient';
+    return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+  };
+
+  // Registered patient wins; otherwise fall back to the counter walk-in name.
+  const payerName = patient
+    ? getPatientName(patient)
+    : (counterClient?.name || 'Counter customer');
+
+  // Latest non-voided payment — drives both the "Print Receipt" button and the Send modal.
+  const latestPayment = latestRecordedPayment(bill);
+
+  // The API returns the Prisma relation names (`Payment`, `Refund`); older callers
+  // and cached bills used the lowercase variants, so both are accepted here.
+  const billPayments: any[] = ((bill as any)?.Payment || bill?.payments || []).filter((payment: any) => !payment.isVoided);
+  const billRefunds: any[] = (bill as any)?.Refund || (bill as any)?.refunds || [];
+  const roundMoney = (value: number) => Math.round((Number(value) || 0) * 100) / 100;
+  const refundedOn = (payment: any) =>
+    roundMoney((payment?.refunds || []).reduce((sum: number, refund: any) => sum + Number(refund.amount || 0), 0));
+  const refundableOn = (payment: any) =>
+    Math.max(0, roundMoney(Number(payment?.amount || 0) - refundedOn(payment)));
+
+  const handleRefund = async (data: RefundSubmission) => {
+    if (!bill) return;
+    await refundBillPayment(bill.id, data);
+    await getBill(bill.id);
+    const breakdown = await getBillingBreakdown(bill.id);
+    setBillingBreakdown(breakdown);
+    success('Refund processed', `${formatCurrency(data.amount)} has been refunded against the recorded payment`);
+  };
+
+  // Build and open the 80mm thermal receipt for a payment. `autoPrint` opens the print
+  // dialog on load (used right after a payment is recorded); otherwise the operator clicks Print.
+  const printReceipt = (payment: any, autoPrint = false) => {
+    if (!bill) return;
+    printThermalReceipt({
+      bill,
+      patient,
+      payment,
+      hospital,
+      receivedBy: user?.fullName,
+      lineItems: billingBreakdown?.items,
+      autoPrint,
+    });
+  };
+
+  if (isPageLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-4">
+        <div className="text-center bg-[var(--bg-card)] rounded-2xl shadow-md border border-[var(--border-color)] p-10 max-w-md">
+          <div className="w-14 h-14 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">Loading Bill...</h2>
+          <p className="text-[var(--text-secondary)] text-sm">Please wait while we load the bill details</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!bill) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-4">
+        <div className="text-center bg-[var(--bg-card)] rounded-2xl shadow-md border border-[var(--border-color)] p-10 max-w-md">
+          <DollarSign className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">Bill Not Found</h2>
+          <p className="text-[var(--text-secondary)] text-sm mb-5">The bill you're looking for doesn't exist.</p>
+          <div className="flex gap-3 justify-center">
+            <Button variant="primary" onClick={goBack}>
+              Back to Billing
+            </Button>
+            <LinkButton variant="secondary" to="/dashboard/billing">
+              View All Bills
+            </LinkButton>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 bg-[var(--bg-main)] min-h-screen">
+      {/* Header */}
+      <PageHeader
+        title="Process Payment"
+        subtitle={`Bill: ${bill.billNumber}`}
+        icon={DollarSign}
+        accent="yellow"
+        backTo="/dashboard/billing"
+        actions={(
+          <>
+            <LinkButton variant="secondary" icon={BarChart3} className="hidden sm:flex" to="/dashboard/billing">
+              Billing Dashboard
+            </LinkButton>
+            <Button
+              variant="secondary"
+              accent="cyan"
+              icon={Printer}
+              disabled={!latestPayment}
+              onClick={() => latestPayment
+                ? printReceipt(latestPayment, false)
+                : toastError('No payment yet', 'Record a payment before printing a receipt.')}
+            >
+              Print Receipt
+            </Button>
+            <Button variant="soft" accent="cyan" icon={MessageSquare} onClick={() => setShowSendReceipt(true)}>
+              Send Receipt
+            </Button>
+          </>
+        )}
+      />
+
+      <SendDocumentModal
+        open={showSendReceipt}
+        onClose={() => setShowSendReceipt(false)}
+        patient={patient || (counterClient ? { id: counterClient.id, name: counterClient.name, phone: counterClient.phone, mobile: counterClient.phone } : null)}
+        documentType="receipt"
+        entityId={bill.id}
+        paymentId={latestPayment?.id}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Bill Summary & Breakdown */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Bill Summary */}
+          <Card title="Bill Summary" icon={FileText}>
+            {/* Patient & Bill Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
+                <div className="flex items-center gap-2 mb-2">
+                  <PatientAvatar patient={bill?.attendance?.patient || bill?.patient} size="sm" />
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">PATIENT</span>
+                </div>
+                <p className="font-bold text-[var(--text-primary)] text-lg">
+                  {payerName}
+                </p>
+                {patient?.folderNumber ? (
+                  <p className="text-sm text-[var(--icon-cyan-text)] mt-1">Folder: {patient.folderNumber}</p>
+                ) : counterClient ? (
+                  <p className="text-sm text-[var(--icon-cyan-text)] mt-1">Counter customer</p>
+                ) : null}
+              </div>
+              
+              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
+                <div className="flex items-center gap-2 mb-2">
+                  <Tag className="w-4 h-4 text-[var(--icon-purple-text)]" />
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">BILL INFO</span>
+                </div>
+                <p className="font-bold text-[var(--text-primary)] text-lg">{bill.billNumber}</p>
+                <p className="text-sm text-[var(--icon-purple-text)] mt-1 capitalize">{bill.status}</p>
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <StatCard label="TOTAL AMOUNT" size="money" value={formatCurrency(bill.totalAmount)} icon={DollarSign} />
+              <StatCard label="AMOUNT PAID" size="money" accent="cyan" value={formatCurrency(bill.paidAmount)} icon={CheckCircle} />
+              <StatCard label="BALANCE DUE" size="money" accent="red" value={formatCurrency(bill.balance)} icon={DollarSign} />
+            </div>
+
+            {/* Billing Breakdown */}
+            {billingBreakdown && (
+              <div className="mt-6 pt-6 border-t border-[var(--border-color)]">
+                <h3 className="text-base font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                  Billing Breakdown
+                </h3>
+                <div className="space-y-2">
+                  {billingBreakdown.items?.map((item: any, index: number) => (
+                    <div key={index} className="flex justify-between items-center bg-[var(--bg-main)] rounded-xl p-3 border border-[var(--border-color)]">
+                      <span className="text-[var(--text-secondary)] font-medium">{item.description}</span>
+                      <span className="font-bold text-[var(--text-primary)]">{formatCurrency(item.totalPrice)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Previous Payments */}
+          {(billPayments.length > 0 || billRefunds.length > 0) && (
+            <Card title="Payment History" icon={Calendar}>
+              <div className="space-y-2">
+                {billPayments.map((payment: any) => {
+                  const refundable = refundableOn(payment);
+                  return (
+                    <div key={payment.id} className="flex flex-wrap justify-between items-center gap-3 bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[var(--text-primary)]">
+                          {new Date(payment.transactionDate).toLocaleDateString()} - {payment.paymentMethod?.replace('_', ' ')}
+                        </p>
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">
+                          {payment.reference ? `Ref: ${payment.reference}` : 'No reference'}
+                          {refundedOn(payment) > 0 ? ` · ${formatCurrency(refundedOn(payment))} refunded` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg font-bold text-[var(--icon-green-text)] tabular-nums">{formatCurrency(payment.amount)}</span>
+                        {canRefund && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={Undo2}
+                            disabled={refundable <= 0}
+                            onClick={() => setRefundTarget(payment)}
+                          >
+                            Refund
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {billRefunds.length > 0 && (
+                  <div className="pt-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Refund history</p>
+                    <div className="space-y-2">
+                      {billRefunds.map((refund: any) => (
+                        <div key={refund.id} className="flex justify-between items-start gap-3 rounded-xl border border-[var(--border-color)] px-4 py-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[var(--text-primary)]">{refund.refundNumber} · {refund.reason}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {new Date(refund.refundedAt).toLocaleDateString()} · {String(refund.refundMethod || '').replace(/_/g, ' ')}
+                              {refund.reference ? ` · Ref: ${refund.reference}` : ''}
+                              {(refund.processedBy?.fullName || refund.processedBy?.username) ? ` · By ${refund.processedBy.fullName || refund.processedBy.username}` : ''}
+                            </p>
+                          </div>
+                          <span className="text-sm font-bold text-[var(--icon-red-text)] tabular-nums">-{formatCurrency(refund.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+        </div>
+
+        {/* Right Column - Payment Form */}
+        <div className="lg:col-span-1">
+          {canProcessPayment ? (
+          <form onSubmit={handleSubmit} className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6 space-y-6 sticky top-6">
+            <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-[var(--icon-cyan-text)]" />
+              Payment Details
+            </h2>
+
+            {/* Amount */}
+            <Field
+              label="Payment Amount"
+              required
+              hint={(
+                <>
+                  Maximum: <span className="font-bold text-[var(--icon-red-text)]">{formatCurrency(bill.balance)}</span>
+                </>
+              )}
+            >
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)] text-xs font-bold">{CURRENCY_CODE}</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={bill.balance}
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+                  className={cn(INPUT, 'w-full pl-11 pr-4 py-3.5 text-base font-bold')}
+                />
+              </div>
+            </Field>
+
+            {/* Payment Method */}
+            <Field label="Payment Method" required>
+              <div className="grid grid-cols-2 gap-3">
+                {paymentMethods.map((mode) => {
+                  const Icon = mode.icon;
+                  const isSelected = paymentMethod === mode.value;
+                  return (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      onClick={() => setPaymentMethod(mode.value)}
+                      className={`p-4 border-2 rounded-lg transition-all duration-200 ${
+                        isSelected
+                          ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]'
+                          : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-main)]'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 mx-auto mb-1 ${isSelected ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)]'}`} />
+                      <p className={`text-xs font-bold ${isSelected ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-primary)]'}`}>
+                        {mode.label}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+
+            {/* Mobile Money payer number: the backend initiates a real collection request. */}
+            {paymentMethod === 'mobile_money' && (
+              <Field
+                label="Mobile Money Number"
+                required
+                hint="A payment approval prompt will be sent to this number. The bill is updated only after the provider confirms success."
+              >
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={momoPhone}
+                  onChange={(e) => setMomoPhone(e.target.value)}
+                  required
+                  placeholder="024 123 4567"
+                  className={cn(INPUT, 'w-full px-4 py-3 text-base')}
+                />
+              </Field>
+            )}
+
+            {/* Reference */}
+            {(paymentMethod === 'card' || paymentMethod === 'bank_transfer' || paymentMethod === 'cheque') && (
+              <Field label="Reference Number" required>
+                <input
+                  type="text"
+                  value={reference}
+                  onChange={(e) => setReference(e.target.value)}
+                  required
+                  placeholder="Enter transaction reference"
+                  className={cn(INPUT, 'w-full px-4 py-3 text-base')}
+                />
+              </Field>
+            )}
+
+            {/* Actions */}
+            <div className="flex flex-col gap-3 pt-5 border-t border-[var(--border-color)]">
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                fullWidth
+                icon={Save}
+                loading={isLoading || isSubmittingPayment}
+              >
+                Process Payment
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                fullWidth
+                onClick={goBack}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+          ) : (
+            <div className="rounded-2xl border border-[var(--border-color)] border-l-4 border-l-[var(--icon-yellow-text)] bg-[var(--bg-card)] p-6 text-sm text-[var(--text-secondary)]">
+              You have read-only access to this bill. Only authorised accounts, records, or administrator staff can record payments.
+            </div>
+          )}
+        </div>
+      </div>
+
+      <RefundPaymentModal
+        payment={refundTarget}
+        billNumber={bill.billNumber}
+        onClose={() => setRefundTarget(null)}
+        onSubmit={handleRefund}
+      />
+    </div>
+  );
+}

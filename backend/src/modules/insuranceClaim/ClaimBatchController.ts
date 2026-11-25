@@ -1,0 +1,239 @@
+import { Response } from 'express';
+import { BaseController } from '../../shared/base/BaseController';
+import { ClaimBatchService } from './ClaimBatchService';
+import { ClaimPrintService } from './ClaimPrintService';
+import { ClaimItSubmissionService } from './claimit/ClaimItSubmissionService';
+import { AuthRequest } from '../../middleware/authMiddleware';
+import prisma from '../../core/database/prisma.client';
+
+export class ClaimBatchController extends BaseController {
+  private service: ClaimBatchService;
+  private printService: ClaimPrintService;
+  private claimit: ClaimItSubmissionService;
+
+  constructor() {
+    super();
+    this.service = new ClaimBatchService(prisma);
+    this.printService = new ClaimPrintService(prisma);
+    this.claimit = new ClaimItSubmissionService(prisma);
+  }
+
+  // ==========================================
+  // LIST
+  // ==========================================
+  listBatches = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const result = await this.service.listBatches({
+      insuranceType: req.query.insuranceType as string | undefined,
+      insuranceProviderId: req.query.insuranceProviderId as string | undefined,
+      corporateAccountId: req.query.corporateAccountId as string | undefined,
+      status: req.query.status as string | undefined,
+      search: req.query.search as string | undefined,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
+      periodYear: req.query.periodYear
+        ? parseInt(req.query.periodYear as string, 10)
+        : undefined,
+      periodMonth: req.query.periodMonth
+        ? parseInt(req.query.periodMonth as string, 10)
+        : undefined,
+      page,
+      limit,
+    });
+    return this.ok(
+      res,
+      { data: result.data, pagination: result.pagination, summary: result.summary },
+      'Claim batches retrieved',
+    );
+  });
+
+  getBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const batch = await this.service.getBatch(req.params.id);
+    return this.ok(res, batch, 'Claim batch retrieved');
+  });
+
+  // ==========================================
+  // TRACKING & PAYMENTS (batch level)
+  // ==========================================
+
+  /** The submitted periods with what the payer has paid against them. */
+  listTracking = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const result = await this.service.listBatchTracking({
+      insuranceType: req.query.insuranceType as string | undefined,
+      insuranceProviderId: req.query.insuranceProviderId as string | undefined,
+      corporateAccountId: req.query.corporateAccountId as string | undefined,
+      status: req.query.status as string | undefined,
+      search: req.query.search as string | undefined,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
+      periodYear: req.query.periodYear ? parseInt(req.query.periodYear as string, 10) : undefined,
+      periodMonth: req.query.periodMonth ? parseInt(req.query.periodMonth as string, 10) : undefined,
+      page,
+      limit,
+    });
+    return this.ok(
+      res,
+      { data: result.data, pagination: result.pagination, summary: result.summary },
+      'Claim batch tracking retrieved',
+    );
+  });
+
+  /** Record a submission, payer decision or remittance against the batch. */
+  recordTrackingEvent = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const event = await this.service.recordBatchTrackingEvent(
+      req.params.id,
+      {
+        eventType: req.body?.eventType,
+        status: req.body?.status,
+        submissionDate: req.body?.submissionDate,
+        payerReference: req.body?.payerReference,
+        amount: req.body?.amount,
+        paymentReference: req.body?.paymentReference,
+        paymentMethod: req.body?.paymentMethod,
+        notes: req.body?.notes,
+      },
+      req.user!.id,
+    );
+    return this.created(res, event, 'Batch tracking event recorded');
+  });
+
+  // ==========================================
+  // GENERATE
+  // ==========================================
+  generateBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.generateBatch(
+      {
+        insuranceType: req.body.insuranceType,
+        periodYear: req.body.periodYear,
+        periodMonth: req.body.periodMonth,
+        insuranceProviderId: req.body.insuranceProviderId,
+        corporateAccountId: req.body.corporateAccountId,
+        description: req.body.description,
+      },
+      req.user!.id,
+    );
+    // One payer/provider receives one batch for the selected service month.
+    return this.created(
+      res,
+      result,
+      result.batches.length > 1 ? `${result.batches.length} claim batches generated` : 'Claim batch generated',
+    );
+  });
+
+  // ==========================================
+  // PERIOD VIEWS (month-driven)
+  // ==========================================
+
+  /** Counts + amounts for one month. Pass the provider or account the batch will use to get
+   *  exactly the number that batch would take. */
+  eligible = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const period = this.parsePeriod(req);
+    if (!period) return this.badRequest(res, 'periodYear and periodMonth are required (1–12)');
+
+    const summary = await this.service.eligibleForPeriod(period.periodYear, period.periodMonth, {
+      insuranceProviderId: typeof req.query.insuranceProviderId === 'string' ? req.query.insuranceProviderId : null,
+      corporateAccountId: typeof req.query.corporateAccountId === 'string' ? req.query.corporateAccountId : null,
+    });
+    return this.ok(res, summary, 'Eligible claims for period');
+  });
+
+  /**
+   * GET /insurance-claims/batches/period-claims
+   * The claims of one month — batched or not — with that month's totals.
+   */
+  periodClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const period = this.parsePeriod(req);
+    if (!period) return this.badRequest(res, 'periodYear and periodMonth are required (1–12)');
+
+    const result = await this.service.claimsForPeriod(period.periodYear, period.periodMonth, {
+      insuranceType: typeof req.query.insuranceType === 'string' ? req.query.insuranceType : undefined,
+      batched: typeof req.query.batched === 'string' ? req.query.batched : undefined,
+      page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 50,
+    });
+    return this.ok(res, result, 'Claims for period retrieved');
+  });
+
+  private parsePeriod(req: AuthRequest): { periodYear: number; periodMonth: number } | null {
+    const periodYear = parseInt(req.query.periodYear as string, 10);
+    const periodMonth = parseInt(req.query.periodMonth as string, 10);
+    if (!Number.isFinite(periodYear) || !Number.isFinite(periodMonth)) return null;
+    return { periodYear, periodMonth };
+  }
+
+  // ==========================================
+  // FINALIZE / DELETE
+  // ==========================================
+  finalizeBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const batch = await this.service.finalizeBatch(req.params.id, req.user!.id);
+    return this.ok(res, batch, 'Claim batch finalized');
+  });
+
+  deleteBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.deleteBatch(req.params.id);
+    return this.ok(res, result, 'Claim batch deleted');
+  });
+
+  // ==========================================
+  // XML (NHIS only)
+  // ==========================================
+  downloadXml = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { xml, filename } = await this.service.getNHISBatchXml(req.params.id);
+    res.set('Content-Type', 'application/xml; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(xml);
+  });
+
+  // ==========================================
+  // PRINT (any provider type — batch summary)
+  // ==========================================
+  printBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const html = await this.printService.renderBatchHtml(req.params.id, { detail: req.query.detail === '1' });
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  });
+
+  printMonthlySummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const year = parseInt(String(req.query.year ?? ''), 10);
+    const month = parseInt(String(req.query.month ?? ''), 10);
+    const type = ['nhis', 'private', 'corporate'].includes(String(req.query.type)) ? String(req.query.type) : undefined;
+    const html = await this.printService.renderMonthlyHtml(year, month, type);
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  });
+
+  // ==========================================
+  // CLAIM-it (NHIS only)
+  // ==========================================
+
+  /**
+   * Send the batch's ready claims in one request.
+   *
+   * `onlyFailed` re-sends after corrections without re-submitting claims CLAIM-it already accepted,
+   * which is what would turn a retry into a duplicate on the payer's side.
+   */
+  submitToClaimIt = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const onlyFailed = req.body?.onlyFailed === true || String(req.body?.onlyFailed) === 'true';
+    const result = await this.claimit.submitBatch(req.params.id, req.user!.id, { onlyFailed });
+    return this.ok(res, result, result.message);
+  });
+
+  /** The latest CLAIM-it answer for every claim in the batch. */
+  claimitSubmissions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.claimit.listBatchSubmissions(req.params.id);
+    return this.ok(res, result, 'CLAIM-it submissions retrieved');
+  });
+
+  /**
+   * Withdraw the whole period from CLAIM-it.
+   *
+   * DELETE so the write audit records it as a deletion, which is what it is on the payer's side.
+   */
+  deleteFromClaimIt = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.claimit.deleteBatchFromClaimIt(req.params.id);
+    return this.ok(res, result, result.message);
+  });
+}
+
+export const claimBatchController = new ClaimBatchController();

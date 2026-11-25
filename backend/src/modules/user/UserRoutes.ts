@@ -1,0 +1,239 @@
+import { Router } from 'express';
+import { body } from 'express-validator';
+import { UserController } from './UserController';
+import { protect, requireRole } from '../../middleware/authMiddleware';
+import { validateBody } from '../../middleware/validate';
+import { CreateUserSchema, ResetUserPasswordSchema, UpdateUserSchema } from './UserValidators';
+import { uploadSingleDocument, handleUploadError } from '../../middleware/uploadMiddleware';
+import { VALID_LEAVE_TYPES, VALID_SHIFT_TYPES } from './UserTypes';
+
+// Role groups
+const ADMIN_ONLY = ['admin', 'super_admin'] as const;
+const ADMIN_HR = ['admin', 'super_admin', 'hr_officer'] as const;
+
+// Allows the user themself (":id" in the URL) or anyone in `roles`
+const selfOrRoles = (roles: readonly string[]) => (req: any, res: any, next: any) => {
+  if (req.user?.userId === req.params.id || roles.includes(req.user?.role)) return next();
+  return res.status(403).json({ success: false, message: 'Not authorized' });
+};
+
+export const createUserRoutes = (prisma: any): Router => {
+  const router = Router();
+  const controller = new UserController(prisma);
+
+  router.use(protect);
+
+  // ==========================================
+  // CURRENT USER — static routes FIRST
+  // ==========================================
+
+  router.get('/permissions', controller.getMyPermissions);
+  router.get('/me/payslips', controller.getMyPayslips);
+  router.get('/me/documents', controller.getMyDocuments);
+
+  // Password recovery requests are visible to System Admin and Super Admin.
+  router.get('/password-reset-requests', requireRole([...ADMIN_ONLY]), controller.listPasswordResetRequests);
+  router.post('/password-reset-requests/:requestId/approve', requireRole([...ADMIN_ONLY]), controller.approvePasswordReset);
+  router.post('/password-reset-requests/:requestId/reject', requireRole([...ADMIN_ONLY]), controller.rejectPasswordReset);
+
+  // ==========================================
+  // USER MANAGEMENT
+  // ==========================================
+
+  router.post(
+    '/',
+    requireRole([...ADMIN_ONLY]),
+    validateBody(CreateUserSchema),
+    controller.createUser,
+  );
+
+  // HR Officer reads the staff directory; creating, editing and deactivating
+  // accounts stays with the administrators (see PUT /:id below).
+  router.get('/', requireRole([...ADMIN_HR]), controller.getAllUsers);
+
+  // ==========================================
+  // FULL PROFILE
+  // ==========================================
+
+  // Carries bank details and national ID, so it is self or HR/admin only —
+  // otherwise every signed-in role (lab tech, pharmacist, …) could read it.
+  router.get('/:id/full-profile', selfOrRoles(ADMIN_HR), controller.getFullProfile);
+  router.patch('/:id/full-profile', selfOrRoles(ADMIN_HR), controller.updateFullProfile);
+
+  // ==========================================
+  // USER UPDATE & DEACTIVATE
+  // ==========================================
+
+  // Updating a user's core fields (role, department, seniority, etc.) — admin only.
+  // Keep this as the single PUT registration so validation cannot be shadowed.
+  router.put(
+    '/:id',
+    requireRole([...ADMIN_ONLY]),
+    validateBody(UpdateUserSchema),
+    controller.updateUser,
+  );
+
+  // Deactivate/reactivate a staff account — admin only.
+  router.patch(
+    '/:id/deactivate',
+    requireRole([...ADMIN_ONLY]),
+    controller.deactivateUser,
+  );
+
+  // ==========================================
+  // PAYROLL — static routes FIRST
+  // ==========================================
+
+  router.get('/payslips/all', requireRole([...ADMIN_HR]), controller.getAllPayslips);
+  router.post('/payslips/run-payroll', requireRole([...ADMIN_HR]), controller.runPayroll);
+  router.patch('/payslips/:payslipId', requireRole([...ADMIN_HR]), controller.updatePayslip);
+  router.get('/payslips/:payslipId', requireRole([...ADMIN_HR]), controller.getPayslipById);
+  router.post('/payslips/:payslipId/line-items', requireRole([...ADMIN_HR]), controller.addPayslipLineItem);
+  router.patch('/payslips/:payslipId/line-items/:lineItemId', requireRole([...ADMIN_HR]), controller.updatePayslipLineItem);
+  router.delete('/payslips/:payslipId/line-items/:lineItemId', requireRole([...ADMIN_HR]), controller.deletePayslipLineItem);
+
+  // ==========================================
+  // DOCUMENTS — static FIRST
+  // ==========================================
+
+  router.get('/documents/all', requireRole([...ADMIN_HR]), controller.getAllDocuments);
+  router.get('/documents/:documentId', requireRole([...ADMIN_HR]), controller.getDocumentById);
+  router.patch('/documents/:documentId', requireRole([...ADMIN_HR]), controller.updateDocument);
+  router.post('/documents/:documentId/verify', requireRole([...ADMIN_HR]), controller.verifyDocument);
+  router.post('/documents/:documentId/unverify', requireRole([...ADMIN_HR]), controller.unverifyDocument);
+  router.delete('/documents/:documentId', requireRole([...ADMIN_HR]), controller.deleteDocument);
+
+  // ==========================================
+  // PER-USER payslips and documents
+  // ==========================================
+
+  // /me/payslips and /me/documents above serve self-service; these per-user
+  // variants are the HR/admin view and must not be open to every role.
+  router.get('/:id/payslips', selfOrRoles(ADMIN_HR), controller.getUserPayslips);
+  router.post('/:id/payslips', requireRole([...ADMIN_HR]), controller.generatePayslip);
+  // Set payslip values BEFORE Run Payroll — HR presets earnings/deductions,
+// they are saved as a draft, and Run Payroll will not overwrite them.
+router.post('/:id/payslips/preset', requireRole([...ADMIN_HR]), controller.presetPayslip);
+  router.get('/:id/documents', selfOrRoles(ADMIN_HR), controller.getUserDocuments);
+  router.post('/:id/documents', selfOrRoles(ADMIN_HR), uploadSingleDocument, handleUploadError, controller.uploadUserDocument);
+
+  // ==========================================
+  // USER UPDATE / DEACTIVATE
+  // ==========================================
+
+
+
+  // A member of staff who cannot sign in is reset here. There is no mail server in
+  // the packaged deployment, so /auth/forgot-password has nothing to send a link
+  // with; this route is the working path back into the account.
+  router.patch(
+    '/:id/password',
+    requireRole([...ADMIN_ONLY]),
+    validateBody(ResetUserPasswordSchema),
+    controller.resetUserPassword,
+  );
+
+  // ==========================================
+  // USER-SPECIFIC PAYROLLS (HR/admin view of another user's payslips)
+  // ==========================================
+
+  router.get('/:id/payslips', requireRole([...ADMIN_HR]), controller.getUserPayslips);
+  router.post('/:id/payslips', requireRole([...ADMIN_HR]), controller.generatePayslip);
+
+  // ==========================================
+  // USER-SPECIFIC DOCUMENTS (HR/admin view of another user's documents)
+  // ==========================================
+
+  router.get('/:id/documents', selfOrRoles(ADMIN_HR), controller.getUserDocuments);
+
+  // ==========================================
+  // SHIFTS
+  //
+  // Read:  admin, super_admin, hr_officer, doctor, nurse, midwife
+  // Write: admin, super_admin, hr_officer
+  // ==========================================
+
+  const SHIFT_READ = ['admin', 'super_admin', 'hr_officer', 'doctor', 'nurse', 'midwife'] as const;
+
+  router.get('/shifts', requireRole([...SHIFT_READ]), controller.getAllShifts);
+  router.get('/shifts/:id', requireRole([...SHIFT_READ]), controller.getShiftById);
+  router.post(
+    '/shifts',
+    requireRole([...ADMIN_HR]),
+    [
+      body('userId').notEmpty().isString(),
+      body('shiftDate').notEmpty().isISO8601(),
+      body('startTime').notEmpty().matches(/^\d{2}:\d{2}$/),
+      body('endTime').notEmpty().matches(/^\d{2}:\d{2}$/),
+      body('shiftType').optional().isIn(VALID_SHIFT_TYPES as unknown as string[]),
+      body('notes').optional().isString(),
+    ],
+    controller.createShift,
+  );
+  router.put(
+    '/shifts/:id',
+    requireRole([...ADMIN_HR]),
+    [
+      body('shiftDate').optional().isISO8601(),
+      body('startTime').optional().matches(/^\d{2}:\d{2}$/),
+      body('endTime').optional().matches(/^\d{2}:\d{2}$/),
+      body('shiftType').optional().isIn(VALID_SHIFT_TYPES as unknown as string[]),
+      body('status').optional().isIn(['scheduled', 'completed', 'cancelled', 'no_show']),
+      body('notes').optional().isString(),
+    ],
+    controller.updateShift,
+  );
+  router.delete('/shifts/:id', requireRole([...ADMIN_HR]), controller.deleteShift);
+
+  // ==========================================
+  // LEAVES
+  //
+  // Read:      admin, super_admin, hr_officer, doctor, nurse, midwife
+  // Create:    any authenticated user (self-service)
+  // Update:    approve/reject → admin, super_admin, hr_officer
+  //            cancel       → owner or admin
+  // Delete:    owner or admin
+  // ==========================================
+
+  const LEAVE_READ = ['admin', 'super_admin', 'hr_officer', 'doctor', 'nurse', 'midwife'] as const;
+
+  router.get('/leaves', requireRole([...LEAVE_READ]), controller.getAllLeaves);
+  router.get('/leaves/:id', requireRole([...LEAVE_READ]), controller.getLeaveById);
+
+  router.post(
+    '/leaves',
+    [
+      body('leaveType').notEmpty().isIn(VALID_LEAVE_TYPES as unknown as string[]),
+      body('startDate').notEmpty().isISO8601(),
+      body('endDate').notEmpty().isISO8601(),
+      body('reason').optional().isString(),
+    ],
+    controller.createLeave,
+  );
+
+  router.put(
+    '/leaves/:id',
+    [
+      body('status').optional().isIn(['pending', 'approved', 'rejected', 'cancelled']),
+      body('reason').optional().isString(),
+    ],
+    controller.updateLeave,
+  );
+
+  router.delete('/leaves/:id', controller.deleteLeave);
+
+  // ==========================================
+  // SHIFTS/LEAVES for a specific user (admin view)
+  // ==========================================
+
+  router.get(
+    '/:id/shifts',
+    requireRole([...ADMIN_HR]),
+    controller.getAllShifts,
+  );
+
+  // Single user: LAST, so it cannot swallow /shifts, /leaves, /documents, /payslips ...
+  router.get('/:id', selfOrRoles(ADMIN_HR), controller.getUserById);
+
+  return router;
+};

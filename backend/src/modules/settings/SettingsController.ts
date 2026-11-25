@@ -1,0 +1,274 @@
+import { hasValidNHISToken } from './nhis-eligibility.service';
+import { Request, Response } from 'express';
+import { validationResult } from 'express-validator';
+import { createErrorResponse } from '../../shared/types/ApiResponse';
+import * as settingsService from './SettingsService';
+import * as nhisEligibilityService from './nhis-eligibility.service';
+
+interface AuthRequest extends Request {
+  user?: {
+    userId: string;
+    username: string;
+    role: string;
+    seniority: string;
+  };
+}
+
+// ==========================================
+// HOSPITAL DETAILS CONTROLLERS
+// ==========================================
+
+export const getHospitalDetails = async (req: Request, res: Response) => {
+  try {
+    const hospital = await settingsService.getHospitalDetails();
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not configured' });
+    }
+    return res.json({ success: true, data: hospital });
+  } catch (error) {
+    console.error('Get hospital details error:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching hospital details' });
+  }
+};
+
+export const getHospitalProfileForStaff = async (req: Request, res: Response) => {
+  try {
+    const hospital = await settingsService.getHospitalProfileForStaff();
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital not configured' });
+    }
+    return res.json({ success: true, data: hospital });
+  } catch (error) {
+    console.error('Get staff hospital profile error:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching hospital profile' });
+  }
+};
+
+export const updateHospitalDetails = async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
+    }
+
+    const { name, address, phone, email, imageUrl } = req.body;
+    // A freshly uploaded file wins over whatever reference the form echoes back.
+    const storedImage = req.file
+      ? `/api/uploads/hospital/${req.file.filename}`
+      : (typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl : undefined);
+    const hospital = await settingsService.updateHospitalDetails({
+      name, address, phone, email, imageUrl: storedImage,
+    });
+    return res.json({ success: true, data: hospital });
+  } catch (error) {
+    console.error('Update hospital details error:', error);
+    return res.status(500).json({ success: false, message: 'Server error updating hospital details' });
+  }
+};
+
+// ==========================================
+// NHIS API CONFIGURATION CONTROLLERS
+// ==========================================
+
+export const getNHISApiStatus = async (req: Request, res: Response) => {
+  try {
+    const hospital = await settingsService.getHospitalDetails();
+    if (!hospital) {
+      return res.status(404).json({ success: false, message: 'Hospital configuration not found' });
+    }
+
+    const now = new Date();
+    const tokenValid = hasValidNHISToken();
+
+    return res.json({
+      success: true,
+      data: {
+        configured: !!(hospital.nhisApiBaseUrl && hospital.nhisApiClientId),
+        active: hospital.nhisApiActive || false,
+        isActive: hospital.nhisApiActive || false,
+        apiBaseUrl: hospital.nhisApiBaseUrl || null,
+        clientId: hospital.nhisApiClientId || null,
+        tokenEndpoint: hospital.nhisApiTokenEndpoint || null,
+        eligibilityEndpoint: hospital.nhisApiEligibilityEndpoint || null,
+        cccEndpoint: hospital.nhisApiCccEndpoint || null,
+        hasBaseUrl: !!hospital.nhisApiBaseUrl,
+        hasClientId: !!hospital.nhisApiClientId,
+        hasClientSecret: !!process.env.NHIS_API_CLIENT_SECRET,
+        hasTokenEndpoint: !!hospital.nhisApiTokenEndpoint,
+        hasEligibilityEndpoint: !!hospital.nhisApiEligibilityEndpoint,
+        hasCccEndpoint: !!hospital.nhisApiCccEndpoint,
+        hasValidToken: tokenValid,
+        tokenExpiresAt: hospital.nhisApiTokenExpiresAt,
+        lastTokenRefresh: hospital.nhisApiLastTokenRefresh,
+        nhisFacilityCode: hospital.nhisFacilityCode,
+        nhisFacilityType: hospital.nhisFacilityType,
+        nhisAccreditationNumber: hospital.nhisAccreditationNumber,
+        nhisContactPerson: hospital.nhisContactPerson,
+        nhisContactPhone: hospital.nhisContactPhone,
+        nhisContactEmail: hospital.nhisContactEmail,
+      },
+    });
+  } catch (error) {
+    console.error('Get NHIS API status error:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching NHIS API status' });
+  }
+};
+
+export const updateNHISApiConfig = async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
+    }
+
+    const {
+      nhisApiBaseUrl,
+      nhisApiClientId,
+      nhisApiClientSecret,
+      nhisApiTokenEndpoint,
+      nhisApiEligibilityEndpoint,
+      nhisApiCccEndpoint,
+      nhisApiActive,
+      nhisFacilityCode,
+      nhisFacilityType,
+      nhisAccreditationNumber,
+      nhisContactPerson,
+      nhisContactPhone,
+      nhisContactEmail,
+    } = req.body;
+
+    if (nhisApiClientSecret && nhisApiClientSecret.trim()) {
+      process.env.NHIS_API_CLIENT_SECRET = nhisApiClientSecret.trim();
+    }
+
+    const updated = await settingsService.updateNHISSettings({
+      nhisApiBaseUrl,
+      nhisApiClientId,
+      nhisApiClientSecret,
+      nhisApiTokenEndpoint,
+      nhisApiEligibilityEndpoint,
+      nhisApiCccEndpoint,
+      nhisApiActive,
+      nhisFacilityCode,
+      nhisFacilityType,
+      nhisAccreditationNumber,
+      nhisContactPerson,
+      nhisContactPhone,
+      nhisContactEmail,
+    });
+
+    return res.json({
+      success: true,
+      message: 'NHIS API configuration updated successfully',
+      data: updated,
+    });
+  } catch (error: any) {
+    console.error('Update NHIS API config error:', error);
+    if (error.message === 'Hospital configuration not found') {
+      return res.status(404).json({ success: false, message: error.message });
+    }
+    return res.status(500).json({ success: false, message: 'Server error updating NHIS API configuration' });
+  }
+};
+
+export const testNHISConnection = async (req: Request, res: Response) => {
+  try {
+    const result = await nhisEligibilityService.testNHISApiConnection();
+    return res.status(result.success ? 200 : 400).json({ success: result.success, message: result.message });
+  } catch (error: any) {
+    console.error('Test NHIS connection error:', error);
+    return res.status(500).json({ success: false, message: 'Server error testing NHIS connection' });
+  }
+};
+
+// ==========================================
+// NHIS ELIGIBILITY VERIFICATION CONTROLLERS
+// ==========================================
+
+export const verifyNHISEligibility = async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
+    }
+
+    const { policyNumber } = req.body;
+    const result = await nhisEligibilityService.verifyNHISEligibility(policyNumber);
+    return res.status(result.success ? 200 : 400).json(result);
+  } catch (error: any) {
+    console.error('Verify NHIS eligibility error:', error);
+    return res.status(500).json({ success: false, message: 'Server error verifying NHIS eligibility' });
+  }
+};
+
+export const bulkVerifyNHISEligibility = async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
+    }
+
+    const { policyNumbers } = req.body;
+
+    if (policyNumbers.length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum 100 policy numbers per bulk verification request',
+      });
+    }
+
+    const result = await nhisEligibilityService.bulkVerifyNHISEligibility(policyNumbers);
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Bulk verify NHIS eligibility error:', error);
+    return res.status(500).json({ success: false, message: 'Server error bulk verifying NHIS eligibility' });
+  }
+};
+
+export const generateCCC = async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
+    }
+
+    const { policyNumber, encounterId, totalAmount } = req.body;
+    const result = await nhisEligibilityService.generateCCC(
+      policyNumber,
+      encounterId,
+      parseFloat(totalAmount.toString())
+    );
+    return res.status(result.success ? 200 : 400).json(result);
+  } catch (error: any) {
+    console.error('Generate CCC error:', error);
+    return res.status(500).json({ success: false, message: 'Server error generating CCC' });
+  }
+};
+// ==========================================
+// TAX CONFIGURATION CONTROLLERS
+// ==========================================
+
+export const getTaxConfiguration = async (req: Request, res: Response) => {
+  try {
+    const data = await settingsService.getTaxConfiguration();
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error('Get tax configuration error:', error);
+    return res.status(500).json({ success: false, message: 'Server error fetching tax configuration' });
+  }
+};
+
+export const updateTaxConfiguration = async (req: AuthRequest, res: Response) => {
+  try {
+    const data = await settingsService.updateTaxConfiguration(req.body, req.user?.userId);
+    return res.json({ success: true, message: 'Tax configuration updated successfully', data });
+  } catch (error: any) {
+    const message = error?.message || 'Server error updating tax configuration';
+    // Validation failures are the caller's fault, not a server fault.
+    if (/Duplicate tax component|at least one|Choose at least one|rate above zero/i.test(message)) {
+      return res.status(400).json({ success: false, message });
+    }
+    console.error('Update tax configuration error:', error);
+    return res.status(500).json({ success: false, message: 'Server error updating tax configuration' });
+  }
+};

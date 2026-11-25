@@ -1,0 +1,129 @@
+import { PrismaClient, Ward, PaymentMode } from '@prisma/client';
+import { BaseRepository } from '../../shared/base/BaseRepository';
+import { CreateWardDTO, UpdateWardDTO, WardFilters, Bed } from './WardTypes';
+import { resolveWardDailyRate } from '../../utils/pricing';
+
+// ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
+const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
+
+export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWardDTO> {
+  constructor(prisma: PrismaClient) {
+    super(prisma, 'ward');
+  }
+
+  async findAllWithFilters(filters: WardFilters): Promise<Ward[]> {
+    const { isActive, wardType, hasAvailableBeds, isNHISCovered } = filters;
+    const where: any = {};
+    
+    if (isActive !== undefined) where.isActive = isActive;
+    if (wardType) where.wardType = wardType;
+    if (isNHISCovered !== undefined) where.isNHISCovered = isNHISCovered;
+
+    const wards = await this.getModel().findMany({ where, orderBy: { wardName: 'asc' } });
+
+    // ✅ FIXED: Prisma doesn't support comparing two fields directly. Filter in memory.
+    if (hasAvailableBeds) {
+      return wards.filter((w: any) => w.totalBeds > w.occupiedBeds);
+    }
+    
+    return wards;
+  }
+
+  async findByIdWithDetails(id: string) {
+    return this.getModel().findUnique({
+      where: { id },
+      include: {
+        Bed: {
+          select: { id: true, bedNumber: true, isOccupied: true }, // ✅ FIXED: Removed Patient/currentPatientId
+          orderBy: { bedNumber: 'asc' }
+        },
+        ServiceCatalog: {
+          where: { serviceType: 'ward', isActive: true },
+          select: { id: true, name: true, code: true, isNHISCovered: true, nhisServiceCode: true, pricing: { where: { isActive: true }, take: 1 } }
+        },
+        _count: { select: { Bed: true, Admission: { where: { dischargeStatus: null } } } } // Active admissions
+      }
+    });
+  }
+
+  async getAvailableBeds(wardId?: string) {
+    const where: any = {
+      isOccupied: false,
+      // A stale bed flag must never make a bed available when an active
+      // encounter is already assigned to it.
+      Attendance: { none: { status: { in: ['pending', 'admitted'] } } },
+    };
+    if (wardId) where.wardId = wardId;
+    
+    return this.prisma.bed.findMany({
+      where,
+      include: {
+        Ward: {
+          select: {
+            id: true, wardName: true, wardType: true, isActive: true,
+            dailyCashRate: true, dailyNHISRate: true, dailyInsuranceRate: true, dailyCorporateRate: true,
+            vatRate: true, isTaxable: true, isNHISCovered: true, isPrivateInsExempted: true
+          }
+        }
+      },
+      orderBy: [{ Ward: { wardName: 'asc' } }, { bedNumber: 'asc' }]
+    });
+  }
+
+  async getStats() {
+    const wards = await this.getModel().findMany({
+      select: { totalBeds: true, occupiedBeds: true, isActive: true, isNHISCovered: true, isPrivateInsExempted: true, dailyCashRate: true, dailyNHISRate: true, dailyInsuranceRate: true }
+    });
+    
+    const totalWards = wards.length;
+    const activeWards = wards.filter((w: any) => w.isActive).length;
+    const totalBeds = wards.reduce((sum: number, w: any) => sum + w.totalBeds, 0);
+    const occupiedBeds = wards.reduce((sum: number, w: any) => sum + w.occupiedBeds, 0);
+    
+    const totalNHISCovered = wards.filter((w: any) => w.isNHISCovered).length;
+    const totalPrivateInsuranceCovered = wards.filter((w: any) => !w.isPrivateInsExempted).length;
+    const totalCashOnly = wards.filter((w: any) => !w.isNHISCovered && w.isPrivateInsExempted).length;
+    
+    // ✅ FIXED: Safely parse Decimals before math
+    const avgCashRate = wards.reduce((sum: number, w: any) => sum + toNumber(w.dailyCashRate), 0) / (wards.length || 1);
+    const revenueAtFullOccupancy = totalBeds * avgCashRate;
+    
+    return {
+      totalWards, activeWards, totalBeds, occupiedBeds,
+      availableBeds: totalBeds - occupiedBeds,
+      occupancyRate: totalBeds > 0 ? (occupiedBeds / totalBeds) * 100 : 0,
+      byPaymentMode: { totalNHISCovered, totalPrivateInsuranceCovered, totalCashOnly },
+      revenueProjection: { dailyAtFullOccupancy: revenueAtFullOccupancy, monthlyAtFullOccupancy: revenueAtFullOccupancy * 30 }
+    };
+  }
+
+  async countBedsForWard(wardId: string): Promise<number> {
+    return this.prisma.bed.count({ where: { wardId } });
+  }
+
+  async findByName(name: string, excludeId?: string) {
+    return this.getModel().findFirst({
+      where: { wardName: { equals: name, mode: 'insensitive' }, ...(excludeId ? { id: { not: excludeId } } : {}) }
+    });
+  }
+
+  async calculateWardCharge(wardId: string, numberOfDays: number, paymentMode: PaymentMode) {
+    const ward = await this.getModel().findUnique({
+      where: { id: wardId },
+      select: {
+        dailyCashRate: true, dailyNHISRate: true, dailyInsuranceRate: true, dailyCorporateRate: true,
+        isNHISCovered: true, isPrivateInsExempted: true, vatRate: true, isTaxable: true
+      }
+    });
+
+    if (!ward) throw new Error('Ward not found');
+
+    // Same rules as services (utils/pricing.ts): a missing or uncovered payer rate means the cash rate, no invented discounts
+    const dailyRate = resolveWardDailyRate(ward, paymentMode);
+
+    const subtotal = dailyRate * numberOfDays;
+    const vatAmount = ward.isTaxable ? subtotal * (toNumber(ward.vatRate) / 100) : 0;
+
+    return { dailyRate, subtotal, vatAmount, totalAmount: subtotal + vatAmount };
+  }
+}

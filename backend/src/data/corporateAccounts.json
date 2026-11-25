@@ -1,0 +1,612 @@
+{
+    "corporateAccounts": [
+      {
+        "companyName": "MTN Ghana",
+        "registrationNumber": "CS00123456",
+        "taxId": "T1234567890",
+        "contactPerson": "John Mensah",
+        "email": "hr@mtn.com.gh",
+        "phone": "+233244100001",
+        "address": "MTN House, Independence Avenue, Accra",
+        "creditLimit": 500000,
+        "paymentTerms": 45,
+        "discountPercentage": 10,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "MTN Ghana",
+          "type": "corporate",
+          "coveragePercentage": 90,
+          "contactInfo": {
+            "phone": "+233244100001",
+            "email": "hr@mtn.com.gh",
+            "address": "MTN House, Accra",
+            "contactPerson": "HR Benefits Manager"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "MTN001",
+            "firstName": "Kwame",
+            "lastName": "Asare",
+            "otherNames": "Michael",
+            "department": "Finance",
+            "position": "Senior Manager",
+            "phone": "+233244200001",
+            "email": "kasare@mtn.com.gh",
+            "gender": "male",
+            "dateOfBirth": "1985-06-15"
+          },
+          {
+            "employeeId": "MTN002",
+            "firstName": "Ama",
+            "lastName": "Serwaa",
+            "otherNames": "Esi",
+            "department": "Human Resources",
+            "position": "HR Business Partner",
+            "phone": "+233244200002",
+            "email": "aserwaa@mtn.com.gh",
+            "gender": "female",
+            "dateOfBirth": "1990-03-22"
+          },
+          {
+            "employeeId": "MTN003",
+            "firstName": "Yaw",
+            "lastName": "Mensah",
+            "otherNames": "Boateng",
+            "department": "Information Technology",
+            "position": "IT Infrastructure Manager",
+            "phone": "+233244200003",
+            "email": "ymensah@mtn.com.gh",
+            "gender": "male",
+            "dateOfBirth": "1988-11-08"
+          },
+          {
+            "employeeId": "MTN004",
+            "firstName": "Esi",
+            "lastName": "Adjei",
+            "otherNames": "Afia",
+            "department": "Sales",
+            "position": "Key Account Executive",
+            "phone": "+233244200004",
+            "email": "eadjei@mtn.com.gh",
+            "gender": "female",
+            "dateOfBirth": "1992-07-19"
+          },
+          {
+            "employeeId": "MTN005",
+            "firstName": "Kofi",
+            "lastName": "Boateng",
+            "otherNames": "Owusu",
+            "department": "Operations",
+            "position": "Operations Coordinator",
+            "phone": "+233244200005",
+            "email": "kboateng@mtn.com.gh",
+            "gender": "male",
+            "dateOfBirth": "1986-09-25"
+          }
+        ]
+      },
+      {
+        "companyName": "Gold Fields Ghana",
+        "registrationNumber": "CS00789012",
+        "taxId": "T0987654321",
+        "contactPerson": "Sarah Appiah",
+        "email": "benefits@goldfields.com.gh",
+        "phone": "+233244100002",
+        "address": "Gold Fields Office, Tarkwa",
+        "creditLimit": 750000,
+        "paymentTerms": 60,
+        "discountPercentage": 12,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "Gold Fields Ghana",
+          "type": "corporate",
+          "coveragePercentage": 100,
+          "contactInfo": {
+            "phone": "+233244100002",
+            "email": "benefits@goldfields.com.gh",
+            "address": "Gold Fields Office, Tarkwa",
+            "contactPerson": "Employee Wellness Coordinator"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "GF001",
+            "firstName": "James",
+            "lastName": "Acquah",
+            "otherNames": "Kwesi",
+            "department": "Mining Operations",
+            "position": "Senior Mining Supervisor",
+            "phone": "+233244200006",
+            "email": "jacquah@goldfields.com",
+            "gender": "male",
+            "dateOfBirth": "1982-11-10"
+          },
+          {
+            "employeeId": "GF002",
+            "firstName": "Mary",
+            "lastName": "Tetteh",
+            "otherNames": "Akua",
+            "department": "Health & Safety",
+            "position": "Safety Officer",
+            "phone": "+233244200007",
+            "email": "mtetteh@goldfields.com",
+            "gender": "female",
+            "dateOfBirth": "1989-04-18"
+          },
+          {
+            "employeeId": "GF003",
+            "firstName": "Peter",
+            "lastName": "Ofori",
+            "otherNames": "Kwaku",
+            "department": "Engineering",
+            "position": "Mechanical Engineer",
+            "phone": "+233244200008",
+            "email": "pofori@goldfields.com",
+            "gender": "male",
+            "dateOfBirth": "1987-08-05"
+          }
+        ]
+      },
+      {
+        "companyName": "AngloGold Ashanti",
+        "registrationNumber": "CS00345678",
+        "taxId": "T1122334455",
+        "contactPerson": "Michael Osei",
+        "email": "health@anglogoldashanti.com",
+        "phone": "+233244100003",
+        "address": "AngloGold House, Obuasi",
+        "creditLimit": 1000000,
+        "paymentTerms": 30,
+        "discountPercentage": 15,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "AngloGold Ashanti",
+          "type": "corporate",
+          "coveragePercentage": 95,
+          "contactInfo": {
+            "phone": "+233244100003",
+            "email": "health@anglogoldashanti.com",
+            "address": "AngloGold House, Obuasi",
+            "contactPerson": "Health Benefits Manager"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "AGA001",
+            "firstName": "Elizabeth",
+            "lastName": "Quaye",
+            "otherNames": "Naa",
+            "department": "Administration",
+            "position": "Admin Manager",
+            "phone": "+233244200009",
+            "email": "equaye@anglogold.com",
+            "gender": "female",
+            "dateOfBirth": "1984-12-03"
+          },
+          {
+            "employeeId": "AGA002",
+            "firstName": "Daniel",
+            "lastName": "Opoku",
+            "otherNames": "Kwame",
+            "department": "Geology",
+            "position": "Senior Geologist",
+            "phone": "+233244200010",
+            "email": "dopoku@anglogold.com",
+            "gender": "male",
+            "dateOfBirth": "1986-05-22"
+          },
+          {
+            "employeeId": "AGA003",
+            "firstName": "Grace",
+            "lastName": "Asare",
+            "otherNames": "Abena",
+            "department": "Finance",
+            "position": "Accounts Manager",
+            "phone": "+233244200015",
+            "email": "gasare@anglogold.com",
+            "gender": "female",
+            "dateOfBirth": "1991-09-11"
+          }
+        ]
+      },
+      {
+        "companyName": "GCB Bank Ltd",
+        "registrationNumber": "CS00987654",
+        "taxId": "T5566778899",
+        "contactPerson": "Bernard Mensah",
+        "email": "corporate@gcb.com.gh",
+        "phone": "+233302345691",
+        "address": "GCB Head Office, Accra",
+        "creditLimit": 300000,
+        "paymentTerms": 30,
+        "discountPercentage": 8,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "GCB Bank Ltd",
+          "type": "corporate",
+          "coveragePercentage": 80,
+          "contactInfo": {
+            "phone": "+233302345691",
+            "email": "corporate@gcb.com.gh",
+            "address": "GCB Head Office, Accra",
+            "contactPerson": "HR Benefits Manager"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "GCB001",
+            "firstName": "Grace",
+            "lastName": "Asamoah",
+            "otherNames": "Efua",
+            "department": "Banking Operations",
+            "position": "Branch Manager",
+            "phone": "+233244200011",
+            "email": "gasamoah@gcb.com.gh",
+            "gender": "female",
+            "dateOfBirth": "1983-02-28"
+          },
+          {
+            "employeeId": "GCB002",
+            "firstName": "Ernest",
+            "lastName": "Boadi",
+            "otherNames": "Kwesi",
+            "department": "Credit",
+            "position": "Credit Officer",
+            "phone": "+233244200012",
+            "email": "eboadi@gcb.com.gh",
+            "gender": "male",
+            "dateOfBirth": "1989-07-14"
+          },
+          {
+            "employeeId": "GCB003",
+            "firstName": "Patience",
+            "lastName": "Adjei",
+            "otherNames": "Akosua",
+            "department": "Customer Service",
+            "position": "Customer Experience Manager",
+            "phone": "+233244200016",
+            "email": "padjei@gcb.com.gh",
+            "gender": "female",
+            "dateOfBirth": "1992-10-30"
+          }
+        ]
+      },
+      {
+        "companyName": "Vodafone Ghana",
+        "registrationNumber": "CS00456789",
+        "taxId": "T9988776655",
+        "contactPerson": "Nana Ama Asante",
+        "email": "wellness@vodafone.com.gh",
+        "phone": "+233302345692",
+        "address": "Vodafone Headquarters, Accra",
+        "creditLimit": 450000,
+        "paymentTerms": 45,
+        "discountPercentage": 10,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "Vodafone Ghana",
+          "type": "corporate",
+          "coveragePercentage": 85,
+          "contactInfo": {
+            "phone": "+233302345692",
+            "email": "wellness@vodafone.com.gh",
+            "address": "Vodafone Headquarters, Accra",
+            "contactPerson": "Employee Wellness Manager"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "VOD001",
+            "firstName": "Patricia",
+            "lastName": "Owusu",
+            "otherNames": "Adwoa",
+            "department": "Marketing",
+            "position": "Marketing Manager",
+            "phone": "+233244200013",
+            "email": "powusu@vodafone.com.gh",
+            "gender": "female",
+            "dateOfBirth": "1987-01-17"
+          },
+          {
+            "employeeId": "VOD002",
+            "firstName": "Richard",
+            "lastName": "Asare",
+            "otherNames": "Kofi",
+            "department": "Technical",
+            "position": "Network Engineer",
+            "phone": "+233244200014",
+            "email": "rasare@vodafone.com.gh",
+            "gender": "male",
+            "dateOfBirth": "1991-04-09"
+          },
+          {
+            "employeeId": "VOD003",
+            "firstName": "Samuel",
+            "lastName": "Appiah",
+            "otherNames": "Kwaku",
+            "department": "Sales",
+            "position": "Enterprise Sales Lead",
+            "phone": "+233244200017",
+            "email": "sappiah@vodafone.com.gh",
+            "gender": "male",
+            "dateOfBirth": "1988-12-01"
+          }
+        ]
+      },
+      {
+        "companyName": "Star Assurance",
+        "registrationNumber": "CS00112233",
+        "taxId": "T1234567888",
+        "contactPerson": "Charles Quarshie",
+        "email": "info@starassurance.com",
+        "phone": "+233302345678",
+        "address": "Star House, Accra Central",
+        "creditLimit": 250000,
+        "paymentTerms": 30,
+        "discountPercentage": 5,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "Star Assurance",
+          "type": "corporate",
+          "coveragePercentage": 100,
+          "contactInfo": {
+            "phone": "+233302345678",
+            "email": "info@starassurance.com",
+            "address": "Star House, Accra Central",
+            "contactPerson": "Health Claims Department"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "STA001",
+            "firstName": "Charles",
+            "lastName": "Quarshie",
+            "otherNames": "Kwame",
+            "department": "Claims",
+            "position": "Claims Manager",
+            "phone": "+233244200018",
+            "email": "cquarshie@starassurance.com",
+            "gender": "male",
+            "dateOfBirth": "1979-05-12"
+          },
+          {
+            "employeeId": "STA002",
+            "firstName": "Linda",
+            "lastName": "Ampofo",
+            "otherNames": "Akua",
+            "department": "Underwriting",
+            "position": "Underwriting Officer",
+            "phone": "+233244200019",
+            "email": "lampofo@starassurance.com",
+            "gender": "female",
+            "dateOfBirth": "1990-11-25"
+          }
+        ]
+      },
+      {
+        "companyName": "Enterprise Insurance",
+        "registrationNumber": "CS00445566",
+        "taxId": "T4455667788",
+        "contactPerson": "David Tetteh",
+        "email": "health@enterpriseinsurance.com",
+        "phone": "+233302345679",
+        "address": "Enterprise Tower, Accra",
+        "creditLimit": 350000,
+        "paymentTerms": 45,
+        "discountPercentage": 10,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "Enterprise Insurance",
+          "type": "corporate",
+          "coveragePercentage": 100,
+          "contactInfo": {
+            "phone": "+233302345679",
+            "email": "health@enterpriseinsurance.com",
+            "address": "Enterprise Tower, Accra",
+            "contactPerson": "Medical Claims Manager"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "ENT001",
+            "firstName": "David",
+            "lastName": "Tetteh",
+            "otherNames": "Kwesi",
+            "department": "Medical Claims",
+            "position": "Medical Claims Manager",
+            "phone": "+233244200020",
+            "email": "dtetteh@enterprise.com",
+            "gender": "male",
+            "dateOfBirth": "1983-08-19"
+          },
+          {
+            "employeeId": "ENT002",
+            "firstName": "Esther",
+            "lastName": "Mensah",
+            "otherNames": "Esi",
+            "department": "Customer Service",
+            "position": "Client Relations Officer",
+            "phone": "+233244200021",
+            "email": "emensah@enterprise.com",
+            "gender": "female",
+            "dateOfBirth": "1992-02-14"
+          }
+        ]
+      },
+      {
+        "companyName": "Tullow Oil Ghana",
+        "registrationNumber": "CS007778899",
+        "taxId": "T7788990011",
+        "contactPerson": "Peter Amoah",
+        "email": "hr@tullowoil.com.gh",
+        "phone": "+233244100004",
+        "address": "Tullow Office, Airport City, Accra",
+        "creditLimit": 1200000,
+        "paymentTerms": 60,
+        "discountPercentage": 18,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "Tullow Oil Ghana",
+          "type": "corporate",
+          "coveragePercentage": 100,
+          "contactInfo": {
+            "phone": "+233244100004",
+            "email": "hr@tullowoil.com.gh",
+            "address": "Tullow Office, Airport City, Accra",
+            "contactPerson": "HR Director"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "TUL001",
+            "firstName": "Peter",
+            "lastName": "Amoah",
+            "otherNames": "Kwame",
+            "department": "Operations",
+            "position": "Operations Director",
+            "phone": "+233244200022",
+            "email": "pamoah@tullowoil.com",
+            "gender": "male",
+            "dateOfBirth": "1975-10-20"
+          },
+          {
+            "employeeId": "TUL002",
+            "firstName": "Cynthia",
+            "lastName": "Arthur",
+            "otherNames": "Akua",
+            "department": "Finance",
+            "position": "Finance Controller",
+            "phone": "+233244200023",
+            "email": "carthur@tullowoil.com",
+            "gender": "female",
+            "dateOfBirth": "1982-03-08"
+          },
+          {
+            "employeeId": "TUL003",
+            "firstName": "Kwame",
+            "lastName": "Boateng",
+            "otherNames": "Kwasi",
+            "department": "Engineering",
+            "position": "Senior Petroleum Engineer",
+            "phone": "+233244200024",
+            "email": "kboateng@tullowoil.com",
+            "gender": "male",
+            "dateOfBirth": "1985-07-30"
+          }
+        ]
+      },
+      {
+        "companyName": "Newmont Ghana",
+        "registrationNumber": "CS00223344",
+        "taxId": "T2233445566",
+        "contactPerson": "Stephen Quaye",
+        "email": "benefits@newmont.com",
+        "phone": "+233244100005",
+        "address": "Newmont Office, Ahafo",
+        "creditLimit": 900000,
+        "paymentTerms": 45,
+        "discountPercentage": 14,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "Newmont Ghana",
+          "type": "corporate",
+          "coveragePercentage": 98,
+          "contactInfo": {
+            "phone": "+233244100005",
+            "email": "benefits@newmont.com",
+            "address": "Newmont Office, Ahafo",
+            "contactPerson": "Employee Benefits Manager"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "NEW001",
+            "firstName": "Stephen",
+            "lastName": "Quaye",
+            "otherNames": "Kwame",
+            "department": "Mining",
+            "position": "Mine Manager",
+            "phone": "+233244200025",
+            "email": "squaye@newmont.com",
+            "gender": "male",
+            "dateOfBirth": "1978-12-05"
+          },
+          {
+            "employeeId": "NEW002",
+            "firstName": "Akua",
+            "lastName": "Agyeman",
+            "otherNames": "Serwaa",
+            "department": "Environment",
+            "position": "Environmental Officer",
+            "phone": "+233244200026",
+            "email": "aagyeman@newmont.com",
+            "gender": "female",
+            "dateOfBirth": "1988-09-17"
+          }
+        ]
+      },
+      {
+        "companyName": "Shoprite Ghana",
+        "registrationNumber": "CS00998877",
+        "taxId": "T9988770011",
+        "contactPerson": "Nana Yaw Adjei",
+        "email": "hr@shoprite.com.gh",
+        "phone": "+233244100006",
+        "address": "Shoprite Head Office, Accra Mall",
+        "creditLimit": 200000,
+        "paymentTerms": 30,
+        "discountPercentage": 7,
+        "isActive": true,
+        "insuranceProvider": {
+          "name": "Shoprite Ghana",
+          "type": "corporate",
+          "coveragePercentage": 75,
+          "contactInfo": {
+            "phone": "+233244100006",
+            "email": "hr@shoprite.com.gh",
+            "address": "Shoprite Head Office, Accra Mall",
+            "contactPerson": "HR Manager"
+          }
+        },
+        "employees": [
+          {
+            "employeeId": "SHP001",
+            "firstName": "Nana Yaw",
+            "lastName": "Adjei",
+            "otherNames": "Kwame",
+            "department": "Operations",
+            "position": "Store Operations Manager",
+            "phone": "+233244200027",
+            "email": "nadjei@shoprite.com.gh",
+            "gender": "male",
+            "dateOfBirth": "1984-04-23"
+          },
+          {
+            "employeeId": "SHP002",
+            "firstName": "Adwoa",
+            "lastName": "Boadi",
+            "otherNames": "Ama",
+            "department": "Marketing",
+            "position": "Marketing Coordinator",
+            "phone": "+233244200028",
+            "email": "aboadi@shoprite.com.gh",
+            "gender": "female",
+            "dateOfBirth": "1993-06-12"
+          },
+          {
+            "employeeId": "SHP003",
+            "firstName": "Kwaku",
+            "lastName": "Ansah",
+            "otherNames": "Kofi",
+            "department": "Logistics",
+            "position": "Supply Chain Officer",
+            "phone": "+233244200029",
+            "email": "kansah@shoprite.com.gh",
+            "gender": "male",
+            "dateOfBirth": "1990-01-28"
+          }
+        ]
+      }
+    ]
+  }

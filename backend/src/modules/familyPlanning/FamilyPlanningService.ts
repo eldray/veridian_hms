@@ -1,0 +1,67 @@
+import { PrismaClient } from '@prisma/client';
+import { BaseService } from '../../shared/base/BaseService';
+import { FamilyPlanningRepository } from './FamilyPlanningRepository';
+import { CreateFPServiceInput, UpdateFPServiceInput, FPServiceFilters } from './FamilyPlanningTypes';
+
+export class FamilyPlanningService extends BaseService {
+  private repository: FamilyPlanningRepository;
+
+  constructor(prisma: PrismaClient) {
+    super('FamilyPlanningService');
+    this.repository = new FamilyPlanningRepository(prisma);
+  }
+
+  async createFPService(data: CreateFPServiceInput) {
+    // The repository derives new-acceptor status from dated patient FP history so
+    // clients cannot accidentally undercount first-time acceptors or mark repeat
+    // visits as new. This also handles backdated entry more accurately.
+    return this.repository.createFPService(data);
+  }
+
+  async getFPServices(filters: FPServiceFilters) {
+    return this.repository.getFPServices(filters);
+  }
+
+  async getFPServiceById(id: string) {
+    // ✅ Uses BaseRepository's findById. If not found, Prisma throws P2025 (mapped to 404).
+    const service = await this.repository.findById(id);
+    if (!service) throw new Error('FP service not found');
+    return service;
+  }
+
+  async getCurrentMethodForPatient(patientId: string) {
+    return this.repository.getCurrentMethodForPatient(patientId);
+  }
+
+  async getFPHistoryForPatient(patientId: string) {
+    return this.repository.getFPHistoryForPatient(patientId);
+  }
+
+  async updateFPService(id: string, data: UpdateFPServiceInput, actorId: string) {
+    // ✅ REMOVED manual existence check. Prisma throws P2025 if not found (mapped to 404).
+    return this.repository.update(id, data, actorId);
+  }
+
+  async deleteFPService(id: string, actorId: string) {
+    // ✅ REMOVED manual existence check. Prisma throws P2025 if not found (mapped to 404).
+    await this.repository.delete(id, actorId);
+  }
+
+  async getFPStatistics(startDate?: Date, endDate?: Date) {
+    return this.repository.getFPStatistics(startDate, endDate);
+  }
+
+  async getMethodMix(startDate?: Date, endDate?: Date) {
+    return this.repository.getMethodMix(startDate, endDate);
+  }
+
+  async getFPClientDetails(patientId: string) {
+    const details = await this.repository.getFPClientDetails(patientId);
+    if (!details) throw new Error('Patient not found or no FP services recorded');
+    return details;
+  }
+
+  async getGHSFPReport(startDate: Date, endDate: Date) {
+    return this.repository.getGHSFPReport(startDate, endDate);
+  }
+}

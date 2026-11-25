@@ -1,0 +1,3928 @@
+[
+  {
+    "name": "Chest X-ray",
+    "scanCode": "scan01x",
+    "investigationCode": "INVE89D",
+    "description": "Plain radiograph of the chest",
+    "category": "xray",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove metal objects and jewelry",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "lungs",
+        "fieldType": "textarea",
+        "label": "Lungs & Pleura"
+      },
+      {
+        "fieldName": "heart_mediastinum",
+        "fieldType": "textarea",
+        "label": "Heart, Mediastinum & Hila"
+      },
+      {
+        "fieldName": "bones",
+        "fieldType": "textarea",
+        "label": "Bones & Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Abdominal Ultrasound",
+    "scanCode": "scan02u",
+    "investigationCode": "INVE30E",
+    "description": "Ultrasound imaging of abdominal organs",
+    "category": "ultrasound",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 6 hours required",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 38.57,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "liver",
+        "fieldType": "textarea",
+        "label": "Liver"
+      },
+      {
+        "fieldName": "gallbladder",
+        "fieldType": "textarea",
+        "label": "Gallbladder"
+      },
+      {
+        "fieldName": "biliary_tree",
+        "fieldType": "textarea",
+        "label": "Biliary Tree"
+      },
+      {
+        "fieldName": "pancreas",
+        "fieldType": "textarea",
+        "label": "Pancreas"
+      },
+      {
+        "fieldName": "spleen",
+        "fieldType": "textarea",
+        "label": "Spleen"
+      },
+      {
+        "fieldName": "kidneys",
+        "fieldType": "textarea",
+        "label": "Kidneys"
+      },
+      {
+        "fieldName": "aorta",
+        "fieldType": "textarea",
+        "label": "Abdominal Aorta"
+      },
+      {
+        "fieldName": "comment",
+        "fieldType": "textarea",
+        "label": "Comment"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Pelvic Ultrasound (Transabdominal)",
+    "scanCode": "scan03u",
+    "investigationCode": "INVE30E",
+    "description": "Ultrasound of uterus and ovaries via abdomen",
+    "category": "ultrasound",
+    "bodyPart": "pelvis",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Full bladder required – drink 1L water 1 hour before",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 38.57,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "uterus",
+        "fieldType": "textarea",
+        "label": "Uterus"
+      },
+      {
+        "fieldName": "endometrium",
+        "fieldType": "textarea",
+        "label": "Endometrium"
+      },
+      {
+        "fieldName": "ovaries",
+        "fieldType": "textarea",
+        "label": "Ovaries"
+      },
+      {
+        "fieldName": "adnexae",
+        "fieldType": "textarea",
+        "label": "Adnexae"
+      },
+      {
+        "fieldName": "pod",
+        "fieldType": "textarea",
+        "label": "POD (Pouch of Douglas)"
+      },
+      {
+        "fieldName": "comment",
+        "fieldType": "textarea",
+        "label": "Comment"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Obstetric Ultrasound (Dating Scan)",
+    "scanCode": "scan04u",
+    "investigationCode": "INVE30E",
+    "description": "First-trimester fetal viability and dating",
+    "category": "ultrasound",
+    "bodyPart": "pelvis",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Full bladder preferred",
+    "duration": 25,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 38.57,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "num_fetuses",
+        "fieldType": "text",
+        "label": "Number of Fetuses"
+      },
+      {
+        "fieldName": "fetal_cardiac",
+        "fieldType": "text",
+        "label": "Fetal Cardiac Activity"
+      },
+      {
+        "fieldName": "presentation",
+        "fieldType": "select",
+        "label": "Presentation",
+        "options": [
+          "Cephalic",
+          "Breech",
+          "Transverse",
+          "Oblique",
+          "Variable"
+        ]
+      },
+      {
+        "fieldName": "placenta_location",
+        "fieldType": "select",
+        "label": "Placenta Location",
+        "options": [
+          "Anterior",
+          "Posterior",
+          "Fundal",
+          "Lateral",
+          "Low-lying",
+          "Praevia"
+        ]
+      },
+      {
+        "fieldName": "largest_pool",
+        "fieldType": "text",
+        "label": "Largest Single Pool of Liquor",
+        "referenceRange": "2.0–8.0 cm"
+      },
+      {
+        "fieldName": "afi",
+        "fieldType": "text",
+        "label": "Amniotic Fluid Index (AFI)",
+        "referenceRange": "2.0–8.0 cm"
+      },
+      {
+        "fieldName": "comment_lv",
+        "fieldType": "textarea",
+        "label": "Comment on LV"
+      },
+      {
+        "fieldName": "ega",
+        "fieldType": "text",
+        "label": "Estimated Gestational Age (EGA)"
+      },
+      {
+        "fieldName": "edd",
+        "fieldType": "date",
+        "label": "Estimated Date of Delivery (EDD)"
+      },
+      {
+        "fieldName": "efw",
+        "fieldType": "text",
+        "label": "Estimated Fetal Weight (EFW)"
+      },
+      {
+        "fieldName": "anatomy_head",
+        "fieldType": "text",
+        "label": "Fetal Head"
+      },
+      {
+        "fieldName": "anatomy_neck",
+        "fieldType": "text",
+        "label": "Fetal Neck"
+      },
+      {
+        "fieldName": "anatomy_abdominal",
+        "fieldType": "text",
+        "label": "Anterior Abdominal Wall"
+      },
+      {
+        "fieldName": "anatomy_spine",
+        "fieldType": "text",
+        "label": "Fetal Spine"
+      },
+      {
+        "fieldName": "anatomy_limbs",
+        "fieldType": "text",
+        "label": "Fetal Limbs"
+      },
+      {
+        "fieldName": "anatomy_comment",
+        "fieldType": "textarea",
+        "label": "Fetal Anatomy Comment"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Renal Ultrasound",
+    "scanCode": "scan05u",
+    "investigationCode": "INVE30E",
+    "description": "Imaging of kidneys and bladder",
+    "category": "ultrasound",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Full bladder required",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 38.57,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "right_kidney",
+        "fieldType": "textarea",
+        "label": "Right Kidney"
+      },
+      {
+        "fieldName": "left_kidney",
+        "fieldType": "textarea",
+        "label": "Left Kidney"
+      },
+      {
+        "fieldName": "bladder",
+        "fieldType": "textarea",
+        "label": "Urinary Bladder"
+      },
+      {
+        "fieldName": "comment",
+        "fieldType": "textarea",
+        "label": "Comment"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Skull (AP/Lateral)",
+    "scanCode": "scan06x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of skull bones",
+    "category": "xray",
+    "bodyPart": "head",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove hairpins and metal",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "vault",
+        "fieldType": "textarea",
+        "label": "Skull Vault"
+      },
+      {
+        "fieldName": "base",
+        "fieldType": "textarea",
+        "label": "Skull Base"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Abdomen (Supine)",
+    "scanCode": "scan07x",
+    "investigationCode": "INVE89D",
+    "description": "Plain abdominal X-ray for obstruction or calcifications",
+    "category": "xray",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bowel_gas",
+        "fieldType": "textarea",
+        "label": "Bowel Gas Pattern"
+      },
+      {
+        "fieldName": "free_air",
+        "fieldType": "textarea",
+        "label": "Free Air"
+      },
+      {
+        "fieldName": "calcifications",
+        "fieldType": "textarea",
+        "label": "Calcifications"
+      },
+      {
+        "fieldName": "bones",
+        "fieldType": "textarea",
+        "label": "Bones"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Lumbar Spine",
+    "scanCode": "scan08x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of lower back vertebrae",
+    "category": "xray",
+    "bodyPart": "spine",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove belts and metal",
+    "duration": 15,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "alignment",
+        "fieldType": "textarea",
+        "label": "Alignment"
+      },
+      {
+        "fieldName": "vertebral_bodies",
+        "fieldType": "textarea",
+        "label": "Vertebral Bodies"
+      },
+      {
+        "fieldName": "disc_spaces",
+        "fieldType": "textarea",
+        "label": "Disc Spaces"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Cervical Spine",
+    "scanCode": "scan09x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of neck vertebrae",
+    "category": "xray",
+    "bodyPart": "spine",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove necklaces and collars",
+    "duration": 12,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "alignment",
+        "fieldType": "textarea",
+        "label": "Alignment"
+      },
+      {
+        "fieldName": "vertebral_bodies",
+        "fieldType": "textarea",
+        "label": "Vertebral Bodies"
+      },
+      {
+        "fieldName": "disc_spaces",
+        "fieldType": "textarea",
+        "label": "Disc Spaces"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Femur",
+    "scanCode": "scan10x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of thigh bone",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove clothing over area",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joints",
+        "fieldType": "textarea",
+        "label": "Joints"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Tibia/Fibula",
+    "scanCode": "scan11x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of lower leg bones",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove footwear and socks",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joints",
+        "fieldType": "textarea",
+        "label": "Joints"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Ankle",
+    "scanCode": "scan12x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of ankle joint",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove shoes and socks",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joint_space",
+        "fieldType": "textarea",
+        "label": "Joint Space"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Shoulder",
+    "scanCode": "scan13x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of shoulder joint",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Wear sleeveless top or remove shirt",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joint_space",
+        "fieldType": "textarea",
+        "label": "Joint Space"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Hand",
+    "scanCode": "scan14x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of hand bones",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove rings and bracelets",
+    "duration": 8,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joints",
+        "fieldType": "textarea",
+        "label": "Joints"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Mammography (Screening)",
+    "scanCode": "scan15m",
+    "investigationCode": "INVE78D",
+    "description": "X-ray imaging of breast tissue for cancer screening",
+    "category": "mammography",
+    "bodyPart": "breast",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Avoid deodorant or powder on day of exam",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 56.34,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "breast_density",
+        "fieldType": "select",
+        "label": "Breast Density (ACR)",
+        "options": [
+          "A - Fatty",
+          "B - Scattered Fibroglandular",
+          "C - Heterogeneously Dense",
+          "D - Extremely Dense"
+        ]
+      },
+      {
+        "fieldName": "right_breast",
+        "fieldType": "textarea",
+        "label": "Right Breast Findings"
+      },
+      {
+        "fieldName": "left_breast",
+        "fieldType": "textarea",
+        "label": "Left Breast Findings"
+      },
+      {
+        "fieldName": "birads",
+        "fieldType": "select",
+        "label": "BI-RADS Category",
+        "options": [
+          "1 - Negative",
+          "2 - Benign",
+          "3 - Probably Benign",
+          "4a - Low Suspicion",
+          "4b - Moderate Suspicion",
+          "4c - High Suspicion",
+          "5 - Highly Suggestive of Malignancy",
+          "6 - Known Biopsy-Proven Malignancy"
+        ]
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Thyroid Ultrasound",
+    "scanCode": "scan16u",
+    "investigationCode": "INVE30E",
+    "description": "Ultrasound of thyroid gland",
+    "category": "ultrasound",
+    "bodyPart": "neck",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 15,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 38.57,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "right_lobe",
+        "fieldType": "textarea",
+        "label": "Right Lobe"
+      },
+      {
+        "fieldName": "left_lobe",
+        "fieldType": "textarea",
+        "label": "Left Lobe"
+      },
+      {
+        "fieldName": "isthmus",
+        "fieldType": "textarea",
+        "label": "Isthmus"
+      },
+      {
+        "fieldName": "lymph_nodes",
+        "fieldType": "textarea",
+        "label": "Cervical Lymph Nodes"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Scrotal Ultrasound",
+    "scanCode": "scan17u",
+    "investigationCode": "INVE30E",
+    "description": "Ultrasound of testes and scrotum",
+    "category": "ultrasound",
+    "bodyPart": "pelvis",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 38.57,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "right_testis",
+        "fieldType": "textarea",
+        "label": "Right Testis"
+      },
+      {
+        "fieldName": "left_testis",
+        "fieldType": "textarea",
+        "label": "Left Testis"
+      },
+      {
+        "fieldName": "epididymides",
+        "fieldType": "textarea",
+        "label": "Epididymides"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Pelvis",
+    "scanCode": "scan18x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of pelvic bones",
+    "category": "xray",
+    "bodyPart": "pelvis",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove metal objects and clothing below waist",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joints",
+        "fieldType": "textarea",
+        "label": "Sacroiliac Joints"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Ribs",
+    "scanCode": "scan19x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph to assess rib fractures",
+    "category": "xray",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove upper body clothing",
+    "duration": 12,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "rib_integrity",
+        "fieldType": "textarea",
+        "label": "Rib Integrity"
+      },
+      {
+        "fieldName": "lungs",
+        "fieldType": "textarea",
+        "label": "Lung Fields"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Barium Swallow (Fluoroscopy)",
+    "scanCode": "scan20f",
+    "investigationCode": "INVE13D",
+    "description": "Real-time X-ray of swallowing with contrast",
+    "category": "fluoroscopy",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 6 hours; inform if pregnant",
+    "duration": 30,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 98.96,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "oral_phase",
+        "fieldType": "textarea",
+        "label": "Oral Phase"
+      },
+      {
+        "fieldName": "pharyngeal_phase",
+        "fieldType": "textarea",
+        "label": "Pharyngeal Phase"
+      },
+      {
+        "fieldName": "esophageal_phase",
+        "fieldType": "textarea",
+        "label": "Esophageal Phase"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Intravenous Urogram (IVU)",
+    "scanCode": "scan21x",
+    "investigationCode": "INVE72D",
+    "description": "X-ray of kidneys, ureters, and bladder with contrast",
+    "category": "xray",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4 hours; laxative may be given",
+    "duration": 60,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 264.14,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "kidneys",
+        "fieldType": "textarea",
+        "label": "Kidneys"
+      },
+      {
+        "fieldName": "ureters",
+        "fieldType": "textarea",
+        "label": "Ureters"
+      },
+      {
+        "fieldName": "bladder",
+        "fieldType": "textarea",
+        "label": "Urinary Bladder"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Hysterosalpingogram (HSG)",
+    "scanCode": "scan22x",
+    "investigationCode": "INVE70D",
+    "description": "X-ray of uterus and fallopian tubes with contrast",
+    "category": "xray",
+    "bodyPart": "pelvis",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Schedule between days 7–10 of cycle; antibiotics may be prescribed",
+    "duration": 30,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 63.19,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "uterine_cavity",
+        "fieldType": "textarea",
+        "label": "Uterine Cavity"
+      },
+      {
+        "fieldName": "fallopian_tubes",
+        "fieldType": "textarea",
+        "label": "Fallopian Tubes"
+      },
+      {
+        "fieldName": "spill",
+        "fieldType": "textarea",
+        "label": "Peritoneal Spill"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Scan, Head (Plain)",
+    "scanCode": "scan23c",
+    "investigationCode": "INVE34D",
+    "description": "Cross-sectional imaging of brain without contrast",
+    "category": "ct_scan",
+    "bodyPart": "head",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal from head/neck",
+    "duration": 15,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 102.01,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "brain_parenchyma",
+        "fieldType": "textarea",
+        "label": "Brain Parenchyma"
+      },
+      {
+        "fieldName": "ventricles",
+        "fieldType": "textarea",
+        "label": "Ventricles"
+      },
+      {
+        "fieldName": "midline",
+        "fieldType": "textarea",
+        "label": "Midline Shift"
+      },
+      {
+        "fieldName": "skull",
+        "fieldType": "textarea",
+        "label": "Skull"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Scan, Abdomen (With Contrast)",
+    "scanCode": "scan24c",
+    "investigationCode": "INVE33D",
+    "description": "Detailed imaging of abdominal organs with contrast",
+    "category": "ct_scan",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4–6 hours; IV access required",
+    "duration": 25,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 284.38,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "liver",
+        "fieldType": "textarea",
+        "label": "Liver"
+      },
+      {
+        "fieldName": "gallbladder_biliary",
+        "fieldType": "textarea",
+        "label": "Gallbladder & Biliary Tree"
+      },
+      {
+        "fieldName": "pancreas",
+        "fieldType": "textarea",
+        "label": "Pancreas"
+      },
+      {
+        "fieldName": "spleen",
+        "fieldType": "textarea",
+        "label": "Spleen"
+      },
+      {
+        "fieldName": "kidneys_adrenals",
+        "fieldType": "textarea",
+        "label": "Kidneys & Adrenals"
+      },
+      {
+        "fieldName": "bowel",
+        "fieldType": "textarea",
+        "label": "Bowel"
+      },
+      {
+        "fieldName": "lymph_nodes",
+        "fieldType": "textarea",
+        "label": "Lymph Nodes"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Scan, Chest (Plain)",
+    "scanCode": "scan25c",
+    "investigationCode": "INVE34D",
+    "description": "High-resolution imaging of lungs and mediastinum",
+    "category": "ct_scan",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove upper body metal",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 102.01,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "lungs",
+        "fieldType": "textarea",
+        "label": "Lungs"
+      },
+      {
+        "fieldName": "pleura",
+        "fieldType": "textarea",
+        "label": "Pleura"
+      },
+      {
+        "fieldName": "mediastinum",
+        "fieldType": "textarea",
+        "label": "Mediastinum"
+      },
+      {
+        "fieldName": "lymph_nodes",
+        "fieldType": "textarea",
+        "label": "Lymph Nodes"
+      },
+      {
+        "fieldName": "bones",
+        "fieldType": "textarea",
+        "label": "Bones"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Sinuses",
+    "scanCode": "scan26x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of paranasal sinuses",
+    "category": "xray",
+    "bodyPart": "head",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "maxillary",
+        "fieldType": "textarea",
+        "label": "Maxillary Sinuses"
+      },
+      {
+        "fieldName": "frontal",
+        "fieldType": "textarea",
+        "label": "Frontal Sinuses"
+      },
+      {
+        "fieldName": "ethmoid",
+        "fieldType": "textarea",
+        "label": "Ethmoid Sinuses"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Breast Ultrasound",
+    "scanCode": "scan27u",
+    "investigationCode": "INVE30E",
+    "description": "Ultrasound evaluation of breast lumps",
+    "category": "ultrasound",
+    "bodyPart": "breast",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 38.57,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "right_breast",
+        "fieldType": "textarea",
+        "label": "Right Breast"
+      },
+      {
+        "fieldName": "left_breast",
+        "fieldType": "textarea",
+        "label": "Left Breast"
+      },
+      {
+        "fieldName": "axillae",
+        "fieldType": "textarea",
+        "label": "Axillae"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Doppler Ultrasound, Lower Limb Veins",
+    "scanCode": "scan28u",
+    "investigationCode": "INVE30E",
+    "description": "Assessment of deep vein thrombosis (DVT)",
+    "category": "ultrasound",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Wear loose clothing; no lotions on legs",
+    "duration": 40,
+    "contrastRequired": false,
+    "scanType": "doppler",
+    "tariffGhC": 37.93,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "right_leg",
+        "fieldType": "textarea",
+        "label": "Right Lower Limb"
+      },
+      {
+        "fieldName": "left_leg",
+        "fieldType": "textarea",
+        "label": "Left Lower Limb"
+      },
+      {
+        "fieldName": "compressibility",
+        "fieldType": "textarea",
+        "label": "Venous Compressibility"
+      },
+      {
+        "fieldName": "flow",
+        "fieldType": "textarea",
+        "label": "Flow Characteristics"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Doppler Ultrasound, Carotid Arteries",
+    "scanCode": "scan29u",
+    "investigationCode": "INVE30E",
+    "description": "Evaluation of neck artery stenosis",
+    "category": "ultrasound",
+    "bodyPart": "neck",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "doppler",
+    "tariffGhC": 37.93,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "right_ica",
+        "fieldType": "textarea",
+        "label": "Right Internal Carotid Artery"
+      },
+      {
+        "fieldName": "left_ica",
+        "fieldType": "textarea",
+        "label": "Left Internal Carotid Artery"
+      },
+      {
+        "fieldName": "right_eca",
+        "fieldType": "textarea",
+        "label": "Right External Carotid Artery"
+      },
+      {
+        "fieldName": "left_eca",
+        "fieldType": "textarea",
+        "label": "Left External Carotid Artery"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Wrist",
+    "scanCode": "scan30x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of wrist joint",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove bracelets and watches",
+    "duration": 8,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joint_space",
+        "fieldType": "textarea",
+        "label": "Joint Space"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Scan, 2 Regions (No Contrast)",
+    "scanCode": "scan31c",
+    "investigationCode": "INVE157D",
+    "description": "CT imaging of two anatomical regions without contrast",
+    "category": "ct_scan",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal objects",
+    "duration": 25,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 177.14,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "region_1",
+        "fieldType": "textarea",
+        "label": "Region 1 Findings"
+      },
+      {
+        "fieldName": "region_2",
+        "fieldType": "textarea",
+        "label": "Region 2 Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Scan, 2 Regions (With 1 Contrast)",
+    "scanCode": "scan32c",
+    "investigationCode": "INVE158D",
+    "description": "CT imaging of two regions with single contrast dose",
+    "category": "ct_scan",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4-6 hours; IV access required",
+    "duration": 30,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 181.2,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "region_1",
+        "fieldType": "textarea",
+        "label": "Region 1 Findings"
+      },
+      {
+        "fieldName": "region_2",
+        "fieldType": "textarea",
+        "label": "Region 2 Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Scan, 2 Regions (With 2 Contrast)",
+    "scanCode": "scan33c",
+    "investigationCode": "INVE159D",
+    "description": "CT imaging of two regions with double contrast (IV and oral/barium)",
+    "category": "ct_scan",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 6 hours; oral contrast may be given",
+    "duration": 35,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 203.97,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "region_1",
+        "fieldType": "textarea",
+        "label": "Region 1 Findings"
+      },
+      {
+        "fieldName": "region_2",
+        "fieldType": "textarea",
+        "label": "Region 2 Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Scan, 1 Region (With 2 Contrast)",
+    "scanCode": "scan34c",
+    "investigationCode": "INVE32D",
+    "description": "CT imaging of single region with double contrast",
+    "category": "ct_scan",
+    "bodyPart": "other",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4-6 hours",
+    "duration": 25,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 354.32,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "findings",
+        "fieldType": "textarea",
+        "label": "Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "MRI, 1 Region (No Contrast)",
+    "scanCode": "scan35m",
+    "investigationCode": "INVE81D",
+    "description": "Magnetic resonance imaging of single region without contrast",
+    "category": "mri",
+    "bodyPart": "other",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal; inform of implants/claustrophobia",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 170.39,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "findings",
+        "fieldType": "textarea",
+        "label": "Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "MRI, 1 Region (With Contrast)",
+    "scanCode": "scan36m",
+    "investigationCode": "INVE80D",
+    "description": "Magnetic resonance imaging of single region with contrast",
+    "category": "mri",
+    "bodyPart": "other",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal; IV contrast will be administered",
+    "duration": 40,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 369.99,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "findings",
+        "fieldType": "textarea",
+        "label": "Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "MRI, 2 Regions (No Contrast)",
+    "scanCode": "scan37m",
+    "investigationCode": "INVE160D",
+    "description": "MRI of two anatomical regions without contrast",
+    "category": "mri",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal objects",
+    "duration": 45,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 402.15,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "region_1",
+        "fieldType": "textarea",
+        "label": "Region 1 Findings"
+      },
+      {
+        "fieldName": "region_2",
+        "fieldType": "textarea",
+        "label": "Region 2 Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "MRI, 2 Regions (With Contrast)",
+    "scanCode": "scan38m",
+    "investigationCode": "INVE161D",
+    "description": "MRI of two regions with contrast enhancement",
+    "category": "mri",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal; IV contrast will be given",
+    "duration": 55,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 511.93,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "region_1",
+        "fieldType": "textarea",
+        "label": "Region 1 Findings"
+      },
+      {
+        "fieldName": "region_2",
+        "fieldType": "textarea",
+        "label": "Region 2 Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "A-scan (Ophthalmology)",
+    "scanCode": "scan39o",
+    "investigationCode": "INVE30E",
+    "description": "Ultrasound biometry for intraocular lens calculation",
+    "category": "ultrasound",
+    "bodyPart": "eye",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 48.97,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "right_eye",
+        "fieldType": "textarea",
+        "label": "Right Eye Biometry"
+      },
+      {
+        "fieldName": "left_eye",
+        "fieldType": "textarea",
+        "label": "Left Eye Biometry"
+      },
+      {
+        "fieldName": "iol_calculation",
+        "fieldType": "textarea",
+        "label": "IOL Calculation"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Bone Scan",
+    "scanCode": "scan40n",
+    "investigationCode": "INVE139D",
+    "description": "Nuclear medicine imaging of skeletal system",
+    "category": "nuclear_medicine",
+    "bodyPart": "skeleton",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Hydrate well before scan; empty bladder before imaging",
+    "duration": 60,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 112.81,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "uptake_pattern",
+        "fieldType": "textarea",
+        "label": "Uptake Pattern"
+      },
+      {
+        "fieldName": "focal_lesions",
+        "fieldType": "textarea",
+        "label": "Focal Lesions"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Ductologram/Galactography",
+    "scanCode": "scan41x",
+    "investigationCode": "INVE40D",
+    "description": "X-ray imaging of breast ducts with contrast",
+    "category": "mammography",
+    "bodyPart": "breast",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "For abnormal nipple discharge only",
+    "duration": 30,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 77.92,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "duct_findings",
+        "fieldType": "textarea",
+        "label": "Duct Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Myocardial Perfusion Imaging",
+    "scanCode": "scan42n",
+    "investigationCode": "INVE145D",
+    "description": "Nuclear stress test for heart blood flow",
+    "category": "nuclear_medicine",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No caffeine for 24 hours; may need to stop certain medications",
+    "duration": 180,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 201.86,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "perfusion",
+        "fieldType": "textarea",
+        "label": "Myocardial Perfusion"
+      },
+      {
+        "fieldName": "wall_motion",
+        "fieldType": "textarea",
+        "label": "Wall Motion"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Orthopantomograph (OPT)",
+    "scanCode": "scan43x",
+    "investigationCode": "INVE84D",
+    "description": "Panoramic dental X-ray of mandible and maxilla",
+    "category": "dental_xray",
+    "bodyPart": "head",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove jewelry, glasses, and dentures",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 52.64,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "teeth",
+        "fieldType": "textarea",
+        "label": "Teeth"
+      },
+      {
+        "fieldName": "mandible",
+        "fieldType": "textarea",
+        "label": "Mandible"
+      },
+      {
+        "fieldName": "maxilla",
+        "fieldType": "textarea",
+        "label": "Maxilla"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Sialogram",
+    "scanCode": "scan44x",
+    "investigationCode": "INVE15E",
+    "description": "X-ray imaging of salivary ducts with contrast",
+    "category": "xray",
+    "bodyPart": "head",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 30,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 82.32,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "duct_findings",
+        "fieldType": "textarea",
+        "label": "Duct Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Transhepatic Cholangiography (PTC)",
+    "scanCode": "scan45f",
+    "investigationCode": "INVE138D",
+    "description": "Contrast X-ray of bile ducts via needle puncture",
+    "category": "fluoroscopy",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 6 hours; coagulation screen required",
+    "duration": 60,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 113.66,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "biliary_tree",
+        "fieldType": "textarea",
+        "label": "Biliary Tree"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Ultrasound - 2 Regions",
+    "scanCode": "scan46u",
+    "investigationCode": "INVE30E",
+    "description": "Ultrasound examination of two anatomical regions",
+    "category": "ultrasound",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Preparation depends on regions examined",
+    "duration": 40,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 53.97,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "region_1",
+        "fieldType": "textarea",
+        "label": "Region 1 Findings"
+      },
+      {
+        "fieldName": "region_2",
+        "fieldType": "textarea",
+        "label": "Region 2 Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Ultrasound Biomicroscopy",
+    "scanCode": "scan47u",
+    "investigationCode": "INVE30E",
+    "description": "High-resolution ultrasound of anterior eye segment",
+    "category": "ultrasound",
+    "bodyPart": "eye",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 51.82,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "anterior_segment",
+        "fieldType": "textarea",
+        "label": "Anterior Segment Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Venogram - 1 Region",
+    "scanCode": "scan48x",
+    "investigationCode": "INVE37E",
+    "description": "X-ray imaging of veins with contrast in one region",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Inform of contrast allergy",
+    "duration": 45,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 237.36,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "venous_system",
+        "fieldType": "textarea",
+        "label": "Venous System"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Two Regions",
+    "scanCode": "scan49x",
+    "investigationCode": "INVE90D",
+    "description": "Radiograph of two anatomical regions",
+    "category": "xray",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove metal objects from both areas",
+    "duration": 15,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 53.62,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "region_1",
+        "fieldType": "textarea",
+        "label": "Region 1 Findings"
+      },
+      {
+        "fieldName": "region_2",
+        "fieldType": "textarea",
+        "label": "Region 2 Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Scan, 1 Region (No Contrast)",
+    "scanCode": "scan50c",
+    "investigationCode": "INVE34D",
+    "description": "CT imaging of single region without contrast",
+    "category": "ct_scan",
+    "bodyPart": "other",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal objects",
+    "duration": 15,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 102.01,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "findings",
+        "fieldType": "textarea",
+        "label": "Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Scan, 1 Region (With 1 Contrast)",
+    "scanCode": "scan51c",
+    "investigationCode": "INVE33D",
+    "description": "CT imaging of single region with IV contrast",
+    "category": "ct_scan",
+    "bodyPart": "other",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4-6 hours; IV access required",
+    "duration": 20,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 284.38,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "findings",
+        "fieldType": "textarea",
+        "label": "Findings"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Knee",
+    "scanCode": "scan52x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of knee joint",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove clothing/jewelry over knee",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joint_space",
+        "fieldType": "textarea",
+        "label": "Joint Space"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Elbow",
+    "scanCode": "scan53x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of elbow joint",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove sleeves/jewelry over elbow",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joint_space",
+        "fieldType": "textarea",
+        "label": "Joint Space"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Foot",
+    "scanCode": "scan54x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of foot bones",
+    "category": "xray",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove footwear and socks",
+    "duration": 8,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bone_integrity",
+        "fieldType": "textarea",
+        "label": "Bone Integrity"
+      },
+      {
+        "fieldName": "joints",
+        "fieldType": "textarea",
+        "label": "Joints"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "X-ray, Facial Bones/Nasal Bones",
+    "scanCode": "scan55x",
+    "investigationCode": "INVE89D",
+    "description": "Radiograph of facial and nasal bones",
+    "category": "xray",
+    "bodyPart": "head",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove earrings, glasses and facial jewelry",
+    "duration": 10,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 34.8,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "nasal_bones",
+        "fieldType": "textarea",
+        "label": "Nasal Bones"
+      },
+      {
+        "fieldName": "orbits",
+        "fieldType": "textarea",
+        "label": "Orbits"
+      },
+      {
+        "fieldName": "maxillofacial_bones",
+        "fieldType": "textarea",
+        "label": "Maxillofacial Bones"
+      },
+      {
+        "fieldName": "soft_tissues",
+        "fieldType": "textarea",
+        "label": "Soft Tissues"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Transvaginal Ultrasound (TVS)",
+    "scanCode": "scan56u",
+    "investigationCode": "INVE30E",
+    "description": "Ultrasound of uterus and ovaries via vaginal probe",
+    "category": "ultrasound",
+    "bodyPart": "pelvis",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Empty bladder before scan",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 38.57,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "uterus",
+        "fieldType": "textarea",
+        "label": "Uterus"
+      },
+      {
+        "fieldName": "endometrium",
+        "fieldType": "textarea",
+        "label": "Endometrium",
+        "referenceRange": "Cycle-dependent"
+      },
+      {
+        "fieldName": "right_ovary",
+        "fieldType": "textarea",
+        "label": "Right Ovary"
+      },
+      {
+        "fieldName": "left_ovary",
+        "fieldType": "textarea",
+        "label": "Left Ovary"
+      },
+      {
+        "fieldName": "pod",
+        "fieldType": "textarea",
+        "label": "POD (Pouch of Douglas)"
+      },
+      {
+        "fieldName": "comment",
+        "fieldType": "textarea",
+        "label": "Comment"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Obstetric Ultrasound (Anomaly/Anatomy Scan)",
+    "scanCode": "scan57u",
+    "investigationCode": "INVE30E",
+    "description": "Second-trimester detailed fetal anatomy survey",
+    "category": "ultrasound",
+    "bodyPart": "pelvis",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 40,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 38.57,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "num_fetuses",
+        "fieldType": "text",
+        "label": "Number of Fetuses"
+      },
+      {
+        "fieldName": "fetal_cardiac",
+        "fieldType": "text",
+        "label": "Fetal Cardiac Activity"
+      },
+      {
+        "fieldName": "presentation",
+        "fieldType": "select",
+        "label": "Presentation",
+        "options": [
+          "Cephalic",
+          "Breech",
+          "Transverse",
+          "Oblique",
+          "Variable"
+        ]
+      },
+      {
+        "fieldName": "placenta_location",
+        "fieldType": "select",
+        "label": "Placenta Location",
+        "options": [
+          "Anterior",
+          "Posterior",
+          "Fundal",
+          "Lateral",
+          "Low-lying",
+          "Praevia"
+        ]
+      },
+      {
+        "fieldName": "afi",
+        "fieldType": "text",
+        "label": "Amniotic Fluid Index (AFI)",
+        "referenceRange": "5.0–25.0 cm"
+      },
+      {
+        "fieldName": "ega",
+        "fieldType": "text",
+        "label": "Estimated Gestational Age (EGA)"
+      },
+      {
+        "fieldName": "edd",
+        "fieldType": "date",
+        "label": "Estimated Date of Delivery (EDD)"
+      },
+      {
+        "fieldName": "efw",
+        "fieldType": "text",
+        "label": "Estimated Fetal Weight (EFW)"
+      },
+      {
+        "fieldName": "anatomy_head_brain",
+        "fieldType": "textarea",
+        "label": "Fetal Head & Brain"
+      },
+      {
+        "fieldName": "anatomy_face",
+        "fieldType": "text",
+        "label": "Fetal Face"
+      },
+      {
+        "fieldName": "anatomy_spine",
+        "fieldType": "text",
+        "label": "Fetal Spine"
+      },
+      {
+        "fieldName": "anatomy_heart",
+        "fieldType": "textarea",
+        "label": "Fetal Heart (4-Chamber View)"
+      },
+      {
+        "fieldName": "anatomy_abdomen",
+        "fieldType": "text",
+        "label": "Fetal Abdomen/Anterior Wall"
+      },
+      {
+        "fieldName": "anatomy_kidneys_bladder",
+        "fieldType": "text",
+        "label": "Fetal Kidneys & Bladder"
+      },
+      {
+        "fieldName": "anatomy_limbs",
+        "fieldType": "text",
+        "label": "Fetal Limbs"
+      },
+      {
+        "fieldName": "cervix_length",
+        "fieldType": "text",
+        "label": "Cervical Length"
+      },
+      {
+        "fieldName": "anatomy_comment",
+        "fieldType": "textarea",
+        "label": "Fetal Anatomy Comment"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Echocardiogram (Transthoracic)",
+    "scanCode": "scan58e",
+    "investigationCode": "INVE146D",
+    "description": "Ultrasound evaluation of cardiac structure and function",
+    "category": "echocardiography",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 95,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "chambers",
+        "fieldType": "textarea",
+        "label": "Chamber Size"
+      },
+      {
+        "fieldName": "lv_function",
+        "fieldType": "text",
+        "label": "LV Ejection Fraction (EF)",
+        "referenceRange": "55–70%"
+      },
+      {
+        "fieldName": "valves",
+        "fieldType": "textarea",
+        "label": "Valves"
+      },
+      {
+        "fieldName": "pericardium",
+        "fieldType": "textarea",
+        "label": "Pericardium"
+      },
+      {
+        "fieldName": "wall_motion",
+        "fieldType": "textarea",
+        "label": "Wall Motion"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Doppler Ultrasound, Renal Arteries",
+    "scanCode": "scan59u",
+    "investigationCode": "INVE30E",
+    "description": "Assessment of renal artery blood flow",
+    "category": "ultrasound",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 6 hours preferred",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "doppler",
+    "tariffGhC": 37.93,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "right_renal_artery",
+        "fieldType": "textarea",
+        "label": "Right Renal Artery"
+      },
+      {
+        "fieldName": "left_renal_artery",
+        "fieldType": "textarea",
+        "label": "Left Renal Artery"
+      },
+      {
+        "fieldName": "resistive_indices",
+        "fieldType": "text",
+        "label": "Resistive Indices"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Doppler Ultrasound, Upper Limb Veins",
+    "scanCode": "scan60u",
+    "investigationCode": "INVE30E",
+    "description": "Assessment of upper limb DVT",
+    "category": "ultrasound",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "doppler",
+    "tariffGhC": 37.93,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "right_arm",
+        "fieldType": "textarea",
+        "label": "Right Upper Limb"
+      },
+      {
+        "fieldName": "left_arm",
+        "fieldType": "textarea",
+        "label": "Left Upper Limb"
+      },
+      {
+        "fieldName": "compressibility",
+        "fieldType": "textarea",
+        "label": "Venous Compressibility"
+      },
+      {
+        "fieldName": "flow",
+        "fieldType": "textarea",
+        "label": "Flow Characteristics"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Obstetric Doppler (Umbilical/Fetal Vessels)",
+    "scanCode": "scan61u",
+    "investigationCode": "INVE30E",
+    "description": "Doppler assessment of umbilical artery and fetal vessels",
+    "category": "ultrasound",
+    "bodyPart": "pelvis",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "No special preparation",
+    "duration": 25,
+    "contrastRequired": false,
+    "scanType": "doppler",
+    "tariffGhC": 37.93,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "umbilical_artery",
+        "fieldType": "text",
+        "label": "Umbilical Artery S/D Ratio"
+      },
+      {
+        "fieldName": "mca",
+        "fieldType": "text",
+        "label": "Middle Cerebral Artery (MCA)"
+      },
+      {
+        "fieldName": "uterine_arteries",
+        "fieldType": "textarea",
+        "label": "Uterine Arteries"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "CT Pulmonary Angiogram (CTPA)",
+    "scanCode": "scan62c",
+    "investigationCode": "INVE33D",
+    "description": "CT imaging of pulmonary arteries to exclude PE",
+    "category": "ct_scan",
+    "bodyPart": "chest",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4 hours; IV access required; check renal function",
+    "duration": 20,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 284.38,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "pulmonary_arteries",
+        "fieldType": "textarea",
+        "label": "Pulmonary Arteries"
+      },
+      {
+        "fieldName": "lung_parenchyma",
+        "fieldType": "textarea",
+        "label": "Lung Parenchyma"
+      },
+      {
+        "fieldName": "heart_pericardium",
+        "fieldType": "textarea",
+        "label": "Heart & Pericardium"
+      },
+      {
+        "fieldName": "pleura",
+        "fieldType": "textarea",
+        "label": "Pleura"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Barium Meal / Upper GI Series",
+    "scanCode": "scan63f",
+    "investigationCode": "INVE13D",
+    "description": "Fluoroscopic contrast study of stomach and duodenum",
+    "category": "fluoroscopy",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 6–8 hours; inform if pregnant",
+    "duration": 40,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 98.96,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "esophagus",
+        "fieldType": "textarea",
+        "label": "Esophagus"
+      },
+      {
+        "fieldName": "stomach",
+        "fieldType": "textarea",
+        "label": "Stomach"
+      },
+      {
+        "fieldName": "duodenum",
+        "fieldType": "textarea",
+        "label": "Duodenum"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Barium Enema",
+    "scanCode": "scan64f",
+    "investigationCode": "INVE13D",
+    "description": "Fluoroscopic contrast study of the colon",
+    "category": "fluoroscopy",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Bowel prep/laxative the day before; fasting on day of exam",
+    "duration": 45,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 120,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "colon",
+        "fieldType": "textarea",
+        "label": "Colon"
+      },
+      {
+        "fieldName": "rectum",
+        "fieldType": "textarea",
+        "label": "Rectum"
+      },
+      {
+        "fieldName": "filling_defects",
+        "fieldType": "textarea",
+        "label": "Filling Defects / Strictures"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "MRI, Brain",
+    "scanCode": "scan65m",
+    "investigationCode": "INVE81D",
+    "description": "Magnetic resonance imaging of the brain without contrast",
+    "category": "mri",
+    "bodyPart": "head",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal; inform of implants/claustrophobia",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 170.39,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "brain_parenchyma",
+        "fieldType": "textarea",
+        "label": "Brain Parenchyma"
+      },
+      {
+        "fieldName": "ventricles",
+        "fieldType": "textarea",
+        "label": "Ventricles"
+      },
+      {
+        "fieldName": "posterior_fossa",
+        "fieldType": "textarea",
+        "label": "Posterior Fossa"
+      },
+      {
+        "fieldName": "midline",
+        "fieldType": "textarea",
+        "label": "Midline Shift"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "MRI, Lumbar Spine",
+    "scanCode": "scan66m",
+    "investigationCode": "INVE81D",
+    "description": "Magnetic resonance imaging of the lumbar spine",
+    "category": "mri",
+    "bodyPart": "spine",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal; inform of implants/claustrophobia",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 170.39,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "vertebral_alignment",
+        "fieldType": "textarea",
+        "label": "Vertebral Alignment"
+      },
+      {
+        "fieldName": "vertebral_bodies",
+        "fieldType": "textarea",
+        "label": "Vertebral Bodies & Marrow Signal"
+      },
+      {
+        "fieldName": "disc_spaces",
+        "fieldType": "textarea",
+        "label": "Disc Spaces"
+      },
+      {
+        "fieldName": "spinal_cord_canal",
+        "fieldType": "textarea",
+        "label": "Spinal Cord / Canal"
+      },
+      {
+        "fieldName": "neural_foramina",
+        "fieldType": "textarea",
+        "label": "Neural Foramina"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "MRI, Knee",
+    "scanCode": "scan67m",
+    "investigationCode": "INVE81D",
+    "description": "Magnetic resonance imaging of the knee joint",
+    "category": "mri",
+    "bodyPart": "extremities",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Remove all metal; inform of implants/claustrophobia",
+    "duration": 30,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 170.39,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "menisci",
+        "fieldType": "textarea",
+        "label": "Menisci"
+      },
+      {
+        "fieldName": "ligaments",
+        "fieldType": "textarea",
+        "label": "Cruciate & Collateral Ligaments"
+      },
+      {
+        "fieldName": "cartilage",
+        "fieldType": "textarea",
+        "label": "Articular Cartilage"
+      },
+      {
+        "fieldName": "bone_marrow",
+        "fieldType": "textarea",
+        "label": "Bone Marrow"
+      },
+      {
+        "fieldName": "joint_effusion",
+        "fieldType": "textarea",
+        "label": "Joint Effusion"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Voiding Cystourethrogram (VCUG)",
+    "scanCode": "scan68f",
+    "investigationCode": "INVE13D",
+    "description": "Fluoroscopic contrast study of bladder and urethra during voiding",
+    "category": "fluoroscopy",
+    "bodyPart": "pelvis",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Empty bladder before catheterization; inform of contrast allergy",
+    "duration": 40,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 113.66,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "bladder",
+        "fieldType": "textarea",
+        "label": "Urinary Bladder"
+      },
+      {
+        "fieldName": "vesicoureteric_reflux",
+        "fieldType": "textarea",
+        "label": "Vesicoureteric Reflux"
+      },
+      {
+        "fieldName": "urethra",
+        "fieldType": "textarea",
+        "label": "Urethra"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Bone Densitometry (DEXA Scan)",
+    "scanCode": "scan69b",
+    "investigationCode": "INVE139D",
+    "description": "Dual-energy X-ray absorptiometry for bone mineral density",
+    "category": "bone_densitometry",
+    "bodyPart": "skeleton",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Avoid calcium supplements 24 hours before scan",
+    "duration": 20,
+    "contrastRequired": false,
+    "scanType": "plain",
+    "tariffGhC": 80,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "lumbar_spine_tscore",
+        "fieldType": "text",
+        "label": "Lumbar Spine T-score"
+      },
+      {
+        "fieldName": "femoral_neck_tscore",
+        "fieldType": "text",
+        "label": "Femoral Neck T-score"
+      },
+      {
+        "fieldName": "who_classification",
+        "fieldType": "select",
+        "label": "WHO Classification",
+        "options": [
+          "Normal",
+          "Osteopenia",
+          "Osteoporosis"
+        ]
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  },
+  {
+    "name": "Hepatobiliary Scan (HIDA)",
+    "scanCode": "scan70n",
+    "investigationCode": "INVE139D",
+    "description": "Nuclear medicine imaging of gallbladder and biliary function",
+    "category": "nuclear_medicine",
+    "bodyPart": "abdomen",
+    "isPending": false,
+    "vatRate": 0,
+    "isTaxable": false,
+    "preparationInstructions": "Fasting for 4 hours",
+    "duration": 90,
+    "contrastRequired": true,
+    "scanType": "contrast",
+    "tariffGhC": 150,
+    "resultTemplate": [
+      {
+        "fieldName": "clinical_history",
+        "fieldType": "textarea",
+        "label": "Clinical History / Indication"
+      },
+      {
+        "fieldName": "technique",
+        "fieldType": "textarea",
+        "label": "Technique"
+      },
+      {
+        "fieldName": "comparison",
+        "fieldType": "textarea",
+        "label": "Comparison (Prior Studies)"
+      },
+      {
+        "fieldName": "hepatic_uptake",
+        "fieldType": "textarea",
+        "label": "Hepatic Uptake"
+      },
+      {
+        "fieldName": "biliary_excretion",
+        "fieldType": "textarea",
+        "label": "Biliary Excretion"
+      },
+      {
+        "fieldName": "gallbladder_ejection_fraction",
+        "fieldType": "text",
+        "label": "Gallbladder Ejection Fraction"
+      },
+      {
+        "fieldName": "bowel_transit",
+        "fieldType": "textarea",
+        "label": "Bowel Transit"
+      },
+      {
+        "fieldName": "impression",
+        "fieldType": "textarea",
+        "label": "Impression"
+      }
+    ]
+  }
+]

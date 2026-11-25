@@ -1,0 +1,119 @@
+import { Router } from 'express';
+import * as settingsController from './SettingsController';
+import { body } from 'express-validator';
+import { protect, requireRole } from '../../middleware/authMiddleware';
+import { handleUploadError, uploadHospitalLogo } from '../../middleware/uploadMiddleware';
+
+// The logo is either a hosted URL or a file this app already serves from
+// /uploads. A base64 data URL is rejected on purpose: the form previews the
+// picked file in the browser and posts it as multipart, so the stored value must
+// stay a short reference rather than a several-megabyte blob.
+const isImageReference = (value: unknown): boolean => {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  return /^https?:\/\//i.test(value) || /^\/(api\/)?uploads\/[a-z-]+\/[\w.@-]+$/.test(value);
+};
+
+export const createSettingsRoutes = () => {
+  const router = Router();
+
+  // All settings routes require authentication
+  router.use(protect);
+
+  // ==========================================
+  // HOSPITAL DETAILS ROUTES (Admin only)
+  // ==========================================
+
+  // Facility identity is needed across clinical, billing and document screens.
+  // Authentication is applied to the router; writes remain admin-only.
+  router.get('/hospital', settingsController.getHospitalProfileForStaff);
+
+  // Tax configuration is read by billing, estimates and the settings screen, so
+  // every authenticated user can read it; only administrators may change it.
+  router.get('/tax', settingsController.getTaxConfiguration);
+  router.put('/tax', requireRole(['admin']), settingsController.updateTaxConfiguration);
+
+  router.put(
+    '/hospital',
+    requireRole(['admin']),
+    uploadHospitalLogo,
+    handleUploadError,
+    [
+      body('name').notEmpty().withMessage('Hospital name is required'),
+      body('address').notEmpty().withMessage('Address is required'),
+      body('phone').notEmpty().withMessage('Phone number is required'),
+      body('email').isEmail().withMessage('Valid email is required'),
+      body('imageUrl').optional().custom(isImageReference).withMessage('Image must be a URL or an uploaded file'),
+    ],
+    settingsController.updateHospitalDetails
+  );
+
+  // ==========================================
+  // NHIS API CONFIGURATION ROUTES (Admin only)
+  // ==========================================
+
+  router.get('/nhis/status', requireRole(['admin']), settingsController.getNHISApiStatus);
+
+  router.put(
+    '/nhis/config',
+    requireRole(['admin']),
+    [
+      body('nhisApiBaseUrl').optional().isURL().withMessage('Valid NHIS API base URL required'),
+      body('nhisApiClientId').optional().trim(),
+      body('nhisApiClientSecret').optional().trim(),
+      body('nhisApiTokenEndpoint').optional().isURL().withMessage('Valid token endpoint URL required'),
+      body('nhisApiEligibilityEndpoint').optional().isURL().withMessage('Valid eligibility endpoint URL required'),
+      body('nhisApiCccEndpoint').optional().isURL().withMessage('Valid CCC endpoint URL required'),
+      body('nhisApiActive').optional().isBoolean(),
+      body('nhisFacilityCode').optional().trim(),
+      body('nhisFacilityType').optional().isIn([
+        'CHPS', 'Tertiary', 'Secondary', 'Primary', 'Clinic', 'Health_Center', 'Maternity_Home',
+      ]).withMessage('Invalid facility type'),
+      body('nhisAccreditationNumber').optional().trim(),
+      body('nhisContactPerson').optional().trim(),
+      body('nhisContactPhone').optional().trim(),
+      body('nhisContactEmail').optional().isEmail().withMessage('Valid contact email required'),
+    ],
+    settingsController.updateNHISApiConfig
+  );
+
+  router.post('/nhis/test-connection', requireRole(['admin']), settingsController.testNHISConnection);
+
+  // ==========================================
+  // NHIS ELIGIBILITY VERIFICATION ROUTES (Admin, Accounts, Records)
+  // ==========================================
+
+  router.post(
+    '/nhis/verify-eligibility',
+    requireRole(['admin', 'accounts', 'records']),
+    [body('policyNumber').notEmpty().withMessage('Policy number is required').trim()],
+    settingsController.verifyNHISEligibility
+  );
+
+  router.post(
+    '/nhis/bulk-verify-eligibility',
+    requireRole(['admin', 'accounts', 'records']),
+    [
+      body('policyNumbers')
+        .isArray({ min: 1, max: 100 })
+        .withMessage('policyNumbers must be an array of 1–100 items'),
+      body('policyNumbers.*')
+        .isString().notEmpty().withMessage('Each policy number must be a non-empty string'),
+    ],
+    settingsController.bulkVerifyNHISEligibility
+  );
+
+  router.post(
+    '/nhis/generate-ccc',
+    requireRole(['admin', 'accounts', 'records']),
+    [
+      body('policyNumber').notEmpty().trim().withMessage('Policy number is required'),
+      body('encounterId').notEmpty().trim().withMessage('Encounter ID is required'),
+      body('totalAmount')
+        .isFloat({ min: 0 })
+        .withMessage('Total amount must be a non-negative number'),
+    ],
+    settingsController.generateCCC
+  );
+
+  return router;
+};

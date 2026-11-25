@@ -1,0 +1,55 @@
+appId: com.veridian.hms
+productName: VeridianHMS
+copyright: Veridian HMS
+
+directories:
+  output: release
+  buildResources: build
+
+# Electron shell files (inside app.asar)
+files:
+  - main.cjs
+  - pki.cjs
+  - preload.js
+  - setup-preload.cjs
+  - setup.html
+  - reset-preload.cjs
+  - reset.html
+  - status.html
+  - build/icon.png
+  - build/icon.ico
+  - build/app-mode.json
+  - package.json
+  - "!build/backend/**"
+
+# Backend + frontend live outside the asar so the embedded Node can run them
+extraResources:
+  - from: build/backend
+    to: backend
+    filter:
+      - "**/*"
+      - "node_modules/**/*"
+  - from: frontend/dist
+    to: frontend/dist
+
+afterPack: after-pack.js
+asar: true
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Veridian HMS
+  deleteAppDataOnUninstall: false
+
+publish: null

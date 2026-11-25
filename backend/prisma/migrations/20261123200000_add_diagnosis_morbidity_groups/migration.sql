@@ -1,0 +1,17 @@
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'infection';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'diabetes_metabolic';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'cardiovascular';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'respiratory';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'oral_dental';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'gastrointestinal';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'liver';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'dermatology';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'musculoskeletal';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'urinary';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'gynaecology';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'pregnancy';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'newborn';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'symptoms';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'injury';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'cardiovascular_symptoms';
+ALTER TYPE "MorbidityGroup" ADD VALUE IF NOT EXISTS 'family_planning';

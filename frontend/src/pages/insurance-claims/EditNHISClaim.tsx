@@ -1,0 +1,2099 @@
+// src/pages/insurance-claims/EditNHISClaim.tsx
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useSmartBack } from '../../utils/useSmartBack';
+import { useInsuranceStore } from '../../store/insuranceStore';
+import { useMedicalServicesStore } from '../../store/medicalServicesStore';
+import { usePatientStore } from '../../store/patientStore';
+import { useAuthStore } from '../../store/authStore';
+import { canAccessPage } from '../../config/access';
+import { confirmDialog } from '../../context/ConfirmDialog';
+import { useGDRGTariffStore } from '../../store/gdrgTariffStore';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../../components/reusable/PickerLimit';
+import { useToast } from '../../store/toastStore';
+import { ClaimFrame, ClaimCard, UField, CheckItem, ListSection, TH, Hint, ClaimFooter, SPECIALTIES, ATTENDANCE_OPTIONS, fmtDate } from '../../components/claims/ClaimUI';
+import {
+  ClaimItHeldBack, ClaimItStatusNote, ClaimItSubmissionHistory,
+} from '../../components/claims/ClaimItUI';
+import {
+  deleteClaimFromClaimIt,
+  getClaimClaimItSubmissions,
+  getClaimItStatus,
+  getNHISClaimMedicines,
+  submitClaimToClaimIt,
+  type ClaimItBlockedClaim,
+  type ClaimItStatus,
+  type ClaimItSubmissionResult,
+  type ClaimItSubmissionRow,
+} from '../../api';
+import { Download, Printer, XCircle, Plus, Search, Trash2, Edit, ChevronDown, Send } from 'lucide-react';
+import {
+  findSpecialtyServiceMismatch, gdrgSpecialty, isNHISClaimUnbundled, mapAttendanceToNHIS,
+  NHIS_SERVICE_OUTCOME_LABELS, NHIS_SERVICE_OUTCOMES, normalizeNHISAttendanceCode,
+  normalizeNHISOutcomeCode, nhisSpecialtiesFor, OPD_SCHEME_SPECIALTY,
+} from '../../utils/nhisAttendanceMapping';
+import { nhisNumberError, sanitizeNhisInput } from '../../utils/nhisNumber';
+import { describeApiError, describeApiErrorTitle } from '../../utils/apiError';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+interface DiagnosisItem {
+  id?: string;
+  gdrgCode: string;
+  description: string;
+  diagnosis: string;
+  icd10: string;
+  diagnosisId?: string;
+  diagnosisType?: string;
+}
+
+interface InvestigationItem {
+  id?: string;
+  gdrgCode: string;
+  description: string;
+  date: string;
+  serviceCatalogId?: string;
+  type?: 'lab' | 'scan';
+  /** What the claim line was billed at; null until the claim is saved. */
+  unitPrice?: number | null;
+  lineTotal?: number | null;
+}
+
+interface MedicineItem {
+  id?: string;
+  code: string;
+  description: string;
+  quantity: number;
+  date: string;
+  prescription: string;
+  dosage?: string;
+  frequency?: string;
+  duration?: string;
+  stockItemId?: string;
+  serviceCatalogId?: string;
+  /** The NHIS-covered amount per unit, set by the payer rule when the claim saves. */
+  unitPrice?: number | null;
+  lineTotal?: number | null;
+}
+
+interface ProcedureItem {
+  id?: string;
+  code: string;
+  description: string;
+  date: string;
+  unitPrice?: number | null;
+  lineTotal?: number | null;
+}
+
+/** One dispensed medicine this claim may bill NHIS, priced by the payer rule on the server. */
+interface NhisMedicineQuote {
+  medicationId?: string;
+  stockItemId: string;
+  serviceCatalogId?: string | null;
+  code: string;
+  description: string;
+  quantity: number;
+  date: string;
+  prescription: string;
+  unitPrice: number;
+  lineTotal: number;
+  cashPrice?: number;
+  authorizationRequired?: boolean;
+}
+
+/** A medicine the patient was given that the scheme will not pay, and why. */
+interface UnclaimableMedicine {
+  code?: string;
+  description: string;
+  reason: string;
+}
+
+// Accept both camelCase (new) and PascalCase (old) claim shapes so this page
+// works whether or not PR 9's response normalizer is live.
+const p = (claim: any): any => claim?.patient ?? claim?.Patient ?? {};
+const a = (claim: any): any => claim?.attendance ?? claim?.Attendance ?? {};
+
+const toNum = (v: any): number => (v === null || v === undefined ? 0 : parseFloat(v.toString()) || 0);
+
+/** Whole-year age at the date the service was provided (not today's age). */
+const ageOnDate = (dateOfBirth: unknown, serviceDate: unknown): number | null => {
+  if (!dateOfBirth || !serviceDate) return null;
+  const dob = new Date(String(dateOfBirth));
+  const asOf = new Date(String(serviceDate));
+  if (Number.isNaN(dob.getTime()) || Number.isNaN(asOf.getTime()) || asOf < dob) return null;
+  let years = asOf.getFullYear() - dob.getFullYear();
+  if (asOf.getMonth() < dob.getMonth() || (asOf.getMonth() === dob.getMonth() && asOf.getDate() < dob.getDate())) years -= 1;
+  return years;
+};
+
+/** The tariff's explicit age bounds are authoritative (some paediatric tariffs extend to 18). */
+const gdrgAgeEligible = (tariff: any, age: number): boolean => {
+  const min = tariff?.minAgeYears == null ? null : Number(tariff.minAgeYears);
+  const max = tariff?.maxAgeYears == null ? null : Number(tariff.maxAgeYears);
+  if (min != null && age < min) return false;
+  if (max != null && age > max) return false;
+  return true;
+};
+
+/** A line with no saved amount shows a dash, never a GHS 0.00 that reads as a priced line. */
+const moneyCell = (value: any): string => {
+  const n = toNum(value);
+  return value === null || value === undefined ? '—' : `GHS ${n.toFixed(2)}`;
+};
+
+const buildItemPayload = (args: {
+  diagnoses: DiagnosisItem[];
+  investigations: InvestigationItem[];
+  medicines: MedicineItem[];
+  procedures: ProcedureItem[];
+  principalGDRG: string;
+}) => {
+  const out: any[] = [];
+
+  for (const d of args.diagnoses) {
+    if (!d.icd10) continue;
+    out.push({
+      itemCategory: 'diagnosis',
+      code: d.icd10,
+      description: d.description || d.diagnosis || d.icd10,
+      quantity: 1,
+      unitPrice: 0,
+      lineTotal: 0,
+      diagnosisId: d.diagnosisId ?? null,
+    });
+  }
+
+  for (const inv of args.investigations) {
+    if (!inv.gdrgCode) continue;
+    out.push({
+      itemCategory: 'investigation',
+      code: inv.gdrgCode,
+      description: inv.description || inv.gdrgCode,
+      quantity: 1,
+      unitPrice: inv.unitPrice ?? 0,
+      lineTotal: inv.lineTotal ?? 0,
+      serviceDate: inv.date || null,
+      serviceCatalogId: inv.serviceCatalogId ?? null,
+    });
+  }
+
+  for (const pr of args.procedures) {
+    if (!pr.code) continue;
+    out.push({
+      itemCategory: 'procedure',
+      code: pr.code,
+      description: pr.description || pr.code,
+      quantity: 1,
+      unitPrice: pr.unitPrice ?? 0,
+      lineTotal: pr.lineTotal ?? 0,
+      serviceDate: pr.date || null,
+    });
+  }
+
+  for (const m of args.medicines) {
+    if (!m.code) continue;
+    out.push({
+      itemCategory: 'medicine',
+      code: m.code,
+      description: m.description || m.code,
+      quantity: m.quantity ?? 1,
+      // The server re-prices every NHIS medicine line from its payer rule, so what
+      // is sent here is only the previous saved amount for rows that have one.
+      unitPrice: m.unitPrice ?? 0,
+      lineTotal: m.lineTotal ?? 0,
+      serviceDate: m.date || null,
+      prescriptionText: m.prescription ?? null,
+    });
+  }
+
+  if (args.principalGDRG) {
+    out.push({
+      itemCategory: 'gdrg',
+      code: args.principalGDRG,
+      description: 'Principal GDRG',
+      quantity: 1,
+      unitPrice: 0,
+      lineTotal: 0,
+    });
+  }
+
+  return out;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEARCHABLE GDRG SELECT
+// ═══════════════════════════════════════════════════════════════════════════
+interface SearchableGDRGSelectProps {
+  value: string;
+  onChange: (code: string, description: string) => void;
+  options: Array<any>;
+  disabled?: boolean;
+  placeholder?: string;
+}
+
+function SearchableGDRGSelect({ value, onChange, options, disabled = false, placeholder = 'Search GDRG...' }: SearchableGDRGSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLabel, setSelectedLabel] = useState('');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (value && options && options.length > 0) {
+      const selected = options.find(opt => {
+        const code = opt.gdrgCode || opt.code || opt.gdrg_code || '';
+        return code === value;
+      });
+      if (selected) {
+        const code = selected.gdrgCode || selected.code || selected.gdrg_code || '';
+        const desc = selected.description || selected.name || selected.desc || '';
+        setSelectedLabel(`${code} - ${desc}`);
+      } else {
+        setSelectedLabel(value);
+      }
+    } else {
+      setSelectedLabel('');
+    }
+  }, [value, options]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filteredOptions = (options || []).filter(opt => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    const code = (opt.gdrgCode || opt.code || opt.gdrg_code || '').toString().toLowerCase();
+    const description = (opt.description || opt.name || opt.desc || '').toString().toLowerCase();
+    return code.includes(search) || description.includes(search);
+  });
+
+  const handleSelect = (opt: any) => {
+    const code = opt.gdrgCode || opt.code || opt.gdrg_code || '';
+    const description = opt.description || opt.name || opt.desc || '';
+    onChange(code, description);
+    setSelectedLabel(`${code} - ${description}`);
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  const formatTariff = (value: any): string => {
+    const num = Number(value);
+    return isNaN(num) ? '0.00' : num.toFixed(2);
+  };
+
+  const getTariff = (opt: any): number =>
+    Number(opt.nhiaTariff || opt.tariff || opt.amount || opt.nhia_tariff || 0);
+
+  if (disabled) {
+    return (
+      <div className="w-full px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-primary)]">
+        {selectedLabel || '—'}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={wrapperRef} className="relative w-full">
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg cursor-pointer flex items-center justify-between hover:border-[var(--icon-green-text)] transition-colors"
+      >
+        <span className={`text-sm ${selectedLabel ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+          {selectedLabel || placeholder}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-[var(--text-tertiary)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg shadow-lg overflow-hidden">
+          <div className="p-2 border-b border-[var(--border-color)]">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by code or description..."
+                className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm focus:outline-none focus:border-[var(--icon-green-text)]"
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+            <div className="text-xs text-[var(--text-tertiary)] mt-1">
+              {filteredOptions.length} of {options.length} GDRG codes found
+            </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto">
+            {filteredOptions.length === 0 ? (
+              <div className="p-4 text-center text-[var(--text-tertiary)] text-sm">
+                {options.length === 0 ? 'Loading GDRG codes...' : 'No matching GDRG codes found'}
+              </div>
+            ) : (
+              filteredOptions.map((opt, index) => {
+                const code = opt.gdrgCode || opt.code || opt.gdrg_code || '';
+                const description = opt.description || opt.name || opt.desc || '';
+                const tariff = getTariff(opt);
+                const isSelected = value === code;
+                return (
+                  <button
+                    key={opt.id || code || index}
+                    onClick={() => handleSelect(opt)}
+                    className={`w-full text-left px-3 py-2 hover:bg-[var(--bg-main)] transition-colors ${
+                      isSelected ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-mono font-medium text-sm">{code}</span>
+                        <span className="ml-2 text-sm">{description}</span>
+                      </div>
+                      <span className="text-xs text-[var(--text-tertiary)]">Tariff: ₵{formatTariff(tariff)}</span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADD DIAGNOSIS MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+// `editing` set => the dialog edits that row (pre-filled, searchable) instead of adding a new one.
+function AddDiagnosisModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: boolean; onClose: () => void; onAdd: (d: DiagnosisItem) => void; editing?: DiagnosisItem | null }) {
+  const { diagnoses, getDiagnoses } = useMedicalServicesStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [pickedDiagnosis, setPickedDiagnosis] = useState<any>(null);
+  const [gdrgCode, setGdrgCode] = useState('');
+
+  useEffect(() => {
+    if (isOpen) getDiagnoses();
+  }, [isOpen, getDiagnoses]);
+
+  // Reset / pre-fill each time the dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchTerm('');
+    setPickedDiagnosis(null);
+    setGdrgCode(editing?.gdrgCode || '');
+  }, [isOpen, editing]);
+
+  // Current selection: what the user picked, else the row being edited
+  const selectedDiagnosis = pickedDiagnosis ?? (editing
+    ? (diagnoses.find(d => (editing.diagnosisId && d.id === editing.diagnosisId) || d.icdCode === editing.icd10)
+        ?? { id: editing.diagnosisId, name: editing.diagnosis || editing.description, icdCode: editing.icd10 })
+    : null);
+  const setSelectedDiagnosis = setPickedDiagnosis;
+
+  const filtered = diagnoses.filter(d =>
+    d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    d.icdCode.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAdd = () => {
+    if (!selectedDiagnosis) return;
+    onAdd({
+      id: editing?.id,
+      gdrgCode: gdrgCode || 'OPDC06A',
+      description: selectedDiagnosis.name,
+      diagnosis: selectedDiagnosis.name,
+      icd10: selectedDiagnosis.icdCode,
+      diagnosisId: selectedDiagnosis.id,
+      diagnosisType: editing?.diagnosisType ?? 'additional',
+    });
+    setSelectedDiagnosis(null);
+    setSearchTerm('');
+    setGdrgCode('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
+        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{editing ? 'Edit Diagnosis' : 'Add Diagnosis'}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
+            <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              placeholder="Search by diagnosis name or ICD-10 code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">G-DRG Code</label>
+            <input
+              type="text"
+              value={gdrgCode}
+              onChange={(e) => setGdrgCode(e.target.value.toUpperCase())}
+              placeholder="e.g., OPDC06A"
+              className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto space-y-1">
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((d) => (
+              <button
+                key={d.id}
+                onClick={() => setSelectedDiagnosis(d)}
+                className={`w-full text-left p-2 rounded-lg transition-colors ${
+                  selectedDiagnosis?.id === d.id
+                    ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
+                    : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'
+                }`}
+              >
+                <div className="font-medium text-sm">{d.name}</div>
+                <div className="text-xs text-[var(--text-secondary)]">ICD-10: {d.icdCode}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
+          <button
+            onClick={handleAdd}
+            disabled={!selectedDiagnosis}
+            className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium"
+          >
+            {editing ? 'Save Changes' : 'Add Diagnosis'}
+          </button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADD INVESTIGATION MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+// `editing` set => the dialog edits that row (pre-filled, searchable) instead of adding a new one.
+function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }: { isOpen: boolean; onClose: () => void; onAdd: (i: InvestigationItem) => void; type: 'lab' | 'scan'; editing?: InvestigationItem | null }) {
+  const { labTestTemplates, scanTemplates, getLabTestTemplates, getScanTemplates } = useMedicalServicesStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [pickedItem, setPickedItem] = useState<any>(null);
+  const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
+  // When editing, the row may be a lab or a scan (not always recorded), so allow switching.
+  const [kind, setKind] = useState<'lab' | 'scan'>(type);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (kind === 'lab') getLabTestTemplates();
+      else getScanTemplates();
+    }
+  }, [isOpen, kind, getLabTestTemplates, getScanTemplates]);
+
+  // Reset / pre-fill each time the dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchTerm('');
+    setPickedItem(null);
+    setKind(editing?.type ?? type);
+    setServiceDate(editing?.date || new Date().toISOString().split('T')[0]);
+  }, [isOpen, editing, type]);
+
+  const items = kind === 'lab' ? labTestTemplates : scanTemplates;
+  const codeField = 'investigationCode';
+
+  // Current selection: what the user picked, else the row being edited
+  const selectedItem = pickedItem ?? (editing
+    ? (items.find(i => (editing.serviceCatalogId && i.id === editing.serviceCatalogId) || (i as any)[codeField] === editing.gdrgCode)
+        ?? { id: editing.serviceCatalogId, name: editing.description, [codeField]: editing.gdrgCode })
+    : null);
+  const setSelectedItem = setPickedItem;
+
+  const filtered = items.filter(item =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item[codeField] || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAdd = () => {
+    if (!selectedItem) return;
+    onAdd({
+      id: editing?.id,
+      gdrgCode: selectedItem.investigationCode || selectedItem.nhisServiceCode || '',
+      description: selectedItem.name,
+      date: serviceDate,
+      serviceCatalogId: selectedItem.id,
+      type: kind,
+    });
+    setSelectedItem(null);
+    setSearchTerm('');
+    setServiceDate(new Date().toISOString().split('T')[0]);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
+        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{editing ? 'Edit' : 'Add'} {kind === 'lab' ? 'Lab Test' : 'Scan'}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
+            <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          {editing && (
+            <div className="flex gap-2">
+              {(['lab', 'scan'] as const).map(k => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => { setKind(k); setPickedItem(null); setSearchTerm(''); }}
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-sm border ${kind === k ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]' : 'border-[var(--border-color)] text-[var(--text-primary)]'}`}
+                >
+                  {k === 'lab' ? 'Lab Test' : 'Scan'}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              placeholder={`Search ${kind === 'lab' ? 'lab test' : 'scan'}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
+            <input
+              type="date"
+              value={serviceDate}
+              onChange={(e) => setServiceDate(e.target.value)}
+              className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
+          </div>
+          <div className="max-h-64 overflow-y-auto space-y-1">
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedItem(item)}
+                className={`w-full text-left p-2 rounded-lg transition-colors ${
+                  selectedItem?.id === item.id
+                    ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
+                    : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'
+                }`}
+              >
+                <div className="font-medium text-sm">{item.name}</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {item[codeField] || item.code}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
+          <button
+            onClick={handleAdd}
+            disabled={!selectedItem}
+            className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium"
+          >
+            {editing ? 'Save Changes' : 'Add Investigation'}
+          </button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADD MEDICINE MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+// `editing` set => the dialog edits that row (pre-filled, searchable) instead of adding a new one.
+function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = [] }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onAdd: (m: MedicineItem) => void;
+  editing?: MedicineItem | null;
+  /** The medicines NHIS pays for this claim, priced by the payer rule. Nothing else is offered. */
+  options: NhisMedicineQuote[];
+}) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [pickedItem, setPickedItem] = useState<NhisMedicineQuote | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dosage, setDosage] = useState('');
+  const [frequency, setFrequency] = useState('');
+  const [duration, setDuration] = useState('');
+
+  // Reset / pre-fill each time the dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchTerm('');
+    setPickedItem(null);
+    setQuantity(editing?.quantity || 1);
+    setServiceDate(editing?.date || new Date().toISOString().split('T')[0]);
+    setDosage(editing?.dosage || '');
+    setFrequency(editing?.frequency || '');
+    setDuration(editing?.duration || '');
+  }, [isOpen, editing]);
+
+  // Current selection: what the user picked, else the row being edited
+  const selectedItem = pickedItem ?? (editing
+    ? (options.find(o => (editing.stockItemId && o.stockItemId === editing.stockItemId) || (o.code && o.code === editing.code)) ?? null)
+    : null);
+  const setSelectedItem = setPickedItem;
+
+  const maxQuantity = selectedItem?.quantity ?? 0;
+  const unitPrice = selectedItem?.unitPrice ?? (editing?.unitPrice ?? 0);
+
+  const filtered = options.filter(item =>
+    item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.code || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAdd = () => {
+    if (!selectedItem) return;
+    const prescription = `${dosage} ${frequency} x ${duration}`.trim();
+    const claimed = Math.max(1, Math.min(Number(quantity) || 1, maxQuantity || Number(quantity) || 1));
+    onAdd({
+      id: editing?.id,
+      code: selectedItem.code,
+      description: selectedItem.description,
+      quantity: claimed,
+      date: serviceDate,
+      // keep the original prescription text when no dose details were entered
+      prescription: prescription || editing?.prescription || 'As prescribed',
+      dosage,
+      frequency,
+      duration,
+      stockItemId: selectedItem.stockItemId,
+      serviceCatalogId: selectedItem.serviceCatalogId ?? editing?.serviceCatalogId,
+      unitPrice,
+      lineTotal: Math.round(unitPrice * claimed * 100) / 100,
+    });
+    setSelectedItem(null);
+    setSearchTerm('');
+    setQuantity(1);
+    setDosage('');
+    setFrequency('');
+    setDuration('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
+        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{editing ? 'Edit Medicine' : 'Add Medicine'}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
+            <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              placeholder="Search medicine by name or drug code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity{maxQuantity ? ` (max ${maxQuantity} dispensed)` : ''}</label>
+              <input type="number" min="1" max={maxQuantity || undefined} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
+              <input type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Dosage</label>
+              <input type="text" value={dosage} onChange={(e) => setDosage(e.target.value)} placeholder="e.g., 500mg" className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Frequency</label>
+              <input type="text" value={frequency} onChange={(e) => setFrequency(e.target.value)} placeholder="e.g., BD" className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Duration</label>
+              <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="e.g., 7 days" className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
+            </div>
+          </div>
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {filtered.length === 0 && (
+              <p className="text-xs text-[var(--text-secondary)] py-2">
+                No dispensed medicine on this visit is on the NHIS list, so there is nothing to claim here.
+              </p>
+            )}
+            {capPickerRows(filtered).map((item) => (
+              <button
+                key={item.stockItemId}
+                onClick={() => { setSelectedItem(item); setQuantity(prev => Math.min(prev || 1, item.quantity) || 1); }}
+                className={`w-full text-left p-2 rounded-lg transition-colors ${
+                  selectedItem?.stockItemId === item.stockItemId
+                    ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
+                    : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm">{item.description}</span>
+                  <span className="text-xs font-semibold">GHS {Number(item.unitPrice).toFixed(2)}</span>
+                </div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {item.code} · {item.quantity} dispensed</div>
+              </button>
+            ))}
+          </div>
+          {selectedItem && (
+            <p className="text-xs text-[var(--text-secondary)]">
+              NHIS pays GHS {Number(selectedItem.unitPrice).toFixed(2)} per unit, so this line is GHS{' '}
+              {Math.round(unitPrice * Math.max(1, Math.min(Number(quantity) || 1, selectedItem.quantity)) * 100 / 100).toFixed(2)}.
+            </p>
+          )}
+        </div>
+        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
+          <button onClick={handleAdd} disabled={!selectedItem} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium">
+            {editing ? 'Save Changes' : 'Add Medicine'}
+          </button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADD / EDIT PROCEDURE MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+// `editing` set => the dialog edits that row (pre-filled, searchable) instead of adding a new one.
+function AddProcedureModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: boolean; onClose: () => void; onAdd: (p: ProcedureItem) => void; editing?: ProcedureItem | null }) {
+  const { procedureTemplates, getProcedureTemplates } = useMedicalServicesStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [pickedItem, setPickedItem] = useState<any>(null);
+  const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    if (isOpen) getProcedureTemplates();
+  }, [isOpen, getProcedureTemplates]);
+
+  // Reset / pre-fill each time the dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchTerm('');
+    setPickedItem(null);
+    setServiceDate(editing?.date || new Date().toISOString().split('T')[0]);
+  }, [isOpen, editing]);
+
+  const codeOf = (t: any) => t?.procedureCode || t?.tariffCode || '';
+
+  // Current selection: what the user picked, else the row being edited
+  const selectedItem = pickedItem ?? (editing
+    ? ((procedureTemplates || []).find((t: any) => codeOf(t) === editing.code || t.procedureCode === editing.code)
+        ?? { id: editing.id, name: editing.description, procedureCode: editing.code })
+    : null);
+
+  const filtered = (procedureTemplates || []).filter((t: any) =>
+    (t.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    codeOf(t).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (t.procedureCode || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleAdd = () => {
+    if (!selectedItem) return;
+    onAdd({
+      id: editing?.id,
+      code: codeOf(selectedItem) || selectedItem.procedureCode || '',
+      description: selectedItem.name,
+      date: serviceDate,
+    });
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
+        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{editing ? 'Edit Procedure' : 'Add Procedure'}</h3>
+          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
+            <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              placeholder="Search procedure by name or code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
+            <input
+              type="date"
+              value={serviceDate}
+              onChange={(e) => setServiceDate(e.target.value)}
+              className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
+          </div>
+          {editing && (
+            <div className="text-xs text-[var(--text-secondary)]">Current: {selectedItem?.name} ({codeOf(selectedItem) || selectedItem?.procedureCode || '—'})</div>
+          )}
+          <div className="max-h-64 overflow-y-auto space-y-1">
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((t: any) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setPickedItem(t)}
+                className={`w-full text-left p-2 rounded-lg transition-colors ${
+                  selectedItem?.id === t.id
+                    ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
+                    : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'
+                }`}
+              >
+                <div className="font-medium text-sm">{t.name}</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {codeOf(t) || t.procedureCode}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
+          <button
+            onClick={handleAdd}
+            disabled={!selectedItem}
+            className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium"
+          >
+            {editing ? 'Save Changes' : 'Add Procedure'}
+          </button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
+export default function EditNHISClaim() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const goBack = useSmartBack('/dashboard/insurance/nhis/claims');
+  const { success, error: toastError } = useToast();
+  const isInitialized = useRef(false);
+  const [claimFormInitialized, setClaimFormInitialized] = useState(false);
+
+  const {
+    currentClaim,
+    getInsuranceClaim,
+    updateClaimDraft,
+    replaceClaimItems,
+    finalizeClaim,
+    downloadClaimXml,
+    printClaim,
+    isLoading,
+  } = useInsuranceStore();
+
+  const { updatePatient } = usePatientStore();
+  // Correcting the member record writes to /api/patients, which is limited to the
+  // patient-management roles; accounts staff edit the claim itself, not the register.
+  const { user, hasRole } = useAuthStore();
+  const canEditMember = canAccessPage(user?.role, 'patients');
+  // Sending to CLAIM-it is the payer submission, so it follows the same admin/accounts gate
+  // the backend routes use; a doctor reads the claim but does not push it.
+  const canSendToClaimIt = hasRole(['admin', 'accounts']);
+  const { getDiagnoses } = useMedicalServicesStore();
+  const { tariffs, fetchTariffs } = useGDRGTariffStore();
+
+  const [patientNhisNumber, setPatientNhisNumber] = useState('');
+  const [cccCode, setCccCode] = useState('');
+  const [folderNumber, setFolderNumber] = useState('');
+  const [surname, setSurname] = useState('');
+  const [otherNames, setOtherNames] = useState('');
+  const [gender, setGender] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [age, setAge] = useState('');
+  const [patientId, setPatientId] = useState('');
+
+  const [isEditingMember, setIsEditingMember] = useState(false);
+  const [memberFormData, setMemberFormData] = useState({
+    nhisNumber: '', cccCode: '', folderNumber: '', surname: '', otherNames: '', gender: '', dateOfBirth: '',
+  });
+
+  const [primaryServiceType, setPrimaryServiceType] = useState<'OPD' | 'IPD'>('OPD');
+  const [serviceOutcome, setServiceOutcome] = useState('DISC');
+  const [visitDates, setVisitDates] = useState<string[]>(['', '', '', '']);
+  const [admissionDate, setAdmissionDate] = useState('');
+  const [dischargeDate, setDischargeDate] = useState('');
+  const [lengthOfStay, setLengthOfStay] = useState(0);
+  const [typeOfAttendance, setTypeOfAttendance] = useState('CFU');
+
+  const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
+  const [investigations, setInvestigations] = useState<InvestigationItem[]>([]);
+  const [medicines, setMedicines] = useState<MedicineItem[]>([]);
+  // The medicines NHIS pays for on this claim, priced by its payer rule. The picker offers nothing else.
+  const [nhisQuotes, setNhisQuotes] = useState<NhisMedicineQuote[]>([]);
+  const [nhisUnclaimable, setNhisUnclaimable] = useState<UnclaimableMedicine[]>([]);
+  const fillMedicinesFromQuote = useRef(false);
+
+  const [principalGDRG, setPrincipalGDRG] = useState('');
+  const [principalGDRGDescription, setPrincipalGDRGDescription] = useState('');
+  const [preAuthNumber, setPreAuthNumber] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const [serviceFlags, setServiceFlags] = useState({ diagnostic: false, pharmacy: false, unbundled: false, allInclusive: true });
+  const [diagnosticEligible, setDiagnosticEligible] = useState(false);
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [referringFacility, setReferringFacility] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  const [physicianId, setPhysicianId] = useState('');
+  const [procedures, setProcedures] = useState<ProcedureItem[]>([]);
+  const [tablesOpen, setTablesOpen] = useState(true);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+  // The row currently being edited (opens the matching search dialog, pre-filled)
+  const [editing, setEditing] = useState<{ kind: 'diagnosis' | 'investigation' | 'medicine' | 'procedure'; index: number } | null>(null);
+  const closeModal = () => { setActiveModal(null); setEditing(null); };
+  const [isSavingMember, setIsSavingMember] = useState(false);
+
+  // CLAIM-it: what the payer's server is configured to do, and what it answered about this claim.
+  const [claimitStatus, setClaimItStatus] = useState<ClaimItStatus | null>(null);
+  const [claimitHistory, setClaimItHistory] = useState<ClaimItSubmissionRow[]>([]);
+  const [claimitHistoryError, setClaimItHistoryError] = useState<string | null>(null);
+  const [claimitHeld, setClaimItHeld] = useState<ClaimItBlockedClaim[]>([]);
+  const [claimitBusy, setClaimItBusy] = useState(false);
+
+  const isDraft = currentClaim?.status === 'draft';
+
+  const handleRefreshClaim = async () => {
+    if (isDraft) {
+      const confirmed = await confirmDialog({
+        title: 'Refresh claim form?',
+        message: 'Any unsaved changes to this draft will be lost. Refresh the form and reload the saved claim?',
+        confirmText: 'Refresh',
+        type: 'warning',
+      });
+      if (!confirmed) return;
+    }
+    navigate(0);
+  };
+  const isFinalized = currentClaim?.status === 'finalized';
+  const attendanceForAge = a(currentClaim);
+  const encounterServiceDate = primaryServiceType === 'IPD'
+    ? (admissionDate || attendanceForAge?.Admission?.admissionDate || attendanceForAge?.admission?.admissionDate)
+    : (visitDates.find(Boolean) || attendanceForAge?.dateTime?.split('T')[0]);
+  const encounterAgeYears = ageOnDate(
+    memberFormData.dateOfBirth || p(currentClaim)?.dateOfBirth,
+    encounterServiceDate,
+  );
+  const availableGDRGs = encounterAgeYears == null
+    ? (tariffs || [])
+    : (tariffs || []).filter((tariff: any) => gdrgAgeEligible(tariff, encounterAgeYears));
+  const selectedPrincipalTariff = (tariffs || []).find((tariff: any) => tariff.gdrgCode === principalGDRG);
+  const principalGDRGAgeInvalid = !!principalGDRG && encounterAgeYears != null &&
+    !!selectedPrincipalTariff && !gdrgAgeEligible(selectedPrincipalTariff, encounterAgeYears);
+
+  useEffect(() => {
+    if (id) {
+      getInsuranceClaim(id);
+      getDiagnoses();
+      fetchTariffs();
+    }
+  }, [id]);
+
+  // The claim's own billable medicines. The server applies the payer rule, so what arrives here is
+  // exactly what the save accepts, at the amount the save prices it at.
+  useEffect(() => {
+    // Wait until the claim and its saved lines have been initialized. Otherwise the
+    // quote can resolve before fillMedicinesFromQuote is set, leaving a blank form.
+    if (!id || !claimFormInitialized) return;
+    let cancelled = false;
+    getNHISClaimMedicines(id)
+      .then((res: any) => {
+        if (cancelled) return;
+        const payload = res?.data ?? res;
+        const quotes: NhisMedicineQuote[] = payload?.medicines ?? [];
+        setNhisQuotes(quotes);
+        setNhisUnclaimable(payload?.unclaimable ?? []);
+        if (fillMedicinesFromQuote.current) {
+          fillMedicinesFromQuote.current = false;
+          setMedicines(quotes.map(q => ({
+            code: q.code,
+            description: q.description,
+            quantity: q.quantity,
+            date: q.date,
+            prescription: q.prescription,
+            stockItemId: q.stockItemId,
+            serviceCatalogId: q.serviceCatalogId ?? undefined,
+            unitPrice: q.unitPrice,
+            lineTotal: q.lineTotal,
+          })));
+          return;
+        }
+        // A line saved before it carried an amount is quoted the way the save would price it.
+        const byCode = new Map(quotes.map(q => [String(q.code), q]));
+        setMedicines(prev => prev.map(m => {
+          if (m.unitPrice != null || m.lineTotal != null) return m;
+          const quote = byCode.get(String(m.code));
+          if (!quote) return m;
+          return { ...m, unitPrice: quote.unitPrice, lineTotal: Math.round(quote.unitPrice * (Number(m.quantity) || 1) * 100) / 100 };
+        }));
+      })
+      .catch(() => { if (!cancelled) { setNhisQuotes([]); setNhisUnclaimable([]); } });
+    return () => { cancelled = true; };
+  }, [id, claimFormInitialized]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getClaimItStatus().then(status => { if (!cancelled) setClaimItStatus(status); }).catch(() => { if (!cancelled) setClaimItStatus(null); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // A draft has never been on the payer's side, so there is nothing to read back.
+  useEffect(() => {
+    if (!id || !isFinalized) return;
+    let cancelled = false;
+    setClaimItHistoryError(null);
+    getClaimClaimItSubmissions(id)
+      .then(result => { if (!cancelled) setClaimItHistory(result.submissions ?? []); })
+      .catch((err: any) => {
+        if (cancelled) return;
+        setClaimItHistory([]);
+        setClaimItHistoryError(describeApiError(err, 'The CLAIM-it history for this claim could not be read.'));
+      });
+    return () => { cancelled = true; };
+  }, [id, isFinalized]);
+
+  useEffect(() => {
+    if (!currentClaim || isInitialized.current) return;
+    isInitialized.current = true;
+
+    const patient = p(currentClaim);
+    const attendance = a(currentClaim);
+
+    if (patient?.nhisNumber) setPatientNhisNumber(patient.nhisNumber);
+    else if (attendance?.nhisCCC) setCccCode(attendance.nhisCCC);
+    if (patient?.folderNumber) setFolderNumber(patient.folderNumber);
+
+    setPatientId(patient?.id || '');
+    setSurname(patient?.surname || '');
+    setOtherNames(patient?.otherNames || '');
+    setGender(patient?.gender || '');
+    setDateOfBirth(patient?.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : '');
+
+    setMemberFormData({
+      surname: patient?.surname || '',
+      otherNames: patient?.otherNames || '',
+      gender: patient?.gender || '',
+      dateOfBirth: patient?.dateOfBirth || '',
+      nhisNumber: patient?.nhisNumber || '',
+      folderNumber: patient?.folderNumber || '',
+      cccCode: attendance?.nhisCCC || '',
+    });
+
+    if (patient?.dateOfBirth) {
+      const birth = new Date(patient.dateOfBirth);
+      const today = new Date();
+      let y = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) y--;
+      setAge(`${y} yrs`);
+    }
+
+    // Type of Attendance / Type of Service follow the attendance type (see utils/nhisAttendanceMapping.ts).
+    // Drafts are re-resolved from the attendance; submitted claims keep what was saved.
+    const admissionRaw = attendance?.Admission ?? attendance?.admission ?? null;
+    const admissionRecord: any = admissionRaw ?? {};
+    const attendanceTypeCodeForClaim = String(attendance?.attendanceType ?? '').toLowerCase();
+    const isZoomAttendance = attendanceTypeCodeForClaim.includes('zoom');
+    const mapped = mapAttendanceToNHIS(attendance?.attendanceType, !!admissionRaw || currentClaim.typeOfService === 'IPD');
+    const reResolved = currentClaim.status === 'draft' && !!attendance?.attendanceType;
+    // ZOOM is billed as an outpatient encounter and must carry the OPDC scheme.
+    const serviceType: 'OPD' | 'IPD' = isZoomAttendance
+      ? 'OPD'
+      : (reResolved ? mapped.typeOfService : (currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD'));
+    setPrimaryServiceType(serviceType);
+    setTypeOfAttendance(reResolved
+      ? mapped.typeOfAttendance
+      : (normalizeNHISAttendanceCode(currentClaim.typeOfAttendance) || mapped.typeOfAttendance));
+    const referralRecord = attendance?.referral ?? attendance?.ReferralRecord ?? null;
+    const attendanceWasReferred = attendance?.status === 'referred' || referralRecord?.referralType === 'outgoing';
+    // A referred encounter is a transferred-out claim; keep this derived for editable drafts.
+    setServiceOutcome(currentClaim.status === 'draft' && attendanceWasReferred
+      ? 'TFOT'
+      : normalizeNHISOutcomeCode(currentClaim.serviceOutcome));
+
+    const isoDay = (v: any) => (v ? String(v).split('T')[0] : '');
+    const serviceDates: string[] = (currentClaim.datesOfService ?? []).map(isoDay).filter(Boolean);
+    if (serviceType === 'IPD') {
+      // An admission sends its two endpoints; the form shows them as the stay dates. Older drafts
+      // stored one date per day in hospital, so the last of the list is the day it ended.
+      setAdmissionDate(serviceDates[0] || isoDay(admissionRecord.admissionDate));
+      setDischargeDate(serviceDates[serviceDates.length - 1] || isoDay(admissionRecord.dischargeDate));
+    } else if (serviceDates.length) {
+      const dates = [...visitDates];
+      serviceDates.forEach((date: string, i: number) => { if (i < 4) dates[i] = date; });
+      setVisitDates(dates);
+    } else if (attendance?.dateTime) {
+      setVisitDates([attendance.dateTime.split('T')[0], '', '', '']);
+    }
+
+    // Items: prefer claim.items (server truth), fall back to metadata, then to attendance
+    const serverItems: any[] = (currentClaim as any).items ?? [];
+    const meta = (currentClaim.metadata || {}) as any;
+
+    const diagFromServer = serverItems.filter((i: any) => i.itemCategory === 'diagnosis');
+    const invFromServer = serverItems.filter((i: any) => i.itemCategory === 'investigation');
+    const procFromServer = serverItems.filter((i: any) => i.itemCategory === 'procedure');
+    const medFromServer = serverItems.filter((i: any) => i.itemCategory === 'medicine');
+
+    if (diagFromServer.length) {
+      setDiagnoses(diagFromServer.map((d: any, idx: number) => ({
+        id: d.id,
+        gdrgCode: d.gdrgTariff?.gdrgCode || currentClaim.principalGDRG || 'OPDC06A',
+        description: d.description,
+        diagnosis: d.description,
+        icd10: d.code,
+        diagnosisId: d.diagnosisId,
+        diagnosisType: idx === 0 ? 'primary' : 'additional',
+      })));
+    } else if (meta.diagnoses?.length) {
+      setDiagnoses(meta.diagnoses);
+    } else {
+      const attDiags = attendance?.attendanceDiagnosis ?? attendance?.AttendanceDiagnosis ?? [];
+      setDiagnoses(attDiags.map((d: any, idx: number) => ({
+        id: d.id,
+        gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
+        description: d.diagnosis?.name || d.Diagnosis?.name || '',
+        diagnosis: d.diagnosis?.name || d.Diagnosis?.name || '',
+        icd10: d.diagnosis?.icdCode || d.Diagnosis?.icdCode || '',
+        diagnosisId: d.diagnosisId,
+        diagnosisType: d.diagnosisType,
+      })));
+    }
+
+    if (invFromServer.length) {
+      setInvestigations(invFromServer.map((i: any) => ({
+        id: i.id,
+        gdrgCode: i.code,
+        description: i.description,
+        date: i.serviceDate ? String(i.serviceDate).split('T')[0] : '',
+        serviceCatalogId: i.serviceCatalogId,
+        type: 'lab' as const,
+        unitPrice: i.unitPrice,
+        lineTotal: i.lineTotal,
+      })));
+    } else if (meta.investigations?.length) {
+      setInvestigations(meta.investigations);
+    } else {
+      const labs = (attendance?.labTest ?? attendance?.LabTest ?? []).map((l: any) => ({
+        id: l.id,
+        gdrgCode: l.labTestTemplate?.investigationCode || l.LabTestTemplate?.investigationCode || l.serviceCatalog?.nhisServiceCode || l.ServiceCatalog?.nhisServiceCode || '',
+        description: l.serviceCatalog?.name || l.ServiceCatalog?.name || l.name || '',
+        date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : '',
+        serviceCatalogId: l.serviceCatalogId,
+        type: 'lab' as const,
+      }));
+      const scans = (attendance?.scan ?? attendance?.Scan ?? []).map((s: any) => ({
+        id: s.id,
+        gdrgCode: s.scanTemplate?.investigationCode || s.ScanTemplate?.investigationCode || s.serviceCatalog?.nhisServiceCode || s.ServiceCatalog?.nhisServiceCode || '',
+        description: s.serviceCatalog?.name || s.ServiceCatalog?.name || s.name || '',
+        date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : '',
+        serviceCatalogId: s.serviceCatalogId,
+        type: 'scan' as const,
+      }));
+      setInvestigations([...labs, ...scans]);
+    }
+
+    if (medFromServer.length) {
+      const attendanceMedications: any[] = attendance?.Medication ?? attendance?.medication ?? [];
+      setMedicines(medFromServer.map((m: any) => ({
+        id: m.id,
+        code: attendanceMedications.find((a: any) => a.id === m.medicationId)?.StockItem?.drugCode
+          || attendanceMedications.find((a: any) => a.id === m.medicationId)?.stockItem?.drugCode
+          || m.code,
+        description: m.description,
+        quantity: m.quantity,
+        date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
+        prescription: m.prescriptionText || 'As prescribed',
+        stockItemId: m.medicationId,
+        unitPrice: m.unitPrice,
+        lineTotal: m.lineTotal,
+      })));
+    } else if (meta.medicines?.length) {
+      setMedicines(meta.medicines);
+    } else {
+      // Filled from the payer quote below, which lists only the dispensed medicines NHIS pays for
+      // and already carries their amounts. The raw shelf is not a claim source.
+      setMedicines([]);
+      fillMedicinesFromQuote.current = true;
+    }
+
+    if (procFromServer.length) {
+      setProcedures(procFromServer.map((pr: any) => ({
+        id: pr.id,
+        code: pr.code,
+        description: pr.description,
+        date: pr.serviceDate ? String(pr.serviceDate).split('T')[0] : '',
+        unitPrice: pr.unitPrice,
+        lineTotal: pr.lineTotal,
+      })));
+    } else if (meta.procedures?.length) {
+      setProcedures(meta.procedures);
+    } else {
+      const attProcs = (attendance?.procedure ?? attendance?.Procedure ?? []).map((pr: any) => ({
+        id: pr.id,
+        code: pr.procedureTemplate?.procedureCode || pr.ProcedureTemplate?.procedureCode || pr.serviceCatalog?.nhisServiceCode || pr.ServiceCatalog?.nhisServiceCode || '',
+        description: pr.serviceCatalog?.name || pr.ServiceCatalog?.name || pr.procedureTemplate?.name || pr.ProcedureTemplate?.name || 'Procedure',
+        date: (pr.performedAt || pr.scheduledDate || pr.createdAt || '').toString().split('T')[0],
+      }));
+      setProcedures(attProcs);
+    }
+
+    // Metadata is the older store for these dates; a claim that already carries dates of service
+    // uses those, so a desk edit that was saved to the claim is not silently reverted.
+    if (meta.visitDates && !serviceDates.length) setVisitDates(meta.visitDates);
+    if (serviceType === 'IPD' && !serviceDates.length) {
+      if (meta.admissionDate) setAdmissionDate(meta.admissionDate);
+      if (meta.dischargeDate) setDischargeDate(meta.dischargeDate);
+    }
+    if (meta.lengthOfStay) setLengthOfStay(meta.lengthOfStay);
+
+    setPrincipalGDRG(currentClaim.principalGDRG || '');
+    setPreAuthNumber(currentClaim.preAuthNumber || '');
+    setNotes(currentClaim.notes || '');
+
+    const unbundled = isNHISClaimUnbundled(currentClaim) || meta.serviceFlags?.unbundled === true;
+    const attendanceLabs: any[] = attendance?.labTest ?? attendance?.LabTest ?? [];
+    const attendanceMedicines: any[] = attendance?.medication ?? attendance?.Medication ?? [];
+    const attendanceTypeCode = String(attendance?.attendanceType ?? '').toLowerCase();
+    const attendanceServices: any[] = attendance?.services ?? attendance?.Service ?? attendance?.serviceItems ?? attendance?.ServiceItem ?? [];
+    const hasConsultation =
+      !!(attendance?.consultation ?? attendance?.Consultation) ||
+      (Array.isArray(attendance?.consultations ?? attendance?.Consultations) &&
+        (attendance.consultations ?? attendance.Consultations).length > 0) ||
+      attendanceTypeCode.includes('consultation') ||
+      (Array.isArray(attendanceServices) && attendanceServices.some((service: any) =>
+        String(service?.serviceType ?? service?.category ?? service?.serviceCategory ?? '').toLowerCase().includes('consultation')
+      ));
+    const hasMedication = attendanceMedicines.length > 0 || medFromServer.length > 0;
+    const isStandaloneDiagnostics = attendanceLabs.length > 0 && !hasConsultation && !hasMedication;
+    setDiagnosticEligible(isStandaloneDiagnostics);
+    setServiceFlags({
+      // Diagnostic is only for a laboratory-only attendance: labs, but no consultation or medicines.
+      diagnostic: isStandaloneDiagnostics,
+      pharmacy: meta.serviceFlags?.pharmacy ?? attendanceMedicines.length > 0,
+      unbundled,
+      allInclusive: meta.serviceFlags?.allInclusive ?? !unbundled,
+    });
+    // Derive specialties from the G-DRG families on the claim as well as any saved manual ticks.
+    // MEDI32 -> MEDI; OBGY0... -> OBGY; PSUR... -> PSUR; ASUR... -> ASUR.
+    const diagnosisGDRGs = [
+      ...diagFromServer.map((d: any) => d.gdrgTariff?.gdrgCode || d.gdrgCode || ''),
+      ...(Array.isArray(meta.diagnoses) ? meta.diagnoses.map((d: any) => d.gdrgCode || '') : []),
+    ];
+    const derivedSpecialties = nhisSpecialtiesFor(serviceType, [currentClaim.principalGDRG, ...diagnosisGDRGs]);
+    const savedSpecialties: string[] = Array.isArray(meta.specialties)
+      ? meta.specialties
+      : (currentClaim.mdcCode ? [String(currentClaim.mdcCode)] : []);
+    setSpecialties(Array.from(new Set([...savedSpecialties, ...derivedSpecialties])));
+    setReferringFacility(
+      referralRecord?.referredToFacility ??
+      meta.referringFacility ??
+      attendance?.referringFacility ??
+      ''
+    );
+    setReferralCode(meta.referralCode ?? '');
+    setPhysicianId(meta.physicianId ?? '');
+    // Trigger the payer medicine quote only after the fallback decision above is known.
+    setClaimFormInitialized(true);
+  }, [currentClaim]);
+
+  useEffect(() => {
+    if (admissionDate && dischargeDate) {
+      const start = new Date(admissionDate);
+      const end = new Date(dischargeDate);
+      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+      setLengthOfStay(days > 0 ? days : 1);
+    } else {
+      setLengthOfStay(0);
+    }
+  }, [admissionDate, dischargeDate]);
+
+  useEffect(() => {
+    if (tariffs.length > 0 && principalGDRG) {
+      const selected = tariffs.find(g => g.gdrgCode === principalGDRG);
+      if (selected && selected.description !== principalGDRGDescription) {
+        setPrincipalGDRGDescription(selected.description);
+      }
+    }
+  }, [tariffs, principalGDRG]);
+
+  // Money on this claim. The saved lines carry the server's own figures; a G-DRG that
+  // has not been saved yet is shown at its tariff, and medicines stay blank until the
+  // payer rule prices them, because only the server knows the NHIS-covered amount.
+  const claimLines: any[] = ((currentClaim as any)?.items ?? []);
+  const gdrgLine = claimLines.find((line: any) => line.itemCategory === 'gdrg');
+  const gdrgAmount = gdrgLine
+    ? toNum(gdrgLine.lineTotal)
+    : toNum((tariffs as any[]).find(g => g.gdrgCode === principalGDRG)?.nhiaTariff);
+  const pricedMedicines = medicines.filter(m => m.lineTotal != null || m.unitPrice != null);
+  const medicinesAmount = pricedMedicines.reduce(
+    (sum, m) => sum + (m.lineTotal != null ? toNum(m.lineTotal) : toNum(m.unitPrice) * (Number(m.quantity) || 1)),
+    0,
+  );
+  const claimTotal = toNum((currentClaim as any)?.totalClaimAmount) || (gdrgAmount + medicinesAmount);
+  const money = (value: number) => `GHS ${value.toFixed(2)}`;
+
+  // A line the payer quote does not carry is one the save will refuse, so the desk can see which
+  // row to delete instead of reading it out of the error toast.
+  const claimableCodes = new Set(nhisQuotes.map(q => String(q.code)));
+
+  const handleMemberEdit = () => {
+    setIsEditingMember(true);
+    setMemberFormData({
+      surname: surname || '',
+      otherNames: otherNames || '',
+      gender: gender || '',
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth).toISOString().split('T')[0] : '',
+      nhisNumber: patientNhisNumber || '',
+      folderNumber: folderNumber || '',
+      cccCode: cccCode || '',
+    });
+  };
+
+  const calculateAge = (dob: string) => {
+    if (!dob) return '—';
+    const birth = new Date(dob);
+    const today = new Date();
+    let y = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) y--;
+    return `${y} yrs`;
+  };
+
+  const handleMemberSave = async () => {
+    if (!patientId) {
+      toastError('Error', 'Patient ID not found');
+      return;
+    }
+    // A blank member number is legal here (the claim then runs on the CCC code), but a typed one
+    // must reach the server as 8 or 10 digits or the patient update is rejected.
+    const memberNumberError = nhisNumberError(memberFormData.nhisNumber);
+    if (memberNumberError) {
+      toastError('Check the form', memberNumberError);
+      return;
+    }
+    setIsSavingMember(true);
+    try {
+      await updatePatient(patientId, {
+        surname: memberFormData.surname,
+        otherNames: memberFormData.otherNames,
+        gender: memberFormData.gender,
+        dateOfBirth: memberFormData.dateOfBirth,
+        nhisNumber: memberFormData.nhisNumber,
+        folderNumber: memberFormData.folderNumber,
+      });
+      setSurname(memberFormData.surname);
+      setOtherNames(memberFormData.otherNames);
+      setGender(memberFormData.gender);
+      setDateOfBirth(memberFormData.dateOfBirth ? new Date(memberFormData.dateOfBirth).toLocaleDateString() : '');
+      setPatientNhisNumber(memberFormData.nhisNumber);
+      setFolderNumber(memberFormData.folderNumber);
+      setCccCode(memberFormData.cccCode);
+      if (memberFormData.dateOfBirth) setAge(calculateAge(memberFormData.dateOfBirth));
+      success('Updated', 'Member details updated successfully');
+      setIsEditingMember(false);
+      await getInsuranceClaim(id!);
+    } catch (error: any) {
+      toastError(describeApiErrorTitle(error, 'Update Failed'), describeApiError(error, 'The member details could not be updated.'));
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
+
+  // Replace the row at `index`, or append when not editing
+  const upsert = <T,>(list: T[], item: T, kind: string): T[] =>
+    editing?.kind === kind ? list.map((x, i) => (i === editing.index ? item : x)) : [...list, item];
+
+  const addDiagnosis = (d: DiagnosisItem) => {
+    setDiagnoses(upsert(diagnoses, d, 'diagnosis'));
+    // On an admission, every G-DRG family represented by a diagnosis should be ticked.
+    // OPD remains under the OPDC scheme, as required by the submitted NHIS claim format.
+    if (primaryServiceType === 'IPD') {
+      const specialty = gdrgSpecialty(d.gdrgCode);
+      if (specialty) setSpecialties((prev) => Array.from(new Set([...prev, specialty])));
+    }
+  };
+  const removeDiagnosis = (i: number) => setDiagnoses(diagnoses.filter((_, idx) => idx !== i));
+  const setPrimaryDiagnosis = (i: number) =>
+    setDiagnoses(diagnoses.map((d, idx) => ({ ...d, diagnosisType: idx === i ? 'primary' : 'additional' })));
+
+  const addInvestigation = (inv: InvestigationItem) => setInvestigations(upsert(investigations, inv, 'investigation'));
+  const removeInvestigation = (i: number) => setInvestigations(investigations.filter((_, idx) => idx !== i));
+
+  const addMedicine = (m: MedicineItem) => setMedicines(upsert(medicines, m, 'medicine'));
+  const removeMedicine = (i: number) => setMedicines(medicines.filter((_, idx) => idx !== i));
+
+  const addProcedure = (pr: ProcedureItem) => setProcedures(upsert(procedures, pr, 'procedure'));
+  const removeProcedure = (i: number) => setProcedures(procedures.filter((_, idx) => idx !== i));
+
+  const updateVisitDate = (i: number, v: string) => {
+    const arr = [...visitDates]; arr[i] = v; setVisitDates(arr);
+  };
+
+  // The codes carried on the draft that a G-DRG family could be read off.
+  const carriedGDRGCodes = [principalGDRG, ...diagnoses.map((d) => d.gdrgCode), ...procedures.map((pr) => pr.code)];
+
+  const handlePrincipalGDRGChange = (code: string, desc: string) => {
+    setPrincipalGDRG(code);
+    setPrincipalGDRGDescription(desc);
+    // Choosing a code adds the specialty it names — the outpatient scheme for a visit, the clinical
+    // family for an admission — without clearing whatever the desk had already ticked.
+    if (code) setSpecialties((prev) => Array.from(new Set([
+      ...prev,
+      primaryServiceType === 'OPD' ? OPD_SCHEME_SPECIALTY : gdrgSpecialty(code),
+    ].filter(Boolean))));
+  };
+
+  /** Switching between a visit and an admission keeps the desk's ticks and moves the scheme. */
+  const handleServiceTypeChange = (next: 'OPD' | 'IPD') => {
+    if (next === primaryServiceType) return;
+    setPrimaryServiceType(next);
+    setSpecialties((prev) => {
+      if (next === 'OPD') return Array.from(new Set([...prev, OPD_SCHEME_SPECIALTY]));
+      const clinical = prev.filter((s) => s !== OPD_SCHEME_SPECIALTY);
+      // An admission cannot report the outpatient scheme, so if that was all it carried, fall back
+      // to the families the claim's own codes name rather than leaving the box empty.
+      return clinical.length ? clinical : nhisSpecialtiesFor('IPD', carriedGDRGCodes);
+    });
+  };
+
+  /** <mdcCode>: the scheme a visit is billed under, or the family an admission was attended by. */
+  const primarySpecialty = primaryServiceType === 'OPD'
+    ? OPD_SCHEME_SPECIALTY
+    : (specialties.find((s) => s !== OPD_SCHEME_SPECIALTY) || gdrgSpecialty(principalGDRG));
+
+  /** The dates the claim sends: the stay's endpoints for an admission, each recorded visit otherwise. */
+  const datesOfServiceForSave = (): string[] => {
+    const days = primaryServiceType === 'IPD' ? [admissionDate, dischargeDate] : visitDates;
+    return Array.from(new Set(days.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))));
+  };
+
+  const validateNHISClaim = () => {
+    const errs: string[] = [];
+    if (!cccCode && !patientNhisNumber) errs.push('NHIS CCC number is required');
+    if (diagnoses.length === 0) errs.push('At least one diagnosis is required');
+    if (diagnoses.length > 0 && !diagnoses.some(d => d.diagnosisType === 'primary')) {
+      errs.push('A primary diagnosis must be selected');
+    }
+    if (!principalGDRG) errs.push('Principal GDRG is required');
+    if (principalGDRGAgeInvalid) errs.push(`Principal G-DRG ${principalGDRG} is not eligible for this patient’s age (${encounterAgeYears} years) on the service date. Select an age-appropriate tariff.`);
+    if (primaryServiceType === 'OPD' && !visitDates.some(d => d)) errs.push('At least one visit date is required');
+    if (primaryServiceType === 'IPD') {
+      if (!admissionDate) errs.push('Admission date is required');
+      if (!dischargeDate) errs.push('Discharge date is required');
+      if (admissionDate && dischargeDate && dischargeDate < admissionDate) {
+        errs.push('The discharge date cannot fall before the admission date');
+      }
+    }
+    // The server refuses these on finalize; catching them here saves the desk a rejected claim.
+    const mismatch = findSpecialtyServiceMismatch(primaryServiceType, specialties);
+    if (mismatch) errs.push(mismatch);
+    if (!(NHIS_SERVICE_OUTCOMES as readonly string[]).includes(serviceOutcome)) {
+      errs.push(`The payer does not accept the outcome ${serviceOutcome}`);
+    }
+    return { isValid: errs.length === 0, errors: errs };
+  };
+
+  const handleSave = async () => {
+    if (!isDraft) return false;
+    const { isValid, errors } = validateNHISClaim();
+    if (!isValid) {
+      toastError('Validation Failed', errors.join(', '));
+      return false;
+    }
+    try {
+      setIsSubmitting(true);
+
+      await updateClaimDraft(id!, {
+        principalGDRG,
+        preAuthNumber,
+        notes,
+        typeOfService: primaryServiceType,
+        typeOfAttendance,
+        serviceOutcome,
+        datesOfService: datesOfServiceForSave(),
+        mdcCode: primarySpecialty,
+        metadata: {
+          serviceFlags,
+          // <isUnbundled> has no column of its own; the XML and CLAIM-it builders read it here.
+          isUnbundled: serviceFlags.unbundled,
+          specialties,
+          referringFacility,
+          referralCode,
+          physicianId,
+          visitDates: visitDates.filter(d => d),
+          admissionDate,
+          dischargeDate,
+          lengthOfStay,
+        },
+      });
+
+      const items = buildItemPayload({ diagnoses, investigations, medicines, procedures, principalGDRG });
+      if (items.length > 0) await replaceClaimItems(id!, items);
+
+      success('Saved', 'NHIS claim updated successfully');
+      await getInsuranceClaim(id!);
+      return true;
+    } catch (err: any) {
+      toastError('Save Failed', describeApiError(err, err?.message || 'The claim could not be saved.'));
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFinalize = async () => {
+    if (!(await handleSave())) return;
+    try {
+      await finalizeClaim(id!);
+      success('Finalized', 'Claim is ready for submission');
+      navigate('/dashboard/insurance/nhis/claims');
+    } catch (err: any) {
+      toastError(describeApiErrorTitle(err, 'Finalize Failed'), describeApiError(err, 'The claim could not be finalized.'));
+    }
+  };
+
+  const handlePrintClaim = async () => {
+    try {
+      await printClaim(id!);
+      success('Print ready', 'Claim data ready for printing');
+    } catch (err: any) {
+      toastError('Print failed', err?.response?.data?.message || err?.message || 'Could not open claim print view');
+    }
+  };
+  const handleDownloadXml = async () => {
+    try {
+      await downloadClaimXml(id!);
+      success('XML ready', 'Claim XML file is downloading');
+    } catch (err: any) {
+      toastError('Download failed', err?.response?.data?.message || err?.message || 'Could not download claim XML');
+    }
+  };
+
+  const refreshClaimItHistory = async () => {
+    if (!id) return;
+    try {
+      const result = await getClaimClaimItSubmissions(id);
+      setClaimItHistory(result.submissions ?? []);
+      setClaimItHistoryError(null);
+    } catch (err: any) {
+      setClaimItHistoryError(describeApiError(err, 'The CLAIM-it history for this claim could not be read.'));
+    }
+  };
+
+  /**
+   * Push this claim to the NHIS claims server.
+   *
+   * The answer is per claim, so the message shown is CLAIM-it's own line for it — "rejected, the CCC
+   * is not registered" — not a generic "submission failed".
+   */
+  const handleSendToClaimIt = async () => {
+    setClaimItBusy(true);
+    setClaimItHeld([]);
+    try {
+      const result: ClaimItSubmissionResult = await submitClaimToClaimIt(id!);
+      const title =
+        result.outcome === 'passed' ? 'Sent to CLAIM-it'
+        : result.outcome === 'warned' ? 'Accepted with warnings'
+        : result.outcome === 'error' ? 'Rejected by CLAIM-it'
+        : 'Outcome not confirmed';
+      if (result.outcome === 'error' || result.outcome === 'unknown') toastError(title, result.message);
+      else success(title, result.message);
+      await refreshClaimItHistory();
+    } catch (err: any) {
+      // A 400 from the pre-flight check carries one reason per field; list them instead of hiding
+      // them in a toast the operator reads once.
+      const reasons = err?.response?.data?.details;
+      if (Array.isArray(reasons) && reasons.length > 0) {
+        setClaimItHeld([{ claimId: id!, claimNumber: String(currentClaim?.claimNumber ?? ''), reasons }]);
+      }
+      toastError(describeApiErrorTitle(err, 'Not sent to CLAIM-it'), describeApiError(err, 'The claim could not be sent to CLAIM-it.'));
+    } finally {
+      setClaimItBusy(false);
+    }
+  };
+
+  const handleWithdrawFromClaimIt = async () => {
+    const okToWithdraw = await confirmDialog({
+      title: 'Withdraw this claim from CLAIM-it?',
+      message: 'CLAIM-it will delete the claim it holds under this number. The claim stays in this app; anything already adjudicated against it at NHIS is not undone.',
+      confirmText: 'Withdraw',
+      type: 'danger',
+    });
+    if (!okToWithdraw) return;
+    setClaimItBusy(true);
+    try {
+      const result = await deleteClaimFromClaimIt(id!);
+      success('Withdrawn from CLAIM-it', result.message);
+      await refreshClaimItHistory();
+    } catch (err: any) {
+      toastError(describeApiErrorTitle(err, 'Not withdrawn'), describeApiError(err, 'CLAIM-it could not delete this claim.'));
+    } finally {
+      setClaimItBusy(false);
+    }
+  };
+
+  if (isLoading && !currentClaim) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--icon-green-text)]" />
+      </div>
+    );
+  }
+
+  const attendanceChoices = ATTENDANCE_OPTIONS.some(o => o.code === typeOfAttendance)
+    ? ATTENDANCE_OPTIONS
+    : [...ATTENDANCE_OPTIONS, { code: typeOfAttendance, label: `Other (${typeOfAttendance})` }];
+  const toggleSpecialty = (code: string, on: boolean) =>
+    setSpecialties(prev => on ? Array.from(new Set([...prev, code])) : prev.filter(c => c !== code));
+  const locked = !isDraft;
+
+  return (
+    <>
+      <ClaimFrame
+        title="Update Claim"
+        subtitle={`${currentClaim?.claimNumber ?? ''} · NHIS`}
+        status={
+          <span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+            {isDraft ? 'DRAFT' : 'FINALIZED'}
+          </span>
+        }
+        onClose={goBack}
+        onRefresh={handleRefreshClaim}
+        onCollapse={() => setTablesOpen(o => !o)}
+        onFinalize={isDraft ? handleFinalize : undefined}
+        finalizing={isSubmitting}
+      >
+        <ClaimCard
+          title="Member Details"
+          action={isDraft && !isEditingMember && canEditMember ? (
+            <button type="button" onClick={handleMemberEdit} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10">Edit</button>
+          ) : undefined}
+        >
+          {isEditingMember ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
+                <UField className="md:col-span-3" label="Member No / HIN" value={memberFormData.nhisNumber} placeholder="8 digits, or 00 + 8 digits, or blank" error={nhisNumberError(memberFormData.nhisNumber) ?? undefined} onChange={v => setMemberFormData({ ...memberFormData, nhisNumber: sanitizeNhisInput(v) })} />
+                <UField label="Surname" value={memberFormData.surname} onChange={v => setMemberFormData({ ...memberFormData, surname: v })} />
+                <UField label="Other Names" value={memberFormData.otherNames} onChange={v => setMemberFormData({ ...memberFormData, otherNames: v })} />
+                <UField label="Folder No." value={memberFormData.folderNumber} onChange={v => setMemberFormData({ ...memberFormData, folderNumber: v })} />
+                <div>
+                  <label className="block text-[11px] text-[var(--text-tertiary)] mb-0.5">Gender</label>
+                  <select value={memberFormData.gender} onChange={e => setMemberFormData({ ...memberFormData, gender: e.target.value })} className="w-full border-b border-dotted border-gray-400 bg-transparent py-1.5 text-[15px] text-[var(--text-secondary)] focus:outline-none">
+                    <option value="">Select</option>
+                    <option value="male">MALE</option>
+                    <option value="female">FEMALE</option>
+                    <option value="other">OTHER</option>
+                  </select>
+                </div>
+                <UField label="Date of Birth" type="date" value={memberFormData.dateOfBirth ? String(memberFormData.dateOfBirth).split('T')[0] : ''} onChange={v => setMemberFormData({ ...memberFormData, dateOfBirth: v })} hint={memberFormData.dateOfBirth ? `Age: ${calculateAge(memberFormData.dateOfBirth)}` : undefined} />
+                <UField label="CCC No." value={memberFormData.cccCode} onChange={v => setMemberFormData({ ...memberFormData, cccCode: v })} />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button type="button" onClick={() => setIsEditingMember(false)} className="px-4 py-1.5 border border-[var(--border-color)] rounded text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)]">Cancel</button>
+                <button type="button" onClick={handleMemberSave} disabled={isSavingMember} className="px-4 py-1.5 border rounded text-sm disabled:opacity-50" style={{ borderColor: '#4a7ca8', color: '#3a6a96' }}>
+                  {isSavingMember ? 'Saving…' : 'Save member'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
+              <UField className="md:col-span-3" label="Member No / HIN" value={patientNhisNumber || ''} icon="search" hint={!patientNhisNumber && cccCode ? 'No permanent member number: claim uses the CCC code' : undefined} />
+              <UField label="Surname" value={surname} />
+              <UField label="Other Names" value={otherNames} />
+              <UField label="Folder No." value={folderNumber} icon="search" />
+              <UField label="Gender" value={(gender || '').toUpperCase()} />
+              <UField label="Date of Birth" value={dateOfBirth} icon="calendar" hint={age ? `Age: ${age.replace(' yrs', 'yrs')}` : undefined} />
+              <UField label="CCC No." value={cccCode} />
+            </div>
+          )}
+        </ClaimCard>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="md:col-span-2 space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
+              <ClaimCard title="Type of Service(s)" className="md:col-span-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <CheckItem label="Outpatient" checked={primaryServiceType === 'OPD'} onChange={() => handleServiceTypeChange('OPD')} disabled={locked} />
+                  <CheckItem label="Pharmacy" checked={serviceFlags.pharmacy} onChange={v => setServiceFlags({ ...serviceFlags, pharmacy: v })} disabled={locked} />
+                  <CheckItem label="Inpatient" checked={primaryServiceType === 'IPD'} onChange={() => handleServiceTypeChange('IPD')} disabled={locked} />
+                  <CheckItem label="Diagnostic" checked={serviceFlags.diagnostic} onChange={v => setServiceFlags({ ...serviceFlags, diagnostic: v })} disabled={locked || !diagnosticEligible} />
+                  <CheckItem label="UnBundled" checked={serviceFlags.unbundled} onChange={v => setServiceFlags({ ...serviceFlags, unbundled: v, allInclusive: v ? false : serviceFlags.allInclusive })} disabled={locked} />
+                  <CheckItem label="All-Inclusive" checked={serviceFlags.allInclusive} onChange={v => setServiceFlags({ ...serviceFlags, allInclusive: v, unbundled: v ? false : serviceFlags.unbundled })} disabled={locked} />
+                </div>
+              </ClaimCard>
+              <ClaimCard title="Service Outcome" className="md:col-span-2">
+                <div className="grid grid-cols-1 gap-y-3">
+                  {NHIS_SERVICE_OUTCOMES.map((code) => (
+                    <CheckItem key={code} label={NHIS_SERVICE_OUTCOME_LABELS[code]} checked={serviceOutcome === code} onChange={() => setServiceOutcome(code)} disabled={locked} />
+                  ))}
+                </div>
+              </ClaimCard>
+            </div>
+
+            <ClaimCard title="Type of Attendance">
+              <div className="flex flex-wrap gap-x-6 gap-y-3">
+                {attendanceChoices.map(o => (
+                  <CheckItem key={o.code} label={o.label} checked={typeOfAttendance === o.code} onChange={() => setTypeOfAttendance(o.code)} disabled={locked} />
+                ))}
+              </div>
+            </ClaimCard>
+
+            <ClaimCard title="Referral Info">
+              <div className="space-y-4">
+                <UField label="Referral Hospital Name" value={referringFacility} onChange={setReferringFacility} disabled={locked} />
+                <UField label="Referral Code / CCC" value={referralCode} onChange={setReferralCode} disabled={locked} />
+              </div>
+            </ClaimCard>
+          </div>
+
+          <div className="space-y-5">
+            <ClaimCard title="Dates Of Service">
+              {primaryServiceType === 'OPD' ? (
+                <div className="space-y-3">
+                  {['1st Visit', '2nd Visit', '3rd Visit', '4th Visit'].map((label, idx) => (
+                    <UField key={idx} label={idx === 0 ? label : ''} placeholder={label} type="date" value={visitDates[idx] || ''} onChange={v => updateVisitDate(idx, v)} disabled={locked} />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <UField label="Admission Date" type="date" value={admissionDate} onChange={setAdmissionDate} disabled={locked} />
+                  <UField label="Discharge Date" type="date" value={dischargeDate} onChange={setDischargeDate} disabled={locked} />
+                  <UField label="Length of Stay" value={lengthOfStay > 0 ? `${lengthOfStay} day(s)` : ''} placeholder="—" />
+                </div>
+              )}
+            </ClaimCard>
+
+            <ClaimCard title="Specialties Attended">
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-x-2 gap-y-3 text-[14px]">
+                  {SPECIALTIES.map(code => (
+                    <CheckItem key={code} label={code} checked={specialties.includes(code)} onChange={v => toggleSpecialty(code, v)} disabled={locked} />
+                  ))}
+                </div>
+                <Hint>
+                  {primaryServiceType === 'OPD'
+                    ? `An outpatient visit is billed under the ${OPD_SCHEME_SPECIALTY} outpatient scheme. Tick the clinical families too and the save refuses them — they belong to an admission.`
+                    : `An admission reports the clinical specialties that attended it, for example the family of its principal G-DRG. ${OPD_SCHEME_SPECIALTY} is the outpatient scheme, so the save refuses it here.`}
+                </Hint>
+              </div>
+            </ClaimCard>
+          </div>
+        </div>
+
+        <ListSection
+          title="PROCEDURES"
+          count={procedures.length}
+          emptyText={procedures.length === 0 ? 'No procedures added...' : undefined}
+          open={tablesOpen}
+          action={isDraft ? (
+            <button type="button" onClick={() => setActiveModal('procedure')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 normal-case flex items-center gap-1">
+              <Plus className="w-3 h-3" /> Add
+            </button>
+          ) : undefined}
+        >
+          <table className="w-full text-sm">
+            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <tbody>
+              {procedures.map((pr, idx) => (
+                <tr key={idx} className="border-t border-[var(--border-color)]">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{pr.code || '—'}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{pr.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{fmtDate(pr.date)}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(pr.lineTotal)}</td>
+                  {isDraft && (
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <button type="button" onClick={() => setEditing({ kind: 'procedure', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeProcedure(idx)} className="text-red-400 hover:text-red-600">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ListSection>
+
+        <ListSection
+          title="DIAGNOSES"
+          count={diagnoses.length}
+          open={tablesOpen}
+          emptyText={diagnoses.length === 0 ? 'No diagnoses added...' : undefined}
+          action={isDraft ? (
+            <button type="button" onClick={() => setActiveModal('diagnosis')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 normal-case flex items-center gap-1">
+              <Plus className="w-3 h-3" /> Add
+            </button>
+          ) : undefined}
+        >
+          <table className="w-full text-sm">
+            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Diagnosis</TH><TH>ICD10</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <tbody>
+              {diagnoses.map((d, idx) => (
+                <tr key={idx} className="border-t border-[var(--border-color)]">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{d.gdrgCode}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{d.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">
+                    {d.diagnosis}
+                    {d.diagnosisType === 'primary'
+                      ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 align-middle">PRIMARY</span>
+                      : isDraft && <button type="button" onClick={() => setPrimaryDiagnosis(idx)} className="ml-2 text-[11px] text-blue-600 hover:underline">set primary</button>}
+                  </td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{d.icd10}</td>
+                  {isDraft && (
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <button type="button" onClick={() => setEditing({ kind: 'diagnosis', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeDiagnosis(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ListSection>
+
+        <ListSection
+          title="INVESTIGATIONS"
+          count={investigations.length}
+          open={tablesOpen}
+          emptyText={investigations.length === 0 ? 'No investigations added...' : undefined}
+          action={isDraft ? (
+            <span className="flex gap-2 normal-case">
+              <button type="button" onClick={() => setActiveModal('lab')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Lab</button>
+              <button type="button" onClick={() => setActiveModal('scan')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Scan</button>
+            </span>
+          ) : undefined}
+        >
+          <table className="w-full text-sm">
+            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <tbody>
+              {investigations.map((inv, idx) => (
+                <tr key={idx} className="border-t border-[var(--border-color)]">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{inv.gdrgCode}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{inv.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{fmtDate(inv.date)}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(inv.lineTotal)}</td>
+                  {isDraft && (
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <button type="button" onClick={() => setEditing({ kind: 'investigation', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeInvestigation(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ListSection>
+
+        <ListSection
+          title="MEDICINES"
+          count={medicines.length}
+          open={tablesOpen}
+          emptyText={medicines.length === 0 ? 'No medicines added...' : undefined}
+          action={isDraft ? (
+            <button type="button" onClick={() => setActiveModal('medicine')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 normal-case flex items-center gap-1">
+              <Plus className="w-3 h-3" /> Add
+            </button>
+          ) : undefined}
+        >
+          <table className="w-full text-sm">
+            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Qty</TH><TH>Date</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <tbody>
+              {medicines.map((m, idx) => (
+                <tr key={idx} className="border-t border-[var(--border-color)] align-top">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{m.code}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">
+                    {m.description}
+                    {m.prescription && <div className="text-[10px] italic text-[var(--text-tertiary)] mt-0.5">Rx: {m.prescription}</div>}
+                    {nhisQuotes.length > 0 && !claimableCodes.has(String(m.code)) && (
+                      <div className="text-[10px] text-red-600 mt-0.5">Not on this visit&apos;s NHIS medicine list — remove the line or the save refuses it.</div>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{m.quantity}</td>
+                  <td className="px-3 py-3 text-[var(--text-primary)]">{fmtDate(m.date)}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(m.unitPrice)}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{moneyCell(m.lineTotal)}</td>
+                  {isDraft && (
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <button type="button" onClick={() => setEditing({ kind: 'medicine', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeMedicine(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ListSection>
+        {nhisUnclaimable.length > 0 && (
+          <div className="px-4 pt-2 pb-3 bg-[var(--bg-card)]">
+            <Hint>
+              {`${nhisUnclaimable.length} medicine${nhisUnclaimable.length > 1 ? 's' : ''} from this visit ${nhisUnclaimable.length > 1 ? 'are' : 'is'} not currently eligible for the NHIS claim and will not appear in the medicine picker`}
+              {` (${nhisUnclaimable.slice(0, 3).map(u => `${u.description} — ${u.reason}`).join('; ')}${nhisUnclaimable.length > 3 ? '…' : ''}).`}
+            </Hint>
+          </div>
+        )}
+
+        <ClaimCard title="Principal GDRG">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <Hint>If you are not certain of the Principal GDRG, leave this section blank and the system will automatically identify the most appropriate Principal GDRG for the claim.</Hint>
+            <div>
+              <label className="block text-[11px] text-[var(--text-tertiary)] mb-0.5">Select Principal GDRG</label>
+              <SearchableGDRGSelect value={principalGDRG} onChange={handlePrincipalGDRGChange} options={availableGDRGs} disabled={locked} placeholder="Search GDRG by code or description..." />
+              {encounterAgeYears == null ? (
+                <p className="text-xs text-amber-700 mt-1">Enter the patient’s date of birth and service date to filter G-DRGs by age.</p>
+              ) : (
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">Tariffs filtered for age {encounterAgeYears} on the service date.</p>
+              )}
+              {principalGDRGAgeInvalid && (
+                <p className="text-xs text-red-600 mt-1">The saved principal G-DRG is outside this patient’s age range. Choose an eligible tariff before saving.</p>
+              )}
+              <p className="text-[15px] text-[var(--text-primary)] mt-3">{principalGDRGDescription}</p>
+              {principalGDRG ? (
+                <p className="mt-2 text-sm text-[var(--text-primary)]">
+                  G-DRG amount <span className="font-semibold">{money(gdrgAmount)}</span>
+                  {!gdrgLine && principalGDRG ? <span className="text-xs text-[var(--text-tertiary)] ml-1">· current tariff, saved with the claim</span> : null}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </ClaimCard>
+
+        <ClaimCard title="Claim amounts">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between border-b border-[var(--border-color)] pb-1">
+              <span className="text-[var(--text-secondary)]">G-DRG {principalGDRG ? `(${principalGDRG})` : ''}</span>
+              <span className="font-medium text-[var(--text-primary)]">{principalGDRG ? money(gdrgAmount) : '—'}</span>
+            </div>
+            <div className="flex justify-between border-b border-[var(--border-color)] pb-1">
+              <span className="text-[var(--text-secondary)]">Medicines ({medicines.length})</span>
+              <span className="font-medium text-[var(--text-primary)]">
+                {medicines.length === 0 ? '—' : pricedMedicines.length === medicines.length ? money(medicinesAmount) : `${money(medicinesAmount)} · ${medicines.length - pricedMedicines.length} not priced yet`}
+              </span>
+            </div>
+            <div className="flex justify-between pt-1">
+              <span className="font-semibold text-[var(--text-primary)]">Claim total</span>
+              <span className="font-bold text-[var(--text-primary)]">{money(claimTotal)}</span>
+            </div>
+            <Hint>
+              NHIS pays the G-DRG pack plus covered medicines. The investigations and procedures listed above are
+              part of that pack, so their amounts are shown for reference and are not claimed on top of the G-DRG.
+            </Hint>
+          </div>
+        </ClaimCard>
+
+        <ClaimCard title="Authorization Codes">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            <UField label="Physician Name/ID" value={physicianId} onChange={setPhysicianId} disabled={locked} />
+            <UField label="Pre-authorization Code(s)" value={preAuthNumber} onChange={setPreAuthNumber} disabled={locked} />
+            <div className="md:col-span-2">
+              <UField label="Notes" value={notes} onChange={setNotes} disabled={locked} placeholder="Additional notes…" />
+            </div>
+          </div>
+        </ClaimCard>
+
+        {isFinalized && (
+          <ClaimCard
+            title="CLAIM-it submission"
+            action={canSendToClaimIt ? (
+              <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSendToClaimIt}
+                  disabled={claimitBusy}
+                  className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Send className="w-3 h-3" /> {claimitBusy ? 'Sending…' : 'Send to CLAIM-it'}
+                </button>
+                {claimitHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleWithdrawFromClaimIt}
+                    disabled={claimitBusy}
+                    className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 disabled:opacity-50"
+                  >
+                    Withdraw
+                  </button>
+                )}
+              </span>
+            ) : undefined}
+          >
+            <ClaimItStatusNote status={claimitStatus} />
+            {claimitHeld.length > 0 && <ClaimItHeldBack held={claimitHeld} />}
+            {claimitHistoryError
+              ? <p className="text-[12px] text-red-600 mt-2">{claimitHistoryError}</p>
+              : <div className="mt-2"><ClaimItSubmissionHistory submissions={claimitHistory} /></div>}
+          </ClaimCard>
+        )}
+
+        {isFinalized ? (
+          <div className="flex justify-end gap-3 bg-[var(--bg-card)] px-5 py-4 border-t border-[var(--border-color)]">
+            <button type="button" onClick={handleDownloadXml} className="px-4 py-2 border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] flex items-center gap-2"><Download className="w-4 h-4" /> Download XML</button>
+            <button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
+            <button type="button" onClick={goBack} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
+          </div>
+        ) : (
+          <ClaimFooter onCancel={goBack} onSave={handleSave} saving={isSubmitting} />
+        )}
+      </ClaimFrame>
+
+      <AddDiagnosisModal isOpen={activeModal === 'diagnosis' || editing?.kind === 'diagnosis'} onClose={closeModal} onAdd={addDiagnosis} editing={editing?.kind === 'diagnosis' ? diagnoses[editing.index] ?? null : null} />
+      <AddInvestigationModal isOpen={activeModal === 'lab'} onClose={closeModal} onAdd={addInvestigation} type="lab" />
+      <AddInvestigationModal isOpen={activeModal === 'scan'} onClose={closeModal} onAdd={addInvestigation} type="scan" />
+      <AddInvestigationModal isOpen={editing?.kind === 'investigation'} onClose={closeModal} onAdd={addInvestigation} type="lab" editing={editing?.kind === 'investigation' ? investigations[editing.index] ?? null : null} />
+      <AddMedicineModal isOpen={activeModal === 'medicine' || editing?.kind === 'medicine'} onClose={closeModal} onAdd={addMedicine} editing={editing?.kind === 'medicine' ? medicines[editing.index] ?? null : null} options={nhisQuotes} />
+      <AddProcedureModal isOpen={activeModal === 'procedure' || editing?.kind === 'procedure'} onClose={closeModal} onAdd={addProcedure} editing={editing?.kind === 'procedure' ? procedures[editing.index] ?? null : null} />
+    </>
+  );
+}

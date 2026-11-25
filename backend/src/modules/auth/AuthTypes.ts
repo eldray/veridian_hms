@@ -1,0 +1,29 @@
+import { Request } from 'express';
+import { UserRole, Seniority } from '@prisma/client';
+
+export interface LoginRequestDTO { username: string; password: string; }
+export interface RegisterRequestDTO {
+  username: string; password: string; fullName: string; role: UserRole;
+  seniority?: Seniority; email?: string; phone?: string; imageUrl?: string;
+  licenseNumber?: string; specialization?: string; departmentId?: string;
+}
+export interface ChangePasswordRequestDTO { currentPassword: string; newPassword: string; }
+
+export interface TokenPayload {
+  userId: string; username: string; role: UserRole; seniority: Seniority;
+  version: number; // Incremented whenever the account password is changed or reset.
+  permissions: string[]; // ✅ NEW: For Dynamic RBAC
+  iat?: number; exp?: number;
+  departmentId: string;
+}
+
+export interface AuthenticatedRequest extends Request { user?: TokenPayload; }
+
+export interface AuthResponse {
+  user: Record<string, any>;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export type AuthTypes = LoginRequestDTO | RegisterRequestDTO | ChangePasswordRequestDTO | AuthResponse | TokenPayload;
