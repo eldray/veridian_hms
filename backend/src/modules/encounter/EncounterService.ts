@@ -808,7 +808,7 @@ export class EncounterService extends BaseService {
   
   async addService(id: string, data: AddServiceDTO, userId: string) { return this.repository.addService(id, data, userId); }
   async addServices(id: string, items: any[], userId: string) { return this.repository.addServices(id, items, userId); }
-  async removeService(id: string, servId: string) { return this.repository.removeService(id, servId); }
+  async removeService(id: string, servId: string, userId?: string) { return this.repository.removeService(id, servId, userId); }
 
   // Admissions & IPD
   async getAllAdmissions(filters: any) { return this.repository.getAllAdmissions(filters); }
