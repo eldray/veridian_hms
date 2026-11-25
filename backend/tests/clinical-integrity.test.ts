@@ -1305,7 +1305,7 @@ describe('maternal record integrity', () => {
         id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal',
         status: 'pending', finalizedAt: null,
       }) },
-      antenatalBooking: { create },
+      antenatalBooking: { create, findFirst: vi.fn().mockResolvedValue(null) },
     };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
