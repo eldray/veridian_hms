@@ -56,6 +56,31 @@ export class ClinicalReportsService extends BaseService {
       return normalized.includes('negative') || normalized.includes('non reactive') || normalized.includes('nonreactive');
     };
     const indeterminate = (value: any) => /indeterminate|invalid|inconclusive/.test(normalizeResult(value));
+    const labCaseMap = new Map<string, any>();
+    for (const test of labTests) {
+      const code = test.LabTestTemplate?.investigationCode || test.ServiceCatalog?.code || 'UN-CODED';
+      const description = test.LabTestTemplate?.name || test.ServiceCatalog?.name || 'Unknown investigation';
+      const row = labCaseMap.get(code) || { code, description, cases: 0, malePositive: 0, femalePositive: 0, totalPositive: 0, maleNegative: 0, femaleNegative: 0, totalNegative: 0, unknown: 0 };
+      row.cases++;
+      const gender = String(test.Attendance?.Patient?.gender || '').toLowerCase();
+      const values = resultValues(test);
+      const hasPositive = values.some(positive);
+      const hasNegative = values.some(negative) && !hasPositive;
+      if (hasPositive) {
+        row.totalPositive++;
+        if (gender === 'male') row.malePositive++;
+        else if (gender === 'female') row.femalePositive++;
+        else row.unknown++;
+      } else if (hasNegative) {
+        row.totalNegative++;
+        if (gender === 'male') row.maleNegative++;
+        else if (gender === 'female') row.femaleNegative++;
+        else row.unknown++;
+      } else row.unknown++;
+      labCaseMap.set(code, row);
+    }
+    const labCaseBreakdown = Array.from(labCaseMap.values()).sort((a, b) => a.description.localeCompare(b.description));
+
     const testCounts: Record<string, { count: number; completed: number; resulted: number; positive: number }> = {};
     for (const test of labTests) {
       const testName = test.LabTestTemplate?.name || test.ServiceCatalog?.name || 'Unknown';
@@ -156,12 +181,27 @@ export class ClinicalReportsService extends BaseService {
       allTests,
       hivTestBreakdown: hivBreakdown,
       positivityRates: topTests.map(t => ({ testName: t.testName, rate: t.positiveRate.toFixed(1) })),
+      labCaseBreakdown,
     };
   }
 
   async generateScanReport(filters: ClinicalReportFilters): Promise<ScanReportData> {
     this.logInfo('Generating scan report');
     const scans = await this.repository.getScans(filters);
+    const imagingCaseMap = new Map<string, any>();
+    for (const scan of scans) {
+      const code = scan.ScanTemplate?.scanCode || scan.ServiceCatalog?.code || 'UN-CODED';
+      const description = scan.ScanTemplate?.name || scan.ServiceCatalog?.name || scan.description || 'Unknown scan';
+      const row = imagingCaseMap.get(code) || { code, description, cases: 0, male: 0, female: 0, unknown: 0 };
+      row.cases++;
+      const gender = String(scan.Attendance?.Patient?.gender || '').toLowerCase();
+      if (gender === 'male') row.male++;
+      else if (gender === 'female') row.female++;
+      else row.unknown++;
+      imagingCaseMap.set(code, row);
+    }
+    const imagingCaseBreakdown = Array.from(imagingCaseMap.values()).sort((a, b) => a.description.localeCompare(b.description));
+
     const completedScans = scans.filter(s => s.status === 'completed');
     const totalTurnaround = completedScans.reduce((sum, s) => sum + (s.turnaroundMinutes || 0), 0);
 
@@ -189,6 +229,7 @@ export class ClinicalReportsService extends BaseService {
         averageTurnaroundTime: completedScans.length > 0 ? Math.round(totalTurnaround / completedScans.length) : 0,
       },
       topScans: Object.entries(byType).map(([name, count]) => ({ scanName: name, count })).sort((a, b) => b.count - a.count).slice(0, 10),
+      imagingCaseBreakdown,
     };
   }
 
