@@ -3857,6 +3857,11 @@ export const getPatientBillingRegister = async (params: ReportFilter & { attenda
   return response.data;
 };
 
+export const getPatientsSeenByStaffReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/patients-seen-by-staff', { params });
+  return response.data;
+};
+
 export const getInsuranceClaimsReport = async (params: ReportFilter) => {
   const response = await api.get('/reports/insurance-claims', { params });
   return response.data;
