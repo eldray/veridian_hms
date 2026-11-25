@@ -459,7 +459,7 @@ export default function Dashboard() {
           endDate: dateRange.endDate,
           period: preset !== 'custom' ? preset : undefined,
         }),
-        needsRecent ? getEncounters({ limit: 12 }) : Promise.resolve(null),
+        needsRecent ? getEncounters({ limit: 25 }) : Promise.resolve(null),
         fetchRoleExtras(role),
       ]);
 
