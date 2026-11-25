@@ -1,7 +1,8 @@
 // src/components/patients/PatientsList.tsx
 import { Link } from 'react-router-dom';
-import { User, Phone, Calendar, Eye, Edit, Stethoscope } from 'lucide-react';
+import { Phone, Calendar, Eye, Edit, Stethoscope } from 'lucide-react';
 import { PatientAvatar } from './PatientAvatar';
+import { TABLE_SHELL, TH, TH_ROW, TD, TR, cn } from '../ui';
 
 interface PatientsListProps {
   patients: any[];
@@ -38,49 +39,49 @@ export const PatientsList: React.FC<PatientsListProps> = ({ patients, onAddAtten
   const getPatientId = (patient: any) => patient.id || patient._id;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b border-gray-200">
+    <div className={cn(TABLE_SHELL, "overflow-x-auto")}>
+      <table className="w-full min-w-[720px] text-sm">
+        <thead className={TH_ROW}>
           <tr>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Patient</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Contact</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Details</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Payment</th>
-            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
+            <th className={cn(TH, "px-3 py-2")}>Patient</th>
+            <th className={cn(TH, "px-3 py-2")}>Contact</th>
+            <th className={cn(TH, "px-3 py-2")}>Details</th>
+            <th className={cn(TH, "px-3 py-2")}>Payment</th>
+            <th className={cn(TH, "px-3 py-2")}>Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200">
+        <tbody>
           {patients.map((patient) => {
             const patientId = getPatientId(patient);
             return (
-              <tr key={patientId} className="hover:bg-gray-50 transition-colors duration-150">
-                <td className="px-3 py-2">
+              <tr key={patientId} className={TR}>
+                <td className={cn(TD, "px-3 py-2")}>
                   <div className="flex items-center gap-2">
                     <PatientAvatar patient={patient} size="sm" />
                     <div>
-                      <p className="font-semibold text-gray-900 text-xs">{patient.fullName}</p>
-                      <p className="text-xs text-gray-500">{patient.folderNumber || patientId}</p>
+                      <p className="font-semibold text-[var(--text-primary)] text-xs">{patient.fullName}</p>
+                      <p className="text-xs text-[var(--text-tertiary)]">{patient.folderNumber || patientId}</p>
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <Phone className="w-3 h-3 text-green-600" />
+                <td className={cn(TD, "px-3 py-2")}>
+                  <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                    <Phone className="w-3 h-3 text-[var(--icon-green-text)]" />
                     {patient.contact}
                   </div>
                 </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <Calendar className="w-3 h-3 text-blue-600" />
+                <td className={cn(TD, "px-3 py-2")}>
+                  <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
+                    <Calendar className="w-3 h-3 text-[var(--icon-cyan-text)]" />
                     {patient.age || 'N/A'}y • {patient.gender}
                   </div>
                 </td>
-                <td className="px-3 py-2">
+                <td className={cn(TD, "px-3 py-2")}>
                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getPaymentModeColor(patient.paymentMode)}`}>
                     {getPaymentModeLabel(patient.paymentMode)}
                   </span>
                 </td>
-                <td className="px-3 py-2">
+                <td className={cn(TD, "px-3 py-2")}>
                   <div className="flex items-center gap-1">
                     <Link
                       to={`/dashboard/patients/${patientId}`}
