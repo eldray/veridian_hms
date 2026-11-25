@@ -1078,8 +1078,8 @@ export default function AttendanceDetails() {
           aria-label="Patient allergy information"
           className={`rounded-xl border p-4 ${
             Array.isArray(patient.allergies) && patient.allergies.length > 0
-              ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30'
-              : 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20'
+              ? 'border-[var(--border-color)] bg-[var(--icon-red-bg)]'
+              : 'border-[var(--border-color)] bg-[var(--icon-yellow-bg)]'
           }`}
         >
           <div className="flex items-start gap-3">
@@ -1557,7 +1557,7 @@ export default function AttendanceDetails() {
                         <Heart className="w-5 h-5 text-[var(--icon-red-text)]" />
                         <h3 className="text-md font-bold text-[var(--text-primary)]">Latest Vitals</h3>
                         {hasAbnormalVitals && (
-                          <AlertTriangle className="w-4 h-4 text-red-500" />
+                          <AlertTriangle className="w-4 h-4 text-[var(--icon-red-text)]" />
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -2163,7 +2163,7 @@ export default function AttendanceDetails() {
                       {noteEntries.map((entry) => (
                         <div
                           key={entry.key}
-                          className="bg-white dark:bg-[var(--bg-card)] rounded-lg p-4 border border-[var(--border-color)]"
+                          className="bg-[var(--bg-card)] rounded-lg p-4 border border-[var(--border-color)]"
                         >
                           <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">{entry.label}</p>
                           <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{entry.text}</p>
@@ -2214,14 +2214,14 @@ export default function AttendanceDetails() {
                   <div className="bg-[var(--bg-main)] rounded-xl p-5 border border-[var(--border-color)]">
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <div>
-                        <h3 className="text-sm font-bold text-blue-900 dark:text-blue-300 mb-1">Quick Clinical Actions</h3>
+                        <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Quick Clinical Actions</h3>
                         <p className="text-xs text-[var(--icon-blue-text)]">Add clinical data to this attendance record</p>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <button onClick={() => handleAddClinical('diagnosis')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border border-[var(--border-color)] rounded-lg hover:opacity-90 transition-colors text-xs font-medium">
                           <Plus className="w-3 h-3" /> Diagnosis
                         </button>
-                        <button onClick={() => handleAddClinical('lab')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border border-[var(--border-color)] rounded-lg hover:bg-green-700 transition-colors text-xs font-medium">
+                        <button onClick={() => handleAddClinical('lab')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border border-[var(--border-color)] rounded-lg hover:opacity-80 transition-colors text-xs font-medium">
                           <Plus className="w-3 h-3" /> Lab Test
                         </button>
                         <button onClick={() => handleAddClinical('scan')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)] rounded-lg hover:opacity-90 transition-colors text-xs font-medium">
@@ -2230,7 +2230,7 @@ export default function AttendanceDetails() {
                         <button onClick={() => handleAddClinical('medication')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)] rounded-lg hover:opacity-90 transition-colors text-xs font-medium">
                           <Plus className="w-3 h-3" /> Medication
                         </button>
-                        <button onClick={() => handleAddClinical('procedure')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-orange-text)] text-white rounded-lg hover:opacity-90 transition-colors text-xs font-medium">
+                        <button onClick={() => handleAddClinical('procedure')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] border border-[var(--border-color)] rounded-lg hover:opacity-80 transition-colors text-xs font-medium">
                           <Plus className="w-3 h-3" /> Procedure
                         </button>
                       </div>
