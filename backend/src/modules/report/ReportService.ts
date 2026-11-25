@@ -322,7 +322,7 @@ export class ReportService {
     const patientAttendance = {
       Attendance: { patientId: { not: null }, status: { not: 'cancelled' } },
     };
-    const activityRange = (field: string) => range ? { [field]: range } : { [field]: { not: null } };
+    const activityRange = () => range || { not: null };
 
     const [
       attendances, labTests, medications, ancVisits, postnatalRecords,
@@ -333,31 +333,31 @@ export class ReportService {
         select: { id: true, createdById: true, providerId: true },
       }),
       this.prisma.labTest.findMany({
-        where: { performedById: { not: null }, completedAt: activityRange('completedAt'), ...patientAttendance },
+        where: { performedById: { not: null }, completedAt: activityRange(), ...patientAttendance },
         select: { attendanceId: true, performedById: true },
       }),
       this.prisma.medication.findMany({
-        where: { dispensedById: { not: null }, dispensedAt: activityRange('dispensedAt'), ...patientAttendance },
+        where: { dispensedById: { not: null }, dispensedAt: activityRange(), ...patientAttendance },
         select: { attendanceId: true, dispensedById: true },
       }),
       this.prisma.aNCVisit.findMany({
-        where: { visitDate: activityRange('visitDate'), ...patientAttendance },
+        where: { visitDate: activityRange(), ...patientAttendance },
         select: { attendanceId: true, recordedById: true },
       }),
       this.prisma.postnatalRecord.findMany({
-        where: { examinationDate: activityRange('examinationDate'), ...patientAttendance },
+        where: { examinationDate: activityRange(), ...patientAttendance },
         select: { attendanceId: true, createdById: true },
       }),
       this.prisma.serviceRendered.findMany({
-        where: { date: activityRange('date'), ...patientAttendance },
+        where: { date: activityRange(), ...patientAttendance },
         select: { attendanceId: true, performedById: true },
       }),
       this.prisma.scan.findMany({
-        where: { performedById: { not: null }, completedAt: activityRange('completedAt'), ...patientAttendance },
+        where: { performedById: { not: null }, completedAt: activityRange(), ...patientAttendance },
         select: { attendanceId: true, performedById: true },
       }),
       this.prisma.procedure.findMany({
-        where: { performedById: { not: null }, performedAt: activityRange('performedAt'), ...patientAttendance },
+        where: { performedById: { not: null }, performedAt: activityRange(), ...patientAttendance },
         select: { attendanceId: true, performedById: true },
       }),
     ]);
