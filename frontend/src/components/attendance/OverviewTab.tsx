@@ -20,7 +20,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       case 'admitted': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)]';
       case 'pending': return 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] border border-[var(--border-color)]';
       case 'active': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border border-[var(--border-color)]';
-      default: return 'bg-[var(--bg-main)] text-gray-800 border border-[var(--border-color)]';
+      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]';
     }
   };
 
