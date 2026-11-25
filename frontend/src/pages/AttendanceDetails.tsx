@@ -129,7 +129,7 @@ const Table: React.FC<{ heads: string[]; children: React.ReactNode }> = ({ heads
         ))}
       </tr>
     </thead>
-    <tbody className="divide-y divide-[var(--border-color)]">{children}</tbody>
+    <tbody className="divide-y divide-[var(--border-color)] [&>tr:hover]:bg-[var(--bg-main)] [&>tr]:transition-colors">{children}</tbody>
   </table></div>
 );
 
@@ -940,7 +940,7 @@ export default function AttendanceDetails() {
           <div className="flex gap-3 justify-center">
             <button 
               onClick={handleBack}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-80 transition-all duration-200 font-semibold text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to List
@@ -985,7 +985,7 @@ export default function AttendanceDetails() {
             {canEdit && (
               <button
                 onClick={handleEditAttendance}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors shadow-sm text-sm font-semibold"
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-80 transition-colors shadow-sm text-sm font-semibold"
               >
                 <Edit className="w-4 h-4" /> Edit Attendance
               </button>
@@ -993,7 +993,7 @@ export default function AttendanceDetails() {
             {canDelete && (
               <button
                 onClick={() => setDeleteConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-colors shadow-sm text-sm font-semibold"
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:opacity-80 transition-colors shadow-sm text-sm font-semibold"
               >
                 <Trash2 className="w-4 h-4" /> Delete
               </button>
@@ -1238,14 +1238,14 @@ export default function AttendanceDetails() {
       <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
         {/* Tabs Navigation */}
         <div className="border-b border-[var(--border-color)] p-4">
-          <nav className="flex flex-wrap gap-2">
+          <nav aria-label="Attendance detail sections" className="flex flex-nowrap gap-2 overflow-x-auto pb-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 py-2 px-4 rounded-lg font-medium transition-all duration-200 text-sm ${
+                  className={`flex shrink-0 items-center gap-2 whitespace-nowrap py-2 px-4 rounded-lg font-medium transition-all duration-200 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] ${
                     activeTab === tab.id
                       ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
