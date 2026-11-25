@@ -617,6 +617,56 @@ export const REPORT_REGISTRY: ReportShape[] = [
   },
 
   {
+    key: 'hiv-testing',
+    label: 'PHD Monthly HIV Testing & Counselling',
+    group: 'clinical',
+    description: 'Monthly HIV testing return with age and sex breakdowns of recorded test events.',
+    source: { api: 'getLabReport' },
+    roles: SERVICE_ORDER_ROLES,
+    periodField: 'period',
+    cards: [
+      { label: 'Tested for HIV', field: 'summary.hiv.testsOrdered', value: 'number' },
+      { label: 'Results entered', field: 'summary.hiv.resultsEntered', value: 'number' },
+      { label: 'Positive results', field: 'summary.hiv.positive', value: 'number' },
+      { label: 'Negative results', field: 'summary.hiv.negative', value: 'number' },
+      { label: 'Pending tests', field: 'summary.hiv.pending', value: 'number' },
+    ],
+    tables: [
+      {
+        title: 'HIV Testing by Age Group and Sex',
+        source: 'hivAgeSexBreakdown',
+        rowKey: 'ageGroup',
+        sumColumns: ['maleTested', 'femaleTested', 'totalTested', 'malePositive', 'femalePositive', 'totalPositive'],
+        columns: [
+          { header: 'Age group', field: 'ageGroup', value: 'text', width: 100 },
+          { header: 'Male tested', field: 'maleTested', value: 'number' },
+          { header: 'Female tested', field: 'femaleTested', value: 'number' },
+          { header: 'Total tested', field: 'totalTested', value: 'number' },
+          { header: 'Male positive', field: 'malePositive', value: 'number' },
+          { header: 'Female positive', field: 'femalePositive', value: 'number' },
+          { header: 'Total positive', field: 'totalPositive', value: 'number' },
+        ],
+        note: 'Counts are test events, not unique clients. Pending tests count as tested but not positive. Age is calculated at test request date. Patients without a date of birth are excluded from age-band rows.',
+      },
+      {
+        title: 'HIV Test Types',
+        source: 'hivTestBreakdown',
+        rowKey: 'testName',
+        columns: [
+          { header: 'Test', field: 'testName', value: 'text', width: 220 },
+          { header: 'Ordered', field: 'ordered', value: 'number' },
+          { header: 'Completed', field: 'completed', value: 'number' },
+          { header: 'Results entered', field: 'resultsEntered', value: 'number' },
+          { header: 'Positive', field: 'positive', value: 'number' },
+          { header: 'Negative', field: 'negative', value: 'number' },
+          { header: 'Indeterminate/invalid', field: 'indeterminate', value: 'number' },
+        ],
+      },
+    ],
+    emptyNote: 'No HIV test orders were recorded in this period.',
+  },
+
+  {
     key: 'scans',
     label: 'Radiology',
     group: 'clinical',
