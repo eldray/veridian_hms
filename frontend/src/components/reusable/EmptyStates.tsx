@@ -1,34 +1,54 @@
 import React from 'react';
 import { User, Calendar, FlaskConical, Package } from 'lucide-react';
 
-export const NoPatientSelected: React.FC = () => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-    <User className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-    <h3 className="text-base font-semibold text-gray-900 mb-2">No Patient Selected</h3>
-    <p className="text-gray-600 text-sm">Search and select a patient to get started</p>
+interface EmptyStateProps {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+}
+
+/** Consistent, theme-aware empty state used across patient and clinical workflows. */
+const EmptyState: React.FC<EmptyStateProps> = ({ icon: Icon, title, description }) => (
+  <div
+    role="status"
+    className="flex flex-col items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-7 text-center"
+  >
+    <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--bg-main)] text-[var(--text-tertiary)]">
+      <Icon aria-hidden="true" className="h-5 w-5" />
+    </div>
+    <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
+    <p className="mt-1 max-w-sm text-sm text-[var(--text-secondary)]">{description}</p>
   </div>
+);
+
+export const NoPatientSelected: React.FC = () => (
+  <EmptyState
+    icon={User}
+    title="No Patient Selected"
+    description="Search and select a patient to get started"
+  />
 );
 
 export const NoAttendanceSelected: React.FC = () => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-    <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-    <h3 className="text-base font-semibold text-gray-900 mb-2">No Attendance Selected</h3>
-    <p className="text-gray-600 text-sm">Select an attendance to view and manage data</p>
-  </div>
+  <EmptyState
+    icon={Calendar}
+    title="No Attendance Selected"
+    description="Select an attendance to view and manage data"
+  />
 );
 
 export const NoLabTestsSelected: React.FC = () => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-    <FlaskConical className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-    <h3 className="text-base font-semibold text-gray-900 mb-2">No Lab Tests</h3>
-    <p className="text-gray-600 text-sm">Select a test to enter results</p>
-  </div>
+  <EmptyState
+    icon={FlaskConical}
+    title="No Lab Tests"
+    description="Select a test to enter results"
+  />
 );
 
 export const NoMedicationsSelected: React.FC = () => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-    <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-    <h3 className="text-base font-semibold text-gray-900 mb-2">No Medications</h3>
-    <p className="text-gray-600 text-sm">No medications available for dispensing</p>
-  </div>
+  <EmptyState
+    icon={Package}
+    title="No Medications"
+    description="No medications available for dispensing"
+  />
 );
