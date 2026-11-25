@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import CreateEditModal from '../components/CreateEditModal';
+import { SearchInput } from '../components/ui';
 import { useToast } from '../store/toastStore';
 import { useAuthStore } from '../store/authStore';
 import { 
   Plus, 
-  Search, 
   Edit, 
   Trash2, 
   FileText, 
@@ -611,18 +611,12 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
 
       {/* Search, Filter and Add Button */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex-1 min-w-[200px] max-w-sm">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
-            <input
-              type="text"
-              placeholder={`Search ${activeTab}...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)] text-sm"
-            />
-          </div>
-        </div>
+        <SearchInput
+          className="flex-1 min-w-[200px] max-w-sm"
+          placeholder={`Search ${activeTab}...`}
+          value={searchTerm}
+          onChange={setSearchTerm}
+        />
         
         {/* Morbidity Filter Dropdown - Only show for Diagnoses tab */}
         {activeTab === 'diagnoses' && (
