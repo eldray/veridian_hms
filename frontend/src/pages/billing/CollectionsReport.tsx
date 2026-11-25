@@ -12,7 +12,7 @@ import {
   ArrowDownToLine, Banknote, Download, Layers, Receipt, RefreshCw, Undo2, Users, X,
 } from 'lucide-react';
 import {
-  Badge, Button, Card, cn, INPUT, Pagination, SearchInput, StatCard, TD, TH, TH_ROW, TR,
+  Badge, Button, Card, cn, INPUT, Pagination, SearchInput, StatCard, TABLE_SHELL, TD, TH, TH_ROW, TR,
 } from '../../components/ui';
 import type {
   BillingCashierRow, BillingCollectionPayment, BillingCollectionsReport,
@@ -212,7 +212,7 @@ export default function CollectionsReport({
         {report.cashiers.length === 0 ? (
           <p className="text-sm text-[var(--text-tertiary)] p-4">No money was received in this period.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className={cn(TABLE_SHELL, "overflow-x-auto")}>
             <table className="w-full text-sm">
               <thead className={TH_ROW}>
                 <tr>
@@ -253,7 +253,7 @@ export default function CollectionsReport({
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
         <Card title="Financial Breakdown" description="What the receipts were spent on, grouped by the service catalog each line was charged against" icon={Layers} accent="cyan" padded={false} className="xl:col-span-2">
-          <div className="overflow-x-auto">
+          <div className={cn(TABLE_SHELL, "overflow-x-auto")}>
             <table className="w-full text-sm">
               <thead className={TH_ROW}>
                 <tr>
@@ -289,7 +289,7 @@ export default function CollectionsReport({
             </p>
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className={cn(TABLE_SHELL, "overflow-x-auto")}>
                 <table className="w-full text-sm">
                   <thead className={TH_ROW}>
                     <tr>
