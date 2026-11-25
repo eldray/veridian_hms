@@ -20,45 +20,22 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ patient, insuranceProvid
     { id: 'payment' as const, label: 'Payment', icon: CreditCard }
   ];
 
-  // ✅ ADD DEBUGGING
-  console.log('🔍 ProfileTab rendering:', {
-    patient: patient ? {
-      id: patient.id || patient._id,
-      fullName: patient.fullName,
-      folderNumber: patient.folderNumber
-    } : 'NO PATIENT',
-    activeSection,
-    insuranceProvidersCount: insuranceProviders?.length || 0,
-    patientId
-  });
-
   if (!patient) {
     return (
       <div className="text-center py-8">
-        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-          <User className="w-6 h-6 text-gray-400" />
+        <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 bg-[var(--bg-main)]">
+          <User className="w-6 h-6 text-[var(--text-tertiary)]" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Patient Data</h3>
-        <p className="text-gray-600 text-sm">Patient information could not be loaded</p>
+        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No Patient Data</h3>
+        <p className="text-[var(--text-secondary)] text-sm">Patient information could not be loaded</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* Debug Info - Remove this after fixing */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-        <h4 className="font-semibold text-yellow-800 text-sm mb-2">Debug Info</h4>
-        <div className="text-xs text-yellow-700 space-y-1">
-          <div><strong>Patient ID:</strong> {patient.id || patient._id}</div>
-          <div><strong>Full Name:</strong> {patient.fullName}</div>
-          <div><strong>Folder Number:</strong> {patient.folderNumber}</div>
-          <div><strong>Active Section:</strong> {activeSection}</div>
-        </div>
-      </div>
-
       {/* Compact Section Navigation */}
-      <div className="flex gap-2 p-2 bg-gray-50 rounded-lg">
+      <div className="flex flex-wrap gap-2 p-1.5 rounded-lg bg-[var(--bg-main)]">
         {sections.map((section) => {
           const Icon = section.icon;
           return (
@@ -67,8 +44,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ patient, insuranceProvid
               onClick={() => setActiveSection(section.id)}
               className={`flex items-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-all duration-200 flex-1 justify-center ${
                 activeSection === section.id
-                  ? 'bg-white text-blue-600 shadow-sm border border-blue-200'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-[var(--bg-card)] text-[var(--accent-color)] shadow-sm border border-[var(--border-color)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -79,7 +56,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({ patient, insuranceProvid
       </div>
 
       {/* Section Content */}
-      <div className="min-h-[400px]">
+      <div className="min-h-0">
         {activeSection === 'basic' && <CompactBasicInfo patient={patient} />}
         {activeSection === 'payment' && (
           <CompactPaymentInfo 
