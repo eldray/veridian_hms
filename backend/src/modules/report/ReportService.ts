@@ -545,6 +545,7 @@ export class ReportService {
     const rows = await this.prisma.attendanceDiagnosis.findMany({
       where: range ? { Attendance: { dateTime: range } } : {},
       select: {
+        classification: true,
         Diagnosis: { select: { name: true, icdCode: true, morbidityGroup: true } },
         Attendance: {
           select: {
