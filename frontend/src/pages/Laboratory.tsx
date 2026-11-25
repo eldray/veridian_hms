@@ -319,7 +319,7 @@ export default function Laboratory() {
                       <td className={TD_MONO}>{item.patient?.folderNumber || '—'}</td>
                       <td className={TD_MONO}>{item.attendanceNumber || '—'}</td>
                       <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
-                        {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleString() : '—'}
+                        {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleString('en-GH', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
                       </td>
                       <td className={TD}>
                         <div className="flex items-center gap-1 text-[var(--text-secondary)]">
@@ -348,7 +348,7 @@ export default function Laboratory() {
                               <p className="font-medium text-[var(--text-primary)]">{testName(next)}</p>
                               <p className="text-[var(--text-secondary)]">
                                 {next.status === 'in_progress' ? 'In progress' : 'Requested'}{' '}
-                                {next.requestedAt ? new Date(next.requestedAt).toLocaleDateString() : ''}
+                                {next.requestedAt ? new Date(next.requestedAt).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
                               </p>
                             </div>
                           ) : (
@@ -360,7 +360,7 @@ export default function Laboratory() {
                               <div key={test.id} className="text-xs">
                                 <span className="font-medium">{testName(test)}</span>
                                 <span className="text-[var(--text-tertiary)] ml-1">
-                                  ({test.completedAt ? new Date(test.completedAt).toLocaleTimeString() : '—'})
+                                  ({test.completedAt ? new Date(test.completedAt).toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }) : '—'})
                                 </span>
                               </div>
                             ))}
