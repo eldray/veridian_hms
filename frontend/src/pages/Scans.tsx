@@ -272,8 +272,13 @@ export default function ScansWaitingList() {
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div
+            className="overflow-x-auto overscroll-x-contain rounded-b-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--focus-ring)]"
+            role="region"
+            aria-label="Scans worklist table; scroll horizontally to view all columns"
+            tabIndex={0}
+          >
+            <table className="w-full min-w-[1280px] text-sm">
               <thead className={TH_ROW}>
                 <tr>
                   <th className={TH}>Patient</th>
