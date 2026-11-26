@@ -207,7 +207,7 @@ export default function StockManagement() {
         <StatCard label="Total Items" value={stockItems.length} icon={Package} />
         <StatCard label="Low Stock Items" value={lowStockItems.length} icon={AlertTriangle} accent="yellow" />
         <StatCard label="Categories" value={getUniqueCategories().length} icon={Grid} accent="purple" />
-        <StatCard label="Total Value" size="money" icon={TrendingUp} accent="green" value={`$${stockItems.reduce((sum, item) => sum + (item.costPrice * item.currentStock), 0).toFixed(0)}`} />
+        <StatCard label="Total Value" size="money" icon={TrendingUp} accent="green" value={`₵${stockItems.reduce((sum, item) => sum + (item.costPrice * item.currentStock), 0).toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
       </div>
       {lowStockItems.length > 0 && (
         <div className="bg-[var(--icon-yellow-bg)] border-l-4 border-[var(--icon-yellow-text)] rounded-r-xl p-4">
