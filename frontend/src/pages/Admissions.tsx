@@ -738,9 +738,9 @@ export default function Admissions() {
       {/* ═══════════ List ═══════════ */}
       {filteredAdmissions.length === 0 ? (
         <Card>
-          <div className="py-10 text-center">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-[var(--icon-cyan-bg)]">
-              <Hospital className="w-8 h-8 text-[var(--icon-cyan-text)]" />
+          <div className="py-6 text-center">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 bg-[var(--icon-cyan-bg)]">
+              <Hospital className="w-6 h-6 text-[var(--icon-cyan-text)]" />
             </div>
             <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">
               {searchQuery ? 'No Admissions Found' : 'No Admissions Yet'}
