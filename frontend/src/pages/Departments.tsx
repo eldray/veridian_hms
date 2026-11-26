@@ -95,17 +95,28 @@ const rsStyles = {
     fontSize: '13px',
   }),
   menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
-  menu: (base: any) => ({ ...base, zIndex: 9999 }),
+  menu: (base: any) => ({ ...base, zIndex: 9999, backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }),
   input: (base: any) => ({ ...base, color: 'var(--text-primary)' }),
   placeholder: (base: any) => ({ ...base, color: 'var(--text-tertiary)' }),
   singleValue: (base: any) => ({ ...base, color: 'var(--text-primary)' }),
-  option: (base: any) => ({ ...base, fontSize: '13px' }),
+  option: (base: any, state: any) => ({
+    ...base,
+    fontSize: '13px',
+    color: state.isSelected ? 'var(--icon-cyan-on-text)' : 'var(--text-primary)',
+    backgroundColor: state.isSelected
+      ? 'var(--icon-cyan-text)'
+      : state.isFocused
+        ? 'var(--icon-cyan-bg)'
+        : 'transparent',
+    cursor: 'pointer',
+    ':active': { backgroundColor: 'var(--icon-cyan-bg)' },
+  }),
   multiValue: (base: any) => ({ ...base, backgroundColor: 'var(--icon-cyan-bg)' }),
   multiValueLabel: (base: any) => ({ ...base, color: 'var(--icon-cyan-text)', fontSize: '11px', fontWeight: 600 }),
   multiValueRemove: (base: any) => ({
     ...base,
     color: 'var(--icon-cyan-text)',
-    ':hover': { backgroundColor: 'var(--icon-cyan-text)', color: 'white' },
+    ':hover': { backgroundColor: 'var(--icon-cyan-text)', color: 'var(--icon-cyan-on-text)' },
   }),
 };
 
@@ -332,7 +343,7 @@ export default function Departments() {
           </p>
           {isAdmin && !searchTerm && (
             <button onClick={() => setShowForm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all mt-1">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-all mt-1">
               <Plus className="w-3.5 h-3.5" /> Create Department
             </button>
           )}
@@ -864,7 +875,7 @@ export default function Departments() {
                     <button
                       onClick={handleAssignUser}
                       disabled={assigningUser}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all shrink-0"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-[var(--icon-cyan-on-text)] hover:opacity-90 disabled:opacity-50 transition-all shrink-0"
                     >
                       {assigningUser ? (
                         <Loader className="w-3.5 h-3.5 animate-spin" />
@@ -901,7 +912,7 @@ export default function Departments() {
                 Cancel
               </button>
               <button form="dept-form" type="submit"
-                className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all">
+                className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-[var(--icon-cyan-on-text)] hover:opacity-90 transition-all">
                 {editingDept ? 'Save Changes' : 'Create Department'}
               </button>
             </div>
