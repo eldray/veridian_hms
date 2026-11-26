@@ -21,11 +21,11 @@ export const AttendanceStatusCard: React.FC<AttendanceStatusCardProps> = ({
 }) => {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'active': return 'bg-green-100 text-green-800 border-green-200';
-      case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'pending': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--border-color)]';
+      case 'active': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--border-color)]';
+      case 'completed': return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--border-color)]';
+      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--border-color)]';
+      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
     }
   };
 
@@ -40,11 +40,11 @@ export const AttendanceStatusCard: React.FC<AttendanceStatusCardProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-3">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">Attendance Status</h3>
-          <p className="text-sm text-gray-600">
+          <h3 className="text-sm font-semibold text-[var(--text-primary)]">Attendance Status</h3>
+          <p className="text-sm text-[var(--text-secondary)]">
             Current status: 
             <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(attendance.status)} flex items-center gap-1 w-fit mt-1`}>
               {getStatusIcon(attendance.status)}
@@ -58,7 +58,7 @@ export const AttendanceStatusCard: React.FC<AttendanceStatusCardProps> = ({
             <button
               onClick={onActivate}
               disabled={activating}
-              className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all disabled:opacity-50 text-sm"
+              className="flex items-center gap-1 px-3 py-1.5 bg-[var(--icon-green-text)] text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 text-sm"
             >
               <PlayCircle className="w-3 h-3" />
               {activating ? 'Activating...' : 'Activate'}
@@ -67,7 +67,7 @@ export const AttendanceStatusCard: React.FC<AttendanceStatusCardProps> = ({
           
           <button
             onClick={onEdit}
-            className="p-1.5 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors duration-200"
+            className="p-1.5 bg-[var(--icon-yellow-text)] text-white rounded hover:opacity-90 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
             title="Edit Attendance"
           >
             <Edit className="w-3 h-3" />
@@ -76,8 +76,8 @@ export const AttendanceStatusCard: React.FC<AttendanceStatusCardProps> = ({
           <div
             className={`px-2 py-1 text-xs font-semibold rounded-full border ${
               canRecordVitals
-                ? 'bg-green-100 text-green-800 border-green-200'
-                : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--border-color)]'
+                : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--border-color)]'
             }`}
           >
             {canRecordVitals ? (

@@ -56,9 +56,9 @@ const taskTypeIcon = (type: NursingTask['taskType']) => {
 };
 
 const priorityConfig: Record<NursingTask['priority'], { cls: string; dot: string }> = {
-  high:   { cls: 'bg-red-100 text-red-700 border-red-200',    dot: 'bg-red-500' },
-  medium: { cls: 'bg-yellow-100 text-yellow-700 border-yellow-200', dot: 'bg-yellow-500' },
-  low:    { cls: 'bg-blue-100 text-blue-700 border-blue-200', dot: 'bg-blue-400' },
+  high:   { cls: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--border-color)]', dot: 'bg-[var(--icon-red-text)]' },
+  medium: { cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--border-color)]', dot: 'bg-[var(--icon-yellow-text)]' },
+  low:    { cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--border-color)]', dot: 'bg-[var(--icon-cyan-text)]' },
 };
 
 // ── Add Task Modal ────────────────────────────────────────────────────────────
@@ -95,10 +95,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd }) =
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
       <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-md border border-[var(--border-color)] shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-teal-100 rounded-lg flex items-center justify-center">
-              <ClipboardList className="w-3.5 h-3.5 text-teal-600" />
+            <div className="w-7 h-7 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
+              <ClipboardList className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
             </div>
             <p className="text-sm font-bold text-[var(--text-primary)]">Add Nursing Task</p>
           </div>
@@ -107,9 +107,9 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd }) =
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-4 space-y-3">
           {error && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--icon-red-bg)] border border-[var(--border-color)] text-sm text-[var(--icon-red-text)]">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
@@ -125,7 +125,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd }) =
               value={form.title}
               onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
               placeholder="e.g. Check wound dressing, Turn patient, IV flush…"
-              className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
             />
           </div>
 
@@ -138,7 +138,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd }) =
               <select
                 value={form.taskType}
                 onChange={e => setForm(p => ({ ...p, taskType: e.target.value as NursingTask['taskType'] }))}
-                className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
               >
                 {TASK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
@@ -150,7 +150,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd }) =
               <select
                 value={form.priority}
                 onChange={e => setForm(p => ({ ...p, priority: e.target.value as NursingTask['priority'] }))}
-                className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -168,7 +168,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd }) =
               type="datetime-local"
               value={form.scheduledTime}
               onChange={e => setForm(p => ({ ...p, scheduledTime: e.target.value }))}
-              className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-teal-500"
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
             />
           </div>
 
@@ -182,15 +182,15 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd }) =
               value={form.description}
               onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
               placeholder="Any specific instructions for this task…"
-              className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-teal-500"
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
             />
           </div>
         </div>
 
-        <div className="flex gap-3 px-5 pb-5">
+        <div className="flex gap-2 px-4 pb-4">
           <button
             onClick={handleSubmit}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-colors"
           >
             <Save className="w-3.5 h-3.5" />
             Add Task
@@ -256,7 +256,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                   filter === f
-                    ? 'bg-teal-600 text-white shadow-sm'
+                    ? 'bg-[var(--icon-cyan-text)] text-white shadow-sm'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
@@ -266,7 +266,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-xs font-semibold transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 text-xs font-semibold transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Task
@@ -282,7 +282,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
             </p>
             <button
               onClick={() => setShowAddModal(true)}
-              className="mt-3 text-xs text-teal-600 hover:text-teal-700 font-medium"
+              className="mt-3 text-xs text-[var(--icon-cyan-text)] hover:opacity-80 font-medium"
             >
               + Add a task
             </button>
@@ -297,9 +297,9 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
                   key={task.id}
                   className={`flex items-start gap-3 p-3 rounded-lg border transition-all ${
                     task.status === 'completed'
-                      ? 'bg-green-50 border-green-200 opacity-75 dark:bg-green-950/20 dark:border-green-800'
+                      ? 'bg-[var(--icon-green-bg)] border-[var(--border-color)] opacity-80'
                       : overdue
-                      ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800'
+                      ? 'bg-[var(--icon-red-bg)] border-[var(--border-color)]'
                       : 'bg-[var(--bg-card)] border-[var(--border-color)] hover:bg-[var(--bg-main)]'
                   }`}
                 >
@@ -310,7 +310,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
                       checked={task.status === 'completed'}
                       onChange={() => task.status !== 'completed' && onTaskComplete(task.id)}
                       disabled={task.status === 'completed'}
-                      className="w-4 h-4 rounded border-[var(--border-color)] text-teal-600 focus:ring-teal-500 cursor-pointer disabled:cursor-default"
+                      className="w-4 h-4 rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)] cursor-pointer disabled:cursor-default"
                     />
                   </div>
 
@@ -336,7 +336,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
                       </span>
 
                       {overdue && task.status !== 'completed' && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 font-semibold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--border-color)] font-semibold">
                           OVERDUE
                         </span>
                       )}
@@ -348,14 +348,14 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
 
                     <div className="flex items-center gap-3 mt-1">
                       {task.scheduledTime && (
-                        <p className={`text-[11px] flex items-center gap-1 ${overdue && task.status !== 'completed' ? 'text-red-600 font-medium' : 'text-[var(--text-tertiary)]'}`}>
+                        <p className={`text-[11px] flex items-center gap-1 ${overdue && task.status !== 'completed' ? 'text-[var(--icon-red-text)] font-medium' : 'text-[var(--text-tertiary)]'}`}>
                           <Clock className="w-3 h-3" />
                           {overdue && task.status !== 'completed' ? 'Was due ' : 'Due '}
                           {new Date(task.scheduledTime).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </p>
                       )}
                       {task.completedAt && (
-                        <p className="text-[11px] text-green-600 flex items-center gap-1">
+                        <p className="text-[11px] text-[var(--icon-green-text)] flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" />
                           Done {new Date(task.completedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
