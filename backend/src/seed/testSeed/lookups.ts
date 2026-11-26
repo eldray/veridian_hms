@@ -505,12 +505,17 @@ export const buildLookups = async (): Promise<Lookups> => {
   }
   for (const list of insuranceProviderByType.values()) list.sort((a, b) => a.name.localeCompare(b.name));
 
-  const corporateAccountsRows: CorporateAccountRow[] = corporateAccounts.map((account) => ({
-    id: account.id,
-    companyName: account.companyName,
-    insuranceProviderId: account.insuranceProviderId,
-    discountPercentage: toNumber(account.discountPercentage),
-  }));
+  // A corporate account is claimable only when it points to an active provider whose
+  // actual provider type is corporate. Do not seed visits against half-configured accounts.
+  const corporateProviderIds = new Set((insuranceProviderByType.get('corporate') ?? []).map((provider) => provider.id));
+  const corporateAccountsRows: CorporateAccountRow[] = corporateAccounts
+    .filter((account) => Boolean(account.insuranceProviderId && corporateProviderIds.has(account.insuranceProviderId)))
+    .map((account) => ({
+      id: account.id,
+      companyName: account.companyName,
+      insuranceProviderId: account.insuranceProviderId,
+      discountPercentage: toNumber(account.discountPercentage),
+    }));
   const corporateEmployeesByAccount = new Map<string, CorporateEmployeeRow[]>();
   for (const emp of corporateEmployees) {
     const list = corporateEmployeesByAccount.get(emp.accountId) ?? [];
