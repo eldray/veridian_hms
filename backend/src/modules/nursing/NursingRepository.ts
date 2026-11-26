@@ -199,6 +199,14 @@ export class NursingRepository extends BaseRepository<any, any, any> {
       if (!Number.isFinite(data.doseAmount) || data.doseAmount <= 0 || !data.doseUnit.trim()) {
         throw new ValidationError('Enter a valid administered dose and unit');
       }
+      if (medication.doseAmount != null) {
+        const prescribedAmount = Number(medication.doseAmount);
+        const prescribedUnit = String(medication.doseUnit ?? '').trim().toLowerCase();
+        if (Math.abs(prescribedAmount - data.doseAmount) > 0.0001 ||
+            (prescribedUnit && prescribedUnit !== data.doseUnit.trim().toLowerCase())) {
+          throw new ValidationError('The administered PRN dose must match the prescribed amount and unit. A dose change requires a documented prescriber correction.');
+        }
+      }
       const administeredAt = data.administeredAt ?? new Date();
       const dayStart = new Date(administeredAt);
       dayStart.setHours(0, 0, 0, 0);
