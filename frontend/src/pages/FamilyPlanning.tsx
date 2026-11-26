@@ -288,7 +288,7 @@ const FamilyPlanningServiceModal: React.FC<{
                   <ShieldCheck className="w-6 h-6 text-[var(--icon-purple-text)]" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-lg font-bold truncate text-white">
+                  <h2 className="text-lg font-bold truncate text-[var(--text-primary)]">
                     {existingService ? 'Edit Family Planning Record' : 'Record Family Planning Service'}
                   </h2>
                   {patient && (
@@ -309,11 +309,11 @@ const FamilyPlanningServiceModal: React.FC<{
 
             {/* Live preview */}
             {selectedMethod && (
-              <div className="mt-4 flex items-center gap-2 bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2">
+              <div className="mt-4 flex items-center gap-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg px-3 py-2">
                 <BadgeCheck className="w-4 h-4 text-[var(--icon-purple-text)] flex-shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">Selected Method</p>
-                  <p className="text-sm font-bold text-white truncate">{selectedMethod}</p>
+                  <p className="text-sm font-bold text-[var(--text-primary)] truncate">{selectedMethod}</p>
                 </div>
                 {selectedCategory && (
                   <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)] flex-shrink-0">
@@ -566,7 +566,7 @@ const FamilyPlanningServiceModal: React.FC<{
             >
               {loading ? (
                 <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 rounded-full animate-spin" style={{ borderColor: "var(--icon-purple-text)", borderTopColor: "transparent" }} />
                   Saving…
                 </>
               ) : (
