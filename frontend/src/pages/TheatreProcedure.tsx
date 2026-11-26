@@ -1093,7 +1093,7 @@ export default function TheatreProcedure() {
                       <button
                         type="button"
                         onClick={() => handleStartProcedure(selectedProcedure.id)}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-yellow-600 text-white hover:bg-yellow-700 text-xs font-bold shadow-sm transition-all"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--icon-yellow-text)] text-white hover:opacity-90 text-xs font-bold shadow-sm transition-all"
                       >
                         <Activity className="w-4 h-4" /> Start procedure
                       </button>
@@ -1151,7 +1151,7 @@ export default function TheatreProcedure() {
                             onClick={() => { setSelectedProcedureId(procedure.id); setOpenTile(null); setActiveTab('record'); }}
                             className={`text-left rounded-md border p-2 transition-all ${
                               isSelected
-                                ? 'border-[var(--icon-purple-text)] bg-[var(--icon-purple-text)]/10 ring-1 ring-[var(--icon-purple-text)]'
+                                ? 'border-[var(--icon-purple-text)] bg-[var(--icon-purple-bg)] ring-1 ring-[var(--icon-purple-text)]'
                                 : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--icon-purple-text)]/40 hover:bg-[var(--bg-main)]'
                             }`}
                           >
@@ -1160,7 +1160,7 @@ export default function TheatreProcedure() {
                               <span className="font-semibold text-xs text-[var(--text-primary)] truncate flex-1">
                                 {procedure.name}
                               </span>
-                              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${isTheatreRequiredProcedure(procedure) ? 'bg-[var(--icon-purple-text)]/10 text-[var(--icon-purple-text)]' : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'}`}>
+                              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${isTheatreRequiredProcedure(procedure) ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]' : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'}`}>
                                 {isTheatreRequiredProcedure(procedure) ? 'Major · Theatre' : 'Minor'}
                               </span>
                             </div>
@@ -1219,7 +1219,7 @@ export default function TheatreProcedure() {
               </div>
 
               {selectedProcedure?.status === 'scheduled' && (
-                <div className="mx-3 mb-3 flex flex-col gap-3 rounded-xl border border-[var(--icon-yellow-text)]/40 bg-[var(--icon-yellow-bg)] p-4 border-[var(--icon-yellow-text)]/40 bg-[var(--icon-yellow-bg)] sm:flex-row sm:items-center sm:justify-between">
+                <div className="mx-3 mb-3 flex flex-col gap-3 rounded-xl border border-[var(--icon-yellow-text)]/40 bg-[var(--icon-yellow-bg)] p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-[var(--icon-yellow-text)] text-[var(--icon-yellow-text)]">Procedure is scheduled — documentation is not started</p>
                     <p className="mt-1 text-xs text-[var(--icon-yellow-text)] text-[var(--icon-yellow-text)]">Confirm the team is ready, then select <strong>Start procedure</strong> above. The clinical documentation will unlock when the status changes to In Progress.</p>
