@@ -374,7 +374,7 @@ export default function StockTransfers() {
       </section>
 
       <section className={TABLE_SHELL}>
-        {loading ? <div className="p-12 text-center text-sm text-[var(--text-secondary)]"><RefreshCw className="mx-auto mb-3 h-5 w-5 animate-spin" />Loading transfer register…</div>
+        {loading ? <div className="p-8 text-center text-sm text-[var(--text-secondary)]"><RefreshCw className="mx-auto mb-3 h-5 w-5 animate-spin" />Loading transfer register…</div>
           : filteredTransfers.length === 0 ? <div className="p-12 text-center"><ArrowLeftRight className="mx-auto mb-3 h-8 w-8 text-[var(--text-secondary)]" /><p className="font-medium text-[var(--text-primary)]">No stock transfers found</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Try changing your search or request a new transfer.</p></div>
           : <div className="overflow-x-auto">
             <table className="w-full min-w-[1120px] text-left text-sm">
