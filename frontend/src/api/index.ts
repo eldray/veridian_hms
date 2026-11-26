@@ -1780,7 +1780,10 @@ export const addMedicationToEncounter = async (encounterId: string, data: {
   frequency: string;
   duration: string;
   route?: string;
-  instructions?: string
+  instructions?: string;
+  prnIndication?: string;
+  prnMaxDosesPerDay?: number;
+  prnMinimumIntervalHours?: number;
 }) => {
   const response = await api.post(`/encounters/${encounterId}/prescriptions`, data);
   return response.data;
