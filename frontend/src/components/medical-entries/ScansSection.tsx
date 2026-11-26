@@ -200,7 +200,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
                         </span>
                         <span className="flex items-center gap-0.5 text-[var(--text-secondary)]">
                           <DollarSign className="w-2.5 h-2.5" />
-                          {getScanPrice(template).toFixed(2)}
+                          {paymentMode === 'nhis' && getScanPrice(template) <= 0 ? 'NHIS tariff not configured' : `GHS ${getScanPrice(template).toFixed(2)}`}
                         </span>
                       </div>
                     </button>
@@ -278,7 +278,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
               <label className="block text-xs font-semibold text-[var(--text-primary)] mb-0.5">Price</label>
               <span className="text-xs text-[var(--text-primary)] flex items-center gap-0.5">
                 <DollarSign className="w-2.5 h-2.5" />
-                {getScanPrice(selectedTemplate).toFixed(2)}
+                {paymentMode === 'nhis' && getScanPrice(selectedTemplate) <= 0 ? 'NHIS tariff not configured' : `GHS ${getScanPrice(selectedTemplate).toFixed(2)}`}
               </span>
             </div>
             <div>
