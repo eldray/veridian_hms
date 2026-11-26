@@ -30,8 +30,7 @@ export function formatPrescriptionDetails(value: PrescriptionDetails): string {
     value.dosage && `Dose: ${value.dosage}`,
     value.frequency && `Frequency: ${value.frequency}`,
     value.duration && `Duration: ${value.duration}`,
-    value.route && `Route: ${ROUTES.find(([key]) => key === value.route)?.[1] || value.route}`,
-    value.instructions && `Instructions: ${value.instructions}`,
+
   ].filter(Boolean).join(' · ');
 }
 
@@ -116,16 +115,6 @@ export function PrescriptionFields({ value, onChange, strength }: {
             {durations.length === 0 && <div className="px-3 py-2 text-xs text-[var(--text-tertiary)]">Custom duration will be used</div>}
           </div>}
         </div>
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Route</label>
-        <select className={inputClass} value={value.route} onChange={e => set({ route: e.target.value })}>
-          {ROUTES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Instructions (optional)</label>
-        <textarea className={inputClass} rows={2} value={value.instructions} onChange={e => set({ instructions: e.target.value })} placeholder="Additional administration instructions…" />
       </div>
     </div>
   );
