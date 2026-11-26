@@ -109,7 +109,7 @@ export class ServiceCatalogService extends BaseService {
           cashPrice: parseFloat(data.cashPrice),
           nhisPrice: parseFloat(data.nhisPrice || 0),
           insurancePrice: serviceItem.serviceType === ServiceType.medication ? parseFloat(data.cashPrice) : parseFloat(data.insurancePrice ?? data.cashPrice),
-          corporatePrice: serviceItem.serviceType === ServiceType.medication ? parseFloat(data.cashPrice) : parseFloat(data.corporatePrice ?? 0), // medication corporate price is cash price
+          corporatePrice: parseFloat(data.cashPrice), // Private and corporate use the facility cash selling price.
           vatRate: parseFloat(data.vatRate || 0),
           isTaxable: data.isTaxable ?? true,
           effectiveDate: new Date(), isActive: true,
