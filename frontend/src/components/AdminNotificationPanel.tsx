@@ -90,19 +90,19 @@ export const AdminNotificationPanel: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 text-[var(--text-primary)]">
       {/* Notification Type Toggle */}
-      <div className="flex gap-2 border-b pb-2">
+      <div className="flex flex-wrap gap-2 border-b border-[var(--border-color)] pb-2">
         <button
           onClick={() => setNotificationType('bulk')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${notificationType === 'bulk' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${notificationType === 'bulk' ? 'bg-[var(--icon-cyan-text)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]'}`}
         >
           <Users className="w-4 h-4 inline mr-2" />
           Send to Specific Users
         </button>
         <button
           onClick={() => setNotificationType('role')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${notificationType === 'role' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${notificationType === 'role' ? 'bg-[var(--icon-cyan-text)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]'}`}
         >
           <Bell className="w-4 h-4 inline mr-2" />
           Send by Role
@@ -112,7 +112,7 @@ export const AdminNotificationPanel: React.FC = () => {
       {/* User Selection (Bulk) */}
       {notificationType === 'bulk' && (
         <div>
-          <label className="block text-sm font-medium mb-1">Select Users</label>
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Select Users</label>
           <select
             multiple
             value={selectedUserIds}
@@ -120,7 +120,7 @@ export const AdminNotificationPanel: React.FC = () => {
               const options = Array.from(e.target.selectedOptions, option => option.value);
               setSelectedUserIds(options);
             }}
-            className="w-full p-2 border rounded-lg h-32"
+            className="w-full p-2.5 border border-[var(--border-color)] rounded-lg h-32 bg-[var(--bg-main)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30"
           >
             {users.map((user: any) => (
               <option key={user.id} value={user.id}>
@@ -128,14 +128,14 @@ export const AdminNotificationPanel: React.FC = () => {
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+          <p className="text-xs text-[var(--text-tertiary)] mt-1">Hold Ctrl/Cmd to select multiple</p>
         </div>
       )}
 
       {/* Role Selection (Role-based) */}
       {notificationType === 'role' && (
         <div>
-          <label className="block text-sm font-medium mb-1">Select Roles</label>
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Select Roles</label>
           <div className="flex flex-wrap gap-2">
             {roles.map(role => (
               <button
@@ -148,8 +148,8 @@ export const AdminNotificationPanel: React.FC = () => {
                 }}
                 className={`px-3 py-1 rounded-full text-sm transition-all capitalize ${
                   selectedRoles.includes(role)
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-[var(--icon-cyan-text)] text-white'
+                    : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:bg-[var(--border-color)]'
                 }`}
               >
                 {role}
@@ -161,34 +161,34 @@ export const AdminNotificationPanel: React.FC = () => {
 
       {/* Notification Details */}
       <div>
-        <label className="block text-sm font-medium mb-1">Title</label>
+        <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Title</label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Notification title"
-          className="w-full p-2 border rounded-lg"
+          className="w-full p-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30"
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">Message</label>
+        <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Message</label>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={4}
           placeholder="Notification message..."
-          className="w-full p-2 border rounded-lg resize-none"
+          className="w-full p-2.5 border border-[var(--border-color)] rounded-lg resize-none bg-[var(--bg-main)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium mb-1">Type</label>
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Type</label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value as any)}
-            className="w-full p-2 border rounded-lg"
+            className="w-full p-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30"
           >
             <option value="info">Info</option>
             <option value="success">Success</option>
@@ -198,11 +198,11 @@ export const AdminNotificationPanel: React.FC = () => {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Priority</label>
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Priority</label>
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value as any)}
-            className="w-full p-2 border rounded-lg"
+            className="w-full p-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30"
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -213,11 +213,11 @@ export const AdminNotificationPanel: React.FC = () => {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 pt-4 border-t">
+      <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
         <button
           onClick={handleSend}
           disabled={isSending}
-          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          className="flex-1 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {isSending ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -229,19 +229,19 @@ export const AdminNotificationPanel: React.FC = () => {
       </div>
 
       {/* System Actions */}
-      <div className="border-t pt-4">
-        <h4 className="text-sm font-medium mb-3">System Actions</h4>
-        <div className="flex gap-3">
+      <div className="border-t border-[var(--border-color)] pt-3">
+        <h4 className="text-sm font-medium text-[var(--text-primary)] mb-3">System Actions</h4>
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={handleTriggerLowStock}
-            className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg text-sm hover:bg-yellow-200 transition-all"
+            className="px-3 py-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg text-sm hover:opacity-80 transition-all"
           >
             <AlertCircle className="w-4 h-4 inline mr-1" />
             Check Low Stock
           </button>
           <button
             onClick={handleTriggerReminders}
-            className="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200 transition-all"
+            className="px-3 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg text-sm hover:opacity-80 transition-all"
           >
             <Bell className="w-4 h-4 inline mr-1" />
             Send Reminders
