@@ -58,16 +58,16 @@ export function Toast({ toast, onRemove }: ToastProps) {
   const Icon = icons[toast.type];
 
   return (
-    <div className={`flex items-start gap-3 p-4 rounded-xl border ${styles[toast.type]} shadow-xl w-full max-w-none animate-in slide-in-from-right duration-300`}>
+    <div className={`flex items-start gap-2.5 p-3 rounded-lg border ${styles[toast.type]} shadow-xl w-full max-w-none animate-in slide-in-from-right duration-300`}>
       <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
         toast.type === 'success' ? 'text-[var(--icon-green-text)]' :
         toast.type === 'error' ? 'text-[var(--icon-red-text)]' :
         toast.type === 'warning' ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-blue-text)]'
       }`} />
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-base leading-snug">{toast.title}</p>
+        <p className="font-semibold text-sm leading-snug">{toast.title}</p>
         {toast.message && (
-          <p className="text-sm opacity-95 mt-1.5 leading-relaxed break-words">{toast.message}</p>
+          <p className="text-sm opacity-95 mt-1 leading-relaxed break-words">{toast.message}</p>
         )}
       </div>
       <button
