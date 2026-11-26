@@ -285,8 +285,8 @@ export default function MaternalWaitingList() {
     return (
       <div className="space-y-4 p-4 sm:p-5">
         {queueHeader}
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-8 text-center">
-          <div className="w-12 h-12 border-4 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-6 text-center">
+          <div className="w-8 h-8 border-4 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)]">Loading Maternal Queue…</p>
         </div>
       </div>
@@ -332,19 +332,19 @@ export default function MaternalWaitingList() {
       {/* ── List ── */}
       {filteredPatients.length === 0 ? (
         <Card padded={false}>
-          <div className="p-8 text-center">
+          <div className="p-6 text-center">
             {activeTab === 'pending' ? (
               <>
-                <div className="w-14 h-14 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center mx-auto mb-3">
-                  <CheckCircle className="w-7 h-7 text-[var(--icon-green-text)]" />
+                <div className="w-12 h-12 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle className="w-6 h-6 text-[var(--icon-green-text)]" />
                 </div>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">All caught up</p>
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">No patients waiting in this queue</p>
               </>
             ) : (
               <>
-                <div className="w-14 h-14 rounded-full bg-[var(--bg-main)] flex items-center justify-center mx-auto mb-3">
-                  <History className="w-7 h-7 text-[var(--text-tertiary)]" />
+                <div className="w-12 h-12 rounded-full bg-[var(--bg-main)] flex items-center justify-center mx-auto mb-3">
+                  <History className="w-6 h-6 text-[var(--text-tertiary)]" />
                 </div>
                 <p className="text-sm font-semibold text-[var(--text-primary)]">No visits completed today</p>
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">Completed visits will appear here</p>
