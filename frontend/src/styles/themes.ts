@@ -26,6 +26,8 @@ export interface ThemeVars {
   '--icon-orange-text': string;
   '--icon-red-bg': string;
   '--icon-red-text': string;
+  /** Foreground with WCAG AA contrast on the solid red accent. */
+  '--icon-red-on-text': string;
   '--icon-green-bg': string;
   '--icon-green-text': string;
   '--icon-purple-bg': string;
@@ -80,6 +82,7 @@ const originalScheme: ColorScheme = {
     // Red — soft rose, not alarm-red
     '--icon-red-bg': '#FDF0F0',
     '--icon-red-text': '#B91C1C',
+    '--icon-red-on-text': '#FFFFFF',
     // Green — sage-toned, not neon lime
     '--icon-green-bg': '#EDFAF3',
     '--icon-green-text': '#15713A',
@@ -112,6 +115,7 @@ const originalScheme: ColorScheme = {
     '--icon-orange-text': '#CC7A40',
     '--icon-red-bg': '#240A0A',
     '--icon-red-text': '#C87070',
+    '--icon-red-on-text': '#000000',
     '--icon-green-bg': '#0A2016',
     '--icon-green-text': '#4A9E68',
     '--icon-purple-bg': '#1C1238',
@@ -156,6 +160,7 @@ const arcticSlate: ColorScheme = {
     // Red → cool rose
     '--icon-red-bg': '#FDF0F0',
     '--icon-red-text': '#A81C1C',
+    '--icon-red-on-text': '#FFFFFF',
     // Green → cool mint-sage
     '--icon-green-bg': '#EAF6F0',
     '--icon-green-text': '#0F5C3A',
@@ -188,6 +193,7 @@ const arcticSlate: ColorScheme = {
     '--icon-orange-text': '#C07040',
     '--icon-red-bg': '#260808',
     '--icon-red-text': '#C06060',
+    '--icon-red-on-text': '#000000',
     '--icon-green-bg': '#081E14',
     '--icon-green-text': '#409060',
     '--icon-purple-bg': '#1A0A28',
@@ -232,6 +238,7 @@ const sageClinic: ColorScheme = {
     // Red → dusty rose
     '--icon-red-bg': '#FAF0F0',
     '--icon-red-text': '#9A1C1C',
+    '--icon-red-on-text': '#FFFFFF',
     // Green slot → muted sky for contrast
     '--icon-green-bg': '#EAF3F8',
     '--icon-green-text': '#0A5C80',
@@ -265,6 +272,7 @@ const sageClinic: ColorScheme = {
     '--icon-orange-text': '#B06030',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#B06060',
+    '--icon-red-on-text': '#000000',
     // Muted sky blue for contrast in dark
     '--icon-green-bg': '#081828',
     '--icon-green-text': '#4A80A0',
@@ -310,6 +318,7 @@ const violetCare: ColorScheme = {
     // Red → deep rose-red
     '--icon-red-bg': '#F8EEF2',
     '--icon-red-text': '#8A1040',
+    '--icon-red-on-text': '#FFFFFF',
     // Green → cool sage
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#1A5A30',
@@ -342,6 +351,7 @@ const violetCare: ColorScheme = {
     '--icon-orange-text': '#B87040',
     '--icon-red-bg': '#280818',
     '--icon-red-text': '#B06080',
+    '--icon-red-on-text': '#000000',
     '--icon-green-bg': '#082018',
     '--icon-green-text': '#409060',
     '--icon-purple-bg': '#200E50',
@@ -386,6 +396,7 @@ const obsidianGold: ColorScheme = {
     // Red → aged burgundy
     '--icon-red-bg': '#F8ECEA',
     '--icon-red-text': '#8A1A10',
+    '--icon-red-on-text': '#FFFFFF',
     // Green → dark forest
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#1A5A30',
@@ -419,6 +430,7 @@ const obsidianGold: ColorScheme = {
     '--icon-orange-text': '#A86030',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#A05050',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408050',
     '--icon-purple-bg': '#180A28',
@@ -464,6 +476,7 @@ const slateIndigo: ColorScheme = {
     // Red → cool crimson
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
+    '--icon-red-on-text': '#FFFFFF',
     // Green → cool sage
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#145A30',
@@ -496,6 +509,7 @@ const slateIndigo: ColorScheme = {
     '--icon-orange-text': '#A06030',
     '--icon-red-bg': '#240808',
     '--icon-red-text': '#A05858',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408060',
     '--icon-purple-bg': '#180E38',
@@ -540,6 +554,7 @@ const tealIvory: ColorScheme = {
     // Red → muted crimson
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
+    '--icon-red-on-text': '#FFFFFF',
     // Green → mid forest
     '--icon-green-bg': '#EAF4EE',
     '--icon-green-text': '#1A5A30',
@@ -573,6 +588,7 @@ const tealIvory: ColorScheme = {
     '--icon-orange-text': '#A06030',
     '--icon-red-bg': '#200808',
     '--icon-red-text': '#A05858',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408058',
     '--icon-purple-bg': '#180828',
@@ -617,6 +633,7 @@ const warmNeutral: ColorScheme = {
     // Red → warm rose-brick
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
+    '--icon-red-on-text': '#FFFFFF',
     // Green → warm olive-forest
     '--icon-green-bg': '#EDF4EC',
     '--icon-green-text': '#245A28',
@@ -650,6 +667,7 @@ const warmNeutral: ColorScheme = {
     '--icon-orange-text': '#A07040',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#A05858',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#0C1E0A',
     '--icon-green-text': '#488048',
     '--icon-purple-bg': '#1A0A28',
@@ -694,6 +712,7 @@ const clinicalBlue: ColorScheme = {
     // Red → clean medical red
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
+    '--icon-red-on-text': '#FFFFFF',
     // Green → clinical green
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#145A30',
@@ -727,6 +746,7 @@ const clinicalBlue: ColorScheme = {
     '--icon-orange-text': '#986030',
     '--icon-red-bg': '#1E0808',
     '--icon-red-text': '#985858',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408060',
     '--icon-purple-bg': '#100A28',
@@ -767,6 +787,7 @@ const graphiteSteel: ColorScheme = {
     '--icon-orange-text': '#8A3A10',
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#145A30',
     '--icon-purple-bg': '#F2EEF8',
@@ -796,6 +817,7 @@ const graphiteSteel: ColorScheme = {
     '--icon-orange-text': '#A86030',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#A05858',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#488060',
     '--icon-purple-bg': '#180E28',
@@ -836,6 +858,7 @@ const sandstoneRust: ColorScheme = {
     '--icon-orange-text': '#803010',
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#EAF4EE',
     '--icon-green-text': '#1A5A30',
     '--icon-purple-bg': '#F5EEF8',
@@ -865,6 +888,7 @@ const sandstoneRust: ColorScheme = {
     '--icon-orange-text': '#A85030',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#A05050',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#0C1E10',
     '--icon-green-text': '#488050',
     '--icon-purple-bg': '#1A0A28',
@@ -905,6 +929,7 @@ const chalkCobalt: ColorScheme = {
     '--icon-orange-text': '#8A3A10',
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#145A30',
     '--icon-purple-bg': '#F0EAF8',
@@ -934,6 +959,7 @@ const chalkCobalt: ColorScheme = {
     '--icon-orange-text': '#986030',
     '--icon-red-bg': '#200808',
     '--icon-red-text': '#985858',
+    '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408060',
     '--icon-purple-bg': '#160A30',

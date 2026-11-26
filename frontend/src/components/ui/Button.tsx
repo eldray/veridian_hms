@@ -17,8 +17,8 @@ const VARIANTS: Record<Exclude<ButtonVariant, 'soft'>, string> = {
   secondary: 'bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-color)] hover:bg-[var(--bg-main)]',
   outline: 'bg-transparent text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]',
   ghost: 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]',
-  danger: 'bg-[var(--icon-red-text)] text-white hover:opacity-90 shadow-sm',
-  dangerSoft: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-white',
+  danger: 'bg-[var(--icon-red-text)] text-[var(--icon-red-on-text)] hover:opacity-90 shadow-sm',
+  dangerSoft: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-[var(--icon-red-on-text)]',
 };
 
 const SIZES: Record<ButtonSize, string> = {
