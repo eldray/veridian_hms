@@ -502,7 +502,7 @@ export const MarChart: React.FC<MarChartProps> = ({
 
   if (doses.length === 0) {
     return (
-      <div className="text-center py-12 bg-[var(--bg-main)] rounded-xl border border-dashed border-[var(--border-color)]">
+      <div className="text-center py-8 bg-[var(--bg-main)] rounded-xl border border-dashed border-[var(--border-color)]">
         <Syringe className="w-10 h-10 text-[var(--text-tertiary)] opacity-40 mx-auto mb-2" />
         <p className="text-sm text-[var(--text-secondary)] font-medium">No scheduled doses</p>
         <p className="text-xs text-[var(--text-tertiary)] mt-1">
