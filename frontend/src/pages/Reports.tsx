@@ -434,7 +434,7 @@ export default function Reports() {
           <StatCard label="NHIS Patients" value={(report.summary?.nhisPatients || 0).toLocaleString()} icon={Shield} accent="cyan" />
           <StatCard label="Pregnant Women" value={(report.summary?.pregnantWomen || 0).toLocaleString()} icon={Baby} accent="cyan" />
         </div>
-        <Card title="Consulting Room Register" description={`${dateRange.start} → ${dateRange.end} · Standard GHS line-list · ${entries.length.toLocaleString()} records`} icon={ClipboardList} padded={false} className="flex-1 min-h-0 flex flex-col">
+        <Card title="Consulting Room Register" description={`${dateRange.start} → ${dateRange.end} · Standard GHS line-list · ${entries.length.toLocaleString()} records`} icon={ClipboardList} padded={false} className="flex-1 min-h-0 flex flex-col" contentClassName="flex-1 min-h-0 flex flex-col overflow-hidden">
           <div
             className="flex-1 min-h-0 w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-contain touch-pan-x touch-pan-y"
             style={{ scrollbarWidth: 'thin' }}
