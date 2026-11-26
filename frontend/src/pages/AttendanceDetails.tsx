@@ -10,6 +10,7 @@ import NewAttendanceModal from '../components/NewAttendanceModal';
 import SendDocumentModal from '../components/SendDocumentModal';
 import MedicalReportModal from '../components/MedicalReportModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
+import HIVTestingPanel from '../components/hivTesting/HIVTestingPanel';
 import { getPatientName } from '../utils/patient';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
@@ -369,7 +370,7 @@ export default function AttendanceDetails() {
   const { hospital } = useHospitalStore();
 
   // ── State ─────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'overview' | 'medications' | 'lab-tests' | 'scans' | 'procedures' | 'billing' | 'vitals' | 'clinical'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'medications' | 'lab-tests' | 'scans' | 'procedures' | 'billing' | 'vitals' | 'clinical' | 'hiv-testing'>('overview');
   const [refreshing, setRefreshing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -883,6 +884,7 @@ export default function AttendanceDetails() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: FileText },
     { id: 'clinical', label: 'Clinical', icon: Stethoscope, count: encounterDiagnoses.length + (currentAttendance?.medicalNotes ? 1 : 0) },
+    { id: 'hiv-testing', label: 'HIV / HTS', icon: Shield },
     { id: 'medications', label: 'Medications', icon: Pill, count: encounterMedications.length },
     { id: 'lab-tests', label: 'Lab Tests', icon: FlaskConical, count: encounterLabTests.length },
     { id: 'scans', label: 'Scans', icon: Scan, count: encounterScans.length },
@@ -892,7 +894,8 @@ export default function AttendanceDetails() {
   ].filter(tab => canReadFullClinicalRecord || tab.id === 'overview' ||
     (tab.id === 'lab-tests' && hasRole(['lab_tech'])) ||
     (tab.id === 'scans' && hasRole(['sonographer'])) ||
-    (tab.id === 'billing' && canOpenBilling));
+    (tab.id === 'billing' && canOpenBilling) ||
+    (tab.id === 'hiv-testing' && hasRole(['admin', 'doctor', 'nurse', 'midwife'])));
 
   // ── Loading State ─────────────────────────────
   if (isLoading && !refreshing) {
@@ -2223,6 +2226,11 @@ export default function AttendanceDetails() {
           })()}
         </div>
       </div>
+
+      {/* Confidential HTS panel — available only to authorised clinical roles. */}
+      {activeTab === 'hiv-testing' && hasRole(['admin', 'doctor', 'nurse', 'midwife']) && patient?.id && (
+        <HIVTestingPanel patientId={patient.id} attendanceId={currentAttendance?.id} />
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
