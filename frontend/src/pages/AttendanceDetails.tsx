@@ -1282,7 +1282,7 @@ export default function AttendanceDetails() {
                     const SummaryIcon = item.icon;
                     return (
                       <button key={item.label} type="button" onClick={() => setActiveTab(item.tab)}
-                        className="text-left rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 hover:border-[var(--icon-cyan-text)] transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                        className="text-left rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 hover:border-[var(--icon-cyan-text)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs text-[var(--text-secondary)]">{item.label}</span>
                           <SummaryIcon className="w-4 h-4 text-[var(--icon-cyan-text)]" />
@@ -1322,7 +1322,7 @@ export default function AttendanceDetails() {
                   <div className="rounded-lg border border-[var(--border-color)] p-3">
                     <div className="flex items-center justify-between gap-2 mb-1.5">
                       <p className="text-xs font-semibold text-[var(--text-secondary)]">Latest observations</p>
-                      {hasAbnormalVitals && <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700"><AlertTriangle className="w-3.5 h-3.5" /> Review</span>}
+                      {hasAbnormalVitals && <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--icon-yellow-text)]"><AlertTriangle className="w-3.5 h-3.5" /> Review</span>}
                     </div>
                     {latestVitals ? (
                       <div className="flex flex-wrap gap-2">
