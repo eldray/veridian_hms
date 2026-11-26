@@ -308,7 +308,7 @@ const NotificationDetailModal: React.FC<{
             {!notification.isRead && (
               <Button variant="secondary" size="sm" icon={CheckCheck} className="flex-1" onClick={onMarkAsRead}>Mark as Read</Button>
             )}
-            <Button variant="secondary" size="sm" className={notification.actionUrl || !notification.isRead ? 'px-3' : 'flex-1'} onClick={onClose}>Close</Button>
+            <Button variant="secondary" size="sm" className={destination || !notification.isRead ? 'px-3' : 'flex-1'} onClick={onClose}>Close</Button>
           </div>
         </div>
       </div>
