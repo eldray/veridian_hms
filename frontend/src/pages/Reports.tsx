@@ -380,11 +380,36 @@ export default function Reports() {
     const safePage = Math.min(registerPage, totalPages);
     const paginated = entries.slice((safePage - 1) * registerPageSize, safePage * registerPageSize);
 
-    // FIX #26 — reuse the shared TEXT_TD/NUM_TD vocabulary; the local regTH/regTD copies are gone.
-    const regTH = TEXT_TH;
-    const regTHc = 'px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]';
-    const regTD = 'px-3 py-2 text-xs text-[var(--text-primary)]';
-    const regTDc = 'px-3 py-2 text-xs text-center text-[var(--text-primary)]';
+    // GHS consulting-room line-list: keep the full register fields visible.
+    // Long investigations, results and medication names must wrap, never truncate.
+    const columns = [
+      { key: 'date', label: 'Date', width: 'min-w-[105px]', render: (e: any) => {
+        if (!e.date) return '—';
+        const date = new Date(e.date);
+        return Number.isNaN(date.getTime()) ? e.date : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }).replace(/ /g, '-');
+      } },
+      { key: 'patientNo', label: 'PatientNo', width: 'min-w-[100px]', render: (e: any) => e.patientNo || '—' },
+      { key: 'nhisNo', label: 'NHISNo', width: 'min-w-[110px]', render: (e: any) => e.nhisNo || '—' },
+      { key: 'patientName', label: 'Name', width: 'min-w-[180px]', render: (e: any) => e.patientName || '—' },
+      { key: 'address', label: 'Address', width: 'min-w-[140px]', render: (e: any) => e.address || '—' },
+      { key: 'telephone', label: 'Telephone', width: 'min-w-[115px]', render: (e: any) => e.telephone || '—' },
+      { key: 'age', label: 'Age', width: 'min-w-[55px]', render: (e: any) => e.age ?? '—' },
+      { key: 'sex', label: 'Sex', width: 'min-w-[55px]', render: (e: any) => String(e.sex || '').toLowerCase() === 'male' ? 'M' : String(e.sex || '').toLowerCase() === 'female' ? 'F' : '—' },
+      { key: 'provisionalDiagnosis', label: 'ProvDiag', width: 'min-w-[180px]', render: (e: any) => e.provisionalDiagnosis || '—' },
+      { key: 'labTestsRequested', label: 'LabTests', width: 'min-w-[220px]', render: (e: any) => e.labTestsRequested || '—' },
+      { key: 'labResults', label: 'LabResult', width: 'min-w-[240px]', render: (e: any) => e.labResults || '—' },
+      { key: 'principalDiagnosis', label: 'PnpalDiag', width: 'min-w-[200px]', render: (e: any) => e.principalDiagnosis || '—' },
+      { key: 'newDiagnosis', label: 'NewDiag', width: 'min-w-[180px]', render: (e: any) => e.newDiagnosis || '—' },
+      { key: 'oldDiagnosis', label: 'OldDiag', width: 'min-w-[180px]', render: (e: any) => e.oldDiagnosis || '—' },
+      { key: 'additionalDiagnosis', label: 'AddDiag', width: 'min-w-[180px]', render: (e: any) => e.additionalDiagnosis || '—' },
+      { key: 'newAdditionalDiagnosis', label: 'NewAddDiag', width: 'min-w-[180px]', render: (e: any) => e.newAdditionalDiagnosis || '—' },
+      { key: 'oldAdditionalDiagnosis', label: 'OldAddDiag', width: 'min-w-[180px]', render: (e: any) => e.oldAdditionalDiagnosis || '—' },
+      { key: 'pregnant', label: 'Pregnant', width: 'min-w-[85px]', render: (e: any) => e.pregnant ? 'Y' : 'N' },
+      { key: 'isNHIS', label: 'IsNHIS', width: 'min-w-[75px]', render: (e: any) => e.isNHIS ? 'Y' : 'N' },
+      { key: 'drugsPrescribed', label: 'DrugPresc', width: 'min-w-[280px]', render: (e: any) => e.drugsPrescribed || '—' },
+      { key: 'drugsGiven', label: 'DrugGiven', width: 'min-w-[280px]', render: (e: any) => e.drugsGiven || '—' },
+      { key: 'attendanceId', label: 'AttendanceID', width: 'min-w-[150px]', render: (e: any) => e.attendanceId || '—' },
+    ];
 
     return (
       <div className="space-y-4">
@@ -394,43 +419,42 @@ export default function Reports() {
           <StatCard label="NHIS Patients" value={(report.summary?.nhisPatients || 0).toLocaleString()} icon={Shield} accent="cyan" />
           <StatCard label="Pregnant Women" value={(report.summary?.pregnantWomen || 0).toLocaleString()} icon={Baby} accent="cyan" />
         </div>
-        <Card title="Daily Patient Log" description={`${dateRange.start} → ${dateRange.end}`} icon={ClipboardList} padded={false}>
+        <Card title="Consulting Room Register" description={`${dateRange.start} → ${dateRange.end} · Standard GHS line-list · ${entries.length.toLocaleString()} records`} icon={ClipboardList} padded={false}>
           <div className="overflow-x-auto">
-            <div className="max-h-[560px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-              <table className="w-full text-xs table-fixed">
+            <div className="max-h-[70vh] overflow-auto" style={{ scrollbarWidth: 'thin' }}>
+              <table className="min-w-max w-full table-auto text-xs border-collapse">
                 <thead className={cn(TH_ROW, 'sticky top-0 z-10')}>
                   <tr>
-                    {/* FIX #27 — widths summed to 106% before; now exactly 100. */}
-                    <th className={cn(regTH, 'w-[9%]')}>Date</th>
-                    <th className={cn(regTH, 'w-[11%]')}>Patient No</th>
-                    <th className={cn(regTH, 'w-[11%]')}>NHIS No</th>
-                    <th className={cn(regTH, 'w-[15%]')}>Name</th>
-                    <th className={cn(regTHc, 'w-[6%]')}>Age</th>
-                    <th className={cn(regTHc, 'w-[4%]')}>Sex</th>
-                    <th className={cn(regTH, 'w-[15%]')}>Provisional Dx</th>
-                    <th className={cn(regTH, 'w-[11%]')}>Lab Tests</th>
-                    <th className={cn(regTH, 'w-[12%]')}>Drugs</th>
-                    <th className={cn(regTHc, 'w-[6%]')}>NHIS</th>
+                    {columns.map(column => (
+                      <th key={column.key} scope="col" className={cn(TEXT_TH, column.width, 'whitespace-nowrap align-bottom')}>
+                        {column.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
-                <tbody>
-                  {paginated.map((e: any, i: number) => (
-                    <tr key={`${e.patientNo}-${i}`} className={TR}>
-                      <td className={cn(regTD, 'whitespace-nowrap')}>{e.date}</td>
-                      <td className={cn(regTD, 'font-mono whitespace-nowrap')}>{e.patientNo}</td>
-                      <td className={cn(regTD, 'font-mono whitespace-nowrap')}>{e.nhisNo || '—'}</td>
-                      <td className={cn(regTD, 'truncate')}>{e.patientName}</td>
-                      <td className={cn(regTDc, 'tabular-nums')}>{e.age}</td>
-                      <td className={regTDc}>{e.sex === 'male' ? 'M' : 'F'}</td>
-                      <td className={cn(regTD, 'truncate')}>{e.provisionalDiagnosis || '—'}</td>
-                      <td className={cn(regTD, 'truncate')}>{e.labTestsRequested || '—'}</td>
-                      <td className={cn(regTD, 'truncate')}>{e.drugsPrescribed || '—'}</td>
-                      <td className={regTDc}>{e.isNHIS ? <span className="text-[var(--icon-green-text)] font-bold">Y</span> : <span className="text-[var(--text-tertiary)]">N</span>}</td>
+                <tbody className="divide-y divide-[var(--border-color)]">
+                  {paginated.map((entry: any, index: number) => (
+                    <tr key={entry.attendanceId || `${entry.patientNo}-${index}`} className={TR}>
+                      {columns.map(column => (
+                        <td
+                          key={column.key}
+                          className="px-3 py-2 text-xs text-[var(--text-primary)] align-top whitespace-normal break-words"
+                          title={typeof column.render(entry) === 'string' ? column.render(entry) : undefined}
+                        >
+                          {column.render(entry)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
+                  {paginated.length === 0 && (
+                    <tr><td colSpan={columns.length} className="px-4 py-8 text-center text-xs text-[var(--text-tertiary)]">No consulting room entries found for this period.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
+          </div>
+          <div className="border-t border-[var(--border-color)] px-3 py-2 text-[11px] text-[var(--text-tertiary)]">
+            Scroll horizontally to view all register fields. Long laboratory details, diagnoses and medicines wrap in full; they are not shortened.
           </div>
         </Card>
         <Pagination page={safePage} totalPages={totalPages} itemsPerPage={registerPageSize} totalItems={entries.length} noun="entries" onChange={setRegisterPage} pageSizeOptions={[10, 25, 50, 100]} onPageSizeChange={(size) => { setRegisterPageSize(size); setRegisterPage(1); }} />
