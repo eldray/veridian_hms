@@ -49,7 +49,22 @@ const DURATION_OPTIONS = [...Array.from({ length: 30 }, (_, index) => index + 1)
 // Offer relative dose suggestions from a simple, single-strength catalog value.
 // Compound concentrations (for example, mg/5 mL) are deliberately left to manual entry.
 const getDosageSuggestions = (strength?: string): string[] => {
-  const match = strength?.trim().match(/^(\d+(?:\.\d+)?)\s*(mcg|μg|ug|mg|g|iu|units?)$/i);
+  const value = strength?.trim();
+  if (!value) return [];
+
+  // Liquid concentrations are converted to volume suggestions, not copied as a dose.
+  const concentration = value.match(/^(\d+(?:\.\d+)?)\s*(mcg|μg|ug|mg|g|iu|units?)\s*(?:\/|per)\s*(\d+(?:\.\d+)?)\s*ml$/i);
+  if (concentration) {
+    const baseVolume = Number(concentration[3]);
+    if (!Number.isFinite(baseVolume) || baseVolume <= 0) return [];
+    return [0.5, 1, 1.5, 2, 2.5, 3].map(multiplier => {
+      const volume = baseVolume * multiplier;
+      const formatted = Number.isInteger(volume) ? volume.toLocaleString('en-US') : volume.toLocaleString('en-US', { maximumFractionDigits: 2 });
+      return formatted + ' mL';
+    });
+  }
+
+  const match = value.match(/^(\d+(?:\.\d+)?)\s*(mcg|μg|ug|mg|g|iu|units?)$/i);
   if (!match) return [];
   const base = Number(match[1]);
   if (!Number.isFinite(base) || base <= 0) return [];
@@ -57,9 +72,12 @@ const getDosageSuggestions = (strength?: string): string[] => {
   return [0.5, 1, 1.5, 2, 2.5, 3].map(multiplier => {
     const amount = base * multiplier;
     const formatted = Number.isInteger(amount) ? amount.toLocaleString('en-US') : amount.toLocaleString('en-US', { maximumFractionDigits: 2 });
-    return `${formatted} ${unit}`;
+    return formatted + ' ' + unit;
   });
 };
+
+const isLiquidConcentration = (strength?: string): boolean =>
+  !!strength?.trim().match(/^\d+(?:\.\d+)?\s*(?:mcg|μg|ug|mg|g|iu|units?)\s*(?:\/|per)\s*\d+(?:\.\d+)?\s*ml$/i);
 
 export const MedicationModal: React.FC<MedicationModalProps> = ({
   isOpen, onClose, onSuccess, attendanceId, stockItems, canAdd, allergies, onSwitchToConsumable,
@@ -167,7 +185,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setShowDropdown(false);
     const svc = medicationServiceCatalogs.find(sc => sc.stockItemId === m.id);
     setSelectedServiceCatalog(svc || null);
-    if (m.strength && !dosage) setDosage(m.strength);
+    if (m.strength && !dosage && !isLiquidConcentration(m.strength)) setDosage(m.strength);
   };
 
   const clearSelection = () => {
@@ -443,7 +461,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
               <input
                 value={dosage}
                 onChange={e => setDosage(e.target.value)}
-                placeholder="Enter or choose dosage"
+                placeholder={isLiquidConcentration(selectedMed?.strength) ? 'Enter or choose volume (mL)' : 'Enter or choose dosage'}
                 className={inputCls}
                 disabled={!canEdit}
                 autoComplete="off"
@@ -455,7 +473,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
                     {dosageSuggestions.map(option => <option key={option} value={option} />)}
                   </datalist>
                   <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
-                    Suggestions based on {selectedMed?.strength}; you can enter a different dose.
+                    {isLiquidConcentration(selectedMed?.strength) ? `Volume suggestions based on ${selectedMed?.strength}; verify the prescribed dose.` : `Suggestions based on ${selectedMed?.strength}; verify the prescribed dose.`}
                   </p>
                 </>
               )}
