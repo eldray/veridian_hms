@@ -1462,7 +1462,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         serviceType: ServiceType.consultation,
         serviceCategory: ServiceCategory.opd,
         subType: ct.code === 'CONS-GEN' ? 'general' : 'specialist',
-        nhisServiceCode: ct.code,
+        nhisServiceCode: 'OPDC06A', // General OPD consultation tariff; child claims resolve OPDC06C by age.
         consultationTypeId: consultationTypeMap.get(ct.code)?.id,
         isActive: true,
         pricing,
