@@ -884,7 +884,7 @@ export default function AttendanceDetails() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: FileText },
     { id: 'clinical', label: 'Clinical', icon: Stethoscope, count: encounterDiagnoses.length + (currentAttendance?.medicalNotes ? 1 : 0) },
-    { id: 'hiv-testing', label: 'HIV / HTS', icon: Shield },
+    { id: 'hiv-testing', label: 'HIV Counselling / HTS', icon: Shield },
     { id: 'medications', label: 'Medications', icon: Pill, count: encounterMedications.length },
     { id: 'lab-tests', label: 'Lab Tests', icon: FlaskConical, count: encounterLabTests.length },
     { id: 'scans', label: 'Scans', icon: Scan, count: encounterScans.length },
@@ -2224,7 +2224,7 @@ export default function AttendanceDetails() {
               </div>
             );
           })()}
-          {/* Confidential HTS panel — available only to authorised clinical roles. */}
+          {/* Confidential HTS counselling and testing entry — available only to authorised clinical roles. */}
           {activeTab === 'hiv-testing' && hasRole(['admin', 'doctor', 'nurse', 'midwife']) && patient?.id && (
             <HIVTestingPanel patientId={patient.id} attendanceId={currentAttendance?.id} />
           )}
