@@ -98,13 +98,25 @@ export class GDRGService extends BaseService {
       if (patient) {
         const diffTime = tariffAsOfDate.getTime() - patient.dateOfBirth.getTime();
         ageInDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-        patientInfo = { id: patientId, ageInDays, ageInYears: Math.floor(ageInDays / 365.25), folderNumber: patient.folderNumber };
+        let completedYears = tariffAsOfDate.getUTCFullYear() - patient.dateOfBirth.getUTCFullYear();
+        const birthdayNotReached =
+          tariffAsOfDate.getUTCMonth() < patient.dateOfBirth.getUTCMonth() ||
+          (tariffAsOfDate.getUTCMonth() === patient.dateOfBirth.getUTCMonth() &&
+            tariffAsOfDate.getUTCDate() < patient.dateOfBirth.getUTCDate());
+        if (birthdayNotReached) completedYears -= 1;
+        patientInfo = { id: patientId, ageInDays, ageInYears: completedYears, folderNumber: patient.folderNumber };
       }
     } else if (ageInYears !== undefined && ageInYears !== null) {
       ageInDays = ageInYears * 365;
     }
 
-    const ageInYearsNum = ageInDays !== undefined ? Math.floor(ageInDays / 365) : null;
+    // Use completed calendar years for patient records; dividing days by 365 can cross
+    // the 12-year tariff boundary before the patient's birthday in a leap-year interval.
+    const ageInYearsNum = patientInfo
+      ? patientInfo.ageInYears
+      : ageInYears !== undefined && ageInYears !== null
+        ? Math.floor(ageInYears)
+        : null;
 
     const where: any = {
       gdrgCode,
