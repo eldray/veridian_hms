@@ -526,7 +526,7 @@ export default function VitalsEntry() {
                 <button
                   onClick={() => setShowVitalsModal(true)}
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-all text-sm font-medium disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
                   Record New Vitals
