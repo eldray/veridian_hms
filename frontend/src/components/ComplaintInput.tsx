@@ -129,7 +129,7 @@ export default function ComplaintInput({
             onKeyDown={handleKeyDown}
             placeholder={complaintsList.length === 0 ? placeholder : "Add more..."}
             disabled={disabled}
-            required={required}
+            aria-required={required}
             className="w-full pl-8 pr-8 py-1.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-[var(--text-primary)]"
           />
           {searchTerm && (
