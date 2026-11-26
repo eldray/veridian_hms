@@ -402,15 +402,23 @@ export default function Reports() {
       { key: 'telephone', label: 'Telephone', width: 'min-w-[115px]', render: (e: any) => e.telephone || '—' },
       { key: 'age', label: 'Age', width: 'min-w-[55px]', render: (e: any) => e.age ?? '—' },
       { key: 'sex', label: 'Sex', width: 'min-w-[55px]', render: (e: any) => String(e.sex || '').toLowerCase() === 'male' ? 'M' : String(e.sex || '').toLowerCase() === 'female' ? 'F' : '—' },
-      { key: 'provisionalDiagnosis', label: 'ProvDiag', width: 'min-w-[180px]', render: (e: any) => e.provisionalDiagnosis || '—' },
+      { key: 'provisionalDiagnosis', label: 'Provisional Diagnosis', width: 'min-w-[200px]', render: (e: any) => e.provisionalDiagnosis || '—' },
+      {
+        key: 'diagnoses',
+        label: 'Diagnoses (Final & Additional)',
+        width: 'min-w-[260px]',
+        render: (e: any) => {
+          const finalDiagnosis = e.principalDiagnosis || '';
+          const additionalDiagnoses = e.additionalDiagnosis || '';
+          const parts = [
+            finalDiagnosis ? `Final: ${finalDiagnosis}` : '',
+            additionalDiagnoses ? `Additional: ${additionalDiagnoses}` : '',
+          ].filter(Boolean);
+          return parts.length ? parts.join('; ') : '—';
+        },
+      },
       { key: 'labTestsRequested', label: 'LabTests', width: 'min-w-[220px]', render: (e: any) => e.labTestsRequested || '—' },
       { key: 'labResults', label: 'LabResult', width: 'min-w-[240px]', render: (e: any) => e.labResults || '—' },
-      { key: 'principalDiagnosis', label: 'PnpalDiag', width: 'min-w-[200px]', render: (e: any) => e.principalDiagnosis || '—' },
-      { key: 'newDiagnosis', label: 'NewDiag', width: 'min-w-[180px]', render: (e: any) => e.newDiagnosis || '—' },
-      { key: 'oldDiagnosis', label: 'OldDiag', width: 'min-w-[180px]', render: (e: any) => e.oldDiagnosis || '—' },
-      { key: 'additionalDiagnosis', label: 'AddDiag', width: 'min-w-[180px]', render: (e: any) => e.additionalDiagnosis || '—' },
-      { key: 'newAdditionalDiagnosis', label: 'NewAddDiag', width: 'min-w-[180px]', render: (e: any) => e.newAdditionalDiagnosis || '—' },
-      { key: 'oldAdditionalDiagnosis', label: 'OldAddDiag', width: 'min-w-[180px]', render: (e: any) => e.oldAdditionalDiagnosis || '—' },
       { key: 'pregnant', label: 'Pregnant', width: 'min-w-[85px]', render: (e: any) => e.pregnant ? 'Y' : 'N' },
       { key: 'isNHIS', label: 'IsNHIS', width: 'min-w-[75px]', render: (e: any) => e.isNHIS ? 'Y' : 'N' },
       { key: 'drugsPrescribed', label: 'DrugPresc', width: 'min-w-[280px]', render: (e: any) => e.drugsPrescribed || '—' },
