@@ -115,6 +115,7 @@ function buildMedicinesFromBill(bill: any, attendance: any): MedicineItem[] {
         : '',
       stockItemId: m.stockItemId,
       serviceCatalogId: catalog?.id,
+      prescriptionText: [m.dosage && 'Dose: ' + m.dosage, m.frequency && 'Frequency: ' + m.frequency, m.duration && 'Duration: ' + m.duration, m.route && 'Route: ' + m.route, m.instructions && 'Instructions: ' + m.instructions].filter(Boolean).join(' · '),
     } as MedicineItem;
   });
 }
@@ -728,7 +729,7 @@ export default function EditCorporateClaim() {
               {medicines.map((med, idx) => (
                 <tr key={idx} className="border-t border-[var(--border-color)]">
                   <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-[var(--text-secondary)]">{med.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{med.description}{med.prescriptionText && <div className="mt-0.5 text-[10px] italic text-[var(--text-tertiary)]">Rx: {med.prescriptionText}</div>}</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)]">{fmtDate(med.date)}</td>
                   <td className="px-3 py-3 text-center text-[var(--text-secondary)]">{med.quantity}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{money(med.unitPrice)}</td>
