@@ -23,7 +23,7 @@ export class ClinicalReportsRepository extends BaseRepository<any, any, any> {
 
   async getHIVTestingRecords(filters: ClinicalReportFilters) {
     return this.prisma.hIVTestingRecord.findMany({
-      where: { testedAt: { gte: filters.startDate, lte: filters.endDate }, testingStatus: 'completed' },
+      where: { testedAt: { gte: filters.startDate, lte: filters.endDate } },
       include: { Patient: { select: { gender: true, dateOfBirth: true } } },
       orderBy: { testedAt: 'asc' },
     });
