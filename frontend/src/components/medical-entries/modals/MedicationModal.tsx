@@ -90,6 +90,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
   const [duration, setDuration] = useState('');
   const [route, setRoute] = useState('oral');
   const [instructions, setInstructions] = useState('');
+  const [prnIndication, setPrnIndication] = useState('');
   const [durationSearch, setDurationSearch] = useState('');
   const [showDurationOptions, setShowDurationOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -114,6 +115,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setDuration('');
     setRoute('oral');
     setInstructions('');
+    setPrnIndication('');
     setDurationSearch('');
     setShowDurationOptions(false);
     setShowDropdown(false);
@@ -199,6 +201,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setShowDurationOptions(false);
     setRoute('oral');
     setInstructions('');
+    setPrnIndication('');
     searchInputRef.current?.focus();
   };
 
@@ -209,6 +212,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     if (!dosage.trim()) { error('Missing dosage', 'Please enter the dosage.'); return; }
     if (!frequency) { error('Missing frequency', 'Please select a frequency.'); return; }
     if (!duration) { error('Missing days', 'Please select the prescription duration.'); return; }
+    if (frequency === 'prn' && !prnIndication.trim()) { error('Missing PRN indication', 'Enter the reason this medicine may be given as needed.'); return; }
     if (isBlocked(selectedClashes)) {
       error('Allergy conflict', 'This drug clashes with an allergy recorded for this patient.');
       return;
@@ -224,6 +228,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
         duration: duration.trim(),
         route,
         instructions: instructions.trim() || undefined,
+        prnIndication: frequency === 'prn' ? prnIndication.trim() : undefined,
       });
       success('Medication prescribed', `${selectedMed.name} has been prescribed.`);
       clearSelection();
@@ -496,6 +501,22 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
               </select>
             </div>
 
+            {frequency === 'prn' && (
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                  PRN indication <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={prnIndication}
+                  onChange={e => setPrnIndication(e.target.value)}
+                  placeholder="e.g. for pain or fever"
+                  className={inputCls}
+                  disabled={!canEdit}
+                  maxLength={240}
+                />
+                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Required reason for as-needed administration.</p>
+              </div>
+            )}
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
                 Route
