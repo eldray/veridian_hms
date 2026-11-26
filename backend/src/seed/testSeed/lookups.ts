@@ -71,7 +71,7 @@ import {
   WaiverStatus,
   WaiverType,
 } from '@prisma/client';
-import { DRUG_GROUPS } from '../clinicalContent.js';
+import { DRUG_GROUPS, FALLBACK_DRUG_GROUP } from '../clinicalContent.js';
 import type { Actor, GeneratedUser } from '../bulkGenerator.js';
 import { isPayerCovered, resolveMedicationUnitPrice, resolveUnitPrice, resolveWardDailyRate } from '../../utils/pricing.js';
 import { hashOf, prisma, startOfToday, toNumber } from './shared.js';
@@ -480,10 +480,13 @@ export const buildLookups = async (): Promise<Lookups> => {
 
   const stockForDrugGroup = (group: string, salt: string): StockRow | null => {
     if (!prescriptionPool.length) return null;
-    const preset = DRUG_GROUPS[group];
-    if (!preset || preset.nameStems.length === 0) {
-      return prescriptionPool[hashOf(salt) % prescriptionPool.length];
-    }
+    const requestedPreset = DRUG_GROUPS[group];
+    // The explicitly generic group uses the configured clinical fallback, never an
+    // unrelated random shelf item. A group with no matching stocked medicine is skipped.
+    const preset = requestedPreset?.nameStems.length
+      ? requestedPreset
+      : DRUG_GROUPS[FALLBACK_DRUG_GROUP];
+    if (!preset || !preset.nameStems.length) return null;
     const categoryWords = (preset.categories ?? []).map((c) => c.toLowerCase());
     const matches = prescriptionPool.filter((item) => {
       const name = item.name.toLowerCase();
@@ -491,8 +494,8 @@ export const buildLookups = async (): Promise<Lookups> => {
       return preset.nameStems.some((stem) => name.includes(stem.toLowerCase()))
         || categoryWords.some((word) => category.includes(word));
     });
-    const pool = matches.length ? matches : prescriptionPool;
-    return pool[hashOf(salt) % pool.length];
+    if (!matches.length) return null;
+    return matches[hashOf(salt) % matches.length];
   };
 
   const insuranceProviderByType = new Map<string, ProviderRow[]>();
