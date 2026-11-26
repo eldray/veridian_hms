@@ -784,7 +784,7 @@ export default function ScansEntry() {
               title="Pending Scans"
               count={requestedScans.length}
               icon={Clock}
-              accent="bg-yellow-100 text-yellow-600"
+              accent="bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]"
             >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -799,7 +799,7 @@ export default function ScansEntry() {
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {requestedScans.map((scan) => (
-                      <tr key={scan.id} className="hover:bg-indigo-50/30 transition-colors group">
+                      <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors group">
                         <td className="px-4 py-3">
                           <p className="font-semibold text-sm text-[var(--text-primary)]">{scan.name}</p>
                           <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">{humanScanModality(scan)}</p>
@@ -826,7 +826,7 @@ export default function ScansEntry() {
                             {canUpdateScan && (
                               <button
                                 onClick={() => handleDeleteScan(scan.id)}
-                                className="p-1.5 text-[var(--text-tertiary)] hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                className="p-1.5 text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-all"
                                 title="Delete scan request"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -848,7 +848,7 @@ export default function ScansEntry() {
               title="In Progress"
               count={inProgressScans.length}
               icon={Activity}
-              accent="bg-purple-100 text-purple-600"
+              accent="bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]"
             >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -862,7 +862,7 @@ export default function ScansEntry() {
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {inProgressScans.map((scan) => (
-                      <tr key={scan.id} className="hover:bg-purple-50/30 transition-colors">
+                      <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors">
                         <td className="px-4 py-3">
                           <p className="font-semibold text-sm text-[var(--text-primary)]">{scan.name}</p>
                           <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">{humanScanModality(scan)}</p>
@@ -875,7 +875,7 @@ export default function ScansEntry() {
                           <button
                             onClick={() => handleEditResult(scan)}
                             disabled={!canUpdateScan}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-semibold hover:bg-green-600 hover:text-white transition-all disabled:opacity-50"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg text-xs font-semibold hover:opacity-80 transition-all disabled:opacity-50"
                           >
                             <FileText className="w-3 h-3" />
                             Enter Result
@@ -895,20 +895,20 @@ export default function ScansEntry() {
               title="Completed Scans"
               count={completedScans.length}
               icon={CheckCircle}
-              accent="bg-green-100 text-green-600"
+              accent="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
               actions={
                 <>
                   <button
                     onClick={handlePrintAll}
                     disabled={printingId === 'all'}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card)] hover:text-indigo-600 hover:border-indigo-300 transition-all disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card)] hover:text-[var(--icon-cyan-text)] hover:border-[var(--icon-cyan-text)] transition-all disabled:opacity-50"
                   >
                     <Printer className={`w-3 h-3 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
                     <span className="hidden sm:inline">Print All</span>
                   </button>
                   <button
                     onClick={() => { setSendResultScan(null); setShowSendResult(true); }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border border-[var(--icon-green-text)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
                   >
                     <MessageSquare className="w-3 h-3" />
                     <span className="hidden sm:inline">Send All</span>
@@ -934,9 +934,9 @@ export default function ScansEntry() {
 
           {/* Empty state */}
           {scansList.length === 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center shadow-sm">
-              <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Scan className="w-8 h-8 text-indigo-400" />
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6 text-center shadow-sm">
+              <div className="w-12 h-12 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center mx-auto mb-4">
+                <Scan className="w-6 h-6 text-[var(--icon-cyan-text)]" />
               </div>
               <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Scans Yet</h3>
               <p className="text-sm text-[var(--text-secondary)] max-w-sm mx-auto mb-4">

@@ -244,16 +244,16 @@ export default function ScansWaitingList() {
         padded={false}
       >
         {filteredScans.length === 0 ? (
-          <div className="p-8 text-center">
+          <div className="p-6 text-center">
             {worklistError ? (
               <>
-                <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3 opacity-75" />
+                <AlertCircle className="w-8 h-8 text-[var(--icon-red-text)] mx-auto mb-2 opacity-75" />
                 <p className="text-[var(--text-secondary)]">Scans waiting list unavailable</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Refresh to try again</p>
               </>
             ) : isDone ? (
               <>
-                <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
+                <History className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No scans completed in the last 72 hours</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Reported scans will appear here</p>
               </>
