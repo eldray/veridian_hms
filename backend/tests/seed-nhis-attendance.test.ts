@@ -25,4 +25,35 @@ describe('NHIS demo attendance identity', () => {
     expect(fields.nhisCCCGeneratedAt).toEqual(visitDate);
     expect(fields.nhisCCCValidUntil).toEqual(new Date('2026-11-11T09:30:00.000Z'));
   });
+
+  it('uses the same patient membership and visit CCC in linked eligibility checks', () => {
+    setSeed(42);
+    const patients = generatePatients();
+    const bundle = generateAttendances(patients);
+    const patientByFolder = new Map(patients.map((patient) => [patient.folderNumber, patient]));
+
+    for (const check of bundle.eligibilityChecks) {
+      const patient = patientByFolder.get(check.folderNumber);
+      expect(check.membershipId).toBe(patient?.nhisNumber);
+      const attendance = check.attendanceKey
+        ? bundle.attendances.find((item) => item.key === check.attendanceKey)
+        : undefined;
+      expect(check.ccCode).toBe(
+        check.status === 'active' && attendance
+          ? nhisCCCFor(attendance.attendanceNumber)
+          : null,
+      );
+    }
+  });
+
+  it('places at least one registered-patient attendance on every day of the rolling year', () => {
+    setSeed(42);
+    const bundle = generateAttendances(generatePatients());
+    const dailyDates = new Set(
+      bundle.attendances.slice(0, COUNTS.attendances)
+        .slice(0, 366)
+        .map((attendance) => attendance.dateTime.toDateString()),
+    );
+    expect(dailyDates.size).toBe(366);
+  });
 });
