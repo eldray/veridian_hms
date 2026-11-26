@@ -111,7 +111,7 @@ export class NursingRepository extends BaseRepository<any, any, any> {
   async administerDose(
     doseId: string,
     userId: string,
-    data: { administeredAt?: Date; site?: string; notes?: string },
+    data: { administeredAt?: Date; site?: string; notes?: string; administrationReason?: string; doseAmount?: Prisma.Decimal; doseUnit?: string },
   ) {
     return this.prisma.$transaction(async (tx) => {
       if (typeof tx.$queryRaw === 'function') {
@@ -140,6 +140,10 @@ export class NursingRepository extends BaseRepository<any, any, any> {
           administeredById: userId,
           site: data.site ?? undefined,
           notes: data.notes ?? undefined,
+          administrationReason: data.administrationReason ?? undefined,
+          doseAmount: data.doseAmount ?? undefined,
+          doseUnit: data.doseUnit ?? undefined,
+          recordedAt: new Date(),
         },
       });
       if (result.count !== 1) {
