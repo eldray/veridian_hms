@@ -432,7 +432,7 @@ export default function Reports() {
       { key: 'isNHIS', label: 'IsNHIS', width: 'min-w-[75px]', render: (e: any) => e.isNHIS ? 'Y' : 'N' },
       { key: 'drugsPrescribed', label: 'DrugPresc', width: 'min-w-[280px]', render: (e: any) => e.drugsPrescribed || '—' },
       { key: 'drugsGiven', label: 'DrugGiven', width: 'min-w-[280px]', render: (e: any) => e.drugsGiven || '—' },
-      { key: 'attendanceId', label: 'AttendanceID', width: 'min-w-[150px]', render: (e: any) => e.attendanceId || '—' },
+      { key: 'attendanceNumber', label: 'Attendance No.', width: 'min-w-[140px]', render: (e: any) => e.attendanceNumber || '—' },
     ];
 
     return (
@@ -444,8 +444,13 @@ export default function Reports() {
           <StatCard label="Pregnant Women" value={(report.summary?.pregnantWomen || 0).toLocaleString()} icon={Baby} accent="cyan" />
         </div>
         <Card title="Consulting Room Register" description={`${dateRange.start} → ${dateRange.end} · Standard GHS line-list · ${entries.length.toLocaleString()} records`} icon={ClipboardList} padded={false}>
-          <div className="overflow-x-auto">
-            <div className="max-h-[70vh] overflow-auto" style={{ scrollbarWidth: 'thin' }}>
+          <div
+            className="h-[min(68vh,720px)] min-h-[320px] overflow-auto overscroll-contain"
+            style={{ scrollbarWidth: 'thin' }}
+            role="region"
+            aria-label="Consulting Room Register records"
+            tabIndex={0}
+          >
               <table className="min-w-max w-full table-auto text-xs border-collapse">
                 <thead className={cn(TH_ROW, 'sticky top-0 z-10')}>
                   <tr>
@@ -475,10 +480,9 @@ export default function Reports() {
                   )}
                 </tbody>
               </table>
-            </div>
           </div>
           <div className="border-t border-[var(--border-color)] px-3 py-2 text-[11px] text-[var(--text-tertiary)]">
-            Scroll horizontally to view all register fields. Long laboratory details, diagnoses and medicines wrap in full; they are not shortened.
+            Scroll within this register to browse records vertically and horizontally. Long laboratory details, diagnoses and medicines wrap in full; they are not shortened.
           </div>
         </Card>
         <Pagination page={safePage} totalPages={totalPages} itemsPerPage={registerPageSize} totalItems={entries.length} noun="entries" onChange={setRegisterPage} pageSizeOptions={[10, 25, 50, 100]} onPageSizeChange={(size) => { setRegisterPageSize(size); setRegisterPage(1); }} />
