@@ -185,7 +185,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                         <span className="flex items-center gap-0.5 text-[var(--text-secondary)]">
                           <DollarSign className="w-2.5 h-2.5" />
                           {/* ✅ FIXED: Safe toFixed */}
-                          {(getProcedurePrice(template) || 0).toFixed(2)}
+                          {paymentMode === 'nhis' && getProcedurePrice(template) <= 0 ? 'NHIS tariff not configured' : `GHS ${getProcedurePrice(template).toFixed(2)}`}
                         </span>
                       </div>
                     </button>
@@ -280,7 +280,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
               <span className="text-xs text-[var(--text-primary)] flex items-center gap-0.5">
                 <DollarSign className="w-2.5 h-2.5" />
                 {/* ✅ FIXED: Safe toFixed */}
-                {(getProcedurePrice(selectedTemplate) || 0).toFixed(2)}
+                {paymentMode === 'nhis' && getProcedurePrice(selectedTemplate) <= 0 ? 'NHIS tariff not configured' : `GHS ${getProcedurePrice(selectedTemplate).toFixed(2)}`}
               </span>
             </div>
           </div>
