@@ -184,7 +184,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
                         {template.specimenType}
                       </span>
                       <span className="text-xs font-semibold text-[var(--icon-cyan-text)]">
-                        ${getLabTestPrice(template).toFixed(2)}
+                        {paymentMode === 'nhis' && getLabTestPrice(template) <= 0 ? 'NHIS tariff not configured' : `GHS ${getLabTestPrice(template).toFixed(2)}`}
                       </span>
                     </div>
                     {((paymentMode === 'nhis' && template.nhisRequiresAuth) || (paymentMode === 'private_insurance' && template.privateInsRequiresAuth)) && (
@@ -258,7 +258,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
               <label className="block text-xs font-semibold text-[var(--text-primary)] mb-0.5">Price</label>
               <span className="text-xs text-[var(--text-primary)] flex items-center gap-0.5">
                 <DollarSign className="w-2.5 h-2.5" />
-                {getLabTestPrice(selectedTemplate).toFixed(2)} ({paymentMode})
+                {paymentMode === 'nhis' && getLabTestPrice(selectedTemplate) <= 0 ? 'NHIS tariff not configured' : `GHS ${getLabTestPrice(selectedTemplate).toFixed(2)}`} ({paymentMode})
               </span>
             </div>
             <div>
