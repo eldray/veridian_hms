@@ -418,63 +418,6 @@ function EditServiceModal({ isOpen, onClose, onSave, service }: any) {
   );
 }
 
-function EditMedicineModal({ isOpen, onClose, onSave, medicine }: any) {
-  const [formData, setFormData] = useState<any>(null);
-  useEffect(() => { if (medicine) setFormData({ ...medicine }); }, [medicine]);
-
-  const handleSave = () => {
-    if (!formData) return;
-    formData.total = formData.quantity * formData.unitPrice;
-    onSave(formData);
-    onClose();
-  };
-
-  if (!isOpen || !formData) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
-        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Edit Medicine</h3>
-          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><XCircle className="w-5 h-5 text-[var(--text-secondary)]" /></button>
-        </div>
-        <div className="p-4 space-y-4">
-          <div className="bg-[var(--bg-main)] p-2 rounded-lg">
-            <p className="text-sm font-medium">{formData.description}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity</label>
-              <input type="number" min="1" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })} className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Unit Price (GHS)</label>
-              <input type="number" min="0" step="0.01" value={formData.unitPrice} onChange={(e) => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-[var(--text-secondary)]">Date</label>
-            <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-[var(--text-secondary)]">Prescription / Directions</label>
-            <textarea rows={3} value={formData.prescriptionText || ''} onChange={(e) => setFormData({ ...formData, prescriptionText: e.target.value })} placeholder="Dose, frequency and duration" className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm text-[var(--text-primary)]" />
-          </div>
-          <div className="bg-[var(--icon-green-bg)] p-2 rounded-lg">
-            <div className="flex justify-between text-sm">
-              <span className="text-[var(--text-secondary)]">Total:</span>
-              <span className="font-bold text-[var(--icon-green-text)]">GHS {(formData.quantity * formData.unitPrice).toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button onClick={handleSave} className="flex-1 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg text-sm font-medium">Save Changes</button>
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-sm">Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function EditPrivateClaim() {
   const { id } = useParams<{ id: string }>();
