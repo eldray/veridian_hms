@@ -63,6 +63,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { MalariaReportView } from '../components/reports/MalariaReportView';
 import FormAReportView from '../components/reports/ANCReportView';
+import EPIMonthlyStockReturnEditor from '../components/reports/EPIMonthlyStockReturnEditor';
 import GenericReportPage from '../components/reports/GenericReportPage';
 import { SHELL_REPORT_BY_KEY, shellReportsForGroup } from '../config/reportRegistry';
 import { REPORT_EXPORT_ROLES, type ReportShape } from '../components/reports/reportShell';
@@ -847,20 +848,21 @@ export default function Reports() {
             <tfoot><tr className="bg-[var(--bg-main)]"><td className="px-3 py-2 font-bold text-[var(--text-primary)]">TOTAL</td>{['under12Months','months12To23','months24Plus','totalAdministered'].map(key => <td key={key} className={num + ' font-bold'}>{count(vaccines.reduce((sum: number, row: any) => sum + Number(row[key] || 0), 0))}</td>)}</tr></tfoot>
           </table></div>
         </Card>
-        <Card title="COVID-19 vaccination" description="Age-group totals. Risk-group attributes are not currently captured separately." icon={Shield} padded={false}>
+        <Card title="COVID-19 vaccination" description="Age-group totals and separately captured underlying-condition, health-worker and pregnancy indicators." icon={Shield} padded={false}>
           <div className="overflow-x-auto"><table className={table}>
             <thead><tr><th className={th}>Doses</th><th className={th + ' text-right'}>6 months–14 yrs</th><th className={th + ' text-right'}>15–17 yrs</th><th className={th + ' text-right'}>18–59 yrs</th><th className={th + ' text-right'}>60+ yrs</th><th className={th + ' text-right'}>Total doses</th><th className={th + ' text-right'}>Underlying conditions</th><th className={th + ' text-right'}>Health workers</th><th className={th + ' text-right'}>Pregnant women</th></tr></thead>
-            <tbody>{covid.map((row: any) => <tr key={row.dose}><td className="px-3 py-2 text-[var(--text-primary)]">{row.dose}</td><td className={num}>{count(row.age6MonthsTo14Years)}</td><td className={num}>{count(row.age15To17Years)}</td><td className={num}>{count(row.age18To59Years)}</td><td className={num}>{count(row.age60Plus)}</td><td className={num + ' font-bold'}>{count(row.totalDoses)}</td><td className={num}>—</td><td className={num}>—</td><td className={num}>—</td></tr>)}</tbody>
+            <tbody>{covid.map((row: any) => <tr key={row.dose}><td className="px-3 py-2 text-[var(--text-primary)]">{row.dose}</td><td className={num}>{count(row.age6MonthsTo14Years)}</td><td className={num}>{count(row.age15To17Years)}</td><td className={num}>{count(row.age18To59Years)}</td><td className={num}>{count(row.age60Plus)}</td><td className={num + ' font-bold'}>{count(row.totalDoses)}</td><td className={num}>{count(row.underlyingConditions)}</td><td className={num}>{count(row.healthWorkers)}</td><td className={num}>{count(row.pregnantWomen)}</td></tr>)}</tbody>
           </table></div>
         </Card>
         <Card title="Td vaccination" icon={Baby} padded={false}>
           <div className="overflow-x-auto"><table className={table}>
             <thead><tr><th className={th}>Td vaccination</th><th className={th + ' text-right'}>Pregnant women</th><th className={th + ' text-right'}>Non-pregnant</th><th className={th + ' text-right'}>Others</th></tr></thead>
             <tbody>{td.map((row: any) => <tr key={row.dose}><td className="px-3 py-2 text-[var(--text-primary)]">{row.dose}</td><td className={num}>{count(row.pregnantWomen)}</td><td className={num}>{count(row.nonPregnant)}</td><td className={num}>{count(row.others)}</td></tr>)}
-              <tr><td className="px-3 py-2 text-[var(--text-primary)]">LLIN – Pregnant Women</td><td className={num}>—</td><td className={num}>—</td><td className={num}>—</td></tr></tbody>
+              <tr><td className="px-3 py-2 text-[var(--text-primary)]">LLIN – Pregnant Women</td><td className={num}>{count(row.pregnantWomen)}</td><td className={num}>{count(row.nonPregnant)}</td><td className={num}>{count(row.others)}</td></tr></tbody>
           </table></div>
         </Card>
-        <p className="text-[11px] text-[var(--text-tertiary)]">Stock balances, expired doses, other losses and stockout days are not inferred from current stock alone. COVID-19 risk groups and Td pregnancy status are also not yet separately captured; these fields remain unreported rather than being shown as zero.</p>
+        <EPIMonthlyStockReturnEditor from={dateRange.start} to={dateRange.end} />
+        <p className="text-[11px] text-[var(--text-tertiary)]">COVID-19 risk groups and Td pregnancy status are counted only where staff recorded the corresponding attributes during vaccination. The Td-5+ (not vaccinated) indicator requires a separate non-vaccination follow-up register and is not inferred from missing doses.</p>
       </div>
     );
   };
