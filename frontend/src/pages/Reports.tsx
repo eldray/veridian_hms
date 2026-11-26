@@ -221,7 +221,6 @@ export default function Reports() {
   const [patientsSeenPage, setPatientsSeenPage] = useState(1);
   const [patientBillingCategory, setPatientBillingCategory] = useState<'all' | 'opd' | 'ipd'>('all');
   const [patientBillingSearch, setPatientBillingSearch] = useState('');
-  const [expandedBillingRow, setExpandedBillingRow] = useState<string | null>(null);
   const [billingPage, setBillingPage] = useState(1);
   const [deliveryPage, setDeliveryPage] = useState(1);
   const [deliveryPageSize, setDeliveryPageSize] = useState(10);
@@ -498,17 +497,40 @@ export default function Reports() {
     const ghc = (value: any) => new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS', minimumFractionDigits: 2 }).format(Number(value || 0));
     const date = (value: any) => value ? new Date(value).toLocaleDateString('en-GH', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     const time = (value: any) => value ? new Date(value).toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
-    const detailCell = (label: string, value: any) => (
-      <div className="min-w-0"><div className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">{label}</div><div className="mt-0.5 text-xs font-medium text-[var(--text-primary)] break-words">{value === null || value === undefined || value === '' ? '—' : value}</div></div>
-    );
-    return <div className="space-y-3">
+    const cellValue = (value: any) => value === null || value === undefined || value === '' ? '—' : value;
+    const columns = [
+      { label: 'Attendance No.', width: 'w-[125px]', value: (row: any) => row.attendanceNumber, align: 'left' },
+      { label: 'Begin date', width: 'w-[115px]', value: (row: any) => date(row.beginDate), align: 'left' },
+      { label: 'Begin time', width: 'w-[105px]', value: (row: any) => time(row.beginTime), align: 'left' },
+      { label: 'End / discharge date', width: 'w-[130px]', value: (row: any) => date(row.endDate), align: 'left' },
+      { label: 'Patient name', width: 'w-[170px]', value: (row: any) => row.name, align: 'left' },
+      { label: 'Folder No.', width: 'w-[110px]', value: (row: any) => row.folderNo, align: 'left' },
+      { label: 'Card / NHIS No.', width: 'w-[130px]', value: (row: any) => row.cardNo, align: 'left' },
+      { label: 'Age', width: 'w-[65px]', value: (row: any) => row.age, align: 'center' },
+      { label: 'Gender', width: 'w-[85px]', value: (row: any) => humanize(row.gender), align: 'center' },
+      { label: 'Phone', width: 'w-[120px]', value: (row: any) => row.phoneNo, align: 'left' },
+      { label: 'Attendance type', width: 'w-[105px]', value: (row: any) => humanize(row.encounterCategory), align: 'left' },
+      { label: 'Mode', width: 'w-[105px]', value: (row: any) => humanize(row.mode), align: 'left' },
+      { label: 'Patient bill', width: 'w-[115px]', value: (row: any) => ghc(row.patientBill), align: 'right' },
+      { label: 'Accreditor bill', width: 'w-[120px]', value: (row: any) => ghc(row.accreditorBill), align: 'right' },
+      { label: 'Drugs', width: 'w-[110px]', value: (row: any) => ghc(row.drugs), align: 'right' },
+      { label: 'Services', width: 'w-[110px]', value: (row: any) => ghc(row.services), align: 'right' },
+      { label: 'Total bill', width: 'w-[120px]', value: (row: any) => ghc(row.total), align: 'right' },
+      { label: 'Patient balance', width: 'w-[125px]', value: (row: any) => ghc(row.patientBalance), align: 'right' },
+      { label: 'Attendance status', width: 'w-[115px]', value: (row: any) => humanize(row.status), align: 'left' },
+      { label: 'Bill status', width: 'w-[105px]', value: (row: any) => humanize(row.billStatus), align: 'left' },
+      { label: 'Accreditor', width: 'w-[135px]', value: (row: any) => row.accreditor, align: 'left' },
+      { label: 'Created by', width: 'w-[135px]', value: (row: any) => row.createdBy, align: 'left' },
+      { label: 'Created on', width: 'w-[155px]', value: (row: any) => row.createdOn ? new Date(row.createdOn).toLocaleString('en-GH') : '—', align: 'left' },
+    ] as const;
+    return <div className="space-y-3 min-w-0">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <StatCard label="Attendances" value={(report.summary?.totalAttendances || 0).toLocaleString()} icon={Users} accent="cyan" />
         <StatCard label="OPD" value={(report.summary?.opd || 0).toLocaleString()} icon={Activity} accent="green" />
         <StatCard label="IPD" value={(report.summary?.ipd || 0).toLocaleString()} icon={Hospital} accent="purple" />
         <StatCard label="Total billed" value={ghc(report.summary?.totalBilled)} icon={DollarSign} accent="cyan" />
       </div>
-      <Card title="Patient billing register" description="One row per OPD/IPD attendance. Select a row to view the complete patient and billing breakdown." icon={ClipboardList} padded={false}>
+      <Card title="Patient billing register" description="Each attendance and billing field is displayed in its own aligned column. Scroll horizontally within the register to view all columns." icon={ClipboardList} padded={false}>
         <div className="flex flex-wrap items-center gap-2 p-3 border-b border-[var(--border-color)]">
           <input value={patientBillingSearch} onChange={e => { setPatientBillingSearch(e.target.value); setBillingPage(1); }} placeholder="Search attendance, patient, folder, card or phone…" className="min-w-[220px] flex-1 px-3 py-2 text-xs rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)]" />
           <select value={patientBillingCategory} onChange={e => { setPatientBillingCategory(e.target.value as 'all' | 'opd' | 'ipd'); setBillingPage(1); }} className="px-3 py-2 text-xs rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)]">
@@ -516,49 +538,23 @@ export default function Reports() {
           </select>
           <span className="text-[11px] text-[var(--text-tertiary)]">{filtered.length.toLocaleString()} records</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] text-xs">
-            <thead className={TH_ROW}><tr>
-              {['Attendance No.','Begin date','Patient','Type','Mode','Total bill','Patient balance','Status','Details'].map(label => <th key={label} className={TEXT_TH}>{label}</th>)}
-            </tr></thead>
+        <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+          <table className="w-max min-w-full table-fixed text-xs border-collapse">
+            <colgroup>{columns.map(column => <col key={column.label} className={column.width} />)}</colgroup>
+            <thead className={TH_ROW}>
+              <tr>{columns.map(column => <th key={column.label} className={cn(TEXT_TH, 'px-3 py-2.5 text-left align-middle whitespace-nowrap')}>{column.label}</th>)}</tr>
+            </thead>
             <tbody>
-              {visible.map((row: any) => {
-                const expanded = expandedBillingRow === row.attendanceId;
-                return <React.Fragment key={row.attendanceId}>
-                  <tr className={TR}>
-                    <td className={cn(TEXT_TD, 'font-mono whitespace-nowrap')}>{row.attendanceNumber}</td>
-                    <td className={cn(TEXT_TD, 'whitespace-nowrap')}>{date(row.beginDate)}<div className="text-[10px] text-[var(--text-tertiary)]">{time(row.beginTime)}</div></td>
-                    <td className={TEXT_TD}><div className="font-semibold">{row.name}</div><div className="text-[10px] text-[var(--text-tertiary)]">Folder: {row.folderNo || '—'}</div></td>
-                    <td className={TEXT_TD}><span className="px-2 py-1 rounded-md bg-[var(--bg-main)] border border-[var(--border-color)]">{row.encounterCategory}</span></td>
-                    <td className={TEXT_TD}>{humanize(row.mode)}</td>
-                    <td className={cn(NUM_TD, 'font-semibold')}>{ghc(row.total)}</td>
-                    <td className={NUM_TD}>{ghc(row.patientBalance)}</td>
-                    <td className={TEXT_TD}>{row.status}</td>
-                    <td className={TEXT_TD}><button type="button" onClick={() => setExpandedBillingRow(expanded ? null : row.attendanceId)} className="font-semibold text-[var(--icon-cyan-text)]">{expanded ? 'Hide' : 'View'}</button></td>
-                  </tr>
-                  {expanded && <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><td colSpan={9} className="p-3">
-                    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-3">
-                      {detailCell('Begin date', date(row.beginDate))}
-                      {detailCell('Begin time', time(row.beginTime))}
-                      {detailCell('End date / discharge', date(row.endDate))}
-                      {detailCell('Age', row.age)}
-                      {detailCell('Card / NHIS No.', row.cardNo)}
-                      {detailCell('Folder No.', row.folderNo)}
-                      {detailCell('Gender', humanize(row.gender))}
-                      {detailCell('Phone', row.phoneNo)}
-                      {detailCell('Patient bill', ghc(row.patientBill))}
-                      {detailCell('Accreditor bill', ghc(row.accreditorBill))}
-                      {detailCell('Drugs', ghc(row.drugs))}
-                      {detailCell('Services', ghc(row.services))}
-                      {detailCell('Accreditor', row.accreditor)}
-                      {detailCell('Created by', row.createdBy)}
-                      {detailCell('Created on', row.createdOn ? new Date(row.createdOn).toLocaleString('en-GH') : '—')}
-                      {detailCell('Bill status', humanize(row.billStatus))}
-                    </div>
-                  </td></tr>}
-                </React.Fragment>;
-              })}
-              {visible.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-[var(--text-tertiary)]">No patient billing records match these filters.</td></tr>}
+              {visible.map((row: any) => (
+                <tr key={row.attendanceId} className={cn(TR, 'align-top')}>
+                  {columns.map(column => (
+                    <td key={column.label} className={cn(TEXT_TD, 'px-3 py-2.5 align-top', column.align === 'right' ? 'text-right tabular-nums whitespace-nowrap' : column.align === 'center' ? 'text-center whitespace-nowrap' : 'text-left', ['Patient name', 'Accreditor', 'Created by'].includes(column.label) ? 'whitespace-normal break-words' : 'whitespace-nowrap', column.label === 'Total bill' ? 'font-semibold' : '')}>
+                      {cellValue(column.value(row))}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+              {visible.length === 0 && <tr><td colSpan={columns.length} className="px-4 py-6 text-center text-[var(--text-tertiary)]">No patient billing records match these filters.</td></tr>}
             </tbody>
           </table>
         </div>
