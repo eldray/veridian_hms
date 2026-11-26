@@ -19,6 +19,10 @@ describe('NursingService.parseFrequency', () => {
   it.each([['5 times a day', 25], ['three times daily', 15], ['twice per day', 10], ['4x daily', 20]])(
     'accepts "%s"', (f, doses) => { expect(parse(f as string).requiredDoses).toBe(doses); });
 
+  it('treats the existing "once" selector as once daily for the full course', () => {
+    expect(parse('once').requiredDoses).toBe(5);
+  });
+
   it('creates exactly one MAR row for STAT regardless of the entered course duration', () => {
     expect(parse('STAT').requiredDoses).toBe(1);
   });
