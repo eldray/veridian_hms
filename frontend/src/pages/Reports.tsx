@@ -858,7 +858,7 @@ export default function Reports() {
           <div className="overflow-x-auto"><table className={table}>
             <thead><tr><th className={th}>Td vaccination</th><th className={th + ' text-right'}>Pregnant women</th><th className={th + ' text-right'}>Non-pregnant</th><th className={th + ' text-right'}>Others</th></tr></thead>
             <tbody>{td.map((row: any) => <tr key={row.dose}><td className="px-3 py-2 text-[var(--text-primary)]">{row.dose}</td><td className={num}>{count(row.pregnantWomen)}</td><td className={num}>{count(row.nonPregnant)}</td><td className={num}>{count(row.others)}</td></tr>)}
-              <tr><td className="px-3 py-2 text-[var(--text-primary)]">LLIN – Pregnant Women</td><td className={num}>{count(row.pregnantWomen)}</td><td className={num}>{count(row.nonPregnant)}</td><td className={num}>{count(row.others)}</td></tr></tbody>
+              <tr><td className="px-3 py-2 text-[var(--text-primary)]">Td-5+ (Not Vaccinated)</td><td className={num}>—</td><td className={num}>—</td><td className={num}>—</td></tr><tr><td className="px-3 py-2 text-[var(--text-primary)]">LLIN – Pregnant Women</td><td className={num}>—</td><td className={num}>—</td><td className={num}>—</td></tr></tbody>
           </table></div>
         </Card>
         <EPIMonthlyStockReturnEditor from={dateRange.start} to={dateRange.end} />
