@@ -292,7 +292,7 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
           {/* Patients with no tasks */}
           {patientsWithoutTasks.length > 0 && (
             <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-[var(--icon-green-bg)] border border-[var(--border-color)]">
-              <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+              <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)] flex-shrink-0" />
               <p className="text-xs text-[var(--icon-green-text)]">
                 <span className="font-semibold">{patientsWithoutTasks.length} patient{patientsWithoutTasks.length > 1 ? 's' : ''}</span>
                 {' '}({patientsWithoutTasks.map(p => p.patient ? getPatientName(p.patient) : (p.patientName || 'Unknown')).join(', ')}) have no pending tasks.
