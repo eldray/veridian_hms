@@ -170,3 +170,30 @@ PSUR14C is a surgical tariff. As with J90, a diagnosis link alone cannot select 
 This verification reduces the remaining provisional diagnosis mapping queue to **110**. The rest of the provisional and legacy mappings remain subject to individual Annex C validation.
 
 Source: NHIA Tariffs Operation Manual v22, Annex C, Paediatrics Surgery PSUR14 (official PDF: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf).
+
+
+## Multiple-procedure reimbursement assessment — 26 November 2026
+
+The NHIA Tariffs Operation Manual v22, section 3.5 (printed pages 9–10), states:
+- Where multiple surgical procedures are conducted during one admission, the first major procedure is reimbursed at its full tariff and the second procedure at 20% of its tariff.
+- For a bilateral procedure, 120% of that procedure's tariff is payable.
+- For multiple dental procedures involving multiple teeth, the first tooth is paid in full and each additional tooth attracts 20% of its tariff.
+
+### Current application behaviour
+
+The NHIS claim-generation path currently selects one principal G-DRG and sets the claim amount to the principal tariff plus covered medicines. Supporting diagnosis, investigation and procedure rows are saved as zero-value itemised lines. There is no additional-procedure or bilateral adjustment in that calculation.
+
+The current clinical data model also does not capture the information needed to apply these rules safely:
+- Procedure records do not identify whether a procedure is the first/second *major* procedure for reimbursement.
+- Procedure records do not capture laterality or indicate that the same procedure was performed bilaterally.
+- Dental procedure lines do not capture the number of separately treated teeth.
+
+### Decision / safe next step
+
+Do **not** automatically add 20% to every second procedure or 120% to any repeated procedure. The manual's rule is conditional, and the current records cannot reliably distinguish major procedures, bilateral work, or additional teeth. Applying the percentage to every procedure would risk overclaiming.
+
+A safe implementation requires structured, auditable procedure attributes (major-procedure designation, laterality/bilateral indicator, and tooth count where relevant), validation against the exact tariff/procedure configuration, and a single shared reimbursement calculator used by claim generation, editing, finalization, batch totals and exports. The calculation must use the existing tariff amounts supplied for this installation; tariff catalogue amounts must not be changed as part of this work.
+
+This is an identified reimbursement-logic gap, not a diagnosis-mapping correction. No tariff amount or mapping was changed in this assessment.
+
+Source: NHIA Tariffs Operation Manual v22, section 3.5, printed pages 9–10 (official PDF: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf).
