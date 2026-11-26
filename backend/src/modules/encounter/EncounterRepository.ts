@@ -1,4 +1,4 @@
-import { PrismaClient, Attendance, Admission, type BodyPart, type ScanCategory } from '@prisma/client';
+import { Prisma, PrismaClient, Attendance, Admission, type BodyPart, type ScanCategory } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, EncounterFilters, 
