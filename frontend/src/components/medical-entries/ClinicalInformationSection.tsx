@@ -269,7 +269,7 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
             {canEdit && hasChanges && (
               <button
                 onClick={handleEdit}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white transition-all text-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-[var(--icon-yellow-on-text)] transition-all text-sm"
               >
                 <Edit className="w-3.5 h-3.5" />
                 <span>Edit</span>
