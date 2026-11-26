@@ -35,10 +35,10 @@ import {
 } from '../components/ui';
 
 const SHIFT_TYPES = [
-  { value: 'morning',   label: 'Morning',   letter: 'M', color: 'bg-green-100 text-green-700'   },
-  { value: 'afternoon', label: 'Afternoon', letter: 'A', color: 'bg-orange-100 text-orange-700' },
-  { value: 'night',     label: 'Night',     letter: 'N', color: 'bg-purple-100 text-purple-700' },
-  { value: 'on_call',   label: 'On Call',   letter: 'C', color: 'bg-blue-100 text-blue-700'     },
+  { value: 'morning',   label: 'Morning',   letter: 'M', color: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'   },
+  { value: 'afternoon', label: 'Afternoon', letter: 'A', color: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' },
+  { value: 'night',     label: 'Night',     letter: 'N', color: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]' },
+  { value: 'on_call',   label: 'On Call',   letter: 'C', color: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]'     },
 ];
 
 // Canonical shift windows — selecting a type sets (and locks) these times.
@@ -59,10 +59,10 @@ const windowText = (type: string) => {
 const ADMIN_LIKE_ROLES = ['admin', 'super_admin', 'hr_officer'];
 const shiftColor = (letter: string) => {
   switch (letter) {
-    case 'M': return 'bg-green-100 text-green-700 border-green-200';
-    case 'A': return 'bg-orange-100 text-orange-700 border-orange-200';
-    case 'N': return 'bg-purple-100 text-purple-700 border-purple-200';
-    case 'C': return 'bg-blue-100 text-blue-700 border-blue-200';
+    case 'M': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--border-color)]';
+    case 'A': return 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] border-[var(--border-color)]';
+    case 'N': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--border-color)]';
+    case 'C': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--border-color)]';
     default:  return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
   }
 };
@@ -472,12 +472,12 @@ export default function ShiftManagement() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {([
           { label: 'Shifts in view', value: filteredShifts.length, color: 'text-[var(--icon-cyan-text)]', bg: 'bg-[var(--icon-cyan-bg)]', icon: Calendar },
-          { label: 'Morning', value: filteredShifts.filter((s) => s.shiftType === 'morning').length, color: 'text-green-700', bg: 'bg-green-100', icon: Clock },
-          { label: 'Afternoon', value: filteredShifts.filter((s) => s.shiftType === 'afternoon').length, color: 'text-orange-700', bg: 'bg-orange-100', icon: Clock },
-          { label: 'Night / On Call', value: filteredShifts.filter((s) => s.shiftType === 'night' || s.shiftType === 'on_call').length, color: 'text-purple-700', bg: 'bg-purple-100', icon: Clock },
+          { label: 'Morning', value: filteredShifts.filter((s) => s.shiftType === 'morning').length, color: 'text-[var(--icon-green-text)]', bg: 'bg-[var(--icon-green-bg)]', icon: Clock },
+          { label: 'Afternoon', value: filteredShifts.filter((s) => s.shiftType === 'afternoon').length, color: 'text-[var(--icon-orange-text)]', bg: 'bg-[var(--icon-orange-bg)]', icon: Clock },
+          { label: 'Night / On Call', value: filteredShifts.filter((s) => s.shiftType === 'night' || s.shiftType === 'on_call').length, color: 'text-[var(--icon-purple-text)]', bg: 'bg-[var(--icon-purple-bg)]', icon: Clock },
         ] as const).map((s) => (
           <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] flex items-center justify-between">
-            <div><p className="text-xs text-[var(--text-secondary)]">{s.label}</p><p className="text-2xl font-bold text-[var(--text-primary)] mt-1">{s.value}</p></div>
+            <div><p className="text-xs text-[var(--text-secondary)]">{s.label}</p><p className="text-xl font-bold text-[var(--text-primary)] mt-1">{s.value}</p></div>
             <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center`}><s.icon className={`w-5 h-5 ${s.color}`} /></div>
           </div>
         ))}
@@ -524,12 +524,12 @@ export default function ShiftManagement() {
       {view === 'list' && (
         <>
           {isLoading ? (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-10 text-center">
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center">
               <RefreshCw className="w-6 h-6 text-[var(--text-tertiary)] mx-auto mb-3 animate-spin" />
               <p className="text-sm text-[var(--text-secondary)]">Loading shifts…</p>
             </div>
           ) : filteredShifts.length === 0 ? (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center">
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center">
               <Calendar className="w-14 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
               <p className="text-sm font-medium text-[var(--text-primary)] mb-1">No shifts found</p>
               <p className="text-xs text-[var(--text-secondary)] mb-4">Add a shift to get started</p>
@@ -607,7 +607,7 @@ export default function ShiftManagement() {
                 </thead>
                 <tbody>
                   {weekDeptGroups.length === 0 ? (
-                    <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">No shifts scheduled this week</td></tr>
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-[var(--text-secondary)]">No shifts scheduled this week</td></tr>
                   ) : weekDeptGroups.map((group) => {
                     const groupKey = group.departmentId ?? '__unassigned__';
                     const isCollapsed = collapsedDepts.has(groupKey);
@@ -696,7 +696,7 @@ export default function ShiftManagement() {
                 </thead>
                 <tbody>
                   {monthDeptGroups.length === 0 ? (
-                    <tr><td colSpan={monthDays.length + 1} className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">No shifts scheduled this month</td></tr>
+                    <tr><td colSpan={monthDays.length + 1} className="px-4 py-8 text-center text-sm text-[var(--text-secondary)]">No shifts scheduled this month</td></tr>
                   ) : monthDeptGroups.map((group) => {
                     const groupKey = group.departmentId ?? '__unassigned__';
                     const isCollapsed = collapsedDepts.has(groupKey);
@@ -818,7 +818,7 @@ export default function ShiftManagement() {
               </div>
               <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
                 <button type="button" onClick={() => setShowForm(false)} className="flex-1 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg text-sm font-medium">Cancel</button>
-                <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium disabled:opacity-50">
+                <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">
                   {saving ? 'Saving…' : editingId ? 'Update Shift' : 'Create Shift'}
                 </button>
               </div>
