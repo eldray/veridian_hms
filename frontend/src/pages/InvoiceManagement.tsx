@@ -387,9 +387,9 @@ ${invoice.notes ? `<div class="notes"><span class="label">Notes</span>${escape(i
       {isLoading ? (
         <div className="space-y-3">{[...Array(5)].map((_, i) => (<div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse"><div className="flex items-center gap-4"><div className="h-10 w-10 bg-[var(--bg-main)] rounded-lg"></div><div className="flex-1"><div className="h-4 bg-[var(--bg-main)] rounded w-1/4 mb-2"></div><div className="h-3 bg-[var(--bg-main)] rounded w-1/2"></div></div></div></div>))}</div>
       ) : sortedInvoices.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-12 text-center border border-[var(--border-color)]">
-          <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4"><FileText className="w-8 h-8 text-[var(--text-tertiary)]" /></div>
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No Invoices Found</h3>
+        <div className="bg-[var(--bg-card)] rounded-xl p-6 text-center border border-[var(--border-color)]">
+          <div className="w-12 h-12 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-3"><FileText className="w-6 h-6 text-[var(--text-tertiary)]" /></div>
+          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Invoices Found</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4">{hasActiveFilters ? 'Try adjusting your search or filter criteria' : 'Get started by creating your first purchase invoice'}</p>
           {hasActiveFilters ? (<Button variant="soft" accent="cyan" icon={X} onClick={clearFilters}>Clear All Filters</Button>) : canManageInvoices && (<Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>Create First Invoice</Button>)}
         </div>
@@ -432,7 +432,7 @@ ${invoice.notes ? `<div class="notes"><span class="label">Notes</span>${escape(i
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => { setShowForm(false); resetForm(); }}>
           <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-7xl max-h-[94vh] flex flex-col overflow-hidden shadow-2xl border border-[var(--border-color)]" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 z-20 bg-[var(--bg-card)] border-b-[3px] border-[var(--icon-cyan-text)] px-6 md:px-10 py-5 flex items-center justify-between">
+            <div className="sticky top-0 z-20 bg-[var(--bg-card)] border-b-[3px] border-[var(--icon-cyan-text)] px-4 sm:px-5 md:px-6 py-4 flex items-center justify-between">
               <div>
                 <p className="text-[15px] font-bold tracking-[3px] uppercase text-[var(--icon-cyan-text)]">Purchase Invoice</p>
                 <h2 className="text-xl font-bold text-[var(--text-primary)] mt-1">{editingInvoice ? 'Edit Invoice' : 'Create Purchase Invoice'}</h2>
