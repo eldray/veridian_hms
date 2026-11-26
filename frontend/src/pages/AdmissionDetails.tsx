@@ -454,7 +454,7 @@ export default function AdmissionDetails() {
             {attendance && (
               <div className="p-4 grid grid-cols-4 gap-1.5">
                 {[
-                  { count: attendance.AttendanceDiagnosis?.length || 0, label: 'Dx', Icon: Stethoscope, color: 'text-[var(--icon-cyan-text)]', bg: 'bg-teal-50' },
+                  { count: attendance.AttendanceDiagnosis?.length || 0, label: 'Dx', Icon: Stethoscope, color: 'text-[var(--icon-cyan-text)]', bg: 'bg-[var(--icon-cyan-bg)]' },
                   { count: attendance.Medication?.length || 0, label: 'Rx', Icon: Pill, color: 'text-[var(--icon-blue-text)]', bg: 'bg-[var(--icon-blue-bg)]' },
                   { count: attendance.LabTest?.length || 0, label: 'Labs', Icon: FlaskConical, color: 'text-[var(--icon-purple-text)]', bg: 'bg-[var(--icon-purple-bg)]' },
                   { count: attendance.Procedure?.length || 0, label: 'Proc', Icon: Scissors, color: 'text-[var(--icon-yellow-text)]', bg: 'bg-[var(--icon-yellow-bg)]' },
@@ -493,7 +493,7 @@ export default function AdmissionDetails() {
                       <LogOut className="w-5 h-5 text-[var(--icon-green-text)]" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-base font-bold text-white truncate">Discharge Patient</h3>
+                      <h3 className="text-base font-bold text-[var(--text-primary)] truncate">Discharge Patient</h3>
                       <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5 truncate">{patientName}</p>
                     </div>
                   </div>
@@ -530,7 +530,7 @@ export default function AdmissionDetails() {
                     onChange={(e) => setDischargeSummary(e.target.value)}
                     rows={4}
                     placeholder="Enter discharge summary, follow-up instructions, medications, etc…"
-                    className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-green-500 resize-none transition-all"
+                    className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] resize-none transition-all"
                   />
                 </div>
               </div>
@@ -545,11 +545,11 @@ export default function AdmissionDetails() {
                 <button
                   onClick={handleDischarge}
                   disabled={isDischarging}
-                  className="flex items-center gap-2 px-5 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:opacity-85 disabled:opacity-50 text-sm font-semibold shadow-sm shadow-green-500/20 transition-all"
+                  className="flex items-center gap-2 px-5 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:opacity-85 disabled:opacity-50 text-sm font-semibold shadow-sm transition-all"
                 >
                   {isDischarging ? (
                     <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin" />
                       Processing…
                     </>
                   ) : (
