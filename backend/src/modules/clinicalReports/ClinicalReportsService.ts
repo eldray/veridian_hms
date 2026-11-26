@@ -21,6 +21,17 @@ export class ClinicalReportsService extends BaseService {
     cacheReadMethods(this, ['generateLabReport','generateScanReport','generateProcedureReport','generateMedicationReport','generateVitalsReport'], 60000);
   }
 
+  private calculateAge(dateOfBirth: Date, asOfDate: Date = new Date()): number {
+    const birthDate = new Date(dateOfBirth);
+    const targetDate = new Date(asOfDate);
+    let age = targetDate.getFullYear() - birthDate.getFullYear();
+    const monthDiff = targetDate.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && targetDate.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return Math.max(0, age);
+  }
+
   async generateLabReport(filters: ClinicalReportFilters): Promise<LabReportData> {
     this.logInfo('Generating lab report', { startDate: filters.startDate, endDate: filters.endDate });
     const labTests = await this.repository.getLabTests(filters);
