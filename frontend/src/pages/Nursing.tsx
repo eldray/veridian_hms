@@ -733,7 +733,7 @@ export default function Nursing() {
                     {badges.medsDue} due
                   </span>
                   <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                    badges.tasksPending > 0 ? 'text-cyan-600' : 'text-[var(--text-tertiary)]'
+                    badges.tasksPending > 0 ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-tertiary)]'
                   }`}>
                     <ClipboardList className="w-3.5 h-3.5" />
                     {badges.tasksPending} task{badges.tasksPending !== 1 ? 's' : ''}
@@ -869,7 +869,7 @@ export default function Nursing() {
                         <CountCell n={badges.medsDue} cls="text-[var(--icon-yellow-text)]" />
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <CountCell n={badges.tasksPending} cls="text-cyan-600" />
+                        <CountCell n={badges.tasksPending} cls="text-[var(--icon-cyan-text)]" />
                       </td>
                       <td className={cn(TD, 'text-center')}>
                         <ChevronRight className="w-4 h-4 inline text-[var(--text-tertiary)] group-hover:text-[var(--icon-cyan-text)] group-hover:translate-x-0.5 transition-all" />
