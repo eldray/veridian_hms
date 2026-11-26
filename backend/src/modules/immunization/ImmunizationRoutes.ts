@@ -52,6 +52,54 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     return res.json({ success: true, data: items });
   });
 
+  router.get('/vaccines/:vaccineId/stock-batches', requireRole(readRoles), async (req: AuthRequest, res: Response) => {
+    const vaccine = await prisma.vaccine.findUnique({
+      where: { id: req.params.vaccineId },
+      select: { id: true, stockItemId: true, StockItem: { select: { id: true, name: true, currentStock: true } } }
+    });
+    if (!vaccine || !vaccine.stockItemId || !vaccine.StockItem) {
+      return res.status(404).json({ success: false, message: 'This vaccine has no linked stock item.' });
+    }
+
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const requestedDepartmentId = isAdmin && req.query.departmentId ? String(req.query.departmentId) : undefined;
+    const departmentId = requestedDepartmentId || req.user?.departmentId || undefined;
+    if (!departmentId) {
+      return res.json({
+        success: true,
+        data: { stockItem: vaccine.StockItem, batchTracked: false, departmentAssigned: false, batches: [], usableQuantity: 0 }
+      });
+    }
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const [batchCount, batches] = await Promise.all([
+      prisma.stockBatch.count({ where: { stockItemId: vaccine.stockItemId } }),
+      prisma.stockBatch.findMany({
+        where: {
+          stockItemId: vaccine.stockItemId,
+          departmentId,
+          wardId: null,
+          quantity: { gt: 0 },
+          isActive: true,
+          expiryDate: { gte: startOfToday }
+        },
+        select: { id: true, batchNumber: true, expiryDate: true, quantity: true, receivedDate: true },
+        orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }]
+      })
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        stockItem: vaccine.StockItem,
+        batchTracked: batchCount > 0,
+        departmentAssigned: true,
+        batches,
+        usableQuantity: batches.reduce((total, batch) => total + batch.quantity, 0)
+      }
+    });
+  });
+
   router.post('/vaccines', requireRole(['admin', 'super_admin'] as UserRole[]), async (req: AuthRequest, res: Response) => {
     const { code, name } = req.body ?? {};
     if (!String(code ?? '').trim() || !String(name ?? '').trim()) {
