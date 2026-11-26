@@ -43,7 +43,7 @@ export const PatientDetailsHeader: React.FC<PatientDetailsHeaderProps> = ({
                   <User className="w-4 h-4" />
                   <span className="capitalize">{patient.gender}</span>
                 </div>
-                <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
+                <div className="w-1 h-1 bg-[var(--text-tertiary)] rounded-full"></div>
                 <div className="flex items-center gap-1">
                   <span className="font-semibold">Age:</span>
                   <span>{patient.age} years</span>
