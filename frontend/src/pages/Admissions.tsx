@@ -66,7 +66,7 @@ const calculateAge = (dateOfBirth: string): number => {
 const formatDate = (dateString: string) => {
   if (!dateString) return '—';
   try {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('en-GH', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -79,7 +79,7 @@ const formatDate = (dateString: string) => {
 const formatTimeOnly = (dateString: string) => {
   if (!dateString) return '—';
   try {
-    return new Date(dateString).toLocaleTimeString('en-US', {
+    return new Date(dateString).toLocaleTimeString('en-GH', {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -524,7 +524,7 @@ export default function Admissions() {
       case 'custom':
         if (customStartDate && customEndDate) {
           const fmt = (d: string) =>
-            new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            new Date(d).toLocaleDateString('en-GH', { month: 'short', day: 'numeric' });
           return `${fmt(customStartDate)} – ${fmt(customEndDate)}`;
         }
         return 'Custom Range';

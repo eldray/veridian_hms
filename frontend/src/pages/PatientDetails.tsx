@@ -305,7 +305,7 @@ export default function PatientDetails() {
     return labels[templateType] || 'Document';
   };
   const formatDate = (d: string) => {
-    try { if (!d) return '—'; const dt = new Date(d); if (isNaN(dt.getTime())) return 'Invalid'; return dt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }); }
+    try { if (!d) return '—'; const dt = new Date(d); if (isNaN(dt.getTime())) return 'Invalid'; return dt.toLocaleDateString('en-GH', { year: 'numeric', month: 'short', day: 'numeric' }); }
     catch { return '—'; }
   };
   const formatDateTime = (d: string) => {
