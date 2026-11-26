@@ -194,11 +194,15 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
     if (currentDepartment) get().fetchWorklist(currentDepartment);
   },
 
-  /** An empty day means "no filter on that side", so one open end stays an open-ended range. */
+  /**
+   * An empty day means "no filter on that side", so one open end stays an open-ended range.
+   * Date controls must stay mounted while staff type: fetch silently so the page does not
+   * switch to its full-screen loading branch and interrupt the native date input.
+   */
   setDateRange: (range: { dateFrom?: string; dateTo?: string }) => {
     const { currentDepartment } = get();
     set({ dateFrom: range.dateFrom ?? '', dateTo: range.dateTo ?? '' });
-    if (currentDepartment) get().fetchWorklist(currentDepartment);
+    if (currentDepartment) get().fetchWorklist(currentDepartment, { silent: true });
   },
 
   selectItem: (item: WorklistItem | null) => {
