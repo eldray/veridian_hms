@@ -20,6 +20,9 @@ const getJwtSecret = (): string => {
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const REFRESH_TOKEN_EXPIRY = refreshTokenLifetime();
 const SALT_ROUNDS = bcryptRounds();
+// A process-wide dummy hash keeps unknown usernames on the same bcrypt-cost path
+// as existing accounts, without storing or reusing a real user's password.
+const DUMMY_PASSWORD_HASH = bcrypt.hash(randomBytes(32).toString('hex'), SALT_ROUNDS);
 
 /**
  * Fields that a user may change on their own profile via PUT /auth/profile.
@@ -91,10 +94,16 @@ export class AuthService {
 
   async login(data: LoginRequestDTO) {
     const user = await this.repository.findByUsername(data.username);
-    if (!user || !user.isActive) return { success: false, error: 'Invalid credentials or inactive account' };
 
-    const isValid = await bcrypt.compare(data.password, user.password);
-    if (!isValid) return { success: false, error: 'Invalid credentials' };
+    // Always perform one bcrypt comparison before rejecting a login. For an
+    // unknown username use a random, process-local dummy hash; for inactive
+    // accounts compare against their real hash. This reduces username
+    // enumeration through both response text and obvious timing differences.
+    const passwordHash = user ? user.password : await DUMMY_PASSWORD_HASH;
+    const isValid = await bcrypt.compare(data.password, passwordHash);
+    if (!user || !user.isActive || !isValid) {
+      return { success: false, error: 'Invalid username or password' };
+    }
 
     const permissions = this.repository.mapUserPermissions(user);
     const tokens = await this.generateTokens(
