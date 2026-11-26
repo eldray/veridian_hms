@@ -436,7 +436,7 @@ export default function Reports() {
         </div>
         <Card title="Consulting Room Register" description={`${dateRange.start} → ${dateRange.end} · Standard GHS line-list · ${entries.length.toLocaleString()} records`} icon={ClipboardList} padded={false} className="min-w-0 max-w-full" contentClassName="min-w-0 max-w-full">
           <div
-            className="block w-full min-w-0 max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain"
+            className="block w-full min-w-0 max-w-full overflow-x-auto overflow-y-clip overscroll-x-contain"
             style={{ scrollbarWidth: 'thin' }}
             role="region"
             aria-label="Consulting Room Register records"
