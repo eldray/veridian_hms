@@ -171,13 +171,13 @@ export const MedicalEntriesForm: React.FC<MedicalEntriesFormProps> = ({
   return (
     <div className="space-y-4">
       {/* Tab Navigation */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 text-gray-900">
-          <FileText className="w-4 h-4 text-blue-600" />
+      <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-4">
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2 text-[var(--text-primary)]">
+          <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
           Medical Entries
         </h2>
         
-        <div className="flex border-b border-gray-200 overflow-x-auto">
+        <div className="flex border-b border-[var(--border-color)] overflow-x-auto">
           {tabs.map((tab) => {
             const IconComponent = tab.icon;
             return (
@@ -186,15 +186,15 @@ export const MedicalEntriesForm: React.FC<MedicalEntriesFormProps> = ({
                 onClick={() => onTabChange(tab.id as any)}
                 className={`flex items-center gap-1 px-3 py-2 border-b-2 transition-all whitespace-nowrap text-sm ${
                   activeTab === tab.id
-                    ? 'border-blue-600 text-blue-600 font-semibold'
-                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                    ? 'border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] font-semibold'
+                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <IconComponent className="w-3 h-3" />
                 <span>{tab.label}</span>
                 {tab.count > 0 && (
                   <span className={`px-1.5 py-0.5 text-xs rounded-full ${
-                    activeTab === tab.id ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
+                    activeTab === tab.id ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
                   }`}>
                     {tab.count}
                   </span>
@@ -292,7 +292,7 @@ export const MedicalEntriesForm: React.FC<MedicalEntriesFormProps> = ({
           onClick={handleSubmit}
           disabled={isSubmitting || !canAddEntries}
           title={!canAddEntries ? 'This attendance is read-only' : 'Save medical entries'}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all duration-200 flex items-center gap-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <>
@@ -328,7 +328,7 @@ const ProgressNotesSection: React.FC<{
 }) => (
   <div className="space-y-3">
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
         Progress Note
       </label>
       <textarea
@@ -336,25 +336,25 @@ const ProgressNotesSection: React.FC<{
         value={currentProgressNote}
         onChange={(e) => onProgressNoteChange(e.target.value)}
         rows={3}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none text-sm"
+        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all resize-none text-sm"
         disabled={!canAddEntries}
       />
     </div>
     <button
       onClick={onAddProgressNote}
       disabled={!currentProgressNote.trim() || addingProgressNote || !canAddEntries}
-      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 text-sm"
+      className="px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 text-sm"
     >
       {addingProgressNote ? 'Adding...' : 'Add Progress Note'}
     </button>
 
     {progressNotes.length > 0 && (
       <div className="mt-3 space-y-2">
-        <h4 className="text-sm font-medium text-gray-700">Previous Notes</h4>
+        <h4 className="text-sm font-medium text-[var(--text-primary)]">Previous Notes</h4>
         {progressNotes.map((note, index) => (
-          <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-            <p className="text-gray-700 text-sm">{note.note}</p>
-            <div className="text-xs text-gray-500 mt-1">
+          <div key={index} className="p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
+            <p className="text-[var(--text-primary)] text-sm">{note.note}</p>
+            <div className="text-xs text-[var(--text-tertiary)] mt-1">
               {new Date(note.createdAt).toLocaleString()} • By: {note.createdBy}
             </div>
           </div>
