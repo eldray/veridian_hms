@@ -4,6 +4,7 @@ import { useLiveRefresh } from '../api/realtime';
 import { useToast } from '../store/toastStore';
 import api from '../api/api';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
+import ImmunizationSectionTabs from '../components/immunization/ImmunizationSectionTabs';
 import {
   AlertCircle, ArrowRight, CalendarClock, CheckCircle, Clock, RefreshCw, Syringe, Users, UserCheck,
 } from 'lucide-react';
@@ -150,6 +151,7 @@ export default function ImmunizationWorkspace() {
     return (
       <div className="space-y-6 p-4 sm:p-6">
         {pageHeader}
+        <ImmunizationSectionTabs />
         <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-8 text-center">
           <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)]">Loading Immunization Queue…</p>
@@ -161,6 +163,7 @@ export default function ImmunizationWorkspace() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       {pageHeader}
+      <ImmunizationSectionTabs />
 
       {error && (
         <div role="alert" className="flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-4 py-3 text-sm text-[var(--icon-red-text)]">
