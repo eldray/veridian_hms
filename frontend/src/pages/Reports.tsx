@@ -221,7 +221,6 @@ export default function Reports() {
   const [patientsSeenPage, setPatientsSeenPage] = useState(1);
   const [patientBillingCategory, setPatientBillingCategory] = useState<'all' | 'opd' | 'ipd'>('all');
   const [patientBillingSearch, setPatientBillingSearch] = useState('');
-  const [expandedBillingRow, setExpandedBillingRow] = useState<string | null>(null);
   const [billingPage, setBillingPage] = useState(1);
   const [deliveryPage, setDeliveryPage] = useState(1);
   const [deliveryPageSize, setDeliveryPageSize] = useState(10);
