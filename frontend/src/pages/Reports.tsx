@@ -174,7 +174,7 @@ function IDSRSurveillanceRegister({ startDate, endDate, diseases }: { startDate:
   const totalPages = Math.max(1, Math.ceil(records.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const visibleRecords = records.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  return <Card title="IDSR surveillance register" description="Record verified daily disease tallies separately from attendance-based suspected signals." icon={ClipboardList} padded={false}>
+  return <Card title="IDSR surveillance register" description="Record verified daily disease tallies separately from attendance-based suspected signals." icon={ClipboardList} padded={false} className="flex-1 min-h-0 flex flex-col">
     <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-6 gap-2 p-4 border-b border-[var(--border-color)]">
       <select value={diseaseCode} onChange={e => setDiseaseCode(e.target.value)} className="md:col-span-2 px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-xs" required>
         {diseases.map(d => <option key={d.code} value={d.code}>{d.disease}</option>)}
@@ -427,8 +427,8 @@ export default function Reports() {
     ];
 
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="h-full min-h-0 flex flex-col gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0">
           <StatCard label="Total Patients" value={(report.summary?.totalPatients || 0).toLocaleString()} icon={Users} accent="cyan" />
           <StatCard label="New Patients" value={(report.summary?.newPatients || 0).toLocaleString()} icon={UserCheck} accent="green" />
           <StatCard label="NHIS Patients" value={(report.summary?.nhisPatients || 0).toLocaleString()} icon={Shield} accent="cyan" />
@@ -436,13 +436,13 @@ export default function Reports() {
         </div>
         <Card title="Consulting Room Register" description={`${dateRange.start} → ${dateRange.end} · Standard GHS line-list · ${entries.length.toLocaleString()} records`} icon={ClipboardList} padded={false}>
           <div
-            className="h-[min(68vh,720px)] min-h-[320px] overflow-auto overscroll-contain"
+            className="flex-1 min-h-0 w-full min-w-0 max-w-full overflow-x-auto overflow-y-auto overscroll-contain touch-pan-x touch-pan-y"
             style={{ scrollbarWidth: 'thin' }}
             role="region"
             aria-label="Consulting Room Register records"
             tabIndex={0}
           >
-              <table className="min-w-max w-full table-auto text-xs border-collapse">
+              <table className="w-max min-w-full table-auto text-xs border-collapse">
                 <thead className={cn(TH_ROW, 'sticky top-0 z-10')}>
                   <tr>
                     {columns.map(column => (
@@ -1252,8 +1252,11 @@ export default function Reports() {
     return map[reportType]?.() ?? <EmptyState message="Select a report type to view data" />;
   };
 
+  const isConsultingRoomRegister = reportType === 'consulting-room-register';
+
   return (
-    <div className="space-y-4">
+    <div className={isConsultingRoomRegister ? "h-[calc(100dvh-100px)] min-h-0 flex flex-col overflow-hidden" : "space-y-4"}>
+      <div className={isConsultingRoomRegister ? "shrink-0 space-y-3" : "space-y-4"}>
       <PageHeader title="Reports & Analytics" subtitle="GHS-compliant reporting" icon={BarChart3} accent="cyan" onBack={goBack}
         // FIX #58 — Refresh is hidden for shell reports on purpose: GenericReportPage owns its own Reload.
         actions={!shellReport ? (<>
@@ -1310,12 +1313,15 @@ export default function Reports() {
         </div>
       </div>
       {generatedAt && (<div className="text-right text-[11px] text-[var(--text-tertiary)]">Generated: {generatedAt.toLocaleString()}</div>)}
+      </div>
+      <div className={isConsultingRoomRegister ? "flex-1 min-h-0 overflow-hidden" : ""}>
       {isLoading_ ? (
         <div className="flex flex-col items-center justify-center py-20 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] gap-3">
           <div className="w-8 h-8 border-2 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin" />
           <p className="text-xs text-[var(--text-secondary)]">Generating {getReportTitle()}…</p>
         </div>
       ) : renderReportContent()}
+      </div>
     </div>
   );
 }
