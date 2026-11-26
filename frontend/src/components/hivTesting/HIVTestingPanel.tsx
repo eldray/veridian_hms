@@ -60,7 +60,24 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
 
   const field = (title: string, key: string, options: string[]) => (
     <label className="block"><span className={labelClass}>{title}</span>
-      <select className={inputClass} value={form[key] ?? ''} onChange={e => update(key, e.target.value)}>
+      <select className={inputClass} value={form[key] ?? ''} onChange={e => {
+        const value = e.target.value;
+        update(key, value);
+        if (key === 'testingStatus') {
+          if (value !== 'completed') {
+            update('result', 'pending');
+            update('resultConfirmed', false);
+            update('previouslyKnownPositive', false);
+            update('newlyIdentifiedPositive', false);
+          }
+          if (!['testing', 'completed'].includes(value)) update('testingConsentGiven', false);
+        }
+        if (key === 'result' && value !== 'positive') {
+          update('previouslyKnownPositive', false);
+          update('newlyIdentifiedPositive', false);
+          update('resultConfirmed', false);
+        }
+      }}>
         {options.map(option => <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>)}
       </select>
     </label>
