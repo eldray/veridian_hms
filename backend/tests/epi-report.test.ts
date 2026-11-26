@@ -36,6 +36,9 @@ describe('GHS EPI report', () => {
     expect(result.byVaccine[0].uniquePatients).toBe(2);
     expect(result.byAgeGroup['<1 year']).toBe(1);
     expect(result.byAgeGroup['1–4 years']).toBe(1);
+    expect(result.monthlyVaccinations.find(row => row.vaccine === 'BCG')).toMatchObject({ under12Months: 1, months12To23: 1, months24Plus: 0, totalAdministered: 2 });
+    expect(result.covidVaccinations).toHaveLength(7);
+    expect(result.tdVaccinations).toHaveLength(6);
     expect(result.coverage).toBeNull();
   });
 });
