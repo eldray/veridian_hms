@@ -40,7 +40,7 @@ export class NursingService extends BaseService {
     const normalizedFrequency = String(frequency ?? '').trim().toLowerCase();
     const isSingleDose = ['stat', 'single dose', 'single'].includes(normalizedFrequency);
     const isPrn = ['prn', 'as needed', 'sos'].includes(normalizedFrequency);
-    const durationHoursMatch = String(duration ?? '').trim().match(/^([0-9]+)\\s*(hours?|hrs?|h)$/i);
+    const durationHoursMatch = String(duration ?? '').trim().match(/^([0-9]+)\s*(hours?|hrs?|h)$/i);
     const durationHours = durationHoursMatch
       ? Number(durationHoursMatch[1])
       : this.parseDurationDays(duration) * 24;
