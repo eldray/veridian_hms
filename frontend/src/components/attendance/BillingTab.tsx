@@ -206,7 +206,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({ attendance }) => {
           {outstandingBalance > 0 && !isNHIS && (
             <Link
               to={`/dashboard/billing/${attendance._id}/payment`}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-white rounded-lg  font-semibold text-sm shadow-md hover:shadow-lg transition-all"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg font-semibold text-sm shadow-md hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] transition-all"
             >
               <DollarSign className="w-4 h-4" />
               Process Payment
@@ -218,7 +218,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({ attendance }) => {
             <button
               onClick={handleSubmitNHISClaim}
               disabled={isLoading}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-white rounded-lg  font-semibold text-sm shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg font-semibold text-sm shadow-md hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {isLoading ? (
                 <>
