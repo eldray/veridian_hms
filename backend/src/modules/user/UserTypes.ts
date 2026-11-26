@@ -171,6 +171,7 @@ export interface LeaveFilters {
   userId?: string;
   departmentId?: string;
   status?: LeaveStatus;
+  statuses?: LeaveStatus[];
   fromDate?: Date;
   toDate?: Date;
   page?: number;
