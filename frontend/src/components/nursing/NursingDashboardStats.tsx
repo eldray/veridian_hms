@@ -3,7 +3,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, Hospital, Sun, Moon, ArrowRight, Pill,
-  AlertTriangle, ClipboardCheck, Bed
+  AlertTriangle, ClipboardCheck
 } from 'lucide-react';
 
 interface NursingDashboardStatsProps {
@@ -42,8 +42,8 @@ export const NursingDashboardStats: React.FC<NursingDashboardStatsProps> = ({ st
       label: 'Under Observation',
       value: stats.detentionCount,
       sub: 'Detention / ANC obs',
-      icon: <Moon className="w-5 h-5 text-orange-600" />,
-      bg: 'bg-orange-100',
+      icon: <Moon className="w-5 h-5 text-[var(--icon-orange-text)]" />,
+      bg: 'bg-[var(--icon-orange-bg)]',
       onClick: undefined,
     },
     {
