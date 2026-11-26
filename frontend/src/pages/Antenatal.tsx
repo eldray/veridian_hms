@@ -104,7 +104,7 @@ const AddBtn: React.FC<{ onClick: () => void; label: string }> = ({ onClick, lab
   <button onClick={onClick}
     className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold
       bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]
-      hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
+      hover:opacity-90 transition-all">
     <Plus className="w-3 h-3" />{label}
   </button>
 );
@@ -335,7 +335,7 @@ const BedWardSelectionModalAntenatal: React.FC<{
           <button
             onClick={handleConfirm}
             disabled={!selectedWardId || !selectedBedId || isLoading}
-            className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[var(--icon-cyan-bg)]0 text-white
+            className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]
               hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {isLoading ? 'Processing...' : 'Confirm Admission'}
@@ -864,19 +864,19 @@ useEffect(() => {
     if (status !== 'discharged' && status !== 'completed') {
       if (currentAttendance?.attendanceType === 'antenatal') {
         return <button onClick={handleAdmitForObservation}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-text)] hover:text-white transition-all">
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:opacity-90 transition-all">
           <Moon className="w-3.5 h-3.5" /> Antenatal Observation
         </button>;
       }
       if (currentAttendance?.attendanceType === 'delivery') {
         return <button onClick={handleAdmitForDelivery}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all">
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:opacity-90 transition-all">
           <Hospital className="w-3.5 h-3.5" /> Delivery Observation
         </button>;
       }
       if (currentAttendance?.attendanceType === 'postnatal') {
         return <button onClick={handleAdmitForPostpartum}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all">
           <Heart className="w-3.5 h-3.5" /> Postnatal Observation
         </button>;
       }
@@ -1002,7 +1002,7 @@ useEffect(() => {
           <div className="h-5 w-px bg-[var(--border-color)]" />
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center">
-              <Baby className="w-4 h-4 text-pink-600" />
+              <Baby className="w-4 h-4 text-[var(--icon-cyan-text)]" />
             </div>
             <div>
               <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Maternal Health</h1>
@@ -1060,9 +1060,9 @@ useEffect(() => {
                 { icon: <Wind className="w-3.5 h-3.5 text-teal-500" />, value: latestVitals.respiration || '—', label: 'Resp' },
                 { icon: <Droplets className="w-3.5 h-3.5 text-sky-500" />, value: latestVitals.spo2 ? `${latestVitals.spo2}%` : '—', label: 'SpO₂' },
                 { icon: <Weight className="w-3.5 h-3.5 text-[var(--icon-yellow-text)]" />, value: latestVitals.weight ? `${latestVitals.weight}kg` : '—', label: 'Weight' },
-                { icon: <Ruler className="w-3.5 h-3.5 text-cyan-500" />, value: latestVitals.height ? `${latestVitals.height}cm` : '—', label: 'Height' },
+                { icon: <Ruler className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />, value: latestVitals.height ? `${latestVitals.height}cm` : '—', label: 'Height' },
                 { icon: <Activity className="w-3.5 h-3.5 text-violet-500" />, value: latestVitals.bmi || '—', label: 'BMI' },
-                { icon: <Activity className="w-3.5 h-3.5 text-indigo-500" />, value: latestVitals.muac || '—', label: 'MUAC' },
+                { icon: <Activity className="w-3.5 h-3.5 text-[var(--icon-indigo-text)]" />, value: latestVitals.muac || '—', label: 'MUAC' },
               ].map((v, i) => (
                 <div key={i} className="flex flex-col items-center gap-0.5">
                   {v.icon}
@@ -1089,7 +1089,7 @@ useEffect(() => {
             {/* Current Pregnancy card (full width, above tabs) */}
             {selectedPatient && shouldShowPregnancyCard && (
   <SectionCard
-    icon={<Baby className="w-4 h-4 text-pink-600" />}
+    icon={<Baby className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
     title="Current Pregnancy"
     count={hasActiveBooking ? 1 : 0}
     countCls="bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]"
@@ -1212,7 +1212,7 @@ useEffect(() => {
                     return (
                       <button key={tab.key} onClick={() => { userTouchedTab.current = true; setActiveTab(tab.key); }} 
                         className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border-b-2 whitespace-nowrap transition-all ${isActive
-                          ? 'border-[var(--icon-cyan-text)] text-pink-600'
+                          ? 'border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)]'
                           : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--icon-cyan-text)]'
                           }`}>
                         {tab.icon}{tab.label}
@@ -1227,14 +1227,14 @@ useEffect(() => {
                   {showDeliveryQuickSwitch && activeTab !== 'delivery' && (
                     <button onClick={goToDeliveryTab}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold
-                        bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all whitespace-nowrap">
+                        bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:opacity-90 transition-all whitespace-nowrap">
                       <Hospital className="w-3 h-3" /> Record Delivery <ArrowRight className="w-3 h-3" />
                     </button>
                   )}
                   {showPostnatalQuickSwitch && activeTab !== 'postnatal' && (
                     <button onClick={goToPostnatalTab}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold
-                        bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all whitespace-nowrap">
+                        bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all whitespace-nowrap">
                       <Heart className="w-3 h-3" /> Record Postnatal <ArrowRight className="w-3 h-3" />
                     </button>
                   )}
@@ -1476,7 +1476,7 @@ useEffect(() => {
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                       {[
                         { icon: <Baby className="w-4 h-4 text-[var(--icon-cyan-text)]" />, label: 'G/P', value: `${currentRecord?.gravida || 0}/${currentRecord?.para || 0}` },
-                        { icon: <Calendar className="w-4 h-4 text-purple-500" />, label: 'Weeks', value: currentRecord?.gestationalAgeWeeks || '?' },
+                        { icon: <Calendar className="w-4 h-4 text-[var(--icon-purple-text)]" />, label: 'Weeks', value: currentRecord?.gestationalAgeWeeks || '?' },
                         { icon: <Heart className="w-4 h-4 text-[var(--icon-red-text)]" />, label: 'FHR (bpm)', value: currentVisits[currentVisits.length - 1]?.fetalHeartRate || '—' },
                         { icon: <Ruler className="w-4 h-4 text-[var(--icon-cyan-text)]" />, label: 'Fundal Ht', value: currentVisits[currentVisits.length - 1]?.fundalHeight ? `${currentVisits[currentVisits.length - 1].fundalHeight}cm` : '—' },
                         { icon: <TrendingUp className="w-4 h-4 text-[var(--icon-green-text)]" />, label: 'Visits', value: currentVisits.length },
@@ -1492,12 +1492,12 @@ useEffect(() => {
                   )}
 
                   <SectionCard
-                    icon={<Baby className="w-4 h-4 text-pink-600" />}
+                    icon={<Baby className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
                     title={`ANC Visit History (${currentVisits.length})`}
                     action={hasActiveBooking && currentAttendanceVisit && (
                       <button onClick={handleEditCurrentVisit}
                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold
-                          bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
+                          bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all">
                         <Edit className="w-3 h-3" /> Edit Visit
                       </button>
                     )}
@@ -1616,7 +1616,7 @@ useEffect(() => {
                     maxH="max-h-[600px]">
                     {deliveries.filter((d: any) => d.attendanceId === selectedAttendanceId).length === 0
                       ? <EmptySlate icon={<Hospital className="w-9 h-9" />} label="No delivery records for this visit"
-                        action={<button onClick={() => { setEditingDelivery(null); setShowDeliveryModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all">Add Record</button>} />
+                        action={<button onClick={() => { setEditingDelivery(null); setShowDeliveryModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:opacity-90 transition-all">Add Record</button>} />
                       : <div className="divide-y divide-[var(--border-color)]">
                         {deliveries.filter((d: any) => d.attendanceId === selectedAttendanceId).map((d: any) => (
                           <div key={d.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
@@ -1654,7 +1654,7 @@ useEffect(() => {
                     maxH="max-h-[600px]">
                     {postnatalRecords.filter((p: any) => p.attendanceId === selectedAttendanceId).length === 0
                       ? <EmptySlate icon={<Heart className="w-9 h-9" />} label="No postnatal examinations for this visit"
-                        action={<button onClick={() => { setEditingPostnatal(null); setShowPostnatalModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">Add Exam</button>} />
+                        action={<button onClick={() => { setEditingPostnatal(null); setShowPostnatalModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all">Add Exam</button>} />
                       : <div className="divide-y divide-[var(--border-color)]">
                         {postnatalRecords.filter((p: any) => p.attendanceId === selectedAttendanceId).map((pn: any) => (
                           <div key={pn.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
@@ -1893,7 +1893,7 @@ onSuccess={async () => {
             <div className="flex gap-3 justify-end">
               <button onClick={() => setShowVisitDetails(false)} className="px-4 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all">Close</button>
               <button onClick={() => { setShowVisitDetails(false); setEditingVisit(selectedVisit); setSelectedBookingId(currentRecord?.id || ''); setShowANCVisitModal(true); }}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">Edit Visit</button>
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all">Edit Visit</button>
             </div>
           }>
           <div className="grid grid-cols-2 gap-4">
@@ -1939,7 +1939,7 @@ onSuccess={async () => {
             <div className="flex gap-3 justify-end">
               <button onClick={() => setShowDeliveryDetails(false)} className="px-4 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all">Close</button>
               <button onClick={() => { setShowDeliveryDetails(false); setEditingDelivery(selectedDelivery); setShowDeliveryModal(true); }}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all">Edit Delivery</button>
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:opacity-90 transition-all">Edit Delivery</button>
             </div>
           }>
           <div className="space-y-4">
@@ -2017,7 +2017,7 @@ onSuccess={async () => {
             <div className="flex gap-3 justify-end">
               <button onClick={() => setShowPostnatalDetails(false)} className="px-4 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all">Close</button>
               <button onClick={() => { setShowPostnatalDetails(false); setEditingPostnatal(selectedPostnatal); setShowPostnatalModal(true); }}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">Edit Exam</button>
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all">Edit Exam</button>
             </div>
           }>
           <div className="space-y-4">
