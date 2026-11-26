@@ -447,7 +447,7 @@ export const buildLookups = async (): Promise<Lookups> => {
 
   const medicationStock = stockItems.filter((s) => s.isMedication).map((s) => ({
     id: s.id, name: s.name, category: s.category, drugCode: s.drugCode,
-    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice), unitOfMeasure: s.unitOfMeasure, unitOfMeasure: s.unitOfMeasure,
+    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice), unitOfMeasure: s.unitOfMeasure,
   }));
   const consumableStock = stockItems.filter((s) => !s.isMedication).map((s) => ({
     id: s.id, name: s.name, category: s.category, drugCode: s.drugCode,
