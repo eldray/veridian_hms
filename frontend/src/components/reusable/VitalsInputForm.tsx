@@ -61,8 +61,8 @@ export const VitalsInputForm: React.FC<VitalsInputFormProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-      <h3 className="text-lg font-semibold mb-3 text-gray-900">Record New Vitals</h3>
+    <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-4">
+      <h3 className="text-lg font-semibold mb-3 text-[var(--text-primary)]">Record New Vitals</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Blood Pressure */}
         <VitalsInputField
@@ -155,14 +155,14 @@ export const VitalsInputForm: React.FC<VitalsInputFormProps> = ({
 
         {/* BMI (read-only) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">BMI</label>
+          <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">BMI</label>
           <div className="relative">
-            <Activity className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Activity className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
             <input
               type="text"
               value={bmi ?? ''}
               readOnly
-              className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-500 text-sm"
+              className="w-full pl-9 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm"
             />
           </div>
         </div>
@@ -173,7 +173,7 @@ export const VitalsInputForm: React.FC<VitalsInputFormProps> = ({
         <button
           onClick={handleSubmit}
           disabled={isLoading || !canRecordVitals || !hasAnyValue}
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] transition-all duration-200 flex items-center gap-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <>
@@ -202,16 +202,16 @@ const VitalsInputField: React.FC<{
   step?: string;
 }> = ({ icon: Icon, label, placeholder, value, onChange, type = 'text', step }) => (
   <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">{label}</label>
     <div className="relative">
-      <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
       <input
         type={type}
         step={step}
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+        className="w-full pl-9 pr-4 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
       />
     </div>
   </div>
