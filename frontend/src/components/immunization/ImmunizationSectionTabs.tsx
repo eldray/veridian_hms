@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { CalendarClock, ClipboardList, Syringe } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 const sections = [
   { path: '/dashboard/immunization', label: 'Vaccination Queue', icon: Syringe, match: (pathname: string) => pathname === '/dashboard/immunization' || pathname.startsWith('/dashboard/immunization/entries/') },
@@ -10,10 +11,12 @@ const sections = [
 export default function ImmunizationSectionTabs() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { hasRole } = useAuthStore();
+  const visibleSections = sections.filter(section => section.path !== '/dashboard/vaccine-catalogue' || hasRole(['admin', 'super_admin']));
 
   return (
     <nav aria-label="Immunization sections" className="flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-1">
-      {sections.map(section => {
+      {visibleSections.map(section => {
         const active = section.match(location.pathname);
         const Icon = section.icon;
         return (
