@@ -552,7 +552,7 @@ export default function GDRGManagement() {
         onBack={goBack}
         actions={(
           <>
-            <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium">
+            <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-all text-sm font-medium">
               <Plus className="w-4 h-4" /> Add Tariff
             </button>
             <button onClick={loadData} disabled={isLoading} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm disabled:opacity-50">
@@ -638,7 +638,7 @@ export default function GDRGManagement() {
             <div className="p-3">
               {activeTab === 'diagnoses' && (
                 <>
-                  <button onClick={() => setShowDiagnosisModal(true)} className="w-full mb-3 flex items-center justify-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"><LinkIcon className="w-4 h-4" />Link Diagnosis</button>
+                  <button onClick={() => setShowDiagnosisModal(true)} className="w-full mb-3 flex items-center justify-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-all text-sm font-medium"><LinkIcon className="w-4 h-4" />Link Diagnosis</button>
                   {linkingLoading ? (
                     <div className="text-center py-6"><Loader className="w-6 h-6 animate-spin mx-auto text-[var(--icon-cyan-text)]" /></div>
                   ) : linkedDiagnoses.length === 0 ? (
@@ -657,7 +657,7 @@ export default function GDRGManagement() {
               )}
               {activeTab === 'procedures' && (
                 <>
-                  <button onClick={() => setShowProcedureModal(true)} className="w-full mb-3 flex items-center justify-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"><LinkIcon className="w-4 h-4" />Link Procedure</button>
+                  <button onClick={() => setShowProcedureModal(true)} className="w-full mb-3 flex items-center justify-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-all text-sm font-medium"><LinkIcon className="w-4 h-4" />Link Procedure</button>
                   {linkingLoading ? (
                     <div className="text-center py-6"><Loader className="w-6 h-6 animate-spin mx-auto text-[var(--icon-cyan-text)]" /></div>
                   ) : linkedProcedures.length === 0 ? (
@@ -714,7 +714,7 @@ export default function GDRGManagement() {
               </div>
             </div>
             <div className="border-t border-[var(--border-color)] p-3 flex gap-3">
-              <button onClick={handleLinkDiagnosis} disabled={!selectedDiagnosis} className="flex-1 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 text-sm font-medium">Link Diagnosis</button>
+              <button onClick={handleLinkDiagnosis} disabled={!selectedDiagnosis} className="flex-1 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] disabled:opacity-50 text-sm font-medium">Link Diagnosis</button>
               <button onClick={() => { setShowDiagnosisModal(false); setSelectedDiagnosis(null); setSearchDiagnosisTerm(''); }} className="flex-1 px-3 py-1.5 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm">Cancel</button>
             </div>
           </div>
@@ -745,7 +745,7 @@ export default function GDRGManagement() {
               </div>
             </div>
             <div className="border-t border-[var(--border-color)] p-3 flex gap-3">
-              <button onClick={handleLinkProcedure} disabled={!selectedProcedure} className="flex-1 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 text-sm font-medium">Link Procedure</button>
+              <button onClick={handleLinkProcedure} disabled={!selectedProcedure} className="flex-1 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] disabled:opacity-50 text-sm font-medium">Link Procedure</button>
               <button onClick={() => { setShowProcedureModal(false); setSelectedProcedure(null); setSearchProcedureTerm(''); }} className="flex-1 px-3 py-1.5 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm">Cancel</button>
             </div>
           </div>
@@ -790,7 +790,7 @@ export default function GDRGManagement() {
               </div>
               <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Notes</label><textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows={2} className="w-full p-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm" /></div>
               <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
-                <button type="submit" disabled={formLoading} className="flex-1 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50">{formLoading ? 'Saving...' : (editingItem ? 'Update Tariff' : 'Create Tariff')}</button>
+                <button type="submit" disabled={formLoading} className="flex-1 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-all text-sm font-medium disabled:opacity-50">{formLoading ? 'Saving...' : (editingItem ? 'Update Tariff' : 'Create Tariff')}</button>
                 <button type="button" onClick={handleCancel} className="flex-1 px-3 py-1.5 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium">Cancel</button>
               </div>
             </form>
@@ -807,7 +807,7 @@ export default function GDRGManagement() {
             <p className="mb-4 text-[var(--text-secondary)] text-sm">Are you sure you want to delete tariff <strong className="text-[var(--text-primary)]">{deleteConfirm}</strong>?</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-3 py-1.5 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium">Cancel</button>
-              <button onClick={handleDelete} className="flex-1 px-3 py-1.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all text-sm font-medium">Delete</button>
+              <button onClick={handleDelete} className="flex-1 px-3 py-1.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-[var(--icon-red-on-text)] transition-all text-sm font-medium">Delete</button>
             </div>
           </div>
         </div>

@@ -270,7 +270,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
             <button
               type="submit"
               disabled={busy}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors disabled:opacity-50 font-medium text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-colors disabled:opacity-50 font-medium text-sm"
             >
               <Save className="w-4 h-4" />
               <span>{busy ? 'Saving...' : 'Save Changes'}</span>

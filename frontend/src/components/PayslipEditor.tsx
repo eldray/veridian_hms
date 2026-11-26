@@ -208,7 +208,7 @@ export default function PayslipEditor({ payslipId, onClose, onSaved }: Props) {
                   <button
                     onClick={() => addLine('earning')}
                     disabled={saving}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all disabled:opacity-50"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-[var(--icon-green-on-text)] transition-all disabled:opacity-50"
                   >
                     <Plus className="w-3 h-3" /> Add
                   </button>
@@ -248,7 +248,7 @@ export default function PayslipEditor({ payslipId, onClose, onSaved }: Props) {
                   <button
                     onClick={() => addLine('deduction')}
                     disabled={saving}
-                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-white transition-all disabled:opacity-50"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-[var(--icon-red-on-text)] transition-all disabled:opacity-50"
                   >
                     <Plus className="w-3 h-3" /> Add
                   </button>
