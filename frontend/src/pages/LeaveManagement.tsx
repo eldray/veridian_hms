@@ -167,7 +167,12 @@ export default function LeaveManagement() {
   const userList = Array.isArray(users) ? users : [];
 
   const visibleLeaves = useMemo(() => {
+    // Keep the two operational views mutually exclusive. The store updates a
+    // request in place after approval/rejection, so relying only on the last
+    // server response can leave a processed request visible in Pending.
     let list = [...leaves];
+    if (view === 'pending') list = list.filter((l) => l.status === 'pending');
+    else if (view === 'history') list = list.filter((l) => l.status !== 'pending');
     if (filterType !== 'all') list = list.filter((l) => l.leaveType === filterType);
     if (filterUser !== 'all') list = list.filter((l) => l.userId === filterUser);
     if (searchQuery.trim()) {
