@@ -2084,6 +2084,7 @@ const emitEncounter = (
   dateTime: Date,
   state: { activeAdmissions: number },
   obs: MaternityPlan = {},
+  ensureDailyCoverage = false,
 ): GeneratedAttendance => {
   const index = b.attendances.length + 1;
   const key = `att-${index}`;
@@ -2113,7 +2114,7 @@ const emitEncounter = (
   const canStayOpen = encounterCategory === 'ipd' && daysBack < losGuess && state.activeAdmissions < MAX_ACTIVE_ADMISSIONS;
 
   let status: GeneratedAttendance['status'];
-  if (chance(0.006)) status = 'cancelled';
+  const randomlyCancelled = chance(0.006);\n  if (randomlyCancelled && !ensureDailyCoverage) status = 'cancelled';
   else if (encounterCategory === 'ipd') status = canStayOpen && chance(0.55) ? 'admitted' : chance(0.03) ? 'absconded' : 'discharged';
   else if (encounterCategory === 'daycase') status = daysBack === 0 && chance(0.4) ? 'pending' : 'completed';
   else if (scenario.key === 'detention') status = 'admitted';
@@ -2434,7 +2435,9 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
     const patient = pick(patients);
     const scenario = pick(scenariosFor(patient));
     const requiredDaysBack = i < DAILY_COVERAGE_DAYS ? i : undefined;
-    const att = emitEncounter(b, counters, patient, null, scenario, attendanceDate(requiredDaysBack), state);
+    const att = emitEncounter(
+      b, counters, patient, null, scenario, attendanceDate(requiredDaysBack), state, {}, i < DAILY_COVERAGE_DAYS,
+    );
     remember(att);
     const bill = b.bills[b.bills.length - 1];
     billLinesByKey.set(att.key, (bill as { lines?: GeneratedBillLinePlan[] }).lines || []);
