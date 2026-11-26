@@ -177,7 +177,7 @@ export default function Estimates() {
             </thead>
             <tbody className="text-sm">
               {isLoading && filtered.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-10 text-center text-[var(--text-tertiary)]">Loading…</td></tr>
+                <tr><td colSpan={8} className="px-4 py-6 text-center text-[var(--text-tertiary)]">Loading…</td></tr>
               )}
               {!isLoading && filtered.length === 0 && (
                 <tr><td colSpan={8} className="px-4 py-10 text-center text-[var(--text-tertiary)]">No estimates found</td></tr>
