@@ -28,7 +28,7 @@ export const EmptyPatientsState: React.FC<EmptyPatientsStateProps> = ({ searchQu
       {canRegister && !searchQuery && (
         <Link
           to="/dashboard/patients/register"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold mt-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-semibold mt-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ backgroundColor: "var(--icon-cyan-bg)", color: "var(--icon-cyan-text)", outlineColor: "var(--icon-cyan-text)" }}
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
           Register Your First Patient
