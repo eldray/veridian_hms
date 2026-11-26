@@ -51,7 +51,7 @@ const Field = ({ label, value, mono, tone = 'default' }: HeaderField) => {
   const moneyColor = isEmpty
     ? 'text-[var(--text-tertiary)]'
     : tone === 'moneyZero'
-      ? 'text-emerald-600 dark:text-emerald-400'
+      ? 'text-[var(--icon-green-text)]'
       : 'text-[var(--text-primary)]';
 
   return (

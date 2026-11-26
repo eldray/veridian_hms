@@ -15,28 +15,28 @@ export const AttendanceDetailsHeader: React.FC<AttendanceDetailsHeaderProps> = (
   onBack
 }) => {
   return (
-    <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-xl p-4 text-white shadow-md">
+    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-3 sm:p-4 text-[var(--text-primary)] shadow-sm">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="p-2 hover:bg-white/20 rounded-lg transition-all duration-200"
+            className="p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
             title="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold">
+            <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)]">
               {currentAttendance.attendanceNumber || `ATT-${currentAttendance._id?.slice(-8)}`}
             </h1>
-            <p className="text-blue-100 text-sm mt-0.5">
+            <p className="text-[var(--text-secondary)] text-xs sm:text-sm mt-0.5">
               {patient?.fullName || `Patient ${currentAttendance.patientId?.toString().slice(-6) || 'Unknown'}`} • {new Date(currentAttendance.dateTime).toLocaleDateString()}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {canEdit && (
-            <button className="flex items-center gap-1.5 px-3 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-all duration-200 border border-white/20 font-semibold text-sm">
+            <button className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-subtle)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-hover)] transition-colors border border-[var(--border-color)] font-semibold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]">
               <Edit className="w-4 h-4" />
               <span>Edit Record</span>
             </button>
