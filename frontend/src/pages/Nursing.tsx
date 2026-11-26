@@ -63,17 +63,17 @@ const PatientTypeBadge: React.FC<{ attendance: any; admission: any; size?: 'sm' 
   const iconCls = size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3';
 
   if (cat === 'daycase') return (
-    <span className={`inline-flex items-center rounded-full font-semibold bg-purple-100 text-purple-700 border border-purple-200 ${cls}`}>
+    <span className={`inline-flex items-center rounded-full font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--icon-purple-text)] ${cls}`}>
       <Sun className={iconCls} /> Day Surgery
     </span>
   );
   if (admType === 'detention_observation') return (
-    <span className={`inline-flex items-center rounded-full font-semibold bg-orange-100 text-orange-700 border border-orange-200 ${cls}`}>
+    <span className={`inline-flex items-center rounded-full font-semibold bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border border-[var(--icon-yellow-text)] ${cls}`}>
       <Moon className={iconCls} /> Observation
     </span>
   );
   if (cat === 'ipd') return (
-    <span className={`inline-flex items-center rounded-full font-semibold bg-blue-100 text-blue-700 border border-blue-200 ${cls}`}>
+    <span className={`inline-flex items-center rounded-full font-semibold bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border border-[var(--icon-blue-text)] ${cls}`}>
       <Hospital className={iconCls} /> IPD
     </span>
   );
@@ -86,10 +86,10 @@ const PaymentBadge: React.FC<{ mode?: string; size?: 'sm' | 'md' }> = ({ mode, s
     : 'px-2.5 py-1 text-xs';
 
   const map: Record<string, { label: string; cls: string }> = {
-    nhis: { label: 'NHIS', cls: 'bg-green-100 text-green-700 border-green-200' },
-    private_insurance: { label: 'PVT INS', cls: 'bg-purple-100 text-purple-700 border-purple-200' },
-    corporate: { label: 'CORP', cls: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
-    cash: { label: 'CASH', cls: 'bg-gray-100 text-gray-700 border-gray-200' },
+    nhis: { label: 'NHIS', cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]' },
+    private_insurance: { label: 'PVT INS', cls: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-text)]' },
+    corporate: { label: 'CORP', cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-text)]' },
+    cash: { label: 'CASH', cls: 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]' },
   };
   const cfg = map[mode || 'cash'] || map.cash;
 
@@ -113,10 +113,10 @@ const VitalPill: React.FC<{ label: string; value?: string | number; unit?: strin
   label, value, unit, status,
 }) => {
   const colorMap = {
-    ok: 'bg-green-50 text-green-700 border-green-100',
-    warn: 'bg-yellow-50 text-yellow-700 border-yellow-100',
-    critical: 'bg-red-50 text-red-700 border-red-100',
-    none: 'bg-gray-50 text-gray-400 border-gray-100',
+    ok: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]',
+    warn: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-text)]',
+    critical: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]',
+    none: 'bg-[var(--bg-main)] text-[var(--text-tertiary)] border-[var(--border-color)]',
   };
   return (
     <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-medium ${colorMap[status]}`}>
@@ -131,9 +131,9 @@ type CareGroup = 'ipd' | 'daycase' | 'observation';
 
 // Compact per-vital cell for the list table: value only, colored by clinical status.
 const vitalTextCls: Record<'ok' | 'warn' | 'critical' | 'none', string> = {
-  ok: 'text-green-700',
-  warn: 'text-yellow-600',
-  critical: 'text-red-600 font-bold',
+  ok: 'text-[var(--icon-green-text)]',
+  warn: 'text-[var(--icon-yellow-text)]',
+  critical: 'text-[var(--icon-red-text)] font-bold',
   none: 'text-[var(--text-tertiary)]',
 };
 
@@ -509,7 +509,7 @@ export default function Nursing() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm font-semibold text-[var(--text-primary)]">Loading Nursing Station…</p>
         </div>
       </div>
@@ -636,7 +636,7 @@ export default function Nursing() {
               <button
                 key={id}
                 onClick={() => navigate(`/dashboard/nursing/patient/${id}`)}
-                className="text-left bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:border-teal-500 hover:shadow-lg transition-all overflow-hidden group flex flex-col"
+                className="text-left bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:border-[var(--icon-cyan-text)] hover:shadow-lg transition-all overflow-hidden group flex flex-col"
               >
                 {/* Header */}
                 <div className="flex items-start gap-3 p-4 pb-3">
@@ -649,7 +649,7 @@ export default function Nursing() {
                       fallbackClassName="text-[var(--icon-cyan-text)]"
                     />
                     {badges.alerts > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-[var(--bg-card)] animate-pulse">
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-[var(--icon-red-bg)]0 text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-[var(--bg-card)] animate-pulse">
                         {badges.alerts}
                       </span>
                     )}
@@ -721,13 +721,13 @@ export default function Nursing() {
                 {/* Badges row */}
                 <div className="px-4 pb-4 flex items-center gap-3 flex-wrap border-t border-[var(--border-color)] pt-3 mt-auto">
                   <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                    badges.alerts > 0 ? 'text-red-600' : 'text-[var(--text-tertiary)]'
+                    badges.alerts > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-tertiary)]'
                   }`}>
                     <AlertTriangle className="w-3.5 h-3.5" />
                     {badges.alerts} alert{badges.alerts !== 1 ? 's' : ''}
                   </span>
                   <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                    badges.medsDue > 0 ? 'text-yellow-600' : 'text-[var(--text-tertiary)]'
+                    badges.medsDue > 0 ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--text-tertiary)]'
                   }`}>
                     <Pill className="w-3.5 h-3.5" />
                     {badges.medsDue} due
@@ -745,7 +745,7 @@ export default function Nursing() {
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-2.5 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between text-xs font-semibold text-teal-600 group-hover:bg-teal-50 transition-colors">
+                <div className="px-4 py-2.5 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between text-xs font-semibold text-[var(--icon-cyan-text)] group-hover:bg-[var(--icon-cyan-bg)] transition-colors">
                   Open patient workspace
                   <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                 </div>
@@ -817,7 +817,7 @@ export default function Nursing() {
                               fallbackClassName="text-[var(--icon-cyan-text)]"
                             />
                             {badges.alerts > 0 && (
-                              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-[var(--bg-card)]">
+                              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--icon-red-bg)]0 text-white rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-[var(--bg-card)]">
                                 {badges.alerts}
                               </span>
                             )}
@@ -863,16 +863,16 @@ export default function Nursing() {
                         <VitalCell value={v?.spo2} unit="%" status={getVitalStatus('spo2', v?.spo2)} />
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <CountCell n={badges.alerts} cls="text-red-600" />
+                        <CountCell n={badges.alerts} cls="text-[var(--icon-red-text)]" />
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <CountCell n={badges.medsDue} cls="text-yellow-600" />
+                        <CountCell n={badges.medsDue} cls="text-[var(--icon-yellow-text)]" />
                       </td>
                       <td className={cn(TD, 'text-center')}>
                         <CountCell n={badges.tasksPending} cls="text-cyan-600" />
                       </td>
                       <td className={cn(TD, 'text-center')}>
-                        <ChevronRight className="w-4 h-4 inline text-[var(--text-tertiary)] group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all" />
+                        <ChevronRight className="w-4 h-4 inline text-[var(--text-tertiary)] group-hover:text-[var(--icon-cyan-text)] group-hover:translate-x-0.5 transition-all" />
                       </td>
                     </tr>
                   );
