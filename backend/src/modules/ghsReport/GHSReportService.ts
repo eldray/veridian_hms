@@ -715,9 +715,9 @@ export class GHSReportService extends BaseService {
       }
     }
     const covidDoseLabels = ['COVID-19, Single Dose','COVID-19, Dose 1','COVID-19, Dose 2','COVID-19, Booster 1','COVID-19, Booster 2','COVID-19, Booster 3','COVID-19, Booster 4'];
-    const covidVaccinations = covidDoseLabels.map(label => ({ dose: label, age6MonthsTo14Years: 0, age15To17Years: 0, age18To59Years: 0, age60Plus: 0, totalDoses: 0, underlyingConditions: 0, healthWorkers: 0, pregnantWomen: 0 }));
+    const covidVaccinations = covidDoseLabels.map(label => ({ dose: label, age6MonthsTo14Years: 0, age15To17Years: 0, age18To59Years: 0, age60Plus: 0, totalDoses: 0, underlyingConditions: 0, underlyingConditionReported: 0, healthWorkers: 0, healthWorkerReported: 0, pregnantWomen: 0, pregnancyStatusReported: 0 }));
     const tdVaccinationLabels = ['Td-1','Td-2','Td-3','Td-4','Td-5'];
-    const tdVaccinations = tdVaccinationLabels.map(dose => ({ dose, pregnantWomen: 0, nonPregnant: 0, others: 0 }));
+    const tdVaccinations = tdVaccinationLabels.map(dose => ({ dose, pregnantWomen: 0, nonPregnant: 0, others: 0, pregnancyStatusReported: 0 }));
     for (const record of records) {
       const vaccineDescriptor = String(record.Vaccine.code + ' ' + record.Vaccine.name);
       const text = normalize(vaccineDescriptor);
@@ -737,15 +737,16 @@ export class GHSReportService extends BaseService {
           else if (years < 60) row.age18To59Years++;
           else row.age60Plus++;
           row.totalDoses++;
-          if (record.underlyingCondition === true) row.underlyingConditions++;
-          if (record.healthWorker === true) row.healthWorkers++;
-          if (record.pregnancyStatus === 'pregnant') row.pregnantWomen++;
+          if (typeof record.underlyingCondition === 'boolean') { row.underlyingConditionReported++; if (record.underlyingCondition) row.underlyingConditions++; }
+          if (typeof record.healthWorker === 'boolean') { row.healthWorkerReported++; if (record.healthWorker) row.healthWorkers++; }
+          if (['pregnant', 'non_pregnant', 'not_applicable'].includes(record.pregnancyStatus || '')) { row.pregnancyStatusReported++; if (record.pregnancyStatus === 'pregnant') row.pregnantWomen++; }
         }
       }
       if (text.includes('tetanus') || text.includes('td')) {
         const n = Number((dose.match(/[1-5]/) || [])[0] || 1);
         const row = tdVaccinations.find(item => item.dose === 'Td-' + n);
         if (row) {
+          if (['pregnant', 'non_pregnant', 'not_applicable'].includes(record.pregnancyStatus || '')) row.pregnancyStatusReported++;
           if (record.pregnancyStatus === 'pregnant') row.pregnantWomen++;
           else if (record.pregnancyStatus === 'non_pregnant') row.nonPregnant++;
           else if (record.pregnancyStatus === 'not_applicable') row.others++;
