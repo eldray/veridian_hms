@@ -30,6 +30,7 @@ interface LeaveFilters {
   userId?: string;
   departmentId?: string;
   status?: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  statuses?: string;
   fromDate?: string;
   toDate?: string;
   page?: number;

@@ -154,7 +154,7 @@ export default function LeaveManagement() {
 
   const reload = () => {
     if (view === 'pending') void fetchLeaves({ status: 'pending', limit: 200 });
-    else if (view === 'history') void fetchLeaves({ limit: 200 });
+    else if (view === 'history') void fetchLeaves({ statuses: 'approved,rejected,cancelled', limit: 5000 });
     else {
       const from = new Date(year, 0, 1).toISOString();
       const to = new Date(year, 11, 31, 23, 59, 59).toISOString();

@@ -850,11 +850,12 @@ async presetPayslipForStaff(
   // ==========================================
 
   async findAllLeaves(filters: LeaveFilters = {}): Promise<{ leaves: LeaveResponse[]; total: number }> {
-    const { userId, departmentId, status, fromDate, toDate, page = 1, limit = 1000 } = filters;
+    const { userId, departmentId, status, statuses, fromDate, toDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (userId) where.staff = { userId };
-    if (status) where.status = status;
+    if (statuses?.length) where.status = { in: statuses };
+    else if (status) where.status = status;
     if (departmentId) where.staff = { ...(where.staff || {}), departmentId };
 
     if (fromDate || toDate) {
