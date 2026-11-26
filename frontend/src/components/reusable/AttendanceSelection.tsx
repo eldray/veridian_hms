@@ -36,9 +36,9 @@ export const AttendanceSelection: React.FC<AttendanceSelectionProps> = ({
   const selectedAttendance = patientAttendances.find((a) => getEntityId(a) === selectedAttendanceId);
 
   return (
-    <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-4">
+    <div className="bg-[var(--bg-card)] rounded-lg shadow-sm border border-[var(--border-color)] p-3">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2 text-[var(--text-primary)]">
+        <h2 className="text-base font-semibold flex items-center gap-2 text-[var(--text-primary)]">
           <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
           Select Attendance
         </h2>
@@ -61,7 +61,7 @@ export const AttendanceSelection: React.FC<AttendanceSelectionProps> = ({
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="relative">
             <select
               value={selectedAttendanceId}
