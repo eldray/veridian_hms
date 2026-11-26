@@ -90,3 +90,10 @@ export const RecordDoseVarianceSchema = z.object({
   reason: longText(500).optional(),
   notes: longText(2000).optional(),
 });
+
+export const AdministerPrnMedicationSchema = z.object({
+  doseAmount: z.number().positive().finite(),
+  doseUnit: z.string().trim().min(1).max(24),
+  reason: z.string().trim().min(1).max(240),
+  administeredAt: isoDate.optional(),
+});
