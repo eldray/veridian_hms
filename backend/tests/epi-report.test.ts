@@ -41,4 +41,18 @@ describe('GHS EPI report', () => {
     expect(result.tdVaccinations).toHaveLength(5);
     expect(result.coverage).toBeNull();
   });
+
+  it('counts COVID risk groups and Td pregnancy status only from explicit record values', async () => {
+    const administeredAt = new Date('2026-11-10T10:00:00.000Z');
+    const patient = { id: 'p1', dateOfBirth: new Date('1988-01-01T00:00:00.000Z'), gender: 'female' };
+    const findMany = vi.fn().mockResolvedValue([
+      { patientId:'p1', vaccineId:'covid', doseNumber:'Booster 1', administeredAt, nextDoseDue:null, batchNumber:null, adverseReaction:null, underlyingCondition:true, healthWorker:true, pregnancyStatus:'pregnant', Vaccine:{id:'covid',code:'COVID19',name:'COVID-19 vaccine',diseaseTargets:[],doseSchedule:null}, Patient:patient },
+      { patientId:'p1', vaccineId:'td', doseNumber:'Td-2', administeredAt, nextDoseDue:null, batchNumber:null, adverseReaction:null, underlyingCondition:null, healthWorker:null, pregnancyStatus:'non_pregnant', Vaccine:{id:'td',code:'TD',name:'Tetanus diphtheria',diseaseTargets:[],doseSchedule:null}, Patient:patient },
+    ]);
+    const service = new GHSReportService({ immunizationRecord:{findMany}, ePIMonthlyReturn:{findFirst:vi.fn().mockResolvedValue(null)} } as any);
+    const result = await service.getEPIStats(new Date('2026-11-01T00:00:00.000Z'), new Date('2026-11-30T23:59:59.999Z'));
+    expect(result.covidVaccinations.find((row:any)=>row.dose==='COVID-19, Booster 1')).toMatchObject({ totalDoses:1, underlyingConditions:1, healthWorkers:1, pregnantWomen:1 });
+    expect(result.tdVaccinations.find((row:any)=>row.dose==='Td-2')).toMatchObject({ pregnantWomen:0, nonPregnant:1, others:0 });
+  });
+
 });
