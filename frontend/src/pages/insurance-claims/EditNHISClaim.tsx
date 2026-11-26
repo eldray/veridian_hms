@@ -1702,7 +1702,7 @@ export default function EditNHISClaim() {
         title="Update Claim"
         subtitle={`${currentClaim?.claimNumber ?? ''} · NHIS`}
         status={
-          <span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+          <span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'}`}>
             {isDraft ? 'DRAFT' : 'FINALIZED'}
           </span>
         }
@@ -1727,7 +1727,7 @@ export default function EditNHISClaim() {
                 <UField label="Folder No." value={memberFormData.folderNumber} onChange={v => setMemberFormData({ ...memberFormData, folderNumber: v })} />
                 <div>
                   <label className="block text-[11px] text-[var(--text-tertiary)] mb-0.5">Gender</label>
-                  <select value={memberFormData.gender} onChange={e => setMemberFormData({ ...memberFormData, gender: e.target.value })} className="w-full border-b border-dotted border-gray-400 bg-transparent py-1.5 text-[15px] text-[var(--text-secondary)] focus:outline-none">
+                  <select value={memberFormData.gender} onChange={e => setMemberFormData({ ...memberFormData, gender: e.target.value })} className="w-full border-b border-dotted border-[var(--border-color)] bg-transparent py-1.5 text-[15px] text-[var(--text-secondary)] focus:outline-none">
                     <option value="">Select</option>
                     <option value="male">MALE</option>
                     <option value="female">FEMALE</option>
@@ -1852,8 +1852,8 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(pr.lineTotal)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => setEditing({ kind: 'procedure', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
-                      <button type="button" onClick={() => removeProcedure(idx)} className="text-red-400 hover:text-red-600">
+                      <button type="button" onClick={() => setEditing({ kind: 'procedure', index: idx })} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeProcedure(idx)} className="text-[var(--icon-red-text)] hover:opacity-80">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -1886,14 +1886,14 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-[var(--text-primary)]">
                     {d.diagnosis}
                     {d.diagnosisType === 'primary'
-                      ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 align-middle">PRIMARY</span>
-                      : isDraft && <button type="button" onClick={() => setPrimaryDiagnosis(idx)} className="ml-2 text-[11px] text-blue-600 hover:underline">set primary</button>}
+                      ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] align-middle">PRIMARY</span>
+                      : isDraft && <button type="button" onClick={() => setPrimaryDiagnosis(idx)} className="ml-2 text-[11px] text-[var(--icon-cyan-text)] hover:underline">set primary</button>}
                   </td>
                   <td className="px-3 py-3 text-[var(--text-primary)]">{d.icd10}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => setEditing({ kind: 'diagnosis', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
-                      <button type="button" onClick={() => removeDiagnosis(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => setEditing({ kind: 'diagnosis', index: idx })} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeDiagnosis(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button>
                     </td>
                   )}
                 </tr>
@@ -1926,8 +1926,8 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(inv.lineTotal)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => setEditing({ kind: 'investigation', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
-                      <button type="button" onClick={() => removeInvestigation(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => setEditing({ kind: 'investigation', index: idx })} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeInvestigation(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button>
                     </td>
                   )}
                 </tr>
@@ -1958,7 +1958,7 @@ export default function EditNHISClaim() {
                     {m.description}
                     {m.prescription && <div className="text-[10px] italic text-[var(--text-tertiary)] mt-0.5">Rx: {m.prescription}</div>}
                     {nhisQuotes.length > 0 && !claimableCodes.has(String(m.code)) && (
-                      <div className="text-[10px] text-red-600 mt-0.5">Not on this visit&apos;s NHIS medicine list — remove the line or the save refuses it.</div>
+                      <div className="text-[10px] text-[var(--icon-red-text)] mt-0.5">Not on this visit&apos;s NHIS medicine list — remove the line or the save refuses it.</div>
                     )}
                   </td>
                   <td className="px-3 py-3 text-[var(--text-primary)]">{m.quantity}</td>
@@ -1967,8 +1967,8 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{moneyCell(m.lineTotal)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => setEditing({ kind: 'medicine', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
-                      <button type="button" onClick={() => removeMedicine(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => setEditing({ kind: 'medicine', index: idx })} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeMedicine(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button>
                     </td>
                   )}
                 </tr>
@@ -1992,12 +1992,12 @@ export default function EditNHISClaim() {
               <label className="block text-[11px] text-[var(--text-tertiary)] mb-0.5">Select Principal GDRG</label>
               <SearchableGDRGSelect value={principalGDRG} onChange={handlePrincipalGDRGChange} options={availableGDRGs} disabled={locked} placeholder="Search GDRG by code or description..." />
               {encounterAgeYears == null ? (
-                <p className="text-xs text-amber-700 mt-1">Enter the patient’s date of birth and service date to filter G-DRGs by age.</p>
+                <p className="text-xs text-[var(--icon-yellow-text)] mt-1">Enter the patient’s date of birth and service date to filter G-DRGs by age.</p>
               ) : (
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">Tariffs filtered for age {encounterAgeYears} on the service date.</p>
               )}
               {principalGDRGAgeInvalid && (
-                <p className="text-xs text-red-600 mt-1">The saved principal G-DRG is outside this patient’s age range. Choose an eligible tariff before saving.</p>
+                <p className="text-xs text-[var(--icon-red-text)] mt-1">The saved principal G-DRG is outside this patient’s age range. Choose an eligible tariff before saving.</p>
               )}
               <p className="text-[15px] text-[var(--text-primary)] mt-3">{principalGDRGDescription}</p>
               {principalGDRG ? (
@@ -2072,7 +2072,7 @@ export default function EditNHISClaim() {
             <ClaimItStatusNote status={claimitStatus} />
             {claimitHeld.length > 0 && <ClaimItHeldBack held={claimitHeld} />}
             {claimitHistoryError
-              ? <p className="text-[12px] text-red-600 mt-2">{claimitHistoryError}</p>
+              ? <p className="text-[12px] text-[var(--icon-red-text)] mt-2">{claimitHistoryError}</p>
               : <div className="mt-2"><ClaimItSubmissionHistory submissions={claimitHistory} /></div>}
           </ClaimCard>
         )}
