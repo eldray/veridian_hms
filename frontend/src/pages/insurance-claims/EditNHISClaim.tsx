@@ -1739,7 +1739,7 @@ export default function EditNHISClaim() {
               </div>
               <div className="flex justify-end gap-2 mt-4">
                 <button type="button" onClick={() => setIsEditingMember(false)} className="px-4 py-1.5 border border-[var(--border-color)] rounded text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)]">Cancel</button>
-                <button type="button" onClick={handleMemberSave} disabled={isSavingMember} className="px-4 py-1.5 border rounded text-sm disabled:opacity-50" style={{ borderColor: '#4a7ca8', color: '#3a6a96' }}>
+                <button type="button" onClick={handleMemberSave} disabled={isSavingMember} className="px-4 py-1.5 border border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] rounded text-sm hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50 transition-colors">
                   {isSavingMember ? 'Saving…' : 'Save member'}
                 </button>
               </div>
