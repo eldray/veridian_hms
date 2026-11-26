@@ -148,7 +148,7 @@ export default function Inventory() {
           </div>
         </div>
         {isLoading ? (<LoadingSkeleton />) : filteredItems.length === 0 ? (
-          <div className="py-12 text-center">
+          <div className="py-8 text-center">
             <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4"><Package className="w-8 h-8 text-[var(--text-tertiary)]" /></div>
             <p className="text-[var(--text-secondary)] text-sm mb-1">{searchQuery ? 'No items match your search' : 'No stock items found'}</p>
             {canManageStock && !searchQuery && (<Link to="/dashboard/stock" className="inline-flex items-center gap-2 mt-3 text-[var(--icon-cyan-text)] hover:opacity-80 font-medium text-sm transition-colors"><Plus className="w-4 h-4" />Add your first item</Link>)}
