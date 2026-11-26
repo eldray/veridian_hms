@@ -6,6 +6,7 @@ import { protect, requireRole } from '../../middleware/authMiddleware';
 import { validateBody } from '../../middleware/validate';
 import {
   AdministerDoseSchema,
+  AdministerPrnMedicationSchema,
   CreateNursingNoteSchema,
   CreateNursingTaskSchema,
   RecordDoseVarianceSchema,
@@ -40,6 +41,7 @@ export function createNursingRoutes(prisma: PrismaClient): Router {
 
   router.post('/doses/preview-schedule', requireRole(WRITERS), controller.previewSchedule);
   router.post('/doses/:id/administer', requireRole(WRITERS), validateBody(AdministerDoseSchema), controller.administerDose);
+  router.post('/medications/:medicationId/prn-administer', requireRole(WRITERS), validateBody(AdministerPrnMedicationSchema), controller.administerPrnMedication);
   router.post('/doses/:id/variance', requireRole(WRITERS), validateBody(RecordDoseVarianceSchema), controller.recordVariance);
 
   // ═══════════════════════════════════════════════════════════
