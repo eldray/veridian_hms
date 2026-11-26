@@ -1,8 +1,7 @@
 import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/Reports.tsx
 // Consistency fixes vs pasted version:
-//  - Consulting Room Register: was entries.slice(0,100) + "Showing 100 of N" — rows 101+
-//    were unreachable. Now shared Pagination, safePage, page resets on report/date change.
+//  - Consulting Room Register: all returned rows stay inside a fixed-height scroll viewport.
 //  - Header: custom Back + title div -> shared PageHeader (onBack, actions), like every
 //    other page. Export/Refresh actions preserved, still hidden for shell reports.
 //  - Removed unused imports (Badge, Button, FilterSelect, INPUT) that would fail lint/TS.
@@ -42,8 +41,6 @@ import { useSmartBack } from '../utils/useSmartBack';
 //           used to fire a request. Shell path is unaffected (it short-circuits).
 //  FIX #8   ReportShape carries no icon/color, so all shell pills share one icon by
 //           design — commented rather than changed.
-//  FIX #34  safePage could drift below registerPage after data shrank; a small effect
-//           writes safePage back so Pagination and the raw state cannot disagree.
 //  FIX #58  Refresh is hidden for shell reports on purpose: GenericReportPage owns
 //           its own Reload button. Commented.
 //  FIX #9   Sections 5/6/7 of the Form A morbidity table were passed an empty label
