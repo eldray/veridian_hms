@@ -217,7 +217,9 @@ export default function UserManagement() {
     } catch (err: any) {
       toastError('Could not load reset requests', err?.response?.data?.message || 'Please refresh and try again.');
     } finally {
-      setResetRequestsLoading(false);    }  };
+      setResetRequestsLoading(false);
+    }
+  };
 
   const reviewPasswordReset = async (requestId: string, decision: 'approve' | 'reject') => {
     try {
@@ -437,7 +439,8 @@ export default function UserManagement() {
         ))}
       </div>
 
-      {/* Responsive tabs: equal-width cells on desktop, tidy wrapping on narrow screens */}      <div role="tablist" aria-label="User management sections" className="grid w-full grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-2">
+      {/* Responsive tabs: equal-width cells on desktop, tidy wrapping on narrow screens */}
+      <div role="tablist" aria-label="User management sections" className="grid w-full grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-2">
         {[
           { id: 'directory' as TabId, label: 'Directory', icon: Users },
           { id: 'payslips' as TabId, label: 'Payslips', icon: DollarSign },
@@ -658,6 +661,7 @@ export default function UserManagement() {
           )}
         </div>
       )}
+
       {/* ══════════ SHIFTS (from old Settings tab — was cards, now a table) ══════════ */}
       {activeTab === 'shifts' && (
         <>
