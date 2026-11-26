@@ -664,6 +664,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
 
   const maxQuantity = selectedItem?.quantity ?? 0;
   const unitPrice = selectedItem?.unitPrice ?? (editing?.unitPrice ?? 0);
+  const selectedStrength = (selectedItem as any)?.strength || selectedItem?.description?.match(/\\b\\d+(?:\\.\\d+)?\\s*(?:mcg|μg|ug|mg|g|iu|units?)(?:\\s*(?:\\/|per)\\s*\\d+(?:\\.\\d+)?\\s*ml)?/i)?.[0];
 
   const filtered = options.filter(item =>
     item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -727,7 +728,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
               <input type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
             </div>
           </div>
-          <PrescriptionFields value={prescription} onChange={setPrescription} strength={(selectedItem as any)?.strength} />
+          <PrescriptionFields value={prescription} onChange={setPrescription} strength={selectedStrength} />
           <div className="max-h-48 overflow-y-auto space-y-1">
             <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
             {filtered.length === 0 && (
