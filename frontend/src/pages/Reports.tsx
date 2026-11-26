@@ -126,7 +126,7 @@ const CATEGORIES: { id: ReportsTab; label: string; icon: typeof FileText }[] = [
 ];
 
 const EmptyState = ({ message }: { message: string }) => (
-  <div className="flex flex-col items-center justify-center py-16 gap-3">
+  <div className="flex flex-col items-center justify-center py-8 gap-3">
     <FileText className="w-10 h-10 opacity-20 text-[var(--text-tertiary)]" />
     <p className="text-xs text-[var(--text-tertiary)]">{message}</p>
     <p className="text-[11px] text-[var(--text-tertiary)] opacity-70">Try a different report type or date range</p>

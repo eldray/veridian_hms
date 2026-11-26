@@ -320,7 +320,7 @@ export default function Departments() {
           {[1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] flex flex-col items-center justify-center py-16 gap-3">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] flex flex-col items-center justify-center py-8 gap-3">
           <div className="w-14 h-14 rounded-2xl bg-[var(--bg-main)] flex items-center justify-center">
             <Building className="w-7 h-7 text-[var(--text-tertiary)] opacity-40" />
           </div>
