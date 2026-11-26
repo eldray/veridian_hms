@@ -102,6 +102,7 @@ export interface StockRow {
   isMedication: boolean;
   currentStock: number;
   costPrice: number;
+  unitOfMeasure: string;
 }
 
 export interface BatchRow {
@@ -273,7 +274,7 @@ export const buildLookups = async (): Promise<Lookups> => {
     prisma.procedureTemplate.findMany({ select: { id: true, procedureCode: true, name: true, category: true, duration: true } }),
     prisma.diagnosis.findMany({ select: { id: true, icdCode: true, name: true } }),
     prisma.stockItem.findMany({
-      select: { id: true, name: true, category: true, drugCode: true, isMedication: true, currentStock: true, costPrice: true },
+      select: { id: true, name: true, category: true, drugCode: true, isMedication: true, currentStock: true, costPrice: true, unitOfMeasure: true },
       orderBy: { name: 'asc' },
     }),
     prisma.stockBatch.findMany({
@@ -446,7 +447,7 @@ export const buildLookups = async (): Promise<Lookups> => {
 
   const medicationStock = stockItems.filter((s) => s.isMedication).map((s) => ({
     id: s.id, name: s.name, category: s.category, drugCode: s.drugCode,
-    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice),
+    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice), unitOfMeasure: s.unitOfMeasure,
   }));
   const consumableStock = stockItems.filter((s) => !s.isMedication).map((s) => ({
     id: s.id, name: s.name, category: s.category, drugCode: s.drugCode,
