@@ -568,7 +568,7 @@ export default function Departments() {
                 <button
                   onClick={handleAssignHead}
                   disabled={!selectedUserId}
-                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-[var(--icon-yellow-on-text)] hover:opacity-90 disabled:opacity-50 transition-all"
                 >
                   Assign as Head
                 </button>
@@ -746,7 +746,7 @@ export default function Departments() {
                           <div
                             className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                               isHead
-                                ? 'bg-[var(--icon-yellow-text)] text-white'
+                                ? 'bg-[var(--icon-yellow-text)] text-[var(--icon-yellow-on-text)]'
                                 : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
                             }`}
                           >
@@ -760,7 +760,7 @@ export default function Departments() {
                               </p>
                               {staff.seniority && <SeniorityBadge seniority={staff.seniority} />}
                               {isHead && (
-                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--icon-yellow-text)] text-white">
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--icon-yellow-text)] text-[var(--icon-yellow-on-text)]">
                                   HEAD
                                 </span>
                               )}
