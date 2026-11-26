@@ -1,8 +1,7 @@
 import { useSmartBack } from '../utils/useSmartBack';
 // src/pages/Reports.tsx
 // Consistency fixes vs pasted version:
-//  - Consulting Room Register: was entries.slice(0,100) + "Showing 100 of N" — rows 101+
-//    were unreachable. Now shared Pagination, safePage, page resets on report/date change.
+//  - Consulting Room Register: all returned rows stay inside a fixed-height scroll viewport.
 //  - Header: custom Back + title div -> shared PageHeader (onBack, actions), like every
 //    other page. Export/Refresh actions preserved, still hidden for shell reports.
 //  - Removed unused imports (Badge, Button, FilterSelect, INPUT) that would fail lint/TS.
@@ -42,8 +41,6 @@ import { useSmartBack } from '../utils/useSmartBack';
 //           used to fire a request. Shell path is unaffected (it short-circuits).
 //  FIX #8   ReportShape carries no icon/color, so all shell pills share one icon by
 //           design — commented rather than changed.
-//  FIX #34  safePage could drift below registerPage after data shrank; a small effect
-//           writes safePage back so Pagination and the raw state cannot disagree.
 //  FIX #58  Refresh is hidden for shell reports on purpose: GenericReportPage owns
 //           its own Reload button. Commented.
 //  FIX #9   Sections 5/6/7 of the Form A morbidity table were passed an empty label
@@ -226,8 +223,6 @@ export default function Reports() {
   const [patientBillingSearch, setPatientBillingSearch] = useState('');
   const [expandedBillingRow, setExpandedBillingRow] = useState<string | null>(null);
   const [billingPage, setBillingPage] = useState(1);
-  const [registerPage, setRegisterPage] = useState(1);
-  const [registerPageSize, setRegisterPageSize] = useState(50);
   const [deliveryPage, setDeliveryPage] = useState(1);
   const [deliveryPageSize, setDeliveryPageSize] = useState(10);
   // FIX #50 — remember whether the user has deliberately picked a category, so the
@@ -322,16 +317,7 @@ export default function Reports() {
   }, [runLoadReport]);
 
   useEffect(() => { loadReport(); return () => { if (loadDebounce.current) clearTimeout(loadDebounce.current); }; }, [loadReport]);
-  useEffect(() => { setRegisterPage(1); setDeliveryPage(1); setPatientsSeenPage(1); }, [reportType, dateRange.start, dateRange.end]);
-  // FIX #34 — write safePage back so Pagination and the raw state cannot drift.
-  // (The drift only happens when a report shrank under the current page.)
-  useEffect(() => {
-    const report: any = consultingRoomRegister;
-    if (!report) return;
-    const totalPages = Math.max(1, Math.ceil((report.entries?.length ?? 0) / registerPageSize));
-    if (registerPage > totalPages) setRegisterPage(totalPages);
-  }, [consultingRoomRegister, registerPageSize, registerPage]);
-
+  useEffect(() => { setDeliveryPage(1); setPatientsSeenPage(1); }, [reportType, dateRange.start, dateRange.end]);
   const getActiveReport = () => {
     const map: Record<string, any> = {
       'monthly-overview': monthlyOverview, 'patient-billing-register': patientBillingReport, 'patients-seen-by-staff': patientsSeenReport,
@@ -400,9 +386,6 @@ export default function Reports() {
     const report = consultingRoomRegister as any;
     if (!report) return <EmptyState message="No consulting room register data available" />;
     const entries = report.entries || [];
-    const totalPages = Math.max(1, Math.ceil(entries.length / registerPageSize));
-    const safePage = Math.min(registerPage, totalPages);
-    const paginated = entries.slice((safePage - 1) * registerPageSize, safePage * registerPageSize);
 
     // GHS consulting-room line-list: keep the full register fields visible.
     // Long investigations, results and medication names must wrap, never truncate.
@@ -419,20 +402,28 @@ export default function Reports() {
       { key: 'telephone', label: 'Telephone', width: 'min-w-[115px]', render: (e: any) => e.telephone || '—' },
       { key: 'age', label: 'Age', width: 'min-w-[55px]', render: (e: any) => e.age ?? '—' },
       { key: 'sex', label: 'Sex', width: 'min-w-[55px]', render: (e: any) => String(e.sex || '').toLowerCase() === 'male' ? 'M' : String(e.sex || '').toLowerCase() === 'female' ? 'F' : '—' },
-      { key: 'provisionalDiagnosis', label: 'ProvDiag', width: 'min-w-[180px]', render: (e: any) => e.provisionalDiagnosis || '—' },
+      { key: 'provisionalDiagnosis', label: 'Provisional Diagnosis', width: 'min-w-[200px]', render: (e: any) => e.provisionalDiagnosis || '—' },
+      {
+        key: 'diagnoses',
+        label: 'Diagnoses (Final & Additional)',
+        width: 'min-w-[260px]',
+        render: (e: any) => {
+          const finalDiagnosis = e.principalDiagnosis || '';
+          const additionalDiagnoses = e.additionalDiagnosis || '';
+          const parts = [
+            finalDiagnosis ? `Final: ${finalDiagnosis}` : '',
+            additionalDiagnoses ? `Additional: ${additionalDiagnoses}` : '',
+          ].filter(Boolean);
+          return parts.length ? parts.join('; ') : '—';
+        },
+      },
       { key: 'labTestsRequested', label: 'LabTests', width: 'min-w-[220px]', render: (e: any) => e.labTestsRequested || '—' },
       { key: 'labResults', label: 'LabResult', width: 'min-w-[240px]', render: (e: any) => e.labResults || '—' },
-      { key: 'principalDiagnosis', label: 'PnpalDiag', width: 'min-w-[200px]', render: (e: any) => e.principalDiagnosis || '—' },
-      { key: 'newDiagnosis', label: 'NewDiag', width: 'min-w-[180px]', render: (e: any) => e.newDiagnosis || '—' },
-      { key: 'oldDiagnosis', label: 'OldDiag', width: 'min-w-[180px]', render: (e: any) => e.oldDiagnosis || '—' },
-      { key: 'additionalDiagnosis', label: 'AddDiag', width: 'min-w-[180px]', render: (e: any) => e.additionalDiagnosis || '—' },
-      { key: 'newAdditionalDiagnosis', label: 'NewAddDiag', width: 'min-w-[180px]', render: (e: any) => e.newAdditionalDiagnosis || '—' },
-      { key: 'oldAdditionalDiagnosis', label: 'OldAddDiag', width: 'min-w-[180px]', render: (e: any) => e.oldAdditionalDiagnosis || '—' },
       { key: 'pregnant', label: 'Pregnant', width: 'min-w-[85px]', render: (e: any) => e.pregnant ? 'Y' : 'N' },
       { key: 'isNHIS', label: 'IsNHIS', width: 'min-w-[75px]', render: (e: any) => e.isNHIS ? 'Y' : 'N' },
       { key: 'drugsPrescribed', label: 'DrugPresc', width: 'min-w-[280px]', render: (e: any) => e.drugsPrescribed || '—' },
       { key: 'drugsGiven', label: 'DrugGiven', width: 'min-w-[280px]', render: (e: any) => e.drugsGiven || '—' },
-      { key: 'attendanceId', label: 'AttendanceID', width: 'min-w-[150px]', render: (e: any) => e.attendanceId || '—' },
+      { key: 'attendanceNumber', label: 'Attendance No.', width: 'min-w-[140px]', render: (e: any) => e.attendanceNumber || '—' },
     ];
 
     return (
@@ -444,8 +435,13 @@ export default function Reports() {
           <StatCard label="Pregnant Women" value={(report.summary?.pregnantWomen || 0).toLocaleString()} icon={Baby} accent="cyan" />
         </div>
         <Card title="Consulting Room Register" description={`${dateRange.start} → ${dateRange.end} · Standard GHS line-list · ${entries.length.toLocaleString()} records`} icon={ClipboardList} padded={false}>
-          <div className="overflow-x-auto">
-            <div className="max-h-[70vh] overflow-auto" style={{ scrollbarWidth: 'thin' }}>
+          <div
+            className="h-[min(68vh,720px)] min-h-[320px] overflow-auto overscroll-contain"
+            style={{ scrollbarWidth: 'thin' }}
+            role="region"
+            aria-label="Consulting Room Register records"
+            tabIndex={0}
+          >
               <table className="min-w-max w-full table-auto text-xs border-collapse">
                 <thead className={cn(TH_ROW, 'sticky top-0 z-10')}>
                   <tr>
@@ -457,7 +453,7 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
-                  {paginated.map((entry: any, index: number) => (
+                  {entries.map((entry: any, index: number) => (
                     <tr key={entry.attendanceId || `${entry.patientNo}-${index}`} className={TR}>
                       {columns.map(column => (
                         <td
@@ -470,18 +466,16 @@ export default function Reports() {
                       ))}
                     </tr>
                   ))}
-                  {paginated.length === 0 && (
+                  {entries.length === 0 && (
                     <tr><td colSpan={columns.length} className="px-4 py-8 text-center text-xs text-[var(--text-tertiary)]">No consulting room entries found for this period.</td></tr>
                   )}
                 </tbody>
               </table>
-            </div>
           </div>
           <div className="border-t border-[var(--border-color)] px-3 py-2 text-[11px] text-[var(--text-tertiary)]">
-            Scroll horizontally to view all register fields. Long laboratory details, diagnoses and medicines wrap in full; they are not shortened.
+            Scroll within this register to browse records vertically and horizontally. Long laboratory details, diagnoses and medicines wrap in full; they are not shortened.
           </div>
         </Card>
-        <Pagination page={safePage} totalPages={totalPages} itemsPerPage={registerPageSize} totalItems={entries.length} noun="entries" onChange={setRegisterPage} pageSizeOptions={[10, 25, 50, 100]} onPageSizeChange={(size) => { setRegisterPageSize(size); setRegisterPage(1); }} />
       </div>
     );
   };
