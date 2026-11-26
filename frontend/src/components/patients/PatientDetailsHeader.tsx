@@ -32,7 +32,7 @@ export const PatientDetailsHeader: React.FC<PatientDetailsHeaderProps> = ({
           <div className="flex items-center gap-4">
             <PatientAvatar patient={patient} size="lg" className="rounded-xl border border-[var(--border-color)] shadow-sm" />
             <div>
-              <h1 className="text-xl font-bold text-white">{patient.fullName}</h1>
+              <h1 className="text-xl font-bold text-[var(--text-primary)]">{patient.fullName}</h1>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[var(--text-secondary)] mt-1 text-xs sm:text-sm">
                 <div className="flex items-center gap-1">
                   <Folder className="w-4 h-4" />
