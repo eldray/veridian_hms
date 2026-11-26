@@ -261,7 +261,10 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
         doseVolume: req.body.doseVolume || null, route: req.body.route || null, administrationSite: req.body.administrationSite || null,
         batchNumber: req.body.batchNumber || null, expiryDate,
         nextDoseDue, adverseReaction: req.body.adverseReaction || null,
-        notes: req.body.notes || null, administeredById: req.user!.id, recordedById: recordedBy
+        notes: req.body.notes || null, administeredById: req.user!.id, recordedById: recordedBy,
+        underlyingCondition: typeof req.body.underlyingCondition === 'boolean' ? req.body.underlyingCondition : null,
+        healthWorker: typeof req.body.healthWorker === 'boolean' ? req.body.healthWorker : null,
+        pregnancyStatus: ['pregnant', 'non_pregnant', 'not_applicable', 'unknown'].includes(req.body.pregnancyStatus) ? req.body.pregnancyStatus : null
       }});
 
       if (vaccine.stockItemId && vaccine.StockItem) {
@@ -372,6 +375,63 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
       later.administeredAt >= record.nextDoseDue
     ));
     return res.json({ success: true, data: activeReminders, meta: { count: activeReminders.length, from: from.toISOString(), to: to.toISOString() } });
+  });
+
+
+  // Monthly EPI stock and commodity return. Values are entered from verified
+  // stock cards/physical counts; null means not recorded, never silently zero.
+  router.get('/epi-monthly-returns', requireRole(readRoles), async (req: Request, res: Response) => {
+    const from = req.query.from ? new Date(String(req.query.from)) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const to = req.query.to ? new Date(String(req.query.to)) : new Date();
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) {
+      return res.status(400).json({ success: false, message: 'Valid reporting period is required.' });
+    }
+    const result = await prisma.ePIMonthlyReturn.findFirst({
+      where: { periodStart: { lte: to }, periodEnd: { gte: from } },
+      include: { lines: { orderBy: [{ section: 'asc' }, { itemLabel: 'asc' }] } }
+    });
+    return res.json({ success: true, data: result });
+  });
+
+  router.put('/epi-monthly-returns', requireRole(['admin', 'super_admin', 'nurse', 'midwife'] as UserRole[]), async (req: AuthRequest, res: Response) => {
+    const { periodStart, periodEnd, lines } = req.body ?? {};
+    const start = new Date(periodStart);
+    const end = new Date(periodEnd);
+    if (!periodStart || !periodEnd || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start || !Array.isArray(lines)) {
+      return res.status(400).json({ success: false, message: 'A valid period and stock/commodity line list are required.' });
+    }
+    const allowedSections = ['vaccine_stock', 'other_commodity'];
+    const cleanLines = lines.map((line: any) => {
+      if (!allowedSections.includes(line.section) || !String(line.itemKey || '').trim() || !String(line.itemLabel || '').trim()) {
+        throw new ValidationError('Each EPI line must have a valid section, item key and label.');
+      }
+      const fields = ['beginningBalance', 'quantityReceived', 'quantityUsed', 'dosesOpened', 'vvmStatusChange', 'quantityExpired', 'otherLosses', 'stockAtEnd', 'stockoutDays'];
+      const values: Record<string, number | null> = {};
+      for (const field of fields) {
+        const value = line[field];
+        if (value === '' || value === undefined || value === null) values[field] = null;
+        else {
+          const parsed = Number(value);
+          if (!Number.isInteger(parsed) || parsed < 0) throw new ValidationError(field + ' must be a non-negative whole number or blank.');
+          values[field] = parsed;
+        }
+      }
+      if (values.stockoutDays !== null && values.stockoutDays > 31) throw new ValidationError('Stockout days cannot exceed 31 for a monthly return.');
+      return { section: line.section, itemKey: String(line.itemKey).trim(), itemLabel: String(line.itemLabel).trim(), ...values, notes: line.notes || null };
+    });
+    const uniqueKeys = new Set(cleanLines.map((line: any) => line.section + ':' + line.itemKey));
+    if (uniqueKeys.size !== cleanLines.length) return res.status(400).json({ success: false, message: 'Duplicate items are not allowed in the same monthly return.' });
+    const result = await prisma.$transaction(async (tx) => {
+      const header = await tx.ePIMonthlyReturn.upsert({
+        where: { periodStart_periodEnd: { periodStart: start, periodEnd: end } },
+        create: { periodStart: start, periodEnd: end, facility: req.body.facility || null, notes: req.body.notes || null, createdById: req.user!.id },
+        update: { facility: req.body.facility || null, notes: req.body.notes || null, updatedById: req.user!.id }
+      });
+      await tx.ePIMonthlyReturnLine.deleteMany({ where: { monthlyReturnId: header.id } });
+      if (cleanLines.length) await tx.ePIMonthlyReturnLine.createMany({ data: cleanLines.map((line: any) => ({ ...line, monthlyReturnId: header.id })) });
+      return tx.ePIMonthlyReturn.findUnique({ where: { id: header.id }, include: { lines: true } });
+    });
+    return res.json({ success: true, data: result });
   });
 
   return router;
