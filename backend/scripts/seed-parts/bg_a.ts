@@ -202,7 +202,7 @@ export interface GeneratedBill {
   /** Fraction of the patient share already paid; the writer computes the money. */
   paymentFraction: number;
   discountFraction: number;
-  paymentMethod: 'cash' | 'mobile_money' | 'card' | 'bank_transfer' | 'cheque';
+  paymentMethod: 'cash' | 'card' | 'bank_transfer' | 'cheque';
   receiptReference: string;
   graValidated: boolean;
 }

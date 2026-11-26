@@ -210,9 +210,11 @@ const emitBill = (
     status,
     paymentFraction,
     discountFraction: chance(0.12) ? between(0.05, 0.2) : 0,
+    // This generator's writer records collections through the ordinary/manual payment path.
+    // MTN MoMo can only be recorded after a provider-backed intent reports SUCCESSFUL.
     paymentMethod: att.paymentMode === 'cash'
-      ? pick(['cash', 'cash', 'mobile_money', 'mobile_money', 'card', 'bank_transfer'])
-      : pick(['bank_transfer', 'mobile_money', 'cheque']),
+      ? pick(['cash', 'cash', 'card', 'bank_transfer', 'cheque'])
+      : pick(['bank_transfer', 'cheque', 'card']),
     receiptReference: paymentFraction > 0 ? `RCP-${padNumber(++counters.receipt)}` : '',
     graValidated: status === 'paid' && chance(0.7),
   };
