@@ -62,14 +62,14 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
   // ✅ FIXED: Get procedure price with safety checks
   const getProcedurePrice = (template: ProcedureTemplate) => {
     if (!template) return 0;
-    const prices = (template as any).pricing || (template as any).serviceCatalog?.pricing || [];
-    const pricing = prices[0] || {};
-    const price = paymentMode === 'cash'
-      ? pricing.cashPrice ?? pricing?.price ?? 0
-      : paymentMode === 'nhis'
-        ? pricing.nhisPrice ?? pricing.cashPrice ?? pricing?.price ?? 0
-        : pricing.insurancePrice ?? pricing.cashPrice ?? pricing?.price ?? 0;
-    return Number(price) || 0;
+    const relation = (template as any).serviceCatalog ?? (template as any).ServiceCatalog;
+    const pricing = Array.isArray(relation) ? relation[0]?.pricing : relation?.pricing;
+    const ownPricing = (template as any).pricing;
+    const row = Array.isArray(ownPricing) ? ownPricing[0] : ownPricing;
+    const cash = Number(pricing?.cashPrice ?? row?.cashPrice ?? (template as any).tariffGhC ?? 0) || 0;
+    if (paymentMode === 'cash') return cash;
+    if (paymentMode === 'nhis') return Number(pricing?.nhisPrice ?? row?.nhisPrice ?? 0) || 0;
+    return cash;
   };
 
   const getStatusColor = (status: string) => {
