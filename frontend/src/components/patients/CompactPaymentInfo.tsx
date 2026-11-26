@@ -19,14 +19,14 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 text-[var(--text-primary)]">
       {/* Current Payment Mode */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4">
+      <div className="bg-[var(--icon-green-bg)] border border-[var(--icon-green-text)]/30 rounded-lg p-3">
         <div className="flex items-center gap-3">
-          <CreditCard className="w-5 h-5 text-green-600" />
+          <CreditCard className="w-5 h-5 text-[var(--icon-green-text)]" />
           <div>
-            <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">Current Payment Mode</p>
-            <p className="text-lg font-bold text-green-900 capitalize">{patient.paymentMode || 'Not set'}</p>
+            <p className="text-xs font-semibold text-[var(--icon-green-text)] uppercase tracking-wide">Current Payment Mode</p>
+            <p className="text-lg font-bold text-[var(--text-primary)] capitalize">{patient.paymentMode || 'Not set'}</p>
           </div>
         </div>
       </div>
@@ -34,20 +34,20 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
       {/* Compact Payment Mode Cards */}
       <div className="grid grid-cols-1 gap-3">
         {/* Cash Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeColor('cash')} ${
-          patient.paymentMode === 'cash' ? 'ring-2 ring-gray-400' : ''
+        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeClasses('cash', patient.paymentMode === 'cash')} ${
+          patient.paymentMode === 'cash' ? '' : ''
         }`}>
           <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'cash' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+            <div className={`p-2 rounded ${patient.paymentMode === 'cash' ? 'bg-[var(--text-secondary)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
               <DollarSign className="w-4 h-4" />
             </div>
-            <h3 className="font-semibold text-gray-900 text-sm">Cash</h3>
+            <h3 className="font-semibold text-[var(--text-primary)] text-sm">Cash</h3>
           </div>
-          <p className="text-xs text-gray-600 mb-3">Patient pays directly for services</p>
+          <p className="text-xs text-[var(--text-secondary)] mb-3">Patient pays directly for services</p>
           {patient.paymentMode === 'cash' && patientId && (
             <Link
               to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=cash`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-gray-600 text-white rounded text-xs font-medium hover:bg-gray-700 transition-colors"
+              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-[var(--text-secondary)] text-white rounded text-xs font-medium hover:opacity-90 transition-colors"
             >
               <Plus className="w-3 h-3" />
               Create Attendance
@@ -56,11 +56,11 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
         </div>
 
         {/* NHIS Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeColor('nhis')} ${
-          patient.paymentMode === 'nhis' ? 'ring-2 ring-green-400' : ''
+        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeClasses('nhis', patient.paymentMode === 'nhis')} ${
+          patient.paymentMode === 'nhis' ? '' : ''
         }`}>
           <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'nhis' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+            <div className={`p-2 rounded ${patient.paymentMode === 'nhis' ? 'bg-[var(--icon-green-text)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
               <Shield className="w-4 h-4" />
             </div>
             <h3 className="font-semibold text-gray-900 text-sm">NHIS</h3>
@@ -69,7 +69,7 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
           {patient.paymentMode === 'nhis' && patientId && (
             <Link
               to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=nhis`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors"
+              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-[var(--icon-green-text)] text-white rounded text-xs font-medium hover:opacity-90 transition-colors"
             >
               <Plus className="w-3 h-3" />
               Create Attendance
@@ -78,11 +78,11 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
         </div>
 
         {/* Private Insurance Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeColor('private_insurance')} ${
-          patient.paymentMode === 'private_insurance' ? 'ring-2 ring-purple-400' : ''
+        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeClasses('private_insurance', patient.paymentMode === 'private_insurance')} ${
+          patient.paymentMode === 'private_insurance' ? '' : ''
         }`}>
           <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'private_insurance' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+            <div className={`p-2 rounded ${patient.paymentMode === 'private_insurance' ? 'bg-[var(--icon-purple-text)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
               <CreditCard className="w-4 h-4" />
             </div>
             <h3 className="font-semibold text-gray-900 text-sm">Private Insurance</h3>
@@ -91,7 +91,7 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
           {patient.paymentMode === 'private_insurance' && patientId && (
             <Link
               to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=private_insurance`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-purple-600 text-white rounded text-xs font-medium hover:bg-purple-700 transition-colors"
+              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-[var(--icon-purple-text)] text-white rounded text-xs font-medium hover:opacity-90 transition-colors"
             >
               <Plus className="w-3 h-3" />
               Create Attendance
@@ -102,7 +102,7 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
 
       {/* Insurance Details */}
       {(patient.paymentMode === 'nhis' || patient.paymentMode === 'private_insurance') && patient.insuranceDetails && (
-        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-4 border border-blue-200">
+        <div className="bg-[var(--icon-blue-bg)] rounded-lg p-3 border border-[var(--icon-blue-text)]/30">
           <h4 className="font-semibold text-gray-900 mb-3 text-sm">Insurance Details</h4>
           <div className="grid grid-cols-1 gap-2 text-sm">
             <div className="flex justify-between">
