@@ -43,7 +43,7 @@ export default function ImmunizationEntries() {
   if (loading) return <main className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-secondary)]">Loading patient immunization entries…</main>;
   if (error || !patient) return <main className="space-y-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6">
     <h1 className="text-xl font-semibold text-[var(--text-primary)]">Immunization Entries</h1>
-    <p className="text-sm text-red-600">{error || 'Patient not found.'}</p>
+    <p className="text-sm text-[var(--icon-red-text)]">{error || 'Patient not found.'}</p>
     <button onClick={() => navigate('/dashboard/immunization')} className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm">Back to waiting list</button>
   </main>;
 

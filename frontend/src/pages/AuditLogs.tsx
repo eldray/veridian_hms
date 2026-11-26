@@ -490,12 +490,12 @@ export default function AuditLogs() {
       {/* Table — every data point already in its own column, unchanged */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
         {isLoading ? (
-          <div className="p-10 text-center">
+          <div className="p-8 text-center">
             <RefreshCw className="w-6 h-6 text-[var(--text-tertiary)] mx-auto mb-3 animate-spin" />
             <p className="text-sm text-[var(--text-secondary)]">Loading audit logs…</p>
           </div>
         ) : visibleLogs.length === 0 ? (
-          <div className="p-12 text-center">
+          <div className="p-8 text-center">
             <ScrollText className="w-14 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
             <p className="text-sm font-medium text-[var(--text-primary)] mb-1">
               No audit logs found

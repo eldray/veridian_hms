@@ -404,7 +404,7 @@ export default function Notifications() {
       {isLoading && filtered.length === 0 ? (
         <div className="space-y-2">{[1,2,3,4,5].map(i => <SkeletonRow key={i} />)}</div>
       ) : filtered.length === 0 ? (
-        <Card padded={false} className="py-16 px-4">
+        <Card padded={false} className="py-8 px-4">
           <div className="flex flex-col items-center justify-center gap-3 text-center">
             <div className="w-14 h-14 rounded-2xl bg-[var(--bg-main)] flex items-center justify-center"><BellOff className="w-7 h-7 text-[var(--text-tertiary)] opacity-40" /></div>
             <p className="text-sm font-semibold text-[var(--text-primary)]">{searchTerm || typeFilter !== 'all' || priorityFilter !== 'all' || readFilter !== 'all' ? 'No matching notifications' : 'All caught up'}</p>
