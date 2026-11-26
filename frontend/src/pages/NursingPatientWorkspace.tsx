@@ -335,7 +335,7 @@ export default function NursingPatientWorkspace() {
           </p>
           <button
             onClick={goBack}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:bg-[var(--icon-cyan-text)] transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-85 transition-colors text-sm font-medium"
           >
             <ChevronLeft className="w-4 h-4" /> Back to Nursing Station
           </button>
