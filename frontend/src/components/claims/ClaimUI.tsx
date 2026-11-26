@@ -92,7 +92,7 @@ export const CheckItem: React.FC<{ label: string; checked: boolean; onChange?: (
   <label className={`inline-flex items-center gap-2 text-[15px] ${disabled ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)] cursor-pointer'}`}>
     <span
       className="w-5 h-5 border rounded-sm flex items-center justify-center shrink-0"
-      style={checked ? { background: '#80cbc4', borderColor: '#80cbc4' } : { borderColor: '#bdbdbd' }}
+      style={checked ? { background: 'var(--icon-cyan-text)', borderColor: 'var(--icon-cyan-text)' } : { borderColor: 'var(--border-color)' }}
     >
       {checked && <Check className="w-3.5 h-3.5 text-white" />}
     </span>
