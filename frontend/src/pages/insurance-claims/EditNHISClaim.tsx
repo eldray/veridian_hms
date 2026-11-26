@@ -664,7 +664,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
 
   const maxQuantity = selectedItem?.quantity ?? 0;
   const unitPrice = selectedItem?.unitPrice ?? (editing?.unitPrice ?? 0);
-  const selectedStrength = (selectedItem as any)?.strength || selectedItem?.description?.match(/\\b\\d+(?:\\.\\d+)?\\s*(?:mcg|μg|ug|mg|g|iu|units?)(?:\\s*(?:\\/|per)\\s*\\d+(?:\\.\\d+)?\\s*ml)?/i)?.[0];
+  const selectedStrength = (selectedItem as any)?.strength || selectedItem?.description?.match(/\b\d+(?:\.\d+)?\s*(?:mcg|μg|ug|mg|g|iu|units?)(?:\s*(?:\/|per)\s*\d+(?:\.\d+)?\s*ml)?/i)?.[0];
 
   const filtered = options.filter(item =>
     item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
