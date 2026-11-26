@@ -1,5 +1,5 @@
 // src/modules/nursing/NursingService.ts
-import { PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
+import { Prisma, PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { NursingRepository } from './NursingRepository';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../utils/errors';
