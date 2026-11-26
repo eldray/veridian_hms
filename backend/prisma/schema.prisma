@@ -830,7 +830,19 @@ model Medication {
   dosage               String?
   frequency            String?
   duration             String?
-  quantity             Int              @default(1) // Prescribed quantity; never overwritten by dispensing.
+  // Structured prescription values. Legacy text fields above remain the readable/backward-compatible representation.
+  doseAmount           Decimal?         @db.Decimal(12, 4)
+  doseUnit             String?
+  frequencyCode        String?
+  frequencyIntervalHours Int?
+  durationValue        Int?
+  durationUnit         String?
+  quantityUnit         String?
+  prnIndication        String?
+  prnMaxDosesPerDay    Int?
+  prnMinimumIntervalHours Int?
+  prescriptionVersion  Int              @default(1)
+  quantity             Int              @default(1) // Prescribed stock quantity; never overwritten by dispensing.
   dispensedQuantity    Int?             // Actual quantity handed out; null until dispensing succeeds.
   route                String?
   instructions         String?
@@ -1500,6 +1512,10 @@ model InsuranceClaimItem {
   prescriberNo     String?
   medicineType     String?
   prescriptionText String?
+  // Immutable-at-claim-time clinical evidence; independent of later Medication edits.
+  prescriptionSnapshot Json?
+  prescriptionSnapshotAt DateTime?
+  prescriptionSnapshotVersion Int?
 
   createdAt DateTime @default(now())
 
@@ -4177,6 +4193,10 @@ model MedicationDose {
   // shows the correct value even if the underlying stock item changes)
   dose  String? // e.g. "500mg"
   route String? // e.g. "Oral", "IV", "SC"
+  doseAmount Decimal? @db.Decimal(12, 4)
+  doseUnit String?
+  administrationReason String?
+  recordedAt DateTime?
 
   // Administration details
   site           String? // e.g. "Left deltoid" for injections
