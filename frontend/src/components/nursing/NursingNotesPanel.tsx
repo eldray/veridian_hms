@@ -634,12 +634,12 @@ export const NursingNotesPanel: React.FC<NursingNotesPanelProps> = ({
 
       {/* Grid */}
       {notesLoading ? (
-        <div className="text-center py-10">
+        <div className="text-center py-6">
           <div className="w-6 h-6 border-2 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-xs text-[var(--text-tertiary)] mt-2">Loading notes…</p>
         </div>
       ) : displayNotes.length === 0 ? (
-        <div className="text-center py-12 bg-[var(--bg-main)] rounded-xl border border-dashed border-[var(--border-color)]">
+        <div className="text-center py-8 bg-[var(--bg-main)] rounded-xl border border-dashed border-[var(--border-color)]">
           <StickyNote className="w-10 h-10 text-[var(--text-tertiary)] opacity-40 mx-auto mb-2" />
           <p className="text-sm text-[var(--text-secondary)] font-medium">No notes yet</p>
           <button
