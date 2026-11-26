@@ -92,6 +92,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
   const [instructions, setInstructions] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [prnIndication, setPrnIndication] = useState('');
+  const [prnMaxDosesPerDay, setPrnMaxDosesPerDay] = useState('');
+  const [prnMinimumIntervalHours, setPrnMinimumIntervalHours] = useState('');
   const [durationSearch, setDurationSearch] = useState('');
   const [showDurationOptions, setShowDurationOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -118,6 +120,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setInstructions('');
     setQuantity('1');
     setPrnIndication('');
+    setPrnMaxDosesPerDay('');
+    setPrnMinimumIntervalHours('');
     setDurationSearch('');
     setShowDurationOptions(false);
     setShowDropdown(false);
@@ -205,6 +209,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setInstructions('');
     setQuantity('1');
     setPrnIndication('');
+    setPrnMaxDosesPerDay('');
+    setPrnMinimumIntervalHours('');
     searchInputRef.current?.focus();
   };
 
@@ -234,6 +240,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
         instructions: instructions.trim() || undefined,
         quantity: Number(quantity),
         prnIndication: frequency === 'prn' ? prnIndication.trim() : undefined,
+        prnMaxDosesPerDay: frequency === 'prn' && prnMaxDosesPerDay ? Number(prnMaxDosesPerDay) : undefined,
+        prnMinimumIntervalHours: frequency === 'prn' && prnMinimumIntervalHours ? Number(prnMinimumIntervalHours) : undefined,
       });
       success('Medication prescribed', `${selectedMed.name} has been prescribed.`);
       clearSelection();
@@ -541,6 +549,16 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
                   maxLength={240}
                 />
                 <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Required reason for as-needed administration.</p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Maximum doses / day</label>
+                    <input type="number" min="1" max="24" step="1" value={prnMaxDosesPerDay} onChange={e => setPrnMaxDosesPerDay(e.target.value)} placeholder="Optional" className={inputCls} disabled={!canEdit} />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Minimum interval (hours)</label>
+                    <input type="number" min="1" max="24" step="1" value={prnMinimumIntervalHours} onChange={e => setPrnMinimumIntervalHours(e.target.value)} placeholder="Optional" className={inputCls} disabled={!canEdit} />
+                  </div>
+                </div>
               </div>
             )}
             <div>
