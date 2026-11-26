@@ -13,13 +13,13 @@ export const PatientsList: React.FC<PatientsListProps> = ({ patients, onAddAtten
   const getPaymentModeColor = (paymentMode: string) => {
     switch (paymentMode) {
       case 'cash':
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
+        return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]';
       case 'nhis':
-        return 'bg-green-100 text-green-800 border border-green-200';
+        return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border border-[var(--border-color)]';
       case 'private_insurance':
-        return 'bg-purple-100 text-purple-800 border border-purple-200';
+        return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)]';
       default:
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
+        return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]';
     }
   };
 
@@ -85,21 +85,21 @@ export const PatientsList: React.FC<PatientsListProps> = ({ patients, onAddAtten
                   <div className="flex items-center gap-1">
                     <Link
                       to={`/dashboard/patients/${patientId}`}
-                      className="p-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+                      className="p-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border border-[var(--border-color)] rounded-md hover:opacity-90 transition-colors duration-200"
                       title="View Details"
                     >
                       <Eye className="w-3 h-3" />
                     </Link>
                     <Link
                       to={`/dashboard/patients/register?edit=true&id=${patientId}`}
-                      className="p-1.5 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors duration-200"
+                      className="p-1.5 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] border border-[var(--border-color)] rounded-md hover:opacity-90 transition-colors duration-200"
                       title="Edit Patient"
                     >
                       <Edit className="w-3 h-3" />
                     </Link>
                     <button
                       onClick={() => onAddAttendance(patientId)}
-                      className="p-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors duration-200"
+                      className="p-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border border-[var(--border-color)] rounded-md hover:opacity-90 transition-colors duration-200"
                       title="Add Visit"
                     >
                       <Stethoscope className="w-3 h-3" />
