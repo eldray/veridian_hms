@@ -81,7 +81,7 @@ export class NursingService extends BaseService {
       return { intervalHours: h, dosesPerDay: Math.max(1, Math.floor(24 / h)) };
     }
 
-    if (['od', 'once daily', 'daily', 'nocte', 'mane', 'om', 'on'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
+    if (['od', 'once', 'once daily', 'daily', 'nocte', 'mane', 'om', 'on'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
     if (['bd', 'bid', 'twice daily', 'twice a day', 'b.i.d'].includes(f)) return { intervalHours: 12, dosesPerDay: 2 };
     if (['tds', 'tid', 'thrice daily', 'three times a day', 't.i.d'].includes(f)) return { intervalHours: 8, dosesPerDay: 3 };
     if (['qds', 'qid', 'four times daily', 'four times a day', 'q.i.d'].includes(f)) return { intervalHours: 6, dosesPerDay: 4 };
