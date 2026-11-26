@@ -1,7 +1,7 @@
 // src/modules/nursing/NursingRepository.ts
 import { Prisma, PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
-import { ConflictError, NotFoundError } from '../../utils/errors';
+import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 import {
   MarFilters,
