@@ -84,33 +84,33 @@ export default function AttendanceTypeSelector({
 }: AttendanceTypeSelectorProps) {
   const getColorClasses = (type: { color: AttendanceColor }, isSelected: boolean) => {
     const colors: Record<AttendanceColor, string> = {
-      blue: isSelected ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-300',
-      purple: isSelected ? 'border-purple-500 bg-purple-50' : 'hover:border-purple-300',
-      pink: isSelected ? 'border-pink-500 bg-pink-50' : 'hover:border-pink-300',
-      teal: isSelected ? 'border-teal-500 bg-teal-50' : 'hover:border-teal-300',
-      red: isSelected ? 'border-red-500 bg-red-50' : 'hover:border-red-300',
-      gray: isSelected ? 'border-gray-500 bg-gray-50' : 'hover:border-gray-300',
-      indigo: isSelected ? 'border-indigo-500 bg-indigo-50' : 'hover:border-indigo-300'
+      blue: isSelected ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]' : 'hover:border-[var(--icon-cyan-text)]',
+      purple: isSelected ? 'border-[var(--icon-purple-text)] bg-[var(--icon-purple-bg)]' : 'hover:border-[var(--icon-purple-text)]',
+      pink: isSelected ? 'border-[var(--icon-purple-text)] bg-[var(--icon-purple-bg)]' : 'hover:border-[var(--icon-purple-text)]',
+      teal: isSelected ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]' : 'hover:border-[var(--icon-cyan-text)]',
+      red: isSelected ? 'border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]' : 'hover:border-[var(--icon-red-text)]',
+      gray: isSelected ? 'border-[var(--border-color)] bg-[var(--bg-main)]' : 'hover:border-[var(--border-color)]',
+      indigo: isSelected ? 'border-[var(--icon-blue-text)] bg-[var(--icon-blue-bg)]' : 'hover:border-[var(--icon-blue-text)]'
     };
     return colors[type.color] ?? colors.blue;
   };
 
   const getIconColor = (type: { color: AttendanceColor }, isSelected: boolean) => {
     const colors: Record<AttendanceColor, string> = {
-      blue: isSelected ? 'text-blue-600' : 'text-gray-600',
-      purple: isSelected ? 'text-purple-600' : 'text-gray-600',
-      pink: isSelected ? 'text-pink-600' : 'text-gray-600',
-      teal: isSelected ? 'text-teal-600' : 'text-gray-600',
-      red: isSelected ? 'text-red-600' : 'text-gray-600',
-      gray: isSelected ? 'text-gray-600' : 'text-gray-600',
-      indigo: isSelected ? 'text-indigo-600' : 'text-gray-600'
+      blue: isSelected ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)]',
+      purple: isSelected ? 'text-[var(--icon-purple-text)]' : 'text-[var(--text-secondary)]',
+      pink: isSelected ? 'text-[var(--icon-purple-text)]' : 'text-[var(--text-secondary)]',
+      teal: isSelected ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)]',
+      red: isSelected ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-secondary)]',
+      gray: isSelected ? 'text-[var(--text-secondary)]' : 'text-[var(--text-secondary)]',
+      indigo: isSelected ? 'text-[var(--icon-blue-text)]' : 'text-[var(--text-secondary)]'
     };
     return colors[type.color] ?? colors.blue;
   };
 
   return (
     <div className="space-y-4">
-      <label className="block text-sm font-semibold text-gray-700">
+      <label className="block text-sm font-semibold text-[var(--text-primary)]">
         Attendance Type *
       </label>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -123,7 +123,7 @@ export default function AttendanceTypeSelector({
               key={type.value}
               className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-200 ${
                 disabled 
-                  ? 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-50' 
+                  ? 'opacity-50 cursor-not-allowed border-[var(--border-color)] bg-[var(--bg-main)]' 
                   : `${getColorClasses(type, isSelected)} ${
                       isSelected ? 'shadow-md' : 'hover:shadow-sm'
                     }`
@@ -132,16 +132,16 @@ export default function AttendanceTypeSelector({
             >
               <div className="flex items-start gap-3">
                 <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
-                  disabled ? 'text-gray-400' : getIconColor(type, isSelected)
+                  disabled ? 'text-[var(--text-tertiary)]' : getIconColor(type, isSelected)
                 }`} />
                 <div className="min-w-0 flex-1">
                   <p className={`font-semibold text-sm ${
-                    disabled ? 'text-gray-500' : 'text-gray-900'
+                    disabled ? 'text-[var(--text-secondary)]' : 'text-[var(--text-primary)]'
                   }`}>
                     {type.label}
                   </p>
                   <p className={`text-xs mt-1 ${
-                    disabled ? 'text-gray-400' : 'text-gray-600'
+                    disabled ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-secondary)]'
                   }`}>
                     {type.description}
                   </p>
