@@ -43,40 +43,40 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 space-y-3">
       {/* Patient & Basic Info */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-3">
           {/* Patient Information */}
           {patient && (
-            <div className="bg-[var(--bg-main)] rounded-2xl p-6 border border-[var(--border-color)]">
-              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-3">
+            <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
+              <h3 className="text-base font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-3">
                 <PatientAvatar patient={patient} size="md" />
                 Patient Information
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                   <p className="text-sm text-[var(--text-secondary)] font-medium">Patient Name</p>
-                  <p className="font-bold text-lg text-[var(--text-primary)]">{patient.fullName}</p>
+                  <p className="font-semibold text-sm text-[var(--text-primary)]">{patient.fullName}</p>
                 </div>
-                <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+                <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                   <p className="text-sm text-[var(--text-secondary)] font-medium">Folder Number</p>
-                  <p className="font-bold text-lg text-[var(--text-primary)]">{patient.folderNumber || 'N/A'}</p>
+                  <p className="font-semibold text-sm text-[var(--text-primary)]">{patient.folderNumber || 'N/A'}</p>
                 </div>
-                <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+                <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                   <p className="text-sm text-[var(--text-secondary)] font-medium">Age & Gender</p>
-                  <p className="font-bold text-lg text-[var(--text-primary)]">
+                  <p className="font-semibold text-sm text-[var(--text-primary)]">
                     {patient.age || 'N/A'} years • {patient.gender || 'N/A'}
                   </p>
                 </div>
-                <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+                <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                   <p className="text-sm text-[var(--text-secondary)] font-medium">Contact</p>
-                  <p className="font-bold text-lg text-[var(--text-primary)]">{patient.contact || 'N/A'}</p>
+                  <p className="font-semibold text-sm text-[var(--text-primary)]">{patient.contact || 'N/A'}</p>
                 </div>
                 {patient.address && (
-                  <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] md:col-span-2">
+                  <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)] md:col-span-2">
                     <p className="text-sm text-[var(--text-secondary)] font-medium">Address</p>
-                    <p className="font-bold text-lg text-[var(--text-primary)]">{patient.address}</p>
+                    <p className="font-semibold text-sm text-[var(--text-primary)]">{patient.address}</p>
                   </div>
                 )}
               </div>
@@ -84,9 +84,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           )}
 
           {/* Attendance Details */}
-          <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]">
-            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-6">Attendance Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">Attendance Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="flex items-center gap-4 p-4 bg-[var(--bg-main)] rounded-xl border border-[var(--border-color)]">
                 <Calendar className="w-8 h-8 text-[var(--icon-blue-text)]" />
                 <div>
@@ -116,7 +116,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                 <Activity className="w-8 h-8 text-[var(--icon-orange-text)]" />
                 <div>
                   <p className="text-sm text-[var(--text-secondary)] font-medium">Status</p>
-                  <span className={`px-4 py-2 text-sm font-bold rounded-full ${getStatusColor(attendance.status)}`}>
+                  <span className={`px-3 py-1.5 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}>
                     {attendance.status?.charAt(0).toUpperCase() + attendance.status?.slice(1)}
                   </span>
                 </div>
@@ -125,23 +125,23 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
 
           {/* Medical Information */}
-          <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]">
-            <h3 className="text-xl font-bold text-[var(--text-primary)] mb-6">Medical Information</h3>
-            <div className="space-y-6">
-              <div className="bg-[var(--icon-blue-bg)] rounded-xl p-4 border border-[var(--border-color)]">
+          <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">Medical Information</h3>
+            <div className="space-y-3">
+              <div className="bg-[var(--icon-blue-bg)] rounded-lg p-3 border border-[var(--border-color)]">
                 <p className="text-sm text-[var(--text-secondary)] font-medium mb-2">Complaints</p>
-                <p className="font-semibold text-[var(--text-primary)] text-lg">
+                <p className="font-semibold text-sm text-[var(--text-primary)]">
                   {attendance.complaints || 'No complaints recorded'}
                 </p>
               </div>
               {attendance.diagnosis && (
-                <div className="bg-[var(--icon-green-bg)] rounded-xl p-4 border border-[var(--border-color)]">
+                <div className="bg-[var(--icon-green-bg)] rounded-lg p-3 border border-[var(--border-color)]">
                   <p className="text-sm text-[var(--text-secondary)] font-medium mb-2">Diagnosis</p>
-                  <p className="font-semibold text-[var(--text-primary)] text-lg">{attendance.diagnosis}</p>
+                  <p className="font-semibold text-sm text-[var(--text-primary)]">{attendance.diagnosis}</p>
                 </div>
               )}
               {attendance.medicalNotes && (
-                <div className="bg-[var(--icon-orange-bg)] rounded-xl p-4 border border-[var(--border-color)]">
+                <div className="bg-[var(--icon-orange-bg)] rounded-lg p-3 border border-[var(--border-color)]">
                   <p className="text-sm text-[var(--text-secondary)] font-medium mb-2">Medical Notes</p>
                   <p className="font-semibold text-[var(--text-primary)]">{attendance.medicalNotes}</p>
                 </div>
@@ -151,31 +151,31 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
           {/* Vitals */}
           {attendance.vitals && Object.keys(attendance.vitals).some(key => attendance.vitals[key]) && (
-            <div className="bg-[var(--bg-card)] rounded-2xl p-6 border border-[var(--border-color)]">
-              <h3 className="text-xl font-bold text-[var(--text-primary)] mb-6">Vitals</h3>
+            <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
+              <h3 className="text-base font-semibold text-[var(--text-primary)] mb-3">Vitals</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {attendance.vitals.bloodPressure && (
-                  <div className="text-center bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
+                  <div className="text-center bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
                     <p className="text-sm text-[var(--text-secondary)] font-medium">Blood Pressure</p>
-                    <p className="font-bold text-2xl text-[var(--text-primary)]">{attendance.vitals.bloodPressure}</p>
+                    <p className="font-semibold text-base text-[var(--text-primary)]">{attendance.vitals.bloodPressure}</p>
                   </div>
                 )}
                 {attendance.vitals.temperature && (
-                  <div className="text-center bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
+                  <div className="text-center bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
                     <p className="text-sm text-[var(--text-secondary)] font-medium">Temperature</p>
-                    <p className="font-bold text-2xl text-[var(--text-primary)]">{attendance.vitals.temperature}°C</p>
+                    <p className="font-semibold text-base text-[var(--text-primary)]">{attendance.vitals.temperature}°C</p>
                   </div>
                 )}
                 {attendance.vitals.pulse && (
-                  <div className="text-center bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
+                  <div className="text-center bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
                     <p className="text-sm text-[var(--text-secondary)] font-medium">Pulse</p>
-                    <p className="font-bold text-2xl text-[var(--text-primary)]">{attendance.vitals.pulse}</p>
+                    <p className="font-semibold text-base text-[var(--text-primary)]">{attendance.vitals.pulse}</p>
                   </div>
                 )}
                 {attendance.vitals.spo2 && (
-                  <div className="text-center bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
+                  <div className="text-center bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
                     <p className="text-sm text-[var(--text-secondary)] font-medium">SpO2</p>
-                    <p className="font-bold text-2xl text-[var(--text-primary)]">{attendance.vitals.spo2}%</p>
+                    <p className="font-semibold text-base text-[var(--text-primary)]">{attendance.vitals.spo2}%</p>
                   </div>
                 )}
               </div>
@@ -184,44 +184,44 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
 
         {/* Sidebar - Clinician & Quick Stats */}
-        <div className="space-y-6">
+        <div className="space-y-3">
           {/* Clinician Information */}
-          <div className="bg-[var(--bg-main)] rounded-2xl p-6 border border-[var(--border-color)]">
+          <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
             <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Clinician</h3>
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-              <p className="font-semibold text-[var(--text-primary)] text-lg">
+            <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
+              <p className="font-semibold text-sm text-[var(--text-primary)]">
                 {getClinicianName(attendance)}
               </p>
             </div>
           </div>
 
           {/* Quick Stats */}
-          <div className="bg-[var(--bg-main)] rounded-2xl p-6 border border-[var(--border-color)]">
+          <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
             <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4">Summary</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                 <span className="text-[var(--text-secondary)] font-medium">Medications</span>
-                <span className="font-bold text-lg text-[var(--text-primary)]">{attendance.medications?.length || 0}</span>
+                <span className="font-semibold text-sm text-[var(--text-primary)]">{attendance.medications?.length || 0}</span>
               </div>
-              <div className="flex justify-between items-center bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+              <div className="flex justify-between items-center bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                 <span className="text-[var(--text-secondary)] font-medium">Lab Tests</span>
-                <span className="font-bold text-lg text-[var(--text-primary)]">{attendance.labTests?.length || 0}</span>
+                <span className="font-semibold text-sm text-[var(--text-primary)]">{attendance.labTests?.length || 0}</span>
               </div>
-              <div className="flex justify-between items-center bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+              <div className="flex justify-between items-center bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                 <span className="text-[var(--text-secondary)] font-medium">Procedures</span>
-                <span className="font-bold text-lg text-[var(--text-primary)]">{attendance.procedures?.length || 0}</span>
+                <span className="font-semibold text-sm text-[var(--text-primary)]">{attendance.procedures?.length || 0}</span>
               </div>
               <div className="border-t pt-4 mt-4">
-                <div className="flex justify-between items-center bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
+                <div className="flex justify-between items-center bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
                   <span className="font-bold text-[var(--text-primary)]">Total Bill</span>
-                  <span className="font-bold text-xl text-[var(--text-primary)]">
+                  <span className="font-semibold text-base text-[var(--text-primary)]">
                     {formatCurrency(attendance.totalBill)}
                   </span>
                 </div>
                 {(attendance.outstandingBalance || 0) > 0 && (
-                  <div className="flex justify-between items-center bg-[var(--icon-red-bg)] rounded-xl p-4 border border-[var(--border-color)] mt-3">
+                  <div className="flex justify-between items-center bg-[var(--icon-red-bg)] rounded-lg p-3 border border-[var(--border-color)] mt-3">
                     <span className="font-semibold text-[var(--icon-red-text)]">Outstanding</span>
-                    <span className="font-bold text-lg text-[var(--icon-red-text)]">
+                    <span className="font-semibold text-base text-[var(--icon-red-text)]">
                       {formatCurrency(attendance.outstandingBalance)}
                     </span>
                   </div>
