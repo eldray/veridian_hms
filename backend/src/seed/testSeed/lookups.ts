@@ -71,7 +71,7 @@ import {
   WaiverStatus,
   WaiverType,
 } from '@prisma/client';
-import { DRUG_GROUPS } from '../clinicalContent.js';
+import { DRUG_GROUPS, FALLBACK_DRUG_GROUP } from '../clinicalContent.js';
 import type { Actor, GeneratedUser } from '../bulkGenerator.js';
 import { isPayerCovered, resolveMedicationUnitPrice, resolveUnitPrice, resolveWardDailyRate } from '../../utils/pricing.js';
 import { hashOf, prisma, startOfToday, toNumber } from './shared.js';
@@ -480,10 +480,13 @@ export const buildLookups = async (): Promise<Lookups> => {
 
   const stockForDrugGroup = (group: string, salt: string): StockRow | null => {
     if (!prescriptionPool.length) return null;
-    const preset = DRUG_GROUPS[group];
-    if (!preset || preset.nameStems.length === 0) {
-      return prescriptionPool[hashOf(salt) % prescriptionPool.length];
-    }
+    const requestedPreset = DRUG_GROUPS[group];
+    // The explicitly generic group uses the configured clinical fallback, never an
+    // unrelated random shelf item. A group with no matching stocked medicine is skipped.
+    const preset = requestedPreset?.nameStems.length
+      ? requestedPreset
+      : DRUG_GROUPS[FALLBACK_DRUG_GROUP];
+    if (!preset || !preset.nameStems.length) return null;
     const categoryWords = (preset.categories ?? []).map((c) => c.toLowerCase());
     const matches = prescriptionPool.filter((item) => {
       const name = item.name.toLowerCase();
@@ -491,8 +494,8 @@ export const buildLookups = async (): Promise<Lookups> => {
       return preset.nameStems.some((stem) => name.includes(stem.toLowerCase()))
         || categoryWords.some((word) => category.includes(word));
     });
-    const pool = matches.length ? matches : prescriptionPool;
-    return pool[hashOf(salt) % pool.length];
+    if (!matches.length) return null;
+    return matches[hashOf(salt) % matches.length];
   };
 
   const insuranceProviderByType = new Map<string, ProviderRow[]>();
@@ -505,12 +508,17 @@ export const buildLookups = async (): Promise<Lookups> => {
   }
   for (const list of insuranceProviderByType.values()) list.sort((a, b) => a.name.localeCompare(b.name));
 
-  const corporateAccountsRows: CorporateAccountRow[] = corporateAccounts.map((account) => ({
-    id: account.id,
-    companyName: account.companyName,
-    insuranceProviderId: account.insuranceProviderId,
-    discountPercentage: toNumber(account.discountPercentage),
-  }));
+  // A corporate account is claimable only when it points to an active provider whose
+  // actual provider type is corporate. Do not seed visits against half-configured accounts.
+  const corporateProviderIds = new Set((insuranceProviderByType.get('corporate') ?? []).map((provider) => provider.id));
+  const corporateAccountsRows: CorporateAccountRow[] = corporateAccounts
+    .filter((account) => Boolean(account.insuranceProviderId && corporateProviderIds.has(account.insuranceProviderId)))
+    .map((account) => ({
+      id: account.id,
+      companyName: account.companyName,
+      insuranceProviderId: account.insuranceProviderId,
+      discountPercentage: toNumber(account.discountPercentage),
+    }));
   const corporateEmployeesByAccount = new Map<string, CorporateEmployeeRow[]>();
   for (const emp of corporateEmployees) {
     const list = corporateEmployeesByAccount.get(emp.accountId) ?? [];

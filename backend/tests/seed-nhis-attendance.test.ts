@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeNhisNumber, setSeed } from '../src/seed/bulkGenerator';
+import { COUNTS, generateAttendances, generatePatients, makeNhisNumber, setSeed } from '../src/seed/bulkGenerator';
 import { nhisCCCFor, nhisSeedCCCFields } from '../src/seed/testSeed/encounters';
 
 describe('NHIS demo attendance identity', () => {
@@ -25,4 +25,30 @@ describe('NHIS demo attendance identity', () => {
     expect(fields.nhisCCCGeneratedAt).toEqual(visitDate);
     expect(fields.nhisCCCValidUntil).toEqual(new Date('2026-11-11T09:30:00.000Z'));
   });
+
+  it('keeps linked NHIS checks consistent and covers every day of the rolling year', () => {
+    setSeed(42);
+    const patients = generatePatients();
+    const bundle = generateAttendances(patients);
+    const patientByFolder = new Map(patients.map((patient) => [patient.folderNumber, patient]));
+
+    for (const check of bundle.eligibilityChecks) {
+      const patient = patientByFolder.get(check.folderNumber);
+      expect(check.membershipId).toBe(patient?.nhisNumber);
+      const attendance = check.attendanceKey
+        ? bundle.attendances.find((item) => item.key === check.attendanceKey)
+        : undefined;
+      expect(check.ccCode).toBe(
+        check.status === 'active' && attendance
+          ? nhisCCCFor(attendance.attendanceNumber)
+          : null,
+      );
+    }
+
+    const dailyCoverage = bundle.attendances.slice(0, COUNTS.attendances).slice(0, 366);
+    const dailyDates = new Set(dailyCoverage.map((attendance) => attendance.dateTime.toDateString()));
+    expect(dailyDates.size).toBe(366);
+    // Every coverage attendance must remain a real visit so its consultation is seeded too.
+    expect(dailyCoverage.every((attendance) => attendance.status !== 'cancelled')).toBe(true);
+  }, 30000);
 });

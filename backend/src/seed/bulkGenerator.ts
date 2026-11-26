@@ -147,6 +147,13 @@ export const makeNhisNumber = (index: number): string => {
   return index % 3 === 0 ? `00${digits}` : digits;
 };
 
+/** The demo CCC is deterministic per visit and shared by the attendance, eligibility check and claim. */
+export const nhisCCCForAttendanceNumber = (attendanceNumber: string | number): string => {
+  const digits = String(attendanceNumber).replace(/\D/g, '');
+  const seed = digits ? parseInt(digits, 10) : 0;
+  return String(10000 + (seed % 90000)).padStart(5, '0');
+};
+
 // ═══════════════════════════════════════════════════════════
 // Deterministic RNG (mulberry32)
 // ═══════════════════════════════════════════════════════════
@@ -984,15 +991,15 @@ export interface GeneratedBundle {
 // "today", "this month" and "last 72 hours" screen empty. This skews the
 // same volume towards the present so the live worklists have work on them.
 // ═══════════════════════════════════════════════════════════
-const attendanceDate = (): Date => {
+const attendanceDate = (requiredDaysBack?: number): Date => {
   const r = rand();
-  const daysBack =
+  const daysBack = requiredDaysBack ?? (
     r < 0.04 ? 0 :
     r < 0.26 ? intBetween(1, 7) :
     r < 0.52 ? intBetween(8, 30) :
     r < 0.76 ? intBetween(31, 90) :
     r < 0.93 ? intBetween(91, 200) :
-    intBetween(201, 365);
+    intBetween(201, 365));
   // daysAgo() picks a working hour, and for today that hour can still be ahead of the
   // clock. An encounter in the future makes every downstream timestamp nonsense - a
   // result released before it was asked for, a discharge that has not happened - so the
@@ -2077,6 +2084,7 @@ const emitEncounter = (
   dateTime: Date,
   state: { activeAdmissions: number },
   obs: MaternityPlan = {},
+  ensureDailyCoverage = false,
 ): GeneratedAttendance => {
   const index = b.attendances.length + 1;
   const key = `att-${index}`;
@@ -2106,7 +2114,8 @@ const emitEncounter = (
   const canStayOpen = encounterCategory === 'ipd' && daysBack < losGuess && state.activeAdmissions < MAX_ACTIVE_ADMISSIONS;
 
   let status: GeneratedAttendance['status'];
-  if (chance(0.006)) status = 'cancelled';
+  const randomlyCancelled = chance(0.006);
+  if (randomlyCancelled && !ensureDailyCoverage) status = 'cancelled';
   else if (encounterCategory === 'ipd') status = canStayOpen && chance(0.55) ? 'admitted' : chance(0.03) ? 'absconded' : 'discharged';
   else if (encounterCategory === 'daycase') status = daysBack === 0 && chance(0.4) ? 'pending' : 'completed';
   else if (scenario.key === 'detention') status = 'admitted';
@@ -2419,10 +2428,17 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
   };
 
   // ── Registered patients ──────────────────────────────────
+  // Guarantee at least one registered-patient encounter on every calendar day in the
+  // rolling year. Remaining volume follows the weighted distribution below, keeping recent
+  // worklists populated without leaving gaps in historical daily reports.
+  const DAILY_COVERAGE_DAYS = 366;
   for (let i = 0; i < COUNTS.attendances; i++) {
     const patient = pick(patients);
     const scenario = pick(scenariosFor(patient));
-    const att = emitEncounter(b, counters, patient, null, scenario, attendanceDate(), state);
+    const requiredDaysBack = i < DAILY_COVERAGE_DAYS ? i : undefined;
+    const att = emitEncounter(
+      b, counters, patient, null, scenario, attendanceDate(requiredDaysBack), state, {}, i < DAILY_COVERAGE_DAYS,
+    );
     remember(att);
     const bill = b.bills[b.bills.length - 1];
     billLinesByKey.set(att.key, (bill as { lines?: GeneratedBillLinePlan[] }).lines || []);
@@ -2588,20 +2604,29 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
   const members = patients.filter((p) => p.nhisNumber);
   for (let n = 0; n < COUNTS.eligibilityChecks && members.length; n++) {
     const patient = pick(members);
-    const expired = Boolean(patient.nhisExpiryDate && patient.nhisExpiryDate.getTime() < Date.now());
+    const atts = attendancesByFolder.get(patient.folderNumber) || [];
+    const attendanceKey = atts.length ? pick(atts) : null;
+    const linkedAttendance = attendanceKey
+      ? b.attendances.find((attendance) => attendance.key === attendanceKey) ?? null
+      : null;
+    // A check linked to a visit is timestamped at that visit and uses its exact CCC.
+    // A standalone membership enquiry has no visit CCC and must not invent one.
+    const at = linkedAttendance?.dateTime ?? daysAgo(intBetween(0, 240));
+    const expired = Boolean(patient.nhisExpiryDate && patient.nhisExpiryDate.getTime() < at.getTime());
     const roll = rand();
     const status: GeneratedEligibilityCheck['status'] = expired
       ? (roll < 0.85 ? 'expired' : 'not_found')
       : roll < 0.85 ? 'active' : roll < 0.92 ? 'suspended' : roll < 0.97 ? 'not_found' : 'referred_facility_mismatch';
-    const atts = attendancesByFolder.get(patient.folderNumber) || [];
     b.eligibilityChecks.push({
       folderNumber: patient.folderNumber,
-      attendanceKey: atts.length ? pick(atts) : null,
+      attendanceKey,
       membershipId: patient.nhisNumber!,
       checkMethod: pick(['card_reader', 'nhia_portal', 'manual', 'offline_list']),
       status,
-      at: daysAgo(intBetween(0, 240)),
-      ccCode: status === 'active' ? padNumber(intBetween(10000, 19999)) : null,
+      at,
+      ccCode: status === 'active' && linkedAttendance
+        ? nhisCCCForAttendanceNumber(linkedAttendance.attendanceNumber)
+        : null,
       membershipExpiry: patient.nhisExpiryDate,
       checkedBy: actor('records'),
     });
