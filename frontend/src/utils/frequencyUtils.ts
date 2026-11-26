@@ -10,10 +10,10 @@ export interface FrequencyInfo {
   export function getFrequencyInfo(frequency: string): FrequencyInfo {
     const freq = (frequency || '').toLowerCase().trim();
   
-    if (freq.includes('stat') || freq === 'once' || freq === 'single dose') {
+    if (freq.includes('stat') || freq === 'single dose') {
       return { type: 'Stat / Once Only', requiredDoses: 1, intervalHours: 999 };
     }
-    if (freq === 'od' || freq === 'daily' || freq.includes('once daily') || freq.includes('once a day')) {
+    if (freq === 'od' || freq === 'once' || freq === 'daily' || freq.includes('once daily') || freq.includes('once a day')) {
       return { type: 'Once Daily (OD)', requiredDoses: 1, intervalHours: 24 };
     }
     if (freq === 'bd' || freq === 'bid' || freq.includes('twice') || freq === '12hrly' || freq.includes('12 hr')) {
@@ -44,7 +44,7 @@ export interface FrequencyInfo {
       return { type: 'Weekly', requiredDoses: 1, intervalHours: 168 };
     }
     if (freq.includes('prn') || freq.includes('as needed') || freq.includes('when required')) {
-      return { type: 'As Needed (PRN)', requiredDoses: 1, intervalHours: 4 };
+      return { type: 'As Needed (PRN)', requiredDoses: 0, intervalHours: 0 };
     }
   
     // Default fallback
@@ -57,6 +57,7 @@ export interface FrequencyInfo {
   
   export function isDoseDue(medication: any): boolean {
     const freq = getFrequencyInfo(medication.frequency);
+    if (freq.requiredDoses === 0) return false;
     const doses = medication.administeredDoses || [];
     if (doses.length === 0) return true;
     if (doses.length >= freq.requiredDoses) return false;

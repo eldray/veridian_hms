@@ -24,6 +24,39 @@ const PHARMACY_DEPARTMENT = 'Pharmacy';
 
 const marService = new NursingService(prisma);
 
+const structuredDose = (value: string) => {
+  const match = String(value ?? '').trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*(mcg|μg|ug|mg|g|ml|mL|iu|units?)$/i);
+  if (!match) return { doseAmount: null, doseUnit: null };
+  const rawUnit = match[2].toLowerCase();
+  return {
+    doseAmount: new Prisma.Decimal(match[1]),
+    doseUnit: rawUnit === 'μg' || rawUnit === 'ug' ? 'mcg' : rawUnit,
+  };
+};
+
+const structuredFrequency = (value: string, intervalHours: number) => {
+  const frequency = String(value ?? '').trim().toLowerCase();
+  const aliases: Record<string, string> = {
+    once: 'OD', od: 'OD', 'once daily': 'OD', daily: 'OD',
+    bd: 'BD', bid: 'BD', 'twice daily': 'BD',
+    tds: 'TDS', tid: 'TDS', 'three times daily': 'TDS',
+    qid: 'QID', qds: 'QID', 'four times daily': 'QID',
+    stat: 'STAT', prn: 'PRN', sos: 'PRN', 'as needed': 'PRN',
+    nocte: 'NOCTE', mane: 'MANE',
+  };
+  const code = aliases[frequency] ?? (/^(?:q\s*\d+\s*h|every\s+\d+\s*hours?)$/.test(frequency) ? 'INTERVAL' : null);
+  return { frequencyCode: code, frequencyIntervalHours: code === 'INTERVAL' ? intervalHours : null };
+};
+
+const structuredDuration = (value: string) => {
+  const match = String(value ?? '').trim().match(/^([0-9]+)\s*(hours?|hrs?|h|days?|d|weeks?|wks?)$/i);
+  if (!match) return { durationValue: null, durationUnit: null };
+  return {
+    durationValue: Number(match[1]),
+    durationUnit: /^h|hour|hr/i.test(match[2]) ? 'hours' : /^w/i.test(match[2]) ? 'weeks' : 'days',
+  };
+};
+
 /**
  * Shelf stock is opened once, at the start of the demo window, but the prescriptions are written
  * across all of it - so a 40-unit pharmacy shelf is emptied by the first two courses and every
@@ -174,7 +207,11 @@ export const seedMedications = async (
         dosage: med.dosage,
         frequency: med.frequency,
         duration: med.duration,
+        ...structuredDose(med.dosage),
+        ...structuredFrequency(med.frequency, marService.parseSchedule(med.frequency, med.duration, med.prescribedAt).intervalHours),
+        ...structuredDuration(med.duration),
         quantity: med.quantity,
+        quantityUnit: stock.unitOfMeasure || null,
         route: med.route,
         instructions: med.instructions,
         status: med.status,
@@ -233,6 +270,7 @@ export const seedMedications = async (
             status: outcome.status,
             dose: med.dosage,
             route: med.route,
+            ...structuredDose(med.dosage),
             administeredAt: outcome.administeredAt,
             administeredById: administeredByNurse ? lookups.actorId(med.nurse ?? dispenser) : undefined,
             varianceReason: outcome.varianceReason,

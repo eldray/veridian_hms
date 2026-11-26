@@ -1,4 +1,4 @@
-import { PrismaClient, Attendance, Admission, type BodyPart, type ScanCategory } from '@prisma/client';
+import { Prisma, PrismaClient, Attendance, Admission, type BodyPart, type ScanCategory } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, EncounterFilters, 
@@ -1362,6 +1362,38 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     // duration must not leave a prescription behind without its administration plan.
     const prescribedAt = new Date();
     const schedule = this.marService.parseSchedule(data.frequency, data.duration, prescribedAt);
+    const doseMatch = String(data.dosage).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*(mcg|μg|ug|mg|g|ml|mL|iu|units?)$/i);
+    const doseAmount = doseMatch ? new Prisma.Decimal(doseMatch[1]) : null;
+    const doseUnit = doseMatch ? (doseMatch[2].toLowerCase() === 'μg' || doseMatch[2].toLowerCase() === 'ug' ? 'mcg' : doseMatch[2].toLowerCase()) : null;
+    const frequencyText = String(data.frequency).trim().toLowerCase();
+    const frequencyAliases: Record<string, string> = {
+      once: 'OD', od: 'OD', 'once daily': 'OD', daily: 'OD',
+      bd: 'BD', bid: 'BD', 'twice daily': 'BD',
+      tds: 'TDS', tid: 'TDS', 'three times daily': 'TDS',
+      qid: 'QID', qds: 'QID', 'four times daily': 'QID',
+      stat: 'STAT', prn: 'PRN', sos: 'PRN', 'as needed': 'PRN',
+      nocte: 'NOCTE', mane: 'MANE',
+    };
+    const frequencyCode = frequencyAliases[frequencyText] ??
+      (/^(?:q\s*\d+\s*h|every\s+\d+\s*hours?)$/.test(frequencyText) ? 'INTERVAL' : null);
+    const intervalMatch = frequencyText.match(/^(?:q\s*|every\s+)(\d+)\s*h(?:ours?)?$/);
+    const frequencyIntervalHours = intervalMatch ? Number(intervalMatch[1]) : schedule.intervalHours;
+    const durationMatch = String(data.duration).trim().match(/^([0-9]+)\s*(hours?|hrs?|h|days?|d|weeks?|wks?)$/i);
+    const durationValue = durationMatch ? Number(durationMatch[1]) : null;
+    const durationUnit = durationMatch
+      ? (/^h|hour|hr/i.test(durationMatch[2]) ? 'hours' : /^w/i.test(durationMatch[2]) ? 'weeks' : 'days')
+      : null;
+    if (frequencyCode === 'PRN' && !data.prnIndication?.trim()) {
+      throw new ValidationError('An indication is required for PRN medication');
+    }
+    if (frequencyCode === 'PRN' && data.prnMaxDosesPerDay != null &&
+        (!Number.isInteger(Number(data.prnMaxDosesPerDay)) || Number(data.prnMaxDosesPerDay) < 1 || Number(data.prnMaxDosesPerDay) > 24)) {
+      throw new ValidationError('PRN maximum doses per day must be between 1 and 24');
+    }
+    if (frequencyCode === 'PRN' && data.prnMinimumIntervalHours != null &&
+        (!Number.isInteger(Number(data.prnMinimumIntervalHours)) || Number(data.prnMinimumIntervalHours) < 1 || Number(data.prnMinimumIntervalHours) > 24)) {
+      throw new ValidationError('PRN minimum interval must be between 1 and 24 hours');
+    }
 
     // Keep the prescription and its medication-administration schedule atomic. If
     // dose creation fails, the prescription itself must roll back as well.
@@ -1378,6 +1410,16 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           duration: data.duration,
           route: data.route,
           instructions: data.instructions,
+          doseAmount,
+          doseUnit,
+          frequencyCode,
+          frequencyIntervalHours: frequencyCode === 'INTERVAL' ? frequencyIntervalHours : null,
+          durationValue,
+          durationUnit,
+          quantityUnit: stockItem.unitOfMeasure || null,
+          prnIndication: data.prnIndication?.trim() || null,
+          prnMaxDosesPerDay: data.prnMaxDosesPerDay ?? null,
+          prnMinimumIntervalHours: data.prnMinimumIntervalHours ?? null,
           quantity,
           status: 'prescribed',
           prescribedById: actorId,
@@ -1395,6 +1437,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         status: 'scheduled' as const,
         dose: created.dosage,
         route: created.route,
+        doseAmount: created.doseAmount,
+        doseUnit: created.doseUnit,
       }));
       if (rows.length > 0) await tx.medicationDose.createMany({ data: rows });
       await appendClinicalRecordAudit(tx, actorId, 'Medication', created.id, 'create', undefined, {
@@ -1482,7 +1526,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
-      const prescriptionFields = ['dosage', 'frequency', 'duration', 'route', 'instructions'];
+      const prescriptionFields = ['dosage', 'frequency', 'duration', 'route', 'instructions', 'doseAmount', 'doseUnit', 'frequencyCode', 'frequencyIntervalHours', 'durationValue', 'durationUnit', 'quantityUnit', 'prnIndication', 'prnMaxDosesPerDay', 'prnMinimumIntervalHours'];
       if (prescriptionFields.some((field) => data[field] !== undefined) || data.notes !== undefined) {
         await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       }
@@ -1630,11 +1674,86 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         }
       }
 
+      let replacementSchedule: ReturnType<MarService['parseSchedule']> | null = null;
+      const isPrescriptionEdit = prescriptionFields.some((field) => data[field] !== undefined);
+      if (isPrescriptionEdit && med.status === 'prescribed') {
+        const nextDosage = String(data.dosage ?? med.dosage ?? '');
+        const nextFrequency = String(data.frequency ?? med.frequency ?? '');
+        const nextDuration = String(data.duration ?? med.duration ?? '');
+        const nextPrnIndication = String(data.prnIndication ?? med.prnIndication ?? '').trim();
+        const normalizedFrequency = nextFrequency.trim().toLowerCase();
+        const frequencyAliases: Record<string, string> = {
+          once: 'OD', od: 'OD', 'once daily': 'OD', daily: 'OD',
+          bd: 'BD', bid: 'BD', 'twice daily': 'BD',
+          tds: 'TDS', tid: 'TDS', 'three times daily': 'TDS',
+          qid: 'QID', qds: 'QID', 'four times daily': 'QID',
+          stat: 'STAT', prn: 'PRN', sos: 'PRN', 'as needed': 'PRN',
+          nocte: 'NOCTE', mane: 'MANE',
+        };
+        const schedule = this.marService.parseSchedule(nextFrequency, nextDuration, new Date());
+        const nextFrequencyCode = frequencyAliases[normalizedFrequency] ??
+          (/^(?:q\s*\d+\s*h|every\s+\d+\s*hours?)$/.test(normalizedFrequency) ? 'INTERVAL' : null);
+        if (nextFrequencyCode === 'PRN' && !nextPrnIndication) {
+          throw new ValidationError('An indication is required for PRN medication');
+        }
+        const doseMatch = nextDosage.trim().match(/^([0-9]+(?:\.\d+)?)\s*(mcg|μg|ug|mg|g|ml|mL|iu|units?)$/i);
+        const intervalMatch = normalizedFrequency.match(/^(?:q\s*|every\s+)(\d+)\s*h(?:ours?)?$/);
+        const durationMatch = nextDuration.trim().match(/^([0-9]+)\s*(hours?|hrs?|h|days?|d|weeks?|wks?)$/i);
+        const unit = doseMatch?.[2].toLowerCase();
+        Object.assign(updateData, {
+          doseAmount: doseMatch ? new Prisma.Decimal(doseMatch[1]) : null,
+          doseUnit: unit ? (unit === 'μg' || unit === 'ug' ? 'mcg' : unit) : null,
+          frequencyCode: nextFrequencyCode,
+          frequencyIntervalHours: nextFrequencyCode === 'INTERVAL'
+            ? Number(intervalMatch?.[1] ?? schedule.intervalHours)
+            : null,
+          durationValue: durationMatch ? Number(durationMatch[1]) : null,
+          durationUnit: durationMatch
+            ? (/^h|hour|hr/i.test(durationMatch[2]) ? 'hours' : /^w/i.test(durationMatch[2]) ? 'weeks' : 'days')
+            : null,
+          quantityUnit: data.quantityUnit ?? med.quantityUnit ?? med.StockItem?.unitOfMeasure ?? null,
+          prnIndication: nextPrnIndication || null,
+          prnMaxDosesPerDay: data.prnMaxDosesPerDay ?? med.prnMaxDosesPerDay ?? null,
+          prnMinimumIntervalHours: data.prnMinimumIntervalHours ?? med.prnMinimumIntervalHours ?? null,
+          prescriptionVersion: { increment: 1 },
+        });
+        const administeredDoseCount = await tx.medicationDose.count({
+          where: { medicationId, status: 'administered' },
+        });
+        if (administeredDoseCount > 0) {
+          throw new ConflictError('This prescription already has administered doses and cannot be rewritten; use the documented clinical correction workflow');
+        }
+        await tx.medicationDose.updateMany({
+          where: { medicationId, status: { in: ['scheduled', 'due', 'late'] } },
+          data: { status: 'discontinued', varianceReason: 'Prescription amended; replacement schedule created' },
+        });
+        replacementSchedule = schedule;
+      }
+
       const updated = await tx.medication.update({
         where: { id: medicationId },
         data: updateData,
         include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
       });
+      if (replacementSchedule && replacementSchedule.requiredDoses > 0) {
+        const lastDose = await tx.medicationDose.findFirst({
+          where: { medicationId },
+          orderBy: { doseNumber: 'desc' },
+          select: { doseNumber: true },
+        });
+        const firstDoseNumber = (lastDose?.doseNumber ?? 0) + 1;
+        const replacementRows = Array.from({ length: replacementSchedule.requiredDoses }, (_, index) => ({
+          medicationId,
+          doseNumber: firstDoseNumber + index,
+          scheduledAt: new Date(replacementSchedule!.firstDoseAt.getTime() + index * replacementSchedule!.intervalHours * 3_600_000),
+          status: 'scheduled' as const,
+          dose: updated.dosage,
+          route: updated.route,
+          doseAmount: updated.doseAmount,
+          doseUnit: updated.doseUnit,
+        }));
+        await tx.medicationDose.createMany({ data: replacementRows });
+      }
 
       if (administrationDose) {
         // Conditional claim prevents two staff sessions from recording the same dose.
@@ -1646,6 +1765,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
             administeredById: updateData.administeredById,
             site: data.site ?? undefined,
             notes: data.notes ?? undefined,
+            recordedAt: new Date(),
           },
         });
         if (claimedDose.count !== 1) {
@@ -1654,7 +1774,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       }
 
       const changedFields = Object.keys(data).filter((field) =>
-        ['status', 'quantity', 'dosage', 'frequency', 'duration', 'route', 'instructions', 'notes', 'doseId', 'site'].includes(field),
+        ['status', 'quantity', 'dosage', 'frequency', 'duration', 'route', 'instructions', 'notes', 'doseId', 'site', 'doseAmount', 'doseUnit', 'frequencyCode', 'frequencyIntervalHours', 'durationValue', 'durationUnit', 'quantityUnit', 'prnIndication', 'prnMaxDosesPerDay', 'prnMinimumIntervalHours'].includes(field),
       );
       if (changedFields.length > 0 || administrationDose || isDispensing) {
         await appendClinicalRecordAudit(tx, actorId, 'Medication', medicationId, 'update', {

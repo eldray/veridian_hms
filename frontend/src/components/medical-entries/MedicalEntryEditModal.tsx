@@ -38,6 +38,9 @@ export const MedicalEntryEditModal: React.FC<Props> = ({ type, entry, saving = f
       dosage: entry?.dosage || '',
       frequency: entry?.frequency || '',
       duration: durationValue(entry?.duration),
+      prnIndication: entry?.prnIndication || '',
+      prnMaxDosesPerDay: entry?.prnMaxDosesPerDay ?? '',
+      prnMinimumIntervalHours: entry?.prnMinimumIntervalHours ?? '',
     });
   }, [type, entry]);
   const set = (key: string, value: any) => setValues((old: any) => ({ ...old, [key]: value }));
@@ -55,6 +58,11 @@ export const MedicalEntryEditModal: React.FC<Props> = ({ type, entry, saving = f
         {field('Dosage','dosage')}
         <label className="block space-y-1"><span className="text-xs font-medium text-[var(--text-secondary)]">Frequency</span><select className={fieldCls} value={values.frequency} onChange={e=>set('frequency',e.target.value)}><option value="">Select frequency</option>{FREQUENCIES.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label className="block space-y-1"><span className="text-xs font-medium text-[var(--text-secondary)]">Days</span><select className={fieldCls} value={values.duration} onChange={e=>set('duration',e.target.value)}><option value="">Select days</option>{DURATION_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        {values.frequency === 'prn' && <>
+          {field('PRN indication','prnIndication',{placeholder:'e.g. for pain or fever'})}
+          {field('Maximum doses per day (optional)','prnMaxDosesPerDay',{type:'number',min:1,max:24,step:1})}
+          {field('Minimum interval in hours (optional)','prnMinimumIntervalHours',{type:'number',min:1,max:24,step:1})}
+        </>}
       </>}
       {type !== 'medication' && <label className="block space-y-1"><span className="text-xs font-medium text-[var(--text-secondary)]">Notes</span><textarea className={fieldCls} rows={4} value={values.notes} onChange={e=>set('notes',e.target.value)}/></label>}
     </div>

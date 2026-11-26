@@ -137,6 +137,11 @@ export const administerMarDose = (
   data?: { administeredAt?: string; site?: string; notes?: string },
 ) => api.post(`/nursing/doses/${doseId}/administer`, data ?? {}).then((r) => r.data?.data ?? r.data);
 
+export const administerPrnMedication = (
+  medicationId: string,
+  data: { doseAmount: number; doseUnit: string; reason: string; administeredAt?: string },
+) => api.post(`/nursing/medications/${medicationId}/prn-administer`, data).then((r) => r.data?.data ?? r.data);
+
 export const recordMarVariance = (
   doseId: string,
   data: { status: Exclude<DoseStatus, 'administered' | 'scheduled' | 'due' | 'discontinued'>; reason?: string; notes?: string },

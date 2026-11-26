@@ -54,9 +54,9 @@ function parseFrequency(freq) {
   if (f === 'qds' || f === 'qid' || f === 'four times daily' || f === 'four times a day' || f === 'q.i.d') {
     return { intervalHours: 6, requiredDoses: 4 };
   }
-  // PRN — as needed; don't materialize specific doses, use 1 placeholder
+  // PRN has no automatic schedule. This script only backfills actual administrations already present in the legacy JSON.
   if (f === 'prn' || f === 'as needed' || f === 'sos') {
-    return { intervalHours: 24, requiredDoses: 1 };
+    return { intervalHours: 24, requiredDoses: 0 };
   }
 
   // Unknown — best-effort fallback

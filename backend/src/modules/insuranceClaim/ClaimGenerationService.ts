@@ -261,6 +261,35 @@ export async function buildNHISClaimItems(
           frequency: med.frequency,
           duration: med.duration,
         }),
+        prescriptionSnapshot: {
+          medicationId: med.id,
+          name: med.name ?? med.StockItem?.name ?? null,
+          stockItemId: med.stockItemId,
+          medicineStrength: med.StockItem?.strength ?? null,
+          doseAmount: med.doseAmount?.toString?.() ?? null,
+          doseUnit: med.doseUnit ?? null,
+          dosageText: med.dosage ?? null,
+          frequencyCode: med.frequencyCode ?? null,
+          frequencyText: med.frequency ?? null,
+          frequencyIntervalHours: med.frequencyIntervalHours ?? null,
+          durationValue: med.durationValue ?? null,
+          durationUnit: med.durationUnit ?? null,
+          durationText: med.duration ?? null,
+          route: med.route ?? null,
+          instructions: med.instructions ?? null,
+          prnIndication: med.prnIndication ?? null,
+          prnMaxDosesPerDay: med.prnMaxDosesPerDay ?? null,
+          prnMinimumIntervalHours: med.prnMinimumIntervalHours ?? null,
+          prescribedQuantity: med.quantity,
+          quantityUnit: med.quantityUnit ?? med.StockItem?.unitOfMeasure ?? null,
+          dispensedQuantity: med.dispensedQuantity ?? dispensedQuantity,
+          dispensedAt: med.dispensedAt?.toISOString?.() ?? null,
+          prescribedAt: med.prescribedAt?.toISOString?.() ?? null,
+          prescribedById: med.prescribedById,
+          prescriptionVersion: med.prescriptionVersion ?? 1,
+        },
+        prescriptionSnapshotAt: new Date(),
+        prescriptionSnapshotVersion: med.prescriptionVersion ?? 1,
         clinician: primaryPhysicianLicense,
         prescriberNo: primaryPhysicianLicense,
       },
@@ -337,6 +366,18 @@ export async function buildBillClaimItems(
     throw new ValidationError('Bill has no active line items');
   }
 
+  const dispensedMedications = await tx.medication.findMany({
+    where: { attendanceId, status: { in: ['dispensed', 'administered'] } },
+    include: { StockItem: true },
+  });
+  const medicationsByStockItem = new Map<string, typeof dispensedMedications>();
+  for (const medication of dispensedMedications) {
+    if (!medication.stockItemId) continue;
+    const matches = medicationsByStockItem.get(medication.stockItemId) ?? [];
+    matches.push(medication);
+    medicationsByStockItem.set(medication.stockItemId, matches);
+  }
+
   const items: Prisma.InsuranceClaimItemCreateWithoutClaimInput[] = [];
   let total = new Prisma.Decimal(0);
   let seq = 0;
@@ -344,6 +385,11 @@ export async function buildBillClaimItems(
   for (const line of bill.BillLineItem) {
     seq += 1;
     total = total.plus(line.lineTotal);
+    const stockItemId = line.serviceCatalog?.stockItemId ?? null;
+    const matchingMedications = stockItemId ? medicationsByStockItem.get(stockItemId) ?? [] : [];
+    const medication = line.serviceType === 'medication' && matchingMedications.length === 1
+      ? matchingMedications[0]
+      : null;
     items.push({
       itemNumber: seq,
       billLineItem: { connect: { id: line.id } },
@@ -356,6 +402,43 @@ export async function buildBillClaimItems(
       unitPrice: line.unitPrice,
       lineTotal: line.lineTotal,
       serviceDate: line.createdAt,
+      ...(medication ? {
+        medication: { connect: { id: medication.id } },
+        prescriptionText: formatPrescription({
+          dosage: medication.dosage,
+          frequency: medication.frequency,
+          duration: medication.duration,
+        }),
+        prescriptionSnapshot: {
+          medicationId: medication.id,
+          name: medication.name,
+          stockItemId: medication.stockItemId,
+          medicineStrength: medication.StockItem?.strength ?? null,
+          doseAmount: medication.doseAmount?.toString?.() ?? null,
+          doseUnit: medication.doseUnit ?? null,
+          dosageText: medication.dosage ?? null,
+          frequencyCode: medication.frequencyCode ?? null,
+          frequencyText: medication.frequency ?? null,
+          frequencyIntervalHours: medication.frequencyIntervalHours ?? null,
+          durationValue: medication.durationValue ?? null,
+          durationUnit: medication.durationUnit ?? null,
+          durationText: medication.duration ?? null,
+          route: medication.route ?? null,
+          instructions: medication.instructions ?? null,
+          prnIndication: medication.prnIndication ?? null,
+          prnMaxDosesPerDay: medication.prnMaxDosesPerDay ?? null,
+          prnMinimumIntervalHours: medication.prnMinimumIntervalHours ?? null,
+          prescribedQuantity: medication.quantity,
+          quantityUnit: medication.quantityUnit ?? medication.StockItem?.unitOfMeasure ?? null,
+          dispensedQuantity: medication.dispensedQuantity ?? null,
+          dispensedAt: medication.dispensedAt?.toISOString?.() ?? null,
+          prescribedAt: medication.prescribedAt?.toISOString?.() ?? null,
+          prescribedById: medication.prescribedById,
+          prescriptionVersion: medication.prescriptionVersion ?? 1,
+        },
+        prescriptionSnapshotAt: new Date(),
+        prescriptionSnapshotVersion: medication.prescriptionVersion ?? 1,
+      } : {}),
     });
   }
 

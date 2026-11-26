@@ -180,7 +180,11 @@ interface AttendanceState {
     frequency: string; 
     duration: string; 
     route?: string; 
-    instructions?: string 
+    instructions?: string;
+    quantity?: number;
+    prnIndication?: string;
+    prnMaxDosesPerDay?: number;
+    prnMinimumIntervalHours?: number;
   }) => Promise<void>;
   updateMedicationStatus: (attendanceId: string, medicationId: string, data: any) => Promise<void>;
   dispenseMedication: (attendanceId: string, medicationId: string, data: { quantity: number; batchNumber?: string; expiryDate?: string }) => Promise<any>;
@@ -703,7 +707,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // MEDICATION OPERATIONS
   // ==========================================
 
-  addMedication: async (attendanceId, { stockItemId, serviceCatalogId, dosage, frequency, duration, route, instructions }) => {
+  addMedication: async (attendanceId, { stockItemId, serviceCatalogId, dosage, frequency, duration, route, instructions, quantity, prnIndication, prnMaxDosesPerDay, prnMinimumIntervalHours }) => {
     const state = get();
     const att = state.attendances.find((a) => a.id === attendanceId)
       || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
@@ -721,6 +725,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         duration,
         route,
         instructions,
+        quantity,
+        prnIndication,
+        prnMaxDosesPerDay,
+        prnMinimumIntervalHours,
       });
       const refreshedAttendance = await get().refreshAttendance(attendanceId);
       set({ isLoading: false, error: null });

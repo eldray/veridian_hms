@@ -1703,7 +1703,7 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { StockItem: { select: { id: true, drugCode: true, name: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { StockItem: { select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
 
@@ -1730,8 +1730,49 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       })
     : [];
   const validBillLineIds = new Set(billLineRows.map((row: any) => row.id));
+  const medicationById = new Map((claim.Attendance?.Medication ?? []).map((med: any) => [med.id, med]));
+  const medicationsByCode = new Map<string, any[]>();
+  for (const med of claim.Attendance?.Medication ?? []) {
+    const code = med.StockItem?.drugCode;
+    if (!code) continue;
+    const rows = medicationsByCode.get(code) ?? [];
+    rows.push(med);
+    medicationsByCode.set(code, rows);
+  }
+  const snapshotAt = new Date();
 
   const rows = (items || []).map((it: any, idx: number) => {
+    const codeMatches = medicationsByCode.get(String(it.code ?? '')) ?? [];
+    const medication = it.medicationId
+      ? medicationById.get(it.medicationId)
+      : codeMatches.length === 1 && it.itemCategory === 'medicine' ? codeMatches[0] : null;
+    const prescriptionSnapshot = medication ? {
+      medicationId: medication.id,
+      name: medication.name,
+      stockItemId: medication.stockItemId,
+      medicineStrength: medication.StockItem?.strength ?? null,
+      doseAmount: medication.doseAmount?.toString?.() ?? null,
+      doseUnit: medication.doseUnit ?? null,
+      dosageText: medication.dosage ?? null,
+      frequencyCode: medication.frequencyCode ?? null,
+      frequencyText: medication.frequency ?? null,
+      frequencyIntervalHours: medication.frequencyIntervalHours ?? null,
+      durationValue: medication.durationValue ?? null,
+      durationUnit: medication.durationUnit ?? null,
+      durationText: medication.duration ?? null,
+      route: medication.route ?? null,
+      instructions: medication.instructions ?? null,
+      prnIndication: medication.prnIndication ?? null,
+      prnMaxDosesPerDay: medication.prnMaxDosesPerDay ?? null,
+      prnMinimumIntervalHours: medication.prnMinimumIntervalHours ?? null,
+      prescribedQuantity: medication.quantity,
+      quantityUnit: medication.quantityUnit ?? medication.StockItem?.unitOfMeasure ?? null,
+      dispensedQuantity: medication.dispensedQuantity ?? null,
+      dispensedAt: medication.dispensedAt?.toISOString?.() ?? null,
+      prescribedAt: medication.prescribedAt?.toISOString?.() ?? null,
+      prescribedById: medication.prescribedById,
+      prescriptionVersion: medication.prescriptionVersion ?? 1,
+    } : null;
     const quantity = it.quantity ?? 1;
     const unitPrice = it.unitPrice ?? 0;
     const serviceDate = it.serviceDate ? new Date(it.serviceDate) : null;
@@ -1749,7 +1790,10 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       serviceDate: serviceDate && !isNaN(serviceDate.getTime()) ? serviceDate : null,
       clinician: it.clinician ?? null,
       prescriberNo: it.prescriberNo ?? null,
-      prescriptionText: it.prescriptionText ?? null,
+      prescriptionText: it.prescriptionText ?? (medication ? [medication.dosage, medication.frequency, medication.duration].filter(Boolean).join(' · ') : null),
+      prescriptionSnapshot: prescriptionSnapshot ?? Prisma.DbNull,
+      prescriptionSnapshotAt: prescriptionSnapshot ? snapshotAt : null,
+      prescriptionSnapshotVersion: prescriptionSnapshot ? (medication.prescriptionVersion ?? 1) : null,
       serviceCatalogId: it.serviceCatalogId && validCatalog.has(it.serviceCatalogId) ? it.serviceCatalogId : null,
       diagnosisId: it.diagnosisId && validDiagnosis.has(it.diagnosisId) ? it.diagnosisId : null,
       gdrgTariffId: it.gdrgTariffId && validTariff.has(it.gdrgTariffId) ? it.gdrgTariffId : null,
@@ -1760,7 +1804,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       labTestId: null,
       scanId: null,
       procedureId: null,
-      medicationId: null,
+      medicationId: medication ? medication.id : null,
     };
   });
 
@@ -1845,6 +1889,9 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         scanId: null,
         procedureId: null,
         medicationId: null,
+        prescriptionSnapshot: Prisma.DbNull,
+        prescriptionSnapshotAt: null,
+        prescriptionSnapshotVersion: null,
       };
       rows.unshift(gdrgRow);
       rows.forEach((row, index) => { row.itemNumber = index + 1; });

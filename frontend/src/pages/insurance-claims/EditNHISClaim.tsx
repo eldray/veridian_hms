@@ -198,6 +198,7 @@ const buildItemPayload = (args: {
     if (!m.code) continue;
     out.push({
       itemCategory: 'medicine',
+      medicationId: m.medicationId,
       code: m.code,
       description: m.description || m.code,
       quantity: m.quantity ?? 1,

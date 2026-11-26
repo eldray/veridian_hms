@@ -94,7 +94,7 @@ export default function NursingPatientWorkspace() {
     doses, dosesLoading,
     tasks,
     fetchDoses, fetchTasks, createTask, editTask,
-    administerDose, recordVariance,
+    administerDose, administerPrnMedication, recordVariance,
   } = useNursingStore();
 
   // ── Bootstrap ─────────────────────────────────
@@ -225,6 +225,54 @@ export default function NursingPatientWorkspace() {
   // ── Quick-give from Overview ──────────────────
   const handleQuickGive = async (dose: MarDose) => {
     await handleMarAdminister(dose);
+  };
+
+  const handlePrnAdminister = async (medication: any) => {
+    const doseText = await promptDialog({
+      title: `Administer ${medication.name}`,
+      message: `Prescribed as needed: ${medication.prnIndication || 'Clinical indication not recorded'}`,
+      label: `Dose amount (${medication.doseUnit || 'enter unit'})`,
+      defaultValue: medication.doseAmount ? String(medication.doseAmount) : '',
+      required: true,
+      confirmText: 'Continue',
+      maxLength: 32,
+    });
+    if (doseText === null) return;
+    const doseAmount = Number(doseText);
+    if (!Number.isFinite(doseAmount) || doseAmount <= 0) {
+      toastError('Invalid dose', 'Enter a positive numeric dose amount.');
+      return;
+    }
+    const doseUnit = await promptDialog({
+      title: 'Dose unit',
+      message: 'Enter the unit actually administered, such as mg, mL or tablet.',
+      label: 'Dose unit',
+      defaultValue: medication.doseUnit || 'mg',
+      required: true,
+      confirmText: 'Continue',
+      maxLength: 24,
+    });
+    if (doseUnit === null) return;
+    const reason = await promptDialog({
+      title: 'PRN administration reason',
+      message: 'Record why this as-needed medicine was given.',
+      label: 'Reason',
+      defaultValue: medication.prnIndication || '',
+      required: true,
+      confirmText: 'Administer',
+      maxLength: 240,
+    });
+    if (reason === null) return;
+    setAdministeringId(medication.id);
+    try {
+      await administerPrnMedication(medication.id, { doseAmount, doseUnit, reason });
+      success('PRN dose recorded', `${medication.name} administration has been added to the MAR.`);
+      await fetchDoses({ attendanceId });
+    } catch (err: any) {
+      toastError('Administration failed', err?.response?.data?.message || err.message);
+    } finally {
+      setAdministeringId(null);
+    }
   };
 
   // ── Tasks ─────────────────────────────────────
@@ -747,6 +795,31 @@ export default function NursingPatientWorkspace() {
           {/* ══════════ MAR ══════════ */}
           {activeTab === 'mar' && (
             <div className="space-y-4">
+              {administrableMeds.filter((med: any) => med.frequencyCode === 'PRN').length > 0 && (
+                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 space-y-2">
+                  <div>
+                    <h4 className="text-xs font-semibold text-[var(--text-primary)]">As-needed medicines (PRN)</h4>
+                    <p className="text-[11px] text-[var(--text-secondary)]">These medicines do not create automatic scheduled doses. Record each administration here.</p>
+                  </div>
+                  {administrableMeds.filter((med: any) => med.frequencyCode === 'PRN').map((med: any) => (
+                    <div key={med.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border-color)] p-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[var(--text-primary)]">{med.name}</p>
+                        <p className="text-xs text-[var(--text-secondary)]">{med.dosage} · {med.route || 'Route not specified'}</p>
+                        <p className="text-[11px] text-[var(--text-tertiary)]">Indication: {med.prnIndication || 'Not recorded'}{med.prnMaxDosesPerDay ? ` · Max ${med.prnMaxDosesPerDay}/day` : ''}{med.prnMinimumIntervalHours ? ` · At least ${med.prnMinimumIntervalHours}h apart` : ''}</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={administeringId === med.id}
+                        onClick={() => void handlePrnAdminister(med)}
+                        className="rounded-lg bg-[var(--icon-cyan-bg)] px-3 py-2 text-xs font-semibold text-[var(--icon-cyan-text)] disabled:opacity-50"
+                      >
+                        {administeringId === med.id ? 'Recording…' : 'Record dose'}
+                      </button>
+                    </div>
+                  ))}
+                </section>
+              )}
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                   <h3 className="text-sm font-semibold text-[var(--text-primary)]">Medication Administration Record</h3>
