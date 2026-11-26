@@ -1445,7 +1445,7 @@ const admissionType = currentAttendance?.admissionType;
 if (status === 'discharged' || status === 'completed') {
 return (
 <button type="button" onClick={handleReferPatient}
-className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
+className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
 <Send className="w-3.5 h-3.5" /> Refer patient
 </button>
 );
@@ -1469,7 +1469,7 @@ hover:bg-[var(--icon-green-text)] hover:text-white transition-all"
 >
 <CheckCircle className="w-3.5 h-3.5" /> Discharge
 </button>
-<button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
+<button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
 <ArrowRight className="w-3.5 h-3.5" /> Refer
 </button>
 </div>
@@ -1482,7 +1482,7 @@ return (
 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all">
 <Hospital className="w-3.5 h-3.5" /> Manage Admission
 </button>
-<button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
+<button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
 <ArrowRight className="w-3.5 h-3.5" /> Refer
 </button>
 </div>
@@ -1514,7 +1514,7 @@ hover:bg-[var(--icon-green-text)] hover:text-white transition-all"
 >
 <Hospital className="w-3.5 h-3.5" /> Admit (IPD)
 </button>
-<button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
+<button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
 <ArrowRight className="w-3.5 h-3.5" /> Refer
 </button>
 </div>
@@ -1730,20 +1730,20 @@ Family: <strong className="text-[var(--text-primary)]">{history.relation}</stron
 </div>
 {/* ── INPATIENT CONTEXT: keep IPD work linked to this admission ── */}
 {isActiveInpatient && (
-<section data-ipd-banner className="rounded-xl border border-teal-200 dark:border-slate-600 bg-gradient-to-r from-teal-50/90 to-cyan-50/70 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 overflow-hidden shadow-sm dark:shadow-black/20"
+<section data-ipd-banner className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-main)] overflow-hidden shadow-sm dark:shadow-black/20"
 aria-label="Active inpatient admission">
 <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 <div className="flex items-start gap-3 min-w-0">
-<div className="w-10 h-10 rounded-xl bg-teal-700 text-white flex items-center justify-center flex-shrink-0">
+<div className="w-10 h-10 rounded-xl bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] flex items-center justify-center flex-shrink-0">
 <Hospital className="w-5 h-5" />
 </div>
 <div className="min-w-0">
 <div className="flex flex-wrap items-center gap-2">
-<h3 className="text-sm font-bold text-slate-900 dark:text-white">Active Inpatient Admission</h3>
-<span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-bold text-teal-900 ring-1 ring-inset ring-teal-300 dark:bg-teal-800 dark:text-teal-50 dark:ring-teal-600">IPD</span>
-{linkedAdmission?.admissionNumber && <span className="text-[10px] font-mono text-slate-600 dark:text-slate-300">#{linkedAdmission.admissionNumber}</span>}
+<h3 className="text-sm font-bold text-[var(--text-primary)]">Active Inpatient Admission</h3>
+<span className="rounded-full bg-[var(--icon-cyan-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--icon-cyan-text)] ring-1 ring-inset ring-[var(--icon-cyan-text)]">IPD</span>
+{linkedAdmission?.admissionNumber && <span className="text-[10px] font-mono text-[var(--text-tertiary)]">#{linkedAdmission.admissionNumber}</span>}
 </div>
-<p className="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
+<p className="mt-1 text-xs font-medium text-[var(--text-secondary)]">
 {currentAttendance?.Ward?.wardName || currentAttendance?.ward?.wardName || (currentAttendance as any)?.Bed?.Ward?.wardName || linkedAdmission?.attendance?.Ward?.wardName || linkedAdmission?.attendance?.ward?.wardName || linkedAdmission?.ward?.wardName || 'Ward not assigned'}
 {' · '}
 {currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber || linkedAdmission?.attendance?.Bed?.bedNumber || linkedAdmission?.attendance?.bed?.bedNumber || linkedAdmission?.bed?.bedNumber
@@ -1751,7 +1751,7 @@ aria-label="Active inpatient admission">
 : 'Bed not assigned'}
 {linkedAdmission?.admissionDate ? ` · Admitted ${new Date(linkedAdmission.admissionDate).toLocaleDateString()}` : ''}
 </p>
-<p className="mt-1 text-[11px] leading-relaxed text-slate-700 dark:text-slate-300">
+<p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">
 Continue documenting progress, diagnoses, medications, investigations and treatment here. Use Admission Details for the stay overview and nursing/bed coordination.
 </p>
 </div>
@@ -1764,11 +1764,11 @@ className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-70
 </button>
 )}
 <button type="button" onClick={() => navigate(`/dashboard/nursing/patient/${selectedAttendanceId}`)}
-className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 transition-colors">
+className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--icon-cyan-text)] transition-colors">
 <ClipboardList className="w-3.5 h-3.5" /> Nursing
 </button>
 <button type="button" onClick={() => navigate(`/dashboard/vitals/${selectedAttendanceId}`)}
-className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 transition-colors">
+className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-[var(--icon-cyan-text)] transition-colors">
 <Activity className="w-3.5 h-3.5" /> Observations
 </button>
 </div>
@@ -1781,15 +1781,15 @@ className="inline-flex items-center justify-center gap-1.5 rounded-lg border bor
 style={{ boxShadow: 'var(--shadow-sm)' }}>
 <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
 {[
-{ icon: <Gauge className="w-3.5 h-3.5 text-blue-500" />, value: latestVitals.bloodPressure || '—', label: 'BP', type: 'bp' },
-{ icon: <Thermometer className="w-3.5 h-3.5 text-orange-500" />, value: latestVitals.temperature ? `${latestVitals.temperature}°` : '—', label: 'Temp', type: 'temp' },
-{ icon: <Heart className="w-3.5 h-3.5 text-red-500" />, value: latestVitals.pulse || '—', label: 'Pulse', type: 'pulse' },
-{ icon: <Wind className="w-3.5 h-3.5 text-teal-500" />, value: latestVitals.respiration || '—', label: 'Resp', type: null },
-{ icon: <Droplets className="w-3.5 h-3.5 text-sky-500" />, value: latestVitals.spo2 ? `${latestVitals.spo2}%` : '—', label: 'SpO₂', type: 'spo2' },
-{ icon: <Weight className="w-3.5 h-3.5 text-amber-500" />, value: latestVitals.weight ? `${latestVitals.weight}kg` : '—', label: 'Weight', type: null },
-{ icon: <Ruler className="w-3.5 h-3.5 text-cyan-500" />, value: latestVitals.height ? `${latestVitals.height}cm` : '—', label: 'Height', type: null },
-{ icon: <Activity className="w-3.5 h-3.5 text-violet-500" />, value: latestVitals.bmi || '—', label: 'BMI', type: null },
-{ icon: <Activity className="w-3.5 h-3.5 text-indigo-500" />, value: latestVitals.muac || '—', label: 'MUAC', type: null },
+{ icon: <Gauge className="w-3.5 h-3.5 text-[var(--icon-blue-text)]" />, value: latestVitals.bloodPressure || '—', label: 'BP', type: 'bp' },
+{ icon: <Thermometer className="w-3.5 h-3.5 text-[var(--icon-yellow-text)]" />, value: latestVitals.temperature ? `${latestVitals.temperature}°` : '—', label: 'Temp', type: 'temp' },
+{ icon: <Heart className="w-3.5 h-3.5 text-[var(--icon-red-text)]" />, value: latestVitals.pulse || '—', label: 'Pulse', type: 'pulse' },
+{ icon: <Wind className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />, value: latestVitals.respiration || '—', label: 'Resp', type: null },
+{ icon: <Droplets className="w-3.5 h-3.5 text-[var(--icon-blue-text)]" />, value: latestVitals.spo2 ? `${latestVitals.spo2}%` : '—', label: 'SpO₂', type: 'spo2' },
+{ icon: <Weight className="w-3.5 h-3.5 text-[var(--icon-yellow-text)]" />, value: latestVitals.weight ? `${latestVitals.weight}kg` : '—', label: 'Weight', type: null },
+{ icon: <Ruler className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />, value: latestVitals.height ? `${latestVitals.height}cm` : '—', label: 'Height', type: null },
+{ icon: <Activity className="w-3.5 h-3.5 text-[var(--icon-purple-text)]" />, value: latestVitals.bmi || '—', label: 'BMI', type: null },
+{ icon: <Activity className="w-3.5 h-3.5 text-[var(--icon-purple-text)]" />, value: latestVitals.muac || '—', label: 'MUAC', type: null },
 ].map((v, i) => (
 <div key={i} className="flex flex-col items-center gap-0.5">
 {v.icon}
@@ -1886,7 +1886,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                     </select>
                                     {(() => { const existingAllergies = (selectedPatient as any)?.allergies || (currentAttendance as any)?.Patient?.allergies || [];
                                         return Array.isArray(existingAllergies) && existingAllergies.length > 0
-                                            ? <p className="text-[10px] text-amber-600">Existing patient allergies: {existingAllergies.map((a: any) => [a.allergen, a.reaction, a.severity].filter(Boolean).join(' — ')).join('; ')}</p>
+                                            ? <p className="text-[10px] text-[var(--icon-yellow-text)]">Existing patient allergies: {existingAllergies.map((a: any) => [a.allergen, a.reaction, a.severity].filter(Boolean).join(' — ')).join('; ')}</p>
                                             : <p className="text-[10px] text-[var(--text-tertiary)]">No patient allergy entries are currently recorded.</p>; })()}
                                     <textarea value={allergyReviewNotes} onChange={e => setAllergyReviewNotes(e.target.value)} rows={2} disabled={!canAddEntries || isClinicalFinalized}
                                         placeholder="Allergy/reaction details or review notes…" className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
@@ -1909,13 +1909,13 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                         <div className="flex justify-end gap-2">
                                             <button type="button" onClick={handleFinalizeClinical}
                                                 disabled={Boolean((currentAttendance as any)?.finalizedAt)}
-                                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold border border-emerald-600 text-emerald-700 disabled:opacity-50">
+                                                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold border border-[var(--icon-green-text)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] disabled:opacity-50">
                                                 <CheckCircle className="w-3.5 h-3.5" /> {(currentAttendance as any)?.finalizedAt ? 'Finalized' : 'Finalize & Sign'}
                                             </button>
                                             {currentAttendance?.encounterCategory === 'opd' &&
                                                 currentAttendance?.status === 'pending' && isClinicalFinalized && (
                                                     <button type="button" onClick={handleCompleteAttendance}
-                                                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-700 text-white hover:bg-emerald-800 transition-colors">
+                                                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:opacity-85 transition-colors">
                                                         <CheckCircle className="w-3.5 h-3.5" /> Complete Attendance
                                                     </button>
                                                 )}
@@ -2420,7 +2420,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
             {/* ── VITALS TAB ── */}
             {activeTab === 'vitals' && (
                 <div className="p-4">
-                    <SectionCard icon={<Activity className="w-4 h-4 text-pink-500" />} title="Vitals History" count={allVitals.length} maxH="max-h-[600px]">
+                    <SectionCard icon={<Activity className="w-4 h-4 text-[var(--icon-purple-text)]" />} title="Vitals History" count={allVitals.length} maxH="max-h-[600px]">
                         {allVitals.length === 0
                             ? <EmptyState icon={<Activity className="w-8 h-8" />} label="No vitals recorded for this visit" />
                             : (
