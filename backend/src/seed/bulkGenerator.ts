@@ -1803,9 +1803,12 @@ const emitBill = (
     status,
     paymentFraction,
     discountFraction: chance(0.12) ? between(0.05, 0.2) : 0,
+    // The seed writer records payments through the ordinary/manual billing path.
+    // Mobile Money must never be simulated as a confirmed payment: it requires a
+    // provider-backed MTN MoMo intent and a SUCCESSFUL provider status first.
     paymentMethod: att.paymentMode === 'cash'
-      ? pick(['cash', 'cash', 'mobile_money', 'mobile_money', 'card', 'bank_transfer'])
-      : pick(['bank_transfer', 'mobile_money', 'cheque']),
+      ? pick(['cash', 'cash', 'card', 'bank_transfer', 'cheque'])
+      : pick(['bank_transfer', 'cheque', 'card']),
     receiptReference: paymentFraction > 0 ? `RCP-${padNumber(++counters.receipt)}` : '',
     graValidated: status === 'paid' && chance(0.7),
   };
