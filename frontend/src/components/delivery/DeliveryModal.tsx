@@ -291,7 +291,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
               </div>
             </div>
             <button type="button" onClick={handleReferFromDelivery}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-cyan-300 text-cyan-700 hover:bg-cyan-50">
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border-color)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]">
                     Refer Patient
                   </button>
                   <button onClick={onClose}
