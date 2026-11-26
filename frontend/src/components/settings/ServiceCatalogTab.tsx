@@ -107,6 +107,9 @@ export default function ServiceCatalogTab() {
     setFormLoading(true);
     try {
       const { requiresAuthorization, ...rest } = formData;
+      if (rest.isNHISCovered && !(Number(rest.nhisPrice) > 0)) {
+        throw new Error('A positive NHIS tariff is required for a service marked as NHIS-covered. Set the correct tariff or mark the service as not NHIS-covered.');
+      }
       const payload = { ...rest, nhisRequiresAuth: requiresAuthorization };
       if (editingItem) { if (!editingItem.id) throw new Error('Missing service ID'); await updateServiceCatalogItem(editingItem.id, payload); success('Service Updated', `${formData.name} has been updated`); }
       else { await createServiceCatalogItem(payload); success('Service Created', `${formData.name} has been added`); }
