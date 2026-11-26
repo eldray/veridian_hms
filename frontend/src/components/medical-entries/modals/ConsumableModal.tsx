@@ -166,7 +166,8 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
       : 0;
   const maxQuantity = selected ? selectedAvailable + restorableQuantity : 0;
 
-  const showDropdown = !selectedId;
+  // Keep the inventory list hidden until the user enters a search query.
+  const showDropdown = !selectedId && !!debouncedSearch.trim();
   const isOutOfStock = !!selected && maxQuantity <= 0;
   const isOverMax = !!selected && quantity > maxQuantity;
 

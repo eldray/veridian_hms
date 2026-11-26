@@ -41,11 +41,43 @@ const FREQUENCIES = [
   { value: 'mane',  label: 'In morning (mane)' },
 ];
 
-const DURATION_OPTIONS = Array.from({ length: 30 }, (_, index) => {
-  const days = index + 1;
+const DURATION_OPTIONS = [...Array.from({ length: 30 }, (_, index) => index + 1), 60, 90].map(days => {
   const value = days === 1 ? '24 hours' : days === 2 ? '48 hours' : `${days} days`;
-  return { value, label: value };
+  return { value, label: value, days };
 });
+
+// Offer relative dose suggestions from a simple, single-strength catalog value.
+// Compound concentrations (for example, mg/5 mL) are deliberately left to manual entry.
+const getDosageSuggestions = (strength?: string): string[] => {
+  const value = strength?.trim();
+  if (!value) return [];
+
+  // Liquid concentrations are converted to volume suggestions, not copied as a dose.
+  const concentration = value.match(/^(\d+(?:\.\d+)?)\s*(mcg|μg|ug|mg|g|iu|units?)\s*(?:\/|per)\s*(\d+(?:\.\d+)?)\s*ml$/i);
+  if (concentration) {
+    const baseVolume = Number(concentration[3]);
+    if (!Number.isFinite(baseVolume) || baseVolume <= 0) return [];
+    return [0.5, 1, 1.5, 2, 2.5, 3].map(multiplier => {
+      const volume = baseVolume * multiplier;
+      const formatted = Number.isInteger(volume) ? volume.toLocaleString('en-US') : volume.toLocaleString('en-US', { maximumFractionDigits: 2 });
+      return formatted + ' mL';
+    });
+  }
+
+  const match = value.match(/^(\d+(?:\.\d+)?)\s*(mcg|μg|ug|mg|g|iu|units?)$/i);
+  if (!match) return [];
+  const base = Number(match[1]);
+  if (!Number.isFinite(base) || base <= 0) return [];
+  const unit = match[2].toLowerCase() === 'μg' ? 'mcg' : match[2].toLowerCase();
+  return [0.5, 1, 1.5, 2, 2.5, 3].map(multiplier => {
+    const amount = base * multiplier;
+    const formatted = Number.isInteger(amount) ? amount.toLocaleString('en-US') : amount.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    return formatted + ' ' + unit;
+  });
+};
+
+const isLiquidConcentration = (strength?: string): boolean =>
+  !!strength?.trim().match(/^\d+(?:\.\d+)?\s*(?:mcg|μg|ug|mg|g|iu|units?)\s*(?:\/|per)\s*\d+(?:\.\d+)?\s*ml$/i);
 
 export const MedicationModal: React.FC<MedicationModalProps> = ({
   isOpen, onClose, onSuccess, attendanceId, stockItems, canAdd, allergies, onSwitchToConsumable,
@@ -56,6 +88,10 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('');
   const [duration, setDuration] = useState('');
+  const [route, setRoute] = useState('oral');
+  const [instructions, setInstructions] = useState('');
+  const [durationSearch, setDurationSearch] = useState('');
+  const [showDurationOptions, setShowDurationOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -76,6 +112,10 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setDosage('');
     setFrequency('');
     setDuration('');
+    setRoute('oral');
+    setInstructions('');
+    setDurationSearch('');
+    setShowDurationOptions(false);
     setShowDropdown(false);
     hasTriggeredCatalogLoad.current = false;
     const t = setTimeout(() => searchInputRef.current?.focus(), 60);
@@ -130,6 +170,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     return ids;
   }, [filteredMeds, allergies]);
 
+  const dosageSuggestions = useMemo(() => getDosageSuggestions(selectedMed?.strength), [selectedMed?.strength]);
+
   const selectedClashes: AllergenClash[] = useMemo(
     () => (selectedMed ? findContraindications(allergies, selectedMed.name) : []),
     [selectedMed, allergies],
@@ -143,7 +185,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setShowDropdown(false);
     const svc = medicationServiceCatalogs.find(sc => sc.stockItemId === m.id);
     setSelectedServiceCatalog(svc || null);
-    if (m.strength && !dosage) setDosage(m.strength);
+    if (m.strength && !dosage && !isLiquidConcentration(m.strength)) setDosage(m.strength);
   };
 
   const clearSelection = () => {
@@ -153,6 +195,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setDosage('');
     setFrequency('');
     setDuration('');
+    setDurationSearch('');
+    setShowDurationOptions(false);
     setRoute('oral');
     setInstructions('');
     searchInputRef.current?.focus();
@@ -178,6 +222,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
         dosage: dosage.trim(),
         frequency,
         duration: duration.trim(),
+        route,
+        instructions: instructions.trim() || undefined,
       });
       success('Medication prescribed', `${selectedMed.name} has been prescribed.`);
       clearSelection();
@@ -406,8 +452,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
             </div>
           )}
 
-          {/* Prescription details: dosage, frequency and course length only. */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Prescription details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
                 Dosage
@@ -415,11 +461,22 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
               <input
                 value={dosage}
                 onChange={e => setDosage(e.target.value)}
-                placeholder="500mg"
+                placeholder={isLiquidConcentration(selectedMed?.strength) ? 'Enter or choose volume (mL)' : 'Enter or choose dosage'}
                 className={inputCls}
                 disabled={!canEdit}
                 autoComplete="off"
+                list="prescription-dosage-options"
               />
+              {dosageSuggestions.length > 0 && (
+                <>
+                  <datalist id="prescription-dosage-options">
+                    {dosageSuggestions.map(option => <option key={option} value={option} />)}
+                  </datalist>
+                  <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
+                    {isLiquidConcentration(selectedMed?.strength) ? `Volume suggestions based on ${selectedMed?.strength}; verify the prescribed dose.` : `Suggestions based on ${selectedMed?.strength}; verify the prescribed dose.`}
+                  </p>
+                </>
+              )}
             </div>
 
             <div>
@@ -441,17 +498,102 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
 
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
-                Days
+                Route
               </label>
               <select
-                value={duration}
-                onChange={e => setDuration(e.target.value)}
+                value={route}
+                onChange={e => setRoute(e.target.value)}
                 className={inputCls}
                 disabled={!canEdit}
               >
-                <option value="">Select days…</option>
-                {DURATION_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                <option value="oral">Oral</option>
+                <option value="intravenous">Intravenous (IV)</option>
+                <option value="intramuscular">Intramuscular (IM)</option>
+                <option value="subcutaneous">Subcutaneous (SC)</option>
+                <option value="topical">Topical</option>
+                <option value="inhalation">Inhalation</option>
+                <option value="rectal">Rectal</option>
+                <option value="sublingual">Sublingual</option>
+                <option value="nasal">Nasal</option>
+                <option value="ophthalmic">Ophthalmic (eye)</option>
+                <option value="otic">Otic (ear)</option>
+                <option value="vaginal">Vaginal</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Days
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none" />
+                <input
+                  value={durationSearch}
+                  onChange={e => {
+                    setDurationSearch(e.target.value);
+                    setDuration('');
+                    setShowDurationOptions(true);
+                  }}
+                  onFocus={() => setShowDurationOptions(true)}
+                  placeholder="Search days…"
+                  className={`${inputCls} pl-9`}
+                  disabled={!canEdit}
+                  autoComplete="off"
+                  role="combobox"
+                  aria-expanded={showDurationOptions}
+                  aria-controls="prescription-duration-options"
+                  aria-autocomplete="list"
+                />
+                {showDurationOptions && canEdit && (
+                  <div
+                    id="prescription-duration-options"
+                    role="listbox"
+                    className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] shadow-lg"
+                    style={{ scrollbarWidth: 'thin' }}
+                  >
+                    {DURATION_OPTIONS.filter(option =>
+                      !durationSearch.trim() ||
+                      option.label.toLowerCase().includes(durationSearch.trim().toLowerCase()) ||
+                      String(option.days).includes(durationSearch.trim())
+                    ).map(option => (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={duration === option.value}
+                        key={option.value}
+                        onClick={() => {
+                          setDuration(option.value);
+                          setDurationSearch(option.label);
+                          setShowDurationOptions(false);
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                    {DURATION_OPTIONS.filter(option =>
+                      !durationSearch.trim() ||
+                      option.label.toLowerCase().includes(durationSearch.trim().toLowerCase()) ||
+                      String(option.days).includes(durationSearch.trim())
+                    ).length === 0 && (
+                      <p className="px-3 py-2 text-xs text-[var(--text-secondary)]">No matching durations</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Search or choose 1–30, 60 or 90 days.</p>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-4">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Instructions <span className="normal-case font-normal">(optional)</span>
+              </label>
+              <input
+                value={instructions}
+                onChange={e => setInstructions(e.target.value)}
+                placeholder="Additional directions for the patient"
+                className={inputCls}
+                disabled={!canEdit}
+                autoComplete="off"
+              />
             </div>
           </div>
         </div>
