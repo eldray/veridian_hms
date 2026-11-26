@@ -660,6 +660,10 @@ export class GHSReportService extends BaseService {
       },
       orderBy: { administeredAt: 'asc' },
     });
+    const monthlyStockReturn = await this.prisma.ePIMonthlyReturn.findFirst({
+      where: { periodStart: { lte: end }, periodEnd: { gte: startDate } },
+      include: { lines: true },
+    });
     const ageBand = (dob: Date, administeredAt: Date) => {
       const months = Math.max(0, (administeredAt.getTime() - new Date(dob).getTime()) / (30.4375 * 86400000));
       if (months < 12) return '<1 year';
@@ -727,12 +731,19 @@ export class GHSReportService extends BaseService {
           else if (years < 60) row.age18To59Years++;
           else row.age60Plus++;
           row.totalDoses++;
+          if (record.underlyingCondition === true) row.underlyingConditions++;
+          if (record.healthWorker === true) row.healthWorkers++;
+          if (record.pregnancyStatus === 'pregnant') row.pregnantWomen++;
         }
       }
       if (text.includes('tetanus') || text.includes('td')) {
         const n = Number((dose.match(/[1-5]/) || [])[0] || 1);
         const row = tdVaccinations.find(item => item.dose === 'Td-' + n);
-        if (row) row.others++;
+        if (row) {
+          if (record.pregnancyStatus === 'pregnant') row.pregnantWomen++;
+          else if (record.pregnancyStatus === 'non_pregnant') row.nonPregnant++;
+          else if (record.pregnancyStatus === 'not_applicable') row.others++;
+        }
       }
     }
     const byVaccine: Record<string, any> = {};
@@ -780,6 +791,15 @@ export class GHSReportService extends BaseService {
       },
       byVaccine: Object.values(byVaccine).sort((a: any, b: any) => b.doses - a.doses),
       byAgeGroup, byDoseNumber, byGender, monthlyVaccinations, covidVaccinations, tdVaccinations,
+      stockReturn: monthlyStockReturn ? {
+        id: monthlyStockReturn.id,
+        periodStart: monthlyStockReturn.periodStart,
+        periodEnd: monthlyStockReturn.periodEnd,
+        facility: monthlyStockReturn.facility,
+        notes: monthlyStockReturn.notes,
+        vaccineStock: monthlyStockReturn.lines.filter((line: any) => line.section === 'vaccine_stock'),
+        otherCommodities: monthlyStockReturn.lines.filter((line: any) => line.section === 'other_commodity'),
+      } : null,
       coverage: null,
       fullyImmunizedChildren: null,
       dropoutRates: null,
