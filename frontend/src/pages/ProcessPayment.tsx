@@ -300,7 +300,7 @@ export default function ProcessPayment() {
   if (isPageLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-4">
-        <div className="text-center bg-[var(--bg-card)] rounded-2xl shadow-md border border-[var(--border-color)] p-10 max-w-md">
+        <div className="text-center bg-[var(--bg-card)] rounded-2xl shadow-md border border-[var(--border-color)] p-6 max-w-md">
           <div className="w-14 h-14 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">Loading Bill...</h2>
           <p className="text-[var(--text-secondary)] text-sm">Please wait while we load the bill details</p>
@@ -312,7 +312,7 @@ export default function ProcessPayment() {
   if (!bill) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-4">
-        <div className="text-center bg-[var(--bg-card)] rounded-2xl shadow-md border border-[var(--border-color)] p-10 max-w-md">
+        <div className="text-center bg-[var(--bg-card)] rounded-2xl shadow-md border border-[var(--border-color)] p-6 max-w-md">
           <DollarSign className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">Bill Not Found</h2>
           <p className="text-[var(--text-secondary)] text-sm mb-5">The bill you're looking for doesn't exist.</p>
