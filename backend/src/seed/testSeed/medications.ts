@@ -25,7 +25,7 @@ const PHARMACY_DEPARTMENT = 'Pharmacy';
 const marService = new NursingService(prisma);
 
 const structuredDose = (value: string) => {
-  const match = String(value ?? '').trim().match(/^([0-9]+(?:\\.[0-9]+)?)\\s*(mcg|μg|ug|mg|g|ml|mL|iu|units?)$/i);
+  const match = String(value ?? '').trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*(mcg|μg|ug|mg|g|ml|mL|iu|units?)$/i);
   if (!match) return { doseAmount: null, doseUnit: null };
   const rawUnit = match[2].toLowerCase();
   return {
@@ -44,12 +44,12 @@ const structuredFrequency = (value: string, intervalHours: number) => {
     stat: 'STAT', prn: 'PRN', sos: 'PRN', 'as needed': 'PRN',
     nocte: 'NOCTE', mane: 'MANE',
   };
-  const code = aliases[frequency] ?? (/^(?:q\\s*\\d+\\s*h|every\\s+\\d+\\s*hours?)$/.test(frequency) ? 'INTERVAL' : null);
+  const code = aliases[frequency] ?? (/^(?:q\s*\d+\s*h|every\s+\d+\s*hours?)$/.test(frequency) ? 'INTERVAL' : null);
   return { frequencyCode: code, frequencyIntervalHours: code === 'INTERVAL' ? intervalHours : null };
 };
 
 const structuredDuration = (value: string) => {
-  const match = String(value ?? '').trim().match(/^([0-9]+)\\s*(hours?|hrs?|h|days?|d|weeks?|wks?)$/i);
+  const match = String(value ?? '').trim().match(/^([0-9]+)\s*(hours?|hrs?|h|days?|d|weeks?|wks?)$/i);
   if (!match) return { durationValue: null, durationUnit: null };
   return {
     durationValue: Number(match[1]),
