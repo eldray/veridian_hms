@@ -217,8 +217,7 @@ export default function UserManagement() {
     } catch (err: any) {
       toastError('Could not load reset requests', err?.response?.data?.message || 'Please refresh and try again.');
     } finally {
-      setResetRequestsLoading(false);
-    }
+      setResetRequestsLoading(false);    }
   };
 
   const reviewPasswordReset = async (requestId: string, decision: 'approve' | 'reject') => {
@@ -438,7 +437,6 @@ export default function UserManagement() {
           </div>
         ))}
       </div>
-
       {/* Responsive tabs: equal-width cells on desktop, tidy wrapping on narrow screens */}
       <div role="tablist" aria-label="User management sections" className="grid w-full grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-2">
         {[
@@ -635,7 +633,7 @@ export default function UserManagement() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm text-[var(--text-primary)]">
                   <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                     <tr>
                       <th className="px-3 py-3 text-left font-semibold text-[var(--text-secondary)] whitespace-nowrap">Employee</th>
@@ -648,7 +646,7 @@ export default function UserManagement() {
                     {doc.pageItems.map((d: any) => (
                       <tr key={d.id} className="hover:bg-[var(--bg-main)]">
                         <td className="px-3 py-3 font-medium text-[var(--text-primary)]">{d.staff?.user.fullName || '—'}</td>
-                        <td className="px-3 py-3">{d.title || d.type}</td>
+                        <td className="px-3 py-3 text-[var(--text-primary)] font-medium">{d.title || d.type}</td>
                         <td className="px-3 py-3 text-[var(--text-secondary)]">{d.expiryDate ? new Date(d.expiryDate).toLocaleDateString() : '—'}</td>
                         <td className="px-3 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${d.isVerified ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>{d.isVerified ? 'Verified' : 'Pending'}</span></td>
                       </tr>
@@ -657,8 +655,7 @@ export default function UserManagement() {
                 </table>
               </div>
               <Pagination currentPage={doc.safePage} totalPages={doc.totalPages} pageSize={docPageSize} totalItems={docsList.length} startIndex={doc.start} endIndex={doc.end} onPageChange={setDocPage} onPageSizeChange={setDocPageSize} pageSizeOptions={PAGE_SIZE_OPTIONS} />
-            </>
-          )}
+            </>          )}
         </div>
       )}
 
