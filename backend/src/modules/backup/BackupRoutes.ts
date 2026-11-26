@@ -1,7 +1,6 @@
 import { Router } from 'express';
-import { UserRole } from '@prisma/client'; // ✅ Import UserRole
 import { backupController } from './BackupController';
-import { protect, requireRole, requireSuperAdmin } from '../../middleware/authMiddleware';
+import { protect, requireSuperAdmin } from '../../middleware/authMiddleware';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -35,13 +34,14 @@ export function createBackupRoutes(): Router {
 
   router.use(protect);
   
-  // ✅ FIXED: Explicitly type the array to prevent TypeScript underlines
-  const adminRoles: UserRole[] = ['admin'];
-  router.use(requireRole(adminRoles));
+  // Backups contain the entire hospital database, including protected health
+  // information, financial records and staff data. Every backup operation is
+  // therefore restricted to Super Admin (not ordinary System Admin).
+  router.use(requireSuperAdmin);
 
   router.post('/', backupController.createBackup);
   // Database restore can overwrite live hospital data: reserve this action for super admins.
-  router.post('/restore', requireSuperAdmin, upload.single('backup'), backupController.restoreBackup);
+  router.post('/restore', upload.single('backup'), backupController.restoreBackup);
   router.get('/', backupController.getBackupList);
   router.get('/stats', backupController.getBackupStats);
   router.get('/download/:filename', backupController.downloadBackup);
