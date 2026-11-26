@@ -5,7 +5,7 @@ import {
   getMarDoses, getNursingNotes, getNursingTasks,
   createNursingNote, updateNursingNote, deleteNursingNote,
   createNursingTask, updateNursingTask, deleteNursingTask,
-  administerMarDose, recordMarVariance,
+  administerMarDose, administerPrnMedication as apiAdministerPrnMedication, recordMarVariance,
 } from '../api/nursing';
 
 interface NursingState {
@@ -34,6 +34,7 @@ interface NursingState {
     toDate?: string;
   }) => Promise<void>;
   administerDose: (doseId: string, data?: { administeredAt?: string; site?: string; notes?: string }) => Promise<void>;
+  administerPrnMedication: (medicationId: string, data: { doseAmount: number; doseUnit: string; reason: string }) => Promise<void>;
   recordVariance: (
     doseId: string,
     data: { status: 'late' | 'missed' | 'refused' | 'held'; reason?: string; notes?: string },
@@ -113,6 +114,10 @@ export const useNursingStore = create<NursingState>((set, get) => ({
     } catch (err) {
       throw err;
     }
+  },
+
+  administerPrnMedication: async (medicationId, data) => {
+    await apiAdministerPrnMedication(medicationId, data);
   },
 
   recordVariance: async (doseId, data) => {
