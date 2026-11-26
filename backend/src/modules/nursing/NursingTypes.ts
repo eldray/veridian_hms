@@ -12,6 +12,9 @@ export interface ScheduleDosesInput {
   frequency: string | null;
   duration: string | null;
   prescribedAt: Date;
+  frequencyCode?: string | null;
+  durationValue?: number | null;
+  durationUnit?: string | null;
 }
 
 export interface ParsedSchedule {
