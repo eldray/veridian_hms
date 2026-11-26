@@ -897,7 +897,8 @@ useEffect(() => {
 
   const showDeliveryQuickSwitch =
     !!selectedAttendanceId &&
-    (currentAttendance?.attendanceType === 'antenatal' || currentAttendance?.attendanceType === 'delivery') &&
+    currentAttendance?.attendanceType === 'delivery' &&
+    !deliveryForCurrentVisit &&
     currentAttendance?.status !== 'discharged' &&
     currentAttendance?.status !== 'completed';
 
@@ -1494,17 +1495,46 @@ useEffect(() => {
                   <SectionCard
                     icon={<Baby className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
                     title={`ANC Visit History (${currentVisits.length})`}
-                    action={hasActiveBooking && currentAttendanceVisit && (
-                      <button onClick={handleEditCurrentVisit}
+                    action={hasActiveBooking && canAddEntries && (
+                      <button
+                        onClick={() => {
+                          if (currentAttendanceVisit) handleEditCurrentVisit();
+                          else {
+                            setEditingVisit(null);
+                            setSelectedBookingId(currentRecord?.id || '');
+                            setShowANCVisitModal(true);
+                          }
+                        }}
                         className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold
                           bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all">
-                        <Edit className="w-3 h-3" /> Edit Visit
+                        {currentAttendanceVisit ? <Edit className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                        {currentAttendanceVisit ? 'Edit Visit' : 'Record ANC Visit'}
                       </button>
                     )}
                     maxH="max-h-none"
                   >
                     {currentVisits.length === 0
-                      ? <EmptySlate icon={<Baby className="w-9 h-9" />} label="No ANC visits recorded yet" />
+                      ? <EmptySlate
+                        icon={<Baby className="w-9 h-9" />}
+                        label="No ANC visits recorded yet"
+                        action={hasActiveBooking && canAddEntries ? (
+                          <button
+                            onClick={() => {
+                              setEditingVisit(null);
+                              setSelectedBookingId(currentRecord?.id || '');
+                              setShowANCVisitModal(true);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all">
+                            <Plus className="w-3.5 h-3.5" /> Record ANC Visit
+                          </button>
+                        ) : !hasActiveBooking && shouldOfferCreateRecord && canAddEntries ? (
+                          <button
+                            onClick={() => setModalType('anc_booking')}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all">
+                            <Plus className="w-3.5 h-3.5" /> Create Pregnancy Record
+                          </button>
+                        ) : undefined}
+                      />
                       : (
                         <div className="divide-y divide-[var(--border-color)]">
                           {currentVisits.map((v: any) => {
