@@ -90,6 +90,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
   const [duration, setDuration] = useState('');
   const [route, setRoute] = useState('oral');
   const [instructions, setInstructions] = useState('');
+  const [quantity, setQuantity] = useState('1');
   const [prnIndication, setPrnIndication] = useState('');
   const [durationSearch, setDurationSearch] = useState('');
   const [showDurationOptions, setShowDurationOptions] = useState(false);
@@ -115,6 +116,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setDuration('');
     setRoute('oral');
     setInstructions('');
+    setQuantity('1');
     setPrnIndication('');
     setDurationSearch('');
     setShowDurationOptions(false);
@@ -201,6 +203,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setShowDurationOptions(false);
     setRoute('oral');
     setInstructions('');
+    setQuantity('1');
     setPrnIndication('');
     searchInputRef.current?.focus();
   };
@@ -210,6 +213,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     if (!selectedMed) { error('No medication', 'Please select a medication.'); return; }
     if (!selectedServiceCatalog) { error('No pricing', 'This medication has no pricing configured.'); return; }
     if (!dosage.trim()) { error('Missing dosage', 'Please enter the dosage.'); return; }
+    if (!Number.isInteger(Number(quantity)) || Number(quantity) < 1 || Number(quantity) > 10000) { error('Invalid quantity', 'Enter a whole stock quantity between 1 and 10000.'); return; }
     if (!frequency) { error('Missing frequency', 'Please select a frequency.'); return; }
     if (!duration) { error('Missing days', 'Please select the prescription duration.'); return; }
     if (frequency === 'prn' && !prnIndication.trim()) { error('Missing PRN indication', 'Enter the reason this medicine may be given as needed.'); return; }
@@ -228,6 +232,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
         duration: duration.trim(),
         route,
         instructions: instructions.trim() || undefined,
+        quantity: Number(quantity),
         prnIndication: frequency === 'prn' ? prnIndication.trim() : undefined,
       });
       success('Medication prescribed', `${selectedMed.name} has been prescribed.`);
@@ -501,6 +506,27 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
               </select>
             </div>
 
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Quantity to dispense
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  step="1"
+                  value={quantity}
+                  onChange={e => setQuantity(e.target.value)}
+                  className={inputCls}
+                  disabled={!canEdit}
+                />
+                <span className="min-w-24 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-secondary)] flex items-center justify-center">
+                  {selectedMed?.unitOfMeasure || 'unit'}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Stock quantity, separate from the dose taken each time.</p>
+            </div>
             {frequency === 'prn' && (
               <div className="md:col-span-2">
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
