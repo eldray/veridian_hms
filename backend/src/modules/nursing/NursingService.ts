@@ -37,11 +37,17 @@ export class NursingService extends BaseService {
     prescribedAt: Date,
   ): ParsedSchedule {
     const { intervalHours, dosesPerDay } = this.parseFrequency(frequency);
-    const days = this.parseDurationDays(duration);
     const normalizedFrequency = String(frequency ?? '').trim().toLowerCase();
     const isSingleDose = ['stat', 'single dose', 'single'].includes(normalizedFrequency);
     const isPrn = ['prn', 'as needed', 'sos'].includes(normalizedFrequency);
-    const requiredDoses = isPrn ? 0 : isSingleDose ? 1 : Math.max(1, dosesPerDay * days);
+    const durationHoursMatch = String(duration ?? '').trim().match(/^([0-9]+)\\s*(hours?|hrs?|h)$/i);
+    const durationHours = durationHoursMatch
+      ? Number(durationHoursMatch[1])
+      : this.parseDurationDays(duration) * 24;
+    if (!Number.isInteger(durationHours) || durationHours < 1 || durationHours > 8760) {
+      throw new ValidationError('Medication duration must be between 1 hour and 365 days');
+    }
+    const requiredDoses = isPrn ? 0 : isSingleDose ? 1 : Math.max(1, Math.ceil(durationHours / intervalHours));
     if (requiredDoses > 10000) {
       throw new ValidationError('This prescription would create more than 10,000 scheduled doses; verify the frequency and duration');
     }
@@ -214,6 +220,9 @@ export class NursingService extends BaseService {
       administeredAt: data.administeredAt ? new Date(data.administeredAt) : undefined,
       site: data.site,
       notes: data.notes,
+      administrationReason: data.administrationReason,
+      doseAmount: data.doseAmount == null ? undefined : new Prisma.Decimal(data.doseAmount),
+      doseUnit: data.doseUnit,
     });
   }
 
