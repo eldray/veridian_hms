@@ -82,6 +82,47 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString();
 };
 
+// Resolve both explicit links and event-based notifications to real application routes.
+const getNotificationDestination = (notification: any): string | null => {
+  const actionUrl = String(notification?.actionUrl || '').trim();
+  if (actionUrl) {
+    if (/^https?:\/\//i.test(actionUrl)) return actionUrl;
+    if (actionUrl.startsWith('/dashboard')) return actionUrl;
+    return actionUrl.startsWith('/') ? `/dashboard${actionUrl}` : `/dashboard/${actionUrl}`;
+  }
+
+  const actionType = String(notification?.actionType || '').toLowerCase().replace(/[- ]/g, '_');
+  const actionId = notification?.actionId ? encodeURIComponent(String(notification.actionId)) : '';
+
+  switch (actionType) {
+    case 'admission':
+    case 'admission_billing':
+      return actionId ? `/dashboard/admissions/${actionId}` : '/dashboard/admissions';
+    case 'lab_result':
+      return actionId ? `/dashboard/laboratory/${actionId}` : '/dashboard/laboratory';
+    case 'discharge':
+    case 'referral':
+      return actionId ? `/dashboard/attendance/${actionId}` : '/dashboard/attendance';
+    case 'low_stock':
+      return '/dashboard/stock';
+  }
+
+  // Appointment reminders currently carry actionId but omit actionType.
+  if (String(notification?.type || '').toLowerCase() === 'appointment') {
+    return '/dashboard/appointments';
+  }
+
+  return null;
+};
+
+const openNotificationDestination = (destination: string, navigate: ReturnType<typeof useNavigate>) => {
+  if (/^https?:\/\//i.test(destination)) {
+    window.location.assign(destination);
+    return;
+  }
+  navigate(destination);
+};
+
 // ── Admin Message Modal ───────────────────────────────────────────────────────
 const AdminMessageModal: React.FC<{
   isOpen: boolean; onClose: () => void;
@@ -227,6 +268,7 @@ const NotificationDetailModal: React.FC<{
 }> = ({ notification, onClose, onMarkAsRead }) => {
   const navigate = useNavigate();
   if (!notification) return null;
+  const destination = getNotificationDestination(notification);
   const tc = TYPE_CONFIG[notification.type] || TYPE_CONFIG.info;
   const pc = PRIORITY_CONFIG[notification.priority || 'low'];
   return (
@@ -260,8 +302,8 @@ const NotificationDetailModal: React.FC<{
             </div>
           )}
           <div className="flex gap-2">
-            {notification.actionUrl && (
-              <Button variant="primary" size="sm" icon={Eye} className="flex-1" onClick={() => { navigate(notification.actionUrl); onClose(); }}>View Details</Button>
+            {destination && (
+              <Button variant="primary" size="sm" icon={Eye} className="flex-1" onClick={() => { openNotificationDestination(destination, navigate); onClose(); }}>View Details</Button>
             )}
             {!notification.isRead && (
               <Button variant="secondary" size="sm" icon={CheckCheck} className="flex-1" onClick={onMarkAsRead}>Mark as Read</Button>
@@ -351,7 +393,8 @@ export default function Notifications() {
   };
   const handleClick = (notif: any) => {
     if (!notif.isRead) handleMarkAsRead(notif.id);
-    if (notif.actionUrl) { let url = notif.actionUrl; if (!url.startsWith('/dashboard') && !url.startsWith('http')) url = url.startsWith('/') ? `/dashboard${url}` : `/dashboard/${url}`; navigate(url); }
+    const destination = getNotificationDestination(notif);
+    if (destination) openNotificationDestination(destination, navigate);
     else setSelectedNotif(notif);
   };
   const tabFilters = [
@@ -433,7 +476,7 @@ export default function Notifications() {
                       <div className="flex items-center gap-3">
                         <span className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1"><Clock className="w-3 h-3" />{formatDate(notif.createdAt)}</span>
                         {notif.sender && (<span className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1"><User className="w-3 h-3" />{titleCase(notif.sender.fullName)}</span>)}
-                        {notif.actionUrl && (<span className="text-[10px] text-[var(--icon-cyan-text)] flex items-center gap-0.5 ml-auto">View <ChevronRight className="w-3 h-3" /></span>)}
+                        {getNotificationDestination(notif) && (<span className="text-[10px] text-[var(--icon-cyan-text)] flex items-center gap-0.5 ml-auto">View <ChevronRight className="w-3 h-3" /></span>)}
                       </div>
                     </div>
                     <div className="flex gap-1 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
