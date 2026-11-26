@@ -87,6 +87,12 @@ const narrativeFor = (category: string, salt: string): string => {
   return pool.length ? pool[hashOf(salt) % pool.length] : 'Result documented in the laboratory information system.';
 };
 
+/** Match the server's completion rule: at least one result parameter must have a real value. */
+export const hasSeededLabResult = (parameters: Array<{ value?: unknown }>): boolean =>
+  parameters.some((parameter) =>
+    parameter.value !== null && parameter.value !== undefined && String(parameter.value).trim() !== '',
+  );
+
 /** The row id is minted here so later writers can point at a lab without reading it back. */
 let labCounter = 0;
 const nextLabId = () => `seedlab-${(++labCounter).toString().padStart(7, '0')}`;
@@ -109,9 +115,6 @@ export const seedLabs = async (
       const template = lookups.labTemplateByCode.get(lab.testCode);
       if (!template) return;
       const fields: LabField[] = Array.isArray(template.resultTemplate) ? (template.resultTemplate as LabField[]) : [];
-      const released = lab.status === 'completed';
-      const inProgress = lab.status === 'in_progress';
-      const completedAt = released ? notFuture(lab.completedAt) ?? lab.requestedAt : null;
       const id = nextLabId();
 
       const parameters = fields.map((field, fieldIndex) => {
@@ -143,13 +146,19 @@ export const seedLabs = async (
         return { ...base, value: narrativeFor(template.category, salt), flag: '', required: false };
       });
 
+      // A completed status is only valid when the result template produced at least one
+      // non-empty value. Empty/missing templates remain in progress for staff to finish.
+      const released = lab.status === 'completed' && hasSeededLabResult(parameters);
+      const persistedStatus = lab.status === 'completed' && !released ? 'in_progress' : lab.status;
+      const inProgress = persistedStatus === 'in_progress';
+      const completedAt = released ? notFuture(lab.completedAt) ?? lab.requestedAt : null;
       const firstNumeric = parameters.find((p) => p.fieldType === 'number' && p.value !== '');
       rows.push({
         id,
         attendanceId: encounter.attendanceId,
         templateId: template.id,
         serviceCatalogId: lookups.serviceByLabTemplate.get(template.id)?.id ?? null,
-        status: lab.status,
+        status: persistedStatus,
         // Only a released investigation carries values; a pending request must read as pending.
         result: released
           ? {
