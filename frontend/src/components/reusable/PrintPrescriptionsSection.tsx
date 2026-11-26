@@ -22,22 +22,22 @@ export const PrintPrescriptionsSection: React.FC<PrintPrescriptionsSectionProps>
   if (prescribedMeds.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-      <div className="flex items-center justify-between">
+    <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-            <Printer className="w-4 h-4 text-purple-600" />
+          <div className="w-9 h-9 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center">
+            <Printer className="w-4 h-4 text-[var(--icon-purple-text)]" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-gray-900">Print Prescriptions</h3>
-            <p className="text-xs text-gray-600">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)]">Print Prescriptions</h3>
+            <p className="text-xs text-[var(--text-secondary)]">
               Generate printable prescriptions for all pending medications
             </p>
           </div>
         </div>
         <button
           onClick={onPrintAll}
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 font-medium flex items-center gap-1 text-sm"
+          className="px-3 py-2 bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 transition-all duration-200 font-medium flex items-center gap-1 text-sm"
         >
           <Printer className="w-3 h-3" />
           Print All ({prescribedMeds.length})
