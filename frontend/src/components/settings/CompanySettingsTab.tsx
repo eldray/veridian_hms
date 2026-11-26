@@ -88,28 +88,28 @@ export default function CompanySettingsTab() {
   const labelCls = "block text-sm font-medium text-[var(--text-primary)] mb-1";
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full min-w-0 space-y-4">
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3"><div className="flex items-center gap-2 text-red-800 text-sm"><AlertCircle className="w-4 h-4 flex-shrink-0" /><span className="font-medium">Error:</span><span>{error}</span></div></div>
       )}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="w-full min-w-0 space-y-4">
         {/* Logo — compact row, not a big stacked block */}
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+        <div className="min-w-0 bg-[var(--bg-card)] rounded-xl p-3 sm:p-4 border border-[var(--border-color)]">
           <label className="block text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2"><Building className="w-4 h-4 text-[var(--icon-cyan-text)]" /> Hospital Logo</label>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0">
             <div className="w-20 h-20 bg-[var(--bg-main)] rounded-xl border-2 border-dashed border-[var(--border-color)] flex items-center justify-center overflow-hidden shrink-0">
               {imagePreview ? <img src={imagePreview} alt="Hospital logo preview" className="w-full h-full object-cover" /> : <Building className="w-8 h-8 text-[var(--text-tertiary)]" />}
             </div>
-            <div className="flex-1 min-w-0">
-              <input type="file" accept="image/*" onChange={handleImageChange} className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[var(--icon-cyan-bg)] file:text-[var(--icon-cyan-text)] hover:file:bg-[var(--icon-cyan-text)] hover:file:text-white" />
+            <div className="w-full sm:flex-1 min-w-0">
+              <input type="file" accept="image/*" onChange={handleImageChange} className="w-full min-w-0 max-w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[var(--icon-cyan-bg)] file:text-[var(--icon-cyan-text)] hover:file:bg-[var(--icon-cyan-text)] hover:file:text-white" />
               <p className="text-xs text-[var(--text-tertiary)] mt-1">JPG, PNG or GIF (max. 5MB)</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+        <div className="min-w-0 bg-[var(--bg-card)] rounded-xl p-3 sm:p-4 border border-[var(--border-color)]">
           <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4 flex items-center gap-2"><Building className="w-4 h-4 text-[var(--icon-cyan-text)]" /> Basic Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <div className="md:col-span-2"><label className={labelCls}>Hospital Name *</label><input type="text" name="name" value={formData.name} onChange={handleChange} className={inputCls} required placeholder="Enter hospital name" /></div>
             <div><label className={labelCls}>Hospital Type</label><select name="type" value={formData.type} onChange={handleChange} className={inputCls}><option value="">Select hospital type</option>{hospitalTypes.map(type => (<option key={type.value} value={type.value}>{type.label}</option>))}</select></div>
             <div><label className={labelCls}><Phone className="w-3.5 h-3.5 inline mr-1 text-[var(--text-secondary)]" /> Phone Number *</label><input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={inputCls} required placeholder="Enter phone number" /></div>
@@ -121,7 +121,7 @@ export default function CompanySettingsTab() {
           </div>
         </div>
 
-        <div className="flex justify-end pt-4 border-t border-[var(--border-color)]">
+        <div className="flex justify-end pt-3 sm:pt-4 border-t border-[var(--border-color)]">
           <button type="submit" disabled={isLoading} className="flex items-center gap-2 px-6 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50 text-sm font-medium">
             {isLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}{isLoading ? 'Updating...' : 'Save Changes'}
           </button>
