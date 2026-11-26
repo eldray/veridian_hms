@@ -109,7 +109,7 @@ const SENIORITY_CONFIG: Record<string, { label: string; color: string; icon: any
   TRAINEE: { label: 'Trainee', color: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]', icon: GraduationCap },
   JUNIOR: { label: 'Junior', color: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]', icon: UserIcon },
   SENIOR: { label: 'Senior', color: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]', icon: TrendingUp },
-  PRINCIPAL: { label: 'Principal', color: 'bg-amber-100 text-amber-700', icon: Shield },
+  PRINCIPAL: { label: 'Principal', color: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]', icon: Shield },
 };
 const LEAVE_STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: 'Pending', color: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]', icon: Clock },
