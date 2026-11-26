@@ -5,7 +5,7 @@ import { useToast } from '../store/toastStore';
 import api from '../api/api';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import {
-  AlertCircle, ArrowRight, CheckCircle, Clock, RefreshCw, Syringe, Users, UserCheck,
+  AlertCircle, ArrowRight, CalendarClock, CheckCircle, Clock, RefreshCw, Syringe, Users, UserCheck,
 } from 'lucide-react';
 import {
   Badge, Button, Card, humanStatus, PageHeader, Pagination, SearchInput,
@@ -130,7 +130,7 @@ export default function ImmunizationWorkspace() {
       icon={Syringe}
       accent="cyan"
       backTo="/dashboard"
-      actions={<Button icon={RefreshCw} loading={refreshing} onClick={() => void loadWaitingList()}>Refresh</Button>}
+      actions={<><Button icon={CalendarClock} variant="outline" onClick={() => navigate("/dashboard/immunization/due")}>Dose Follow-up</Button><Button icon={RefreshCw} loading={refreshing} onClick={() => void loadWaitingList()}>Refresh</Button></>}
       tabs={(
         <Tabs
           tabs={[

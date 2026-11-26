@@ -283,11 +283,47 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
   });
 
   router.get('/records/due', requireRole(readRoles), async (req: Request, res: Response) => {
-    const from = req.query.from ? new Date(String(req.query.from)) : new Date();
-    const to = req.query.to ? new Date(String(req.query.to)) : new Date(Date.now() + 30 * 86400000);
+    const from = req.query.from ? new Date(String(req.query.from)) : new Date('1970-01-01T00:00:00.000Z');
+    const to = req.query.to ? new Date(String(req.query.to)) : new Date(Date.now() + 90 * 86400000);
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) return res.status(400).json({ success: false, message: 'Valid due-date range is required.' });
-    const records = await prisma.immunizationRecord.findMany({ where: { nextDoseDue: { gte: from, lte: to } }, include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, phoneNumber: true } }, Vaccine: true }, orderBy: { nextDoseDue: 'asc' } });
-    return res.json({ success: true, data: records });
+
+    const dueRecords = await prisma.immunizationRecord.findMany({
+      where: { nextDoseDue: { gte: from, lte: to } },
+      include: {
+        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, phoneNumber: true, dateOfBirth: true, gender: true, imageUrl: true } },
+        Vaccine: { select: { id: true, code: true, name: true } }
+      },
+      orderBy: { nextDoseDue: 'asc' }
+    });
+
+    // Prisma retains the nullable model type even though the date filter excludes nulls.
+    // Narrow explicitly before comparing due dates or building the reminder list.
+    const datedDueRecords = dueRecords.filter(
+      (record): record is typeof record & { nextDoseDue: Date } => record.nextDoseDue !== null
+    );
+
+    // A due reminder is resolved by a later recorded dose of the same vaccine
+    // for that patient. Do not keep showing the earlier reminder as overdue.
+    const patientIds = [...new Set(datedDueRecords.map(record => record.patientId))];
+    const vaccineIds = [...new Set(datedDueRecords.map(record => record.vaccineId))];
+    const earliestDue = datedDueRecords.reduce<Date | null>((earliest, record) =>
+      !earliest || record.nextDoseDue < earliest ? record.nextDoseDue : earliest, null);
+    const laterRecords = patientIds.length && vaccineIds.length && earliestDue
+      ? await prisma.immunizationRecord.findMany({
+          where: {
+            patientId: { in: patientIds },
+            vaccineId: { in: vaccineIds },
+            administeredAt: { gte: earliestDue }
+          },
+          select: { patientId: true, vaccineId: true, administeredAt: true }
+        })
+      : [];
+    const activeReminders = datedDueRecords.filter(record => !laterRecords.some(later =>
+      later.patientId === record.patientId &&
+      later.vaccineId === record.vaccineId &&
+      later.administeredAt >= record.nextDoseDue
+    ));
+    return res.json({ success: true, data: activeReminders, meta: { count: activeReminders.length, from: from.toISOString(), to: to.toISOString() } });
   });
 
   return router;
