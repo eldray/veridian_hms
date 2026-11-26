@@ -292,7 +292,7 @@ const FamilyPlanningServiceModal: React.FC<{
                     {existingService ? 'Edit Family Planning Record' : 'Record Family Planning Service'}
                   </h2>
                   {patient && (
-                    <p className="text-xs text-slate-400 mt-0.5 truncate">
+                    <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">
                       {patient.surname} {patient.otherNames} · <span className="font-mono">{patient.folderNumber}</span>
                     </p>
                   )}
@@ -300,7 +300,7 @@ const FamilyPlanningServiceModal: React.FC<{
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0 text-slate-300 hover:text-white"
+                className="p-1.5 hover:bg-[var(--bg-main)] rounded-lg transition-colors flex-shrink-0 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -312,11 +312,11 @@ const FamilyPlanningServiceModal: React.FC<{
               <div className="mt-4 flex items-center gap-2 bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2">
                 <BadgeCheck className="w-4 h-4 text-[var(--icon-purple-text)] flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Selected Method</p>
+                  <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">Selected Method</p>
                   <p className="text-sm font-bold text-white truncate">{selectedMethod}</p>
                 </div>
                 {selectedCategory && (
-                  <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-purple-500/20 text-purple-200 border border-purple-400/30 flex-shrink-0">
+                  <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)] flex-shrink-0">
                     {selectedCategory}
                   </span>
                 )}
@@ -348,7 +348,7 @@ const FamilyPlanningServiceModal: React.FC<{
             </div>
 
             {/* Section 2: Method */}
-            <div className="bg-[var(--icon-purple-bg)] rounded-xl p-4 border border-purple-100">
+            <div className="bg-[var(--icon-purple-bg)] rounded-xl p-4 border border-[var(--border-color)]">
               <div className="flex items-center gap-2 mb-3">
                 <Pill className="w-4 h-4 text-[var(--icon-purple-text)]" />
                 <h4 className="text-sm font-semibold text-[var(--icon-purple-text)]">Method Selection</h4>
@@ -374,7 +374,7 @@ const FamilyPlanningServiceModal: React.FC<{
                 </div>
 
                 {formData.methodCategory && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-card)] border border-purple-100">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
                     <Info className="w-3.5 h-3.5 text-[var(--icon-purple-text)] flex-shrink-0" />
                     <span className="text-xs text-[var(--text-primary)]">
                       Auto-categorized as
@@ -402,14 +402,14 @@ const FamilyPlanningServiceModal: React.FC<{
                         className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
                           checked
                             ? 'bg-[var(--icon-purple-bg)] border-[var(--icon-purple-text)] shadow-sm'
-                            : 'bg-[var(--bg-card)] border-[var(--border-color)] hover:border-purple-200'
+                            : 'bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--icon-purple-text)]'
                         } ${key === 'isPostAbortion' ? 'col-span-2' : ''}`}
                       >
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={e => handleChange(key, e.target.checked)}
-                          className="rounded border-gray-300 text-[var(--icon-purple-text)] focus:ring-purple-500 w-4 h-4"
+                          className="rounded border-[var(--border-color)] text-[var(--icon-purple-text)] focus:ring-[var(--icon-purple-text)] w-4 h-4"
                         />
                         <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${checked ? 'text-[var(--icon-purple-text)]' : 'text-[var(--text-tertiary)]'}`} />
                         <span className={`text-xs font-medium ${checked ? 'text-[var(--icon-purple-text)]' : 'text-[var(--text-primary)]'}`}>
@@ -828,14 +828,14 @@ export default function FamilyPlanning() {
               type="date"
               value={dateRange.start}
               onChange={e => setDateRange({ ...dateRange, start: e.target.value })}
-              className="px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-purple-500 transition-all"
+              className="px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-purple-text)] transition-all"
             />
             <span className="text-[var(--text-tertiary)] text-xs">to</span>
             <input
               type="date"
               value={dateRange.end}
               onChange={e => setDateRange({ ...dateRange, end: e.target.value })}
-              className="px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-purple-500 transition-all"
+              className="px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-purple-text)] transition-all"
             />
             <span className="ml-auto text-xs text-[var(--text-tertiary)]">
               {activeTab === 'register' ? `${filteredServices.length} record${filteredServices.length === 1 ? '' : 's'}` : 'Report period'}
@@ -1211,7 +1211,7 @@ export default function FamilyPlanning() {
                       <CategoryBadge category={cat} />
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="w-16 h-1.5 bg-[var(--bg-main)] rounded-full overflow-hidden">
-                          <div className="h-full bg-fuchsia-500 rounded-full" style={{ width: `${Math.min(100, count * 10)}%` }} />
+                          <div className="h-full bg-[var(--icon-purple-text)] rounded-full" style={{ width: `${Math.min(100, count * 10)}%` }} />
                         </div>
                         <span className="text-xs font-bold text-[var(--text-primary)] w-6 text-right">{count}</span>
                       </div>
