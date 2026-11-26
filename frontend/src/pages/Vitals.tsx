@@ -227,7 +227,7 @@ export default function VitalsWaitingList() {
   if (isLoading || worklistLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
+        <div className="text-center bg-[var(--bg-card)] p-6 rounded-xl border border-[var(--border-color)]">
           <div className="w-12 h-12 border-4 border-[var(--icon-red-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Vitals Queue...</h2>
         </div>
@@ -236,7 +236,7 @@ export default function VitalsWaitingList() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-3 sm:p-4">
       {/* Header */}
       <PageHeader
         title="Vital Signs"
@@ -361,16 +361,16 @@ export default function VitalsWaitingList() {
         </div>
 
         {filteredPatients.length === 0 ? (
-          <div className="p-8 text-center">
+          <div className="p-6 text-center">
             {isPendingQueue ? (
               <>
-                <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
+                <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No patients waiting for vitals</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">All vitals are up to date</p>
               </>
             ) : (
               <>
-                <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
+                <History className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No vitals recorded today</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Record vitals to see them here</p>
               </>

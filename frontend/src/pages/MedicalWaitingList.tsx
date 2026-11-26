@@ -195,10 +195,10 @@ export default function MedicalWaitingList() {
 
   if (isLoading || worklistLoading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="space-y-4 p-3 sm:p-4">
         {queueHeader}
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-8 text-center">
-          <div className="w-12 h-12 border-4 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-6 text-center">
+          <div className="w-8 h-8 border-4 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)]">Loading Medical Queue...</p>
         </div>
       </div>
@@ -206,11 +206,11 @@ export default function MedicalWaitingList() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-3 sm:p-4">
       {queueHeader}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard
           label="Total Waiting"
           value={stats.total}
@@ -272,16 +272,16 @@ export default function MedicalWaitingList() {
         padded={false}
       >
         {filteredPatients.length === 0 ? (
-          <div className="p-8 text-center">
+          <div className="p-6 text-center">
             {activeTab === 'pending' ? (
               <>
-                <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
+                <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No patients waiting for consultation</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">All patients have been attended to</p>
               </>
             ) : (
               <>
-                <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
+                <History className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No patients reviewed today</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Complete consultations to see them here</p>
               </>
