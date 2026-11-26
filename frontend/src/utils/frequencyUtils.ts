@@ -10,10 +10,10 @@ export interface FrequencyInfo {
   export function getFrequencyInfo(frequency: string): FrequencyInfo {
     const freq = (frequency || '').toLowerCase().trim();
   
-    if (freq.includes('stat') || freq === 'once' || freq === 'single dose') {
+    if (freq.includes('stat') || freq === 'single dose') {
       return { type: 'Stat / Once Only', requiredDoses: 1, intervalHours: 999 };
     }
-    if (freq === 'od' || freq === 'daily' || freq.includes('once daily') || freq.includes('once a day')) {
+    if (freq === 'od' || freq === 'once' || freq === 'daily' || freq.includes('once daily') || freq.includes('once a day')) {
       return { type: 'Once Daily (OD)', requiredDoses: 1, intervalHours: 24 };
     }
     if (freq === 'bd' || freq === 'bid' || freq.includes('twice') || freq === '12hrly' || freq.includes('12 hr')) {
