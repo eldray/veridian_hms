@@ -89,7 +89,7 @@ export const UserMessageModal: React.FC<UserMessageModalProps> = ({
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-[var(--bg-card)] rounded-2xl shadow-xl max-w-lg w-full border border-[var(--border-color)]">
           {/* Header */}
-          <div className="px-5 py-3 border-b" border-[var(--border-color)] flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
                 <Mail className="w-5 h-5 text-[var(--icon-purple-text)]" />
@@ -122,7 +122,7 @@ export const UserMessageModal: React.FC<UserMessageModalProps> = ({
               ) : (
                 <>
                   <div className="relative mb-2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
                     <input
                       type="text"
                       placeholder="Search users..."
@@ -145,7 +145,7 @@ export const UserMessageModal: React.FC<UserMessageModalProps> = ({
                           onClick={() => setSelectedUser({ id: user.id, fullName: user.fullName, role: user.role })}
                           className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${
                             selectedUser?.id === user.id
-                              ? 'bg-[var(--icon-purple-bg)] ring-1 ring-purple-500'
+                              ? 'bg-[var(--icon-purple-bg)] ring-1 ring-[var(--icon-purple-text)]'
                               : 'hover:bg-[var(--bg-card)]'
                           }`}
                         >
@@ -215,7 +215,7 @@ export const UserMessageModal: React.FC<UserMessageModalProps> = ({
             <div className="flex gap-3 pt-2">
               <button
                 onClick={onClose}
-                className="flex-1 px-4 py-2.5 border border-[var(--border-color)] rounded-xl text-[var(--text-secondary)] hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 px-4 py-2.5 border border-[var(--border-color)] rounded-xl text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-colors"
               >
                 Cancel
               </button>
