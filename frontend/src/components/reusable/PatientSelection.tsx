@@ -65,7 +65,7 @@ export const PatientSelection: React.FC<PatientSelectionProps> = ({
               onDropdownToggle(true);
             }}
             onFocus={() => onDropdownToggle(true)}
-            className="w-full pl-9 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+            className="w-full pl-9 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30 focus:border-[var(--icon-cyan-text)] transition-all text-sm"
             style={{
               backgroundColor: 'var(--bg-main)',
               borderColor: 'var(--border-color)',
@@ -80,7 +80,7 @@ export const PatientSelection: React.FC<PatientSelectionProps> = ({
           {showDropdown && searchQuery && (
             <div
               id="patient-selection-results"
-              className="absolute z-20 w-full mt-1 max-h-56 overflow-y-auto border rounded-lg shadow-lg"
+              className="absolute z-20 w-full mt-1 max-h-56 overflow-y-auto border border-[var(--border-color)] rounded-lg shadow-lg"
               style={{
                 backgroundColor: 'var(--bg-card)',
                 borderColor: 'var(--border-color)',
