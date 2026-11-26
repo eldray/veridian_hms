@@ -1030,7 +1030,7 @@ export default function PatientBillingItems() {
 
       {/* ── Bills list ──────────────────────────────────────────────── */}
       {patientBills.length === 0 ? (
-        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-10 text-center shadow-sm">
+        <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 text-center shadow-sm">
           <Receipt className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4 opacity-50" />
           <h3 className="text-base font-bold text-[var(--text-primary)] mb-1">
             {searchQuery
@@ -1130,7 +1130,7 @@ export default function PatientBillingItems() {
                   {/* Expanded body — always open */}
                   <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)]">
                     {isLoadingThis ? (
-                      <div className="flex justify-center py-12">
+                      <div className="flex justify-center py-8">
                         <div className="w-8 h-8 border-2 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin" />
                       </div>
                     ) : isThisBillLoaded ? (
