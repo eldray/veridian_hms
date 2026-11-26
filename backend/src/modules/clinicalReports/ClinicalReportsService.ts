@@ -174,11 +174,12 @@ export class ClinicalReportsService extends BaseService {
       { key: '45_49', label: '45-49', min: 45, max: 49 },
       { key: '50_plus', label: '50+', min: 50, max: Number.POSITIVE_INFINITY },
     ];
+    const completedHivTestingRecords = hivTestingRecords.filter(record => record.testingStatus === 'completed');
     const hivAgeSexMap = new Map(hivAgeBands.map(band => [band.key, {
       ageGroup: band.label, maleTested: 0, femaleTested: 0,
       malePositive: 0, femalePositive: 0, totalTested: 0, totalPositive: 0,
     }]));
-    for (const record of hivTestingRecords) {
+    for (const record of completedHivTestingRecords) {
       const patient = record.Patient;
       if (!patient?.dateOfBirth) continue;
       const age = this.calculateAge(patient.dateOfBirth, record.testedAt);
@@ -235,9 +236,9 @@ export class ClinicalReportsService extends BaseService {
       hivAgeSexBreakdown,
       hts: {
         counsellingEpisodes: hivTestingRecords.length,
-        completedTests: hivTestingRecords.length,
-        confirmedPositive: hivTestingRecords.filter(record => record.result === 'positive' && record.resultConfirmed).length,
-        newlyIdentifiedPositive: hivTestingRecords.filter(record => record.newlyIdentifiedPositive).length,
+        completedTests: completedHivTestingRecords.length,
+        confirmedPositive: completedHivTestingRecords.filter(record => record.result === 'positive' && record.resultConfirmed).length,
+        newlyIdentifiedPositive: completedHivTestingRecords.filter(record => record.newlyIdentifiedPositive).length,
         previouslyKnownPositive: hivTestingRecords.filter(record => record.previouslyKnownPositive).length,
         linkedToCare: hivTestingRecords.filter(record => record.linkageStatus === 'linked').length,
       },
