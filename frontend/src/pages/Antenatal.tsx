@@ -1188,7 +1188,7 @@ useEffect(() => {
                       </div>
                       <button
                         onClick={() => setModalType('anc_booking')}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 transition-all"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-[var(--icon-yellow-on-text)] hover:opacity-90 transition-all"
                       >
                         <Plus className="w-3 h-3" /> Create Record
                       </button>

@@ -67,7 +67,7 @@ export const AttendanceStatusCard: React.FC<AttendanceStatusCardProps> = ({
           
           <button
             onClick={onEdit}
-            className="p-1.5 bg-[var(--icon-yellow-text)] text-white rounded hover:opacity-90 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
+            className="p-1.5 bg-[var(--icon-yellow-text)] text-[var(--icon-yellow-on-text)] rounded hover:opacity-90 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
             title="Edit Attendance"
           >
             <Edit className="w-3 h-3" />
