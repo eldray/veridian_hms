@@ -260,7 +260,7 @@ export const MarGrid: React.FC<MarGridProps> = ({
 
   if (rows.length === 0) {
     return (
-      <div className="text-center py-12 bg-[var(--bg-main)] rounded-xl border border-dashed border-[var(--border-color)]">
+      <div className="text-center py-8 bg-[var(--bg-main)] rounded-xl border border-dashed border-[var(--border-color)]">
         <Calendar className="w-10 h-10 text-[var(--text-tertiary)] opacity-40 mx-auto mb-2" />
         <p className="text-sm text-[var(--text-secondary)] font-medium">
           No doses to display in grid view
