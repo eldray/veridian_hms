@@ -10,6 +10,7 @@ import type {
   GeneratedAttendance, GeneratedBundle, GeneratedCounterClient, GeneratedDiagnosisLink,
   GeneratedLab, GeneratedMedication, GeneratedProcedure, GeneratedReferral, GeneratedScan,
 } from '../bulkGenerator.js';
+import { nhisCCCForAttendanceNumber } from '../bulkGenerator.js';
 import { ENUMS, type Lookups } from './lookups.js';
 import type { PatientRecords } from './patients.js';
 import { corporateEnrolmentFor } from './patients.js';
@@ -43,11 +44,7 @@ export interface EncounterIndex {
 }
 
 /** NHIS Claim Check Code: a 5-digit code derived from the visit number. */
-export const nhisCCCFor = (attendanceNumber: string | number): string => {
-  const digits = String(attendanceNumber).replace(/\D/g, '');
-  const seed = digits ? parseInt(digits, 10) : 0;
-  return String(10000 + (seed % 90000)).padStart(5, '0');
-};
+export const nhisCCCFor = nhisCCCForAttendanceNumber;
 
 /**
  * Synthetic CCC metadata for demo/test encounters only. This deterministic value lets
