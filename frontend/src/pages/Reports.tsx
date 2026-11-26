@@ -226,8 +226,6 @@ export default function Reports() {
   const [patientBillingSearch, setPatientBillingSearch] = useState('');
   const [expandedBillingRow, setExpandedBillingRow] = useState<string | null>(null);
   const [billingPage, setBillingPage] = useState(1);
-  const [registerPage, setRegisterPage] = useState(1);
-  const [registerPageSize, setRegisterPageSize] = useState(50);
   const [deliveryPage, setDeliveryPage] = useState(1);
   const [deliveryPageSize, setDeliveryPageSize] = useState(10);
   // FIX #50 — remember whether the user has deliberately picked a category, so the
@@ -322,16 +320,7 @@ export default function Reports() {
   }, [runLoadReport]);
 
   useEffect(() => { loadReport(); return () => { if (loadDebounce.current) clearTimeout(loadDebounce.current); }; }, [loadReport]);
-  useEffect(() => { setRegisterPage(1); setDeliveryPage(1); setPatientsSeenPage(1); }, [reportType, dateRange.start, dateRange.end]);
-  // FIX #34 — write safePage back so Pagination and the raw state cannot drift.
-  // (The drift only happens when a report shrank under the current page.)
-  useEffect(() => {
-    const report: any = consultingRoomRegister;
-    if (!report) return;
-    const totalPages = Math.max(1, Math.ceil((report.entries?.length ?? 0) / registerPageSize));
-    if (registerPage > totalPages) setRegisterPage(totalPages);
-  }, [consultingRoomRegister, registerPageSize, registerPage]);
-
+  useEffect(() => { setDeliveryPage(1); setPatientsSeenPage(1); }, [reportType, dateRange.start, dateRange.end]);
   const getActiveReport = () => {
     const map: Record<string, any> = {
       'monthly-overview': monthlyOverview, 'patient-billing-register': patientBillingReport, 'patients-seen-by-staff': patientsSeenReport,
@@ -400,9 +389,6 @@ export default function Reports() {
     const report = consultingRoomRegister as any;
     if (!report) return <EmptyState message="No consulting room register data available" />;
     const entries = report.entries || [];
-    const totalPages = Math.max(1, Math.ceil(entries.length / registerPageSize));
-    const safePage = Math.min(registerPage, totalPages);
-    const paginated = entries.slice((safePage - 1) * registerPageSize, safePage * registerPageSize);
 
     // GHS consulting-room line-list: keep the full register fields visible.
     // Long investigations, results and medication names must wrap, never truncate.
@@ -462,7 +448,7 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
-                  {paginated.map((entry: any, index: number) => (
+                  {entries.map((entry: any, index: number) => (
                     <tr key={entry.attendanceId || `${entry.patientNo}-${index}`} className={TR}>
                       {columns.map(column => (
                         <td
@@ -475,7 +461,7 @@ export default function Reports() {
                       ))}
                     </tr>
                   ))}
-                  {paginated.length === 0 && (
+                  {entries.length === 0 && (
                     <tr><td colSpan={columns.length} className="px-4 py-8 text-center text-xs text-[var(--text-tertiary)]">No consulting room entries found for this period.</td></tr>
                   )}
                 </tbody>
@@ -485,7 +471,6 @@ export default function Reports() {
             Scroll within this register to browse records vertically and horizontally. Long laboratory details, diagnoses and medicines wrap in full; they are not shortened.
           </div>
         </Card>
-        <Pagination page={safePage} totalPages={totalPages} itemsPerPage={registerPageSize} totalItems={entries.length} noun="entries" onChange={setRegisterPage} pageSizeOptions={[10, 25, 50, 100]} onPageSizeChange={(size) => { setRegisterPageSize(size); setRegisterPage(1); }} />
       </div>
     );
   };
