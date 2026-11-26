@@ -120,8 +120,8 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
   const expiryBadge = (d: any) => {
     const days = daysUntilExpiry(d);
     if (days === null) return null;
-    if (days < 0) return <span className="px-2 py-0.5 rounded-full text- font-bold bg-red-100 text-red-700">EXPIRED</span>;
-    if (days < 30) return <span className="px-2 py-0.5 rounded-full text- font-bold bg-orange-100 text-orange-700">Expires in {days}d</span>;
+    if (days < 0) return <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--border-color)]">EXPIRED</span>;
+    if (days < 30) return <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border border-[var(--border-color)]">Expires in {days}d</span>;
     return null;
   };
 
@@ -133,7 +133,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
         </p>
         <button
           onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"
+          className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 text-sm font-medium"
         >
           <Plus className="w-4 h-4" /> Upload Document
         </button>
@@ -157,7 +157,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-medium text-[var(--text-primary)] truncate">{doc.title}</p>
-                  <span className="px-2 py-0.5 rounded-full text- font-semibold bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-color)]">
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-color)]">
                     {doc.type.replace(/_/g, ' ')}
                   </span>
                   {expiryBadge(doc.expiryDate)}
@@ -168,8 +168,8 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className={`px-2 py-0.5 rounded-full text- font-medium ${
-                  doc.isVerified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  doc.isVerified ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'
                 }`}>
                   {doc.isVerified ? 'Verified' : 'Pending'}
                 </span>
@@ -186,7 +186,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
                 )}
 
                 {!doc.isVerified ? (
-                  <button onClick={() => handleVerify(doc.id)} className="text-xs text-green-600 hover:underline font-medium">
+                  <button onClick={() => handleVerify(doc.id)} className="text-xs text-[var(--icon-green-text)] hover:underline font-medium">
                     Verify
                   </button>
                 ) : (
@@ -264,7 +264,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
                   className={cn(INPUT, 'w-full')}
                   required
                 />
-                <p className="text- text-[var(--text-tertiary)] mt-1">PDF, JPG, PNG, DOC, DOCX · Max 10 MB</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">PDF, JPG, PNG, DOC, DOCX · Max 10 MB</p>
               </div>
 
               <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
@@ -278,7 +278,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
                 <button
                   type="submit"
                   disabled={uploading}
-                  className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium disabled:opacity-50"
+                  className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50"
                 >
                   {uploading ? 'Uploading…' : 'Upload'}
                 </button>
@@ -422,7 +422,7 @@ export default function UserDetail() {
   const payslipForPeriod = payslips.find((r) => Number(r.month) === payrollMonth && Number(r.year) === payrollYear) ?? null;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-4 sm:p-5">
       <PageHeader
         title={p.fullName}
         subtitle={`@${p.username} · ${p.role.replace(/_/g, ' ')}${sp ? ` · ${sp.employeeId}` : ''}`}
@@ -455,31 +455,31 @@ export default function UserDetail() {
         })}
       </div>
 
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6">
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4 sm:p-5">
         {tab === 'profile' && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Full Name *</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Full Name *</label>
                 <input type="text" value={userForm.fullName} onChange={(e) => setUserForm({ ...userForm, fullName: e.target.value })}
                   className={cn(INPUT, 'w-full')} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Username (read-only)</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Username (read-only)</label>
                 <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)] font-mono">{p.username}</div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Email</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Email</label>
                 <input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
                   className={cn(INPUT, 'w-full')} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Phone</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Phone</label>
                 <input type="tel" value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
                   className={cn(INPUT, 'w-full')} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Role</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Role</label>
                 <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
                   className={cn(SELECT, 'w-full')}>
                   {(canManageSuperAdmin || userForm.role === 'super_admin') && (
@@ -498,7 +498,7 @@ export default function UserDetail() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Seniority</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Seniority</label>
                 <select value={userForm.seniority} onChange={(e) => setUserForm({ ...userForm, seniority: e.target.value })}
                   className={cn(SELECT, 'w-full')}>
                   <option value="TRAINEE">Trainee</option>
@@ -508,12 +508,12 @@ export default function UserDetail() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">License Number</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">License Number</label>
                 <input type="text" value={userForm.licenseNumber} onChange={(e) => setUserForm({ ...userForm, licenseNumber: e.target.value })}
                   className={cn(INPUT, 'w-full')} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Specialization</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Specialization</label>
                 <input type="text" value={userForm.specialization} onChange={(e) => setUserForm({ ...userForm, specialization: e.target.value })}
                   className={cn(INPUT, 'w-full')} />
               </div>
@@ -527,7 +527,7 @@ export default function UserDetail() {
             </div>
             <div className="pt-4 border-t border-[var(--border-color)]">
               <button onClick={saveUserTab} disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium disabled:opacity-50">
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">
                 <Save className="w-4 h-4" /> {saving ? 'Saving…' : 'Save Profile'}
               </button>
             </div>
@@ -535,15 +535,15 @@ export default function UserDetail() {
         )}
 
         {tab === 'hr' && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Employee ID</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Employee ID</label>
                 <input type="text" value={hrForm.employeeId} onChange={(e) => setHrForm({ ...hrForm, employeeId: e.target.value })}
                   className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] font-mono" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Employment Type</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Employment Type</label>
                 <select value={hrForm.employmentType} onChange={(e) => setHrForm({ ...hrForm, employmentType: e.target.value })}
                   className={cn(SELECT, 'w-full')}>
                   <option value="PERMANENT">Permanent</option>
@@ -554,41 +554,41 @@ export default function UserDetail() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Date Joined</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Date Joined</label>
                 <input type="date" value={hrForm.dateJoined} onChange={(e) => setHrForm({ ...hrForm, dateJoined: e.target.value })}
                   className={cn(INPUT, 'w-full')} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Job Grade</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Job Grade</label>
                 <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]">
                   {sp?.jobGrade ? `${sp.jobGrade.name} (${sp.jobGrade.code})` : '— not assigned —'}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Salary Step</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Salary Step</label>
                 <div className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-secondary)]">
                   {sp?.salaryStep ? `Step ${sp.salaryStep.stepNumber} — ${formatCedis(sp.salaryStep.amount)}` : '— not assigned —'}
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Next of Kin</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Next of Kin</label>
                 <input type="text" value={hrForm.nextOfKinName} onChange={(e) => setHrForm({ ...hrForm, nextOfKinName: e.target.value })}
                   className={cn(INPUT, 'w-full')} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Next of Kin Phone</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Next of Kin Phone</label>
                 <input type="tel" value={hrForm.nextOfKinPhone} onChange={(e) => setHrForm({ ...hrForm, nextOfKinPhone: e.target.value })}
                   className={cn(INPUT, 'w-full')} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Bio / Notes</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Bio / Notes</label>
                 <textarea rows={3} value={hrForm.bio} onChange={(e) => setHrForm({ ...hrForm, bio: e.target.value })}
                   className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] resize-none" />
               </div>
             </div>
             <div className="pt-4 border-t border-[var(--border-color)]">
               <button onClick={saveHrTab} disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium disabled:opacity-50">
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">
                 <Save className="w-4 h-4" /> {saving ? 'Saving…' : 'Save HR Details'}
               </button>
             </div>
@@ -622,13 +622,13 @@ export default function UserDetail() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => setShowPresetModal(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white text-sm font-medium"
+                  className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:opacity-90 text-sm font-medium"
                 >
                   <Pencil className="w-4 h-4" />
                   {payslipForPeriod ? 'Edit Payslip Values' : 'Set Payslip Values Before Run'}
                 </button>
                 <button onClick={handleGenerateOne}
-                  className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium">
+                  className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 text-sm font-medium">
                   <Play className="w-4 h-4" /> Generate for {payrollMonth}/{payrollYear}
                 </button>
               </div>
@@ -641,32 +641,32 @@ export default function UserDetail() {
                 <table className="w-full text-sm">
                   <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                     <tr>
-                      <th className="px-4 py-2 text-left font-semibold text-[var(--text-secondary)]">Month</th>
-                      <th className="px-4 py-2 text-right font-semibold text-[var(--text-secondary)]">Base</th>
-                      <th className="px-4 py-2 text-right font-semibold text-[var(--text-secondary)]">Allowances</th>
-                      <th className="px-4 py-2 text-right font-semibold text-[var(--text-secondary)]">Deductions</th>
-                      <th className="px-4 py-2 text-right font-semibold text-[var(--text-secondary)]">Net</th>
-                      <th className="px-4 py-2 text-center font-semibold text-[var(--text-secondary)]">Status</th>
-                      <th className="px-4 py-2 text-center font-semibold text-[var(--text-secondary)]">Action</th>
+                      <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Month</th>
+                      <th className="px-3 py-2 text-right font-semibold text-[var(--text-secondary)]">Base</th>
+                      <th className="px-3 py-2 text-right font-semibold text-[var(--text-secondary)]">Allowances</th>
+                      <th className="px-3 py-2 text-right font-semibold text-[var(--text-secondary)]">Deductions</th>
+                      <th className="px-3 py-2 text-right font-semibold text-[var(--text-secondary)]">Net</th>
+                      <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Status</th>
+                      <th className="px-3 py-2 text-center font-semibold text-[var(--text-secondary)]">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {payslips.map((r) => (
                       <tr key={r.id}>
                         <td className="px-4 py-2 font-medium">{String(r.month).padStart(2, '0')}/{r.year}</td>
-                        <td className="px-4 py-2 text-right">{formatCedis(r.baseSalary)}</td>
-                        <td className="px-4 py-2 text-right">{formatCedis(r.allowances)}</td>
-                        <td className="px-4 py-2 text-right">{formatCedis(r.deductions)}</td>
-                        <td className="px-4 py-2 text-right font-semibold">{formatCedis(r.netPay)}</td>
-                        <td className="px-4 py-2 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text- font-medium ${
-                            r.isPaid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                        <td className="px-3 py-2 text-right">{formatCedis(r.baseSalary)}</td>
+                        <td className="px-3 py-2 text-right">{formatCedis(r.allowances)}</td>
+                        <td className="px-3 py-2 text-right">{formatCedis(r.deductions)}</td>
+                        <td className="px-3 py-2 text-right font-semibold">{formatCedis(r.netPay)}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                            r.isPaid ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'
                           }`}>
                             {r.isPaid ? <Check className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                             {r.isPaid ? 'Paid' : 'Pending'}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-center">
+                        <td className="px-3 py-2 text-center">
                           <button
                             onClick={() => setEditingPayslipId(r.id)}
                             className="text-xs text-[var(--icon-cyan-text)] hover:underline font-medium"
