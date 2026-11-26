@@ -1219,14 +1219,14 @@ export default function AttendanceDetails() {
       <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
         {/* Tabs Navigation */}
         <div className="border-b border-[var(--border-color)] p-3">
-          <nav className="flex flex-wrap gap-1.5">
+          <nav aria-label="Attendance detail sections" className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-1.5 py-1.5 px-3 rounded-lg font-medium transition-all duration-200 text-sm ${
+                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap py-1.5 px-3 rounded-lg font-medium transition-all duration-200 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] ${
                     activeTab === tab.id
                       ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
