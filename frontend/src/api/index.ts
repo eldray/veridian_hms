@@ -1781,6 +1781,7 @@ export const addMedicationToEncounter = async (encounterId: string, data: {
   duration: string;
   route?: string;
   instructions?: string;
+  quantity?: number;
   prnIndication?: string;
   prnMaxDosesPerDay?: number;
   prnMinimumIntervalHours?: number;
