@@ -327,10 +327,10 @@ export default function NursingPatientWorkspace() {
   if (!selectedAtt || !selectedPatient) {
     return (
       <div className="p-6">
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center max-w-lg mx-auto">
-          <AlertTriangle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient not found</h3>
-          <p className="text-sm text-[var(--text-secondary)] mb-4">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6 text-center max-w-lg mx-auto">
+          <AlertTriangle className="w-10 h-10 text-[var(--icon-red-text)] mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1.5">Patient not found</h3>
+          <p className="text-sm text-[var(--text-secondary)] mb-3">
             The attendance record could not be found.
           </p>
           <button
