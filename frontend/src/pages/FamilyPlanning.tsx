@@ -875,26 +875,26 @@ export default function FamilyPlanning() {
 
           {/* Queue content */}
           {filteredQueue.length === 0 ? (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center shadow-sm">
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6 text-center shadow-sm">
               {isOutstanding ? (
                 <>
-                  <div className="w-16 h-16 bg-[var(--icon-green-bg)] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)]" />
+                  <div className="w-12 h-12 bg-[var(--icon-green-bg)] rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CheckCircle className="w-6 h-6 text-[var(--icon-green-text)]" />
                   </div>
                   <p className="text-sm font-semibold text-[var(--text-primary)]">No closed visit is owing a result</p>
                   <p className="text-xs text-[var(--text-tertiary)] mt-1">Every investigation requested before discharge has been answered</p>
                 </>
               ) : isDone ? (
                 <>
-                  <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <History className="w-8 h-8 text-[var(--text-tertiary)]" />
+                  <div className="w-12 h-12 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-3">
+                    <History className="w-6 h-6 text-[var(--text-tertiary)]" />
                   </div>
                   <p className="text-sm font-semibold text-[var(--text-primary)]">No visits completed in the last 72 hours</p>
                 </>
               ) : (
                 <>
-                  <div className="w-16 h-16 bg-[var(--icon-green-bg)] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)]" />
+                  <div className="w-12 h-12 bg-[var(--icon-green-bg)] rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CheckCircle className="w-6 h-6 text-[var(--icon-green-text)]" />
                   </div>
                   <p className="text-sm font-semibold text-[var(--text-primary)]">All caught up</p>
                   <p className="text-xs text-[var(--text-tertiary)] mt-1">No patients waiting for FP service</p>
