@@ -56,7 +56,7 @@ export const PatientDetailsHeader: React.FC<PatientDetailsHeaderProps> = ({
           {canCreateAttendance && (
             <button
               onClick={onNewAttendance}
-              className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-green-text)] text-white rounded-lg hover:opacity-90 transition-opacity font-semibold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
+              className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:opacity-90 transition-opacity font-semibold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
             >
               <Plus className="w-4 h-4" />
               <span>New Visit</span>
