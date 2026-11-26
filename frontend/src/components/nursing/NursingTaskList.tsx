@@ -109,7 +109,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({ isOpen, onClose, onAdd }) =
 
         <div className="p-4 space-y-3">
           {error && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--icon-red-bg)] border border-[var(--border-color)] text-sm text-[var(--icon-red-text)]">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
@@ -256,7 +256,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                   filter === f
-                    ? 'bg-teal-600 text-white shadow-sm'
+                    ? 'bg-[var(--icon-cyan-text)] text-white shadow-sm'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
@@ -266,7 +266,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-xs font-semibold transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 text-xs font-semibold transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Task
@@ -282,7 +282,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
             </p>
             <button
               onClick={() => setShowAddModal(true)}
-              className="mt-3 text-xs text-[var(--icon-cyan-text)] hover:text-teal-700 font-medium"
+              className="mt-3 text-xs text-[var(--icon-cyan-text)] hover:opacity-80 font-medium"
             >
               + Add a task
             </button>
@@ -336,7 +336,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
                       </span>
 
                       {overdue && task.status !== 'completed' && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 font-semibold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--border-color)] font-semibold">
                           OVERDUE
                         </span>
                       )}
