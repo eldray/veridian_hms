@@ -1731,10 +1731,21 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     : [];
   const validBillLineIds = new Set(billLineRows.map((row: any) => row.id));
   const medicationById = new Map((claim.Attendance?.Medication ?? []).map((med: any) => [med.id, med]));
+  const medicationsByCode = new Map<string, any[]>();
+  for (const med of claim.Attendance?.Medication ?? []) {
+    const code = med.StockItem?.drugCode;
+    if (!code) continue;
+    const rows = medicationsByCode.get(code) ?? [];
+    rows.push(med);
+    medicationsByCode.set(code, rows);
+  }
   const snapshotAt = new Date();
 
   const rows = (items || []).map((it: any, idx: number) => {
-    const medication = it.medicationId ? medicationById.get(it.medicationId) : null;
+    const codeMatches = medicationsByCode.get(String(it.code ?? '')) ?? [];
+    const medication = it.medicationId
+      ? medicationById.get(it.medicationId)
+      : codeMatches.length === 1 && it.itemCategory === 'medicine' ? codeMatches[0] : null;
     const prescriptionSnapshot = medication ? {
       medicationId: medication.id,
       name: medication.name,
