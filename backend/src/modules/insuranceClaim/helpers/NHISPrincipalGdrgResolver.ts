@@ -189,9 +189,10 @@ function billable(tariff: ResolverTariff, input: ResolverInput, origin?: Resolve
  */
 export function gdrgBillsCase(
   tariff: ResolverTariff,
-  context: { caseType: NHISCaseType; age: number; facilityLevel: number | null }
+  context: { caseType: NHISCaseType; age: number; facilityLevel: number | null },
+  origin?: ResolverLink['origin']
 ): boolean {
-  return caseMatches(tariff, context.caseType) &&
+  return caseMatches(tariff, context.caseType, origin) &&
     ageMatches(tariff, context.age) &&
     levelMatches(tariff, context.facilityLevel);
 }

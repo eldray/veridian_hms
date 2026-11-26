@@ -1177,12 +1177,15 @@ ${claimsXml}
       // A supporting line names the G-DRG of its own diagnosis or operation, but only one that this
       // case type can bill. A surgical tariff written on an outpatient claim is the contradiction the
       // payer bounces, and the editor's own case filter is the rule that decides it.
-      const billableGdrgId = (links: Array<{ gdrgTariff: ResolverTariff; isPrimary: boolean }>): string => {
-        const own = links.filter((link) => gdrgBillsCase(link.gdrgTariff, tariffContext));
+      const billableGdrgId = (
+        links: Array<{ gdrgTariff: ResolverTariff; isPrimary: boolean }>,
+        origin: 'diagnosis' | 'procedure'
+      ): string => {
+        const own = links.filter((link) => gdrgBillsCase(link.gdrgTariff, tariffContext, origin));
         return (own.find((link) => link.isPrimary) ?? own[0])?.gdrgTariff.id ?? tariff.id;
       };
       const gdrgIdForDiagnosis = (diagnosisId: string): string =>
-        billableGdrgId(otherDiagnosisLinks.filter((link) => link.diagnosisId === diagnosisId));
+        billableGdrgId(otherDiagnosisLinks.filter((link) => link.diagnosisId === diagnosisId), 'diagnosis');
 
       const requiredNhisInvestigationCode = (value: unknown, label: string): string => {
         const code = String(value ?? '').trim().toUpperCase();
@@ -1262,7 +1265,7 @@ ${claimsXml}
           serviceCatalogId: p.serviceCatalogId ?? null,
           diagnosisId: pd.diagnosisId,
           gdrgTariffId: p.serviceCatalogId
-            ? billableGdrgId(procedureLinks.filter((link) => link.procedureId === p.serviceCatalogId))
+            ? billableGdrgId(procedureLinks.filter((link) => link.procedureId === p.serviceCatalogId), 'procedure')
             : tariff.id,
         })),
         ...(att.familyPlanningServices ?? []).flatMap((service: any) => {

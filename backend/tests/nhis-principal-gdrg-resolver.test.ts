@@ -6,6 +6,7 @@ import tariffData from '../src/data/gdrgTariffs.json';
 import diagnosesCatalogue from '../src/data/diagnoses.json';
 import {
   facilityLevelFromType,
+  gdrgBillsCase,
   nhisCaseType,
   resolvePrincipalGdrg,
   type ResolverLink,
@@ -38,6 +39,23 @@ const row = (code: string, isPrimary = false, origin: ResolverLink['origin'] = '
 });
 
 const OPDC06 = [tariff('OPDC06A'), tariff('OPDC06C')];
+
+describe('supporting G-DRG case eligibility', () => {
+  const inpatient = { caseType: 'ipd' as const, age: 34, facilityLevel: 3 };
+
+  it('keeps a surgical tariff ineligible from a diagnosis link but eligible from a completed procedure link', () => {
+    const surgical = tariff('ASUR03A');
+
+    expect(gdrgBillsCase(surgical, inpatient, 'diagnosis')).toBe(false);
+    expect(gdrgBillsCase(surgical, inpatient, 'procedure')).toBe(true);
+  });
+
+  it('does not allow a surgical tariff to leak onto an outpatient supporting line', () => {
+    expect(gdrgBillsCase(tariff('ASUR03A'), {
+      caseType: 'opd', age: 34, facilityLevel: 3,
+    }, 'procedure')).toBe(false);
+  });
+});
 
 describe('NHIS principal G-DRG resolver', () => {
   it('bills an outpatient malaria visit under the OPD scheme, not the diagnosis inpatient code', () => {
