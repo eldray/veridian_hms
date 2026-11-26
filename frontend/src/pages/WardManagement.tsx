@@ -521,7 +521,7 @@ export default function WardManagement() {
             {canManageWards && (
               <button
                 onClick={() => { resetWardForm(); setEditingWard(null); setShowWardForm(true); }}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-[var(--icon-cyan-on-text)] transition-all"
                 style={{ background: 'var(--icon-cyan-text)', boxShadow: 'var(--shadow-sm)' }}
               >
                 <Plus className="w-4 h-4" />
@@ -767,7 +767,7 @@ export default function WardManagement() {
           {canManageWards && !searchTerm && filterType === 'all' && (
             <button
               onClick={() => { resetWardForm(); setEditingWard(null); setShowWardForm(true); }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-[var(--icon-cyan-on-text)]"
               style={{ background: 'var(--icon-cyan-text)' }}
             >
               <Plus className="w-4 h-4" />
@@ -961,7 +961,7 @@ export default function WardManagement() {
                             <button
                               onClick={(e) => { e.stopPropagation(); requestDeleteBed(bed); }}
                               aria-label={`Delete bed ${bed.bedNumber}`}
-                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white transition-opacity opacity-0 group-hover/bed:opacity-100 focus:opacity-100"
+                              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-[var(--icon-red-on-text)] transition-opacity opacity-0 group-hover/bed:opacity-100 focus:opacity-100"
                               style={{ background: 'var(--icon-red-text)' }}
                             >
                               ×
@@ -1181,7 +1181,7 @@ export default function WardManagement() {
                   setSelectedWard(null);
                   handleEditWard(ward);
                 }}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white flex items-center gap-2"
+                className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--icon-cyan-on-text)] flex items-center gap-2"
                 style={{ background: 'var(--icon-cyan-text)' }}
               >
                 <Edit className="w-4 h-4" />
@@ -1592,7 +1592,7 @@ export default function WardManagement() {
             <button
               type="submit"
               disabled={isSaving}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
+              className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--icon-cyan-on-text)] disabled:opacity-60"
               style={{ background: 'var(--icon-cyan-text)' }}
             >
               {isSaving ? 'Saving…' : editingWard ? 'Update Ward' : 'Create Ward'}
@@ -1662,7 +1662,7 @@ export default function WardManagement() {
             <button
               type="submit"
               disabled={isSaving}
-              className="px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
+              className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--icon-cyan-on-text)] disabled:opacity-60"
               style={{ background: 'var(--icon-cyan-text)' }}
             >
               {isSaving ? 'Saving…' : editingBed ? 'Save Changes' : 'Create Bed'}
