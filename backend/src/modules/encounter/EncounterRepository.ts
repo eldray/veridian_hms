@@ -1719,7 +1719,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         if (administeredDoseCount > 0) {
           throw new ConflictError('This prescription already has administered doses and cannot be rewritten; use the documented clinical correction workflow');
         }
-        await tx.medicationDose.deleteMany({ where: { medicationId } });
+        await tx.medicationDose.updateMany({
+          where: { medicationId, status: { in: ['scheduled', 'due', 'late'] } },
+          data: { status: 'discontinued', varianceReason: 'Prescription amended; replacement schedule created' },
+        });
         replacementSchedule = schedule;
       }
 
@@ -1729,9 +1732,15 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
       });
       if (replacementSchedule && replacementSchedule.requiredDoses > 0) {
+        const lastDose = await tx.medicationDose.findFirst({
+          where: { medicationId },
+          orderBy: { doseNumber: 'desc' },
+          select: { doseNumber: true },
+        });
+        const firstDoseNumber = (lastDose?.doseNumber ?? 0) + 1;
         const replacementRows = Array.from({ length: replacementSchedule.requiredDoses }, (_, index) => ({
           medicationId,
-          doseNumber: index + 1,
+          doseNumber: firstDoseNumber + index,
           scheduledAt: new Date(replacementSchedule!.firstDoseAt.getTime() + index * replacementSchedule!.intervalHours * 3_600_000),
           status: 'scheduled' as const,
           dose: updated.dosage,
@@ -1760,7 +1769,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       }
 
       const changedFields = Object.keys(data).filter((field) =>
-        ['status', 'quantity', 'dosage', 'frequency', 'duration', 'route', 'instructions', 'notes', 'doseId', 'site'].includes(field),
+        ['status', 'quantity', 'dosage', 'frequency', 'duration', 'route', 'instructions', 'notes', 'doseId', 'site', 'doseAmount', 'doseUnit', 'frequencyCode', 'frequencyIntervalHours', 'durationValue', 'durationUnit', 'quantityUnit', 'prnIndication', 'prnMaxDosesPerDay', 'prnMinimumIntervalHours'].includes(field),
       );
       if (changedFields.length > 0 || administrationDose || isDispensing) {
         await appendClinicalRecordAudit(tx, actorId, 'Medication', medicationId, 'update', {
