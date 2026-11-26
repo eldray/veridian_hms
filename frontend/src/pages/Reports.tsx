@@ -1255,7 +1255,7 @@ export default function Reports() {
   const isConsultingRoomRegister = reportType === 'consulting-room-register';
 
   return (
-    <div className={isConsultingRoomRegister ? "h-full min-h-0 min-w-0 flex flex-col overflow-hidden" : "space-y-4"}>
+    <div className={isConsultingRoomRegister ? "h-[calc(100dvh-100px)] min-h-0 min-w-0 flex flex-col overflow-hidden" : "space-y-4"}>
       <div className={isConsultingRoomRegister ? "shrink-0 space-y-3" : "space-y-4"}>
       <PageHeader title="Reports & Analytics" subtitle="GHS-compliant reporting" icon={BarChart3} accent="cyan" onBack={goBack}
         // FIX #58 — Refresh is hidden for shell reports on purpose: GenericReportPage owns its own Reload.
