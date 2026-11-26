@@ -832,9 +832,9 @@ export default function EditPrivateClaim() {
         <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-sm">
           <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">Actions</TH>}</tr></thead>
           <tbody>{rows.map((item, idx) => (
-            <tr key={item.id || item.billLineItemId || idx} className="border-t border-gray-100">
-              <td className="px-3 py-3 text-gray-500">{idx + 1}.</td><td className="px-3 py-3 text-gray-700">{item.description}</td><td className="px-3 py-3 text-gray-700">{fmtDate(item.date)}</td><td className="px-3 py-3 text-center text-gray-700">{item.quantity}</td><td className="px-3 py-3 text-right text-gray-700">{money(item.unitPrice)}</td><td className="px-3 py-3 text-right text-gray-800 font-medium">{money(item.quantity * item.unitPrice)}</td>
-              {isDraft && <td className="px-3 py-3 text-center whitespace-nowrap"><button type="button" onClick={() => setEditingService(item)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button><button type="button" onClick={() => removeService(services.indexOf(item))} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></td>}
+            <tr key={item.id || item.billLineItemId || idx} className="border-t border-[var(--border-color)]">
+              <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td><td className="px-3 py-3 text-[var(--text-secondary)]">{item.description}</td><td className="px-3 py-3 text-[var(--text-secondary)]">{fmtDate(item.date)}</td><td className="px-3 py-3 text-center text-[var(--text-secondary)]">{item.quantity}</td><td className="px-3 py-3 text-right text-[var(--text-secondary)]">{money(item.unitPrice)}</td><td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{money(item.quantity * item.unitPrice)}</td>
+              {isDraft && <td className="px-3 py-3 text-center whitespace-nowrap"><button type="button" onClick={() => setEditingService(item)} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button><button type="button" onClick={() => removeService(services.indexOf(item))} className="text-[var(--icon-red-text)] hover:opacity-80"><TrashIcon className="w-4 h-4" /></button></td>}
             </tr>
           ))}</tbody>
         </table></div>
@@ -847,7 +847,7 @@ export default function EditPrivateClaim() {
       <ClaimFrame
         title="Update Claim"
         subtitle={`${currentClaim?.claimNumber ?? ''} · Private insurance`}
-        status={<span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{isDraft ? 'DRAFT' : 'FINALIZED'}</span>}
+        status={<span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'}`}>{isDraft ? 'DRAFT' : 'FINALIZED'}</span>}
         onClose={goBack}
         onRefresh={handleRefreshClaim}
         onCollapse={() => setTablesOpen(o => !o)}
@@ -871,13 +871,13 @@ export default function EditPrivateClaim() {
         <ClaimCard title="Coverage">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
             <div>
-              <label className="block text-[11px] text-gray-500 mb-1">Insurance coverage</label>
+              <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">Insurance coverage</label>
               <div className="flex items-center gap-3">
                 <input type="range" min={0} max={100} value={coveragePercentage} onChange={e => setCoveragePercentage(parseInt(e.target.value))} disabled={locked} className="flex-1" />
-                <span className="w-14 text-right text-[15px] text-gray-700 font-medium">{coveragePercentage}%</span>
+                <span className="w-14 text-right text-[15px] text-[var(--text-secondary)] font-medium">{coveragePercentage}%</span>
               </div>
             </div>
-            <div className="text-[15px] text-gray-700 space-y-1">
+            <div className="text-[15px] text-[var(--text-secondary)] space-y-1">
               <div className="flex justify-between"><span>Subtotal</span><span>{money(subtotal)}</span></div>
               <div className="flex justify-between"><span>Insurance pays ({coveragePercentage}%)</span><span>{money(insuranceCoverage)}</span></div>
               <div className="flex justify-between font-semibold border-t pt-1"><span>Patient pays</span><span>{money(patientPayable)}</span></div>
@@ -890,11 +890,11 @@ export default function EditPrivateClaim() {
             <thead><tr><TH>#</TH><TH>Diagnosis</TH><TH>ICD10</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {diagnoses.map((d, idx) => (
-                <tr key={idx} className="border-t border-gray-100">
-                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-gray-700">{d.description}</td>
-                  <td className="px-3 py-3 text-gray-700">{d.icd10}</td>
-                  {isDraft && <td className="px-3 py-3 text-center"><button type="button" onClick={() => removeDiagnosis(idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></td>}
+                <tr key={idx} className="border-t border-[var(--border-color)]">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{d.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{d.icd10}</td>
+                  {isDraft && <td className="px-3 py-3 text-center"><button type="button" onClick={() => removeDiagnosis(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><TrashIcon className="w-4 h-4" /></button></td>}
                 </tr>
               ))}
             </tbody>
@@ -910,18 +910,18 @@ export default function EditPrivateClaim() {
             <thead><tr><TH>#</TH><TH>Description</TH><TH>Prescription / Directions</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {medicines.map((med, idx) => (
-                <tr key={idx} className="border-t border-gray-100">
-                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-gray-700">{med.description}</td>
-                  <td className="px-3 py-3 text-gray-600 text-xs min-w-[220px]">{med.prescriptionText || <span className="text-gray-400">No prescription details recorded</span>}</td>
-                  <td className="px-3 py-3 text-gray-700">{fmtDate(med.date)}</td>
-                  <td className="px-3 py-3 text-center text-gray-700">{med.quantity}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{money(med.unitPrice)}</td>
-                  <td className="px-3 py-3 text-right text-gray-800 font-medium">{money(med.quantity * med.unitPrice)}</td>
+                <tr key={idx} className="border-t border-[var(--border-color)]">
+                  <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{med.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)] text-xs min-w-[220px]">{med.prescriptionText || <span className="text-[var(--text-tertiary)]">No prescription details recorded</span>}</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{fmtDate(med.date)}</td>
+                  <td className="px-3 py-3 text-center text-[var(--text-secondary)]">{med.quantity}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{money(med.unitPrice)}</td>
+                  <td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{money(med.quantity * med.unitPrice)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => setEditingMedicine(med)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
-                      <button type="button" onClick={() => removeMedicine(idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => setEditingMedicine(med)} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeMedicine(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><TrashIcon className="w-4 h-4" /></button>
                     </td>
                   )}
                 </tr>
@@ -934,7 +934,7 @@ export default function EditPrivateClaim() {
         </ListSection>
 
         <ClaimCard title="Claim Summary">
-          <div className="max-w-xl ml-auto space-y-2 text-sm text-gray-700">
+          <div className="max-w-xl ml-auto space-y-2 text-sm text-[var(--text-secondary)]">
             <div className="flex justify-between"><span>Consultation / services</span><strong>{money(services.filter(x => (x.itemCategory || 'service') === 'service').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
             <div className="flex justify-between"><span>Procedures</span><strong>{money(services.filter(x => x.itemCategory === 'procedure').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
             <div className="flex justify-between"><span>Laboratory & imaging</span><strong>{money(services.filter(x => x.itemCategory === 'investigation').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
@@ -951,14 +951,14 @@ export default function EditPrivateClaim() {
         </ClaimCard>
 
         {isFinalized ? (
-          <div className="flex justify-end gap-3 bg-white px-5 py-4 border-t border-gray-200">
-            <button type="button" onClick={handleDownloadXml} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Download className="w-4 h-4" /> Download XML</button>
-            <button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
+          <div className="flex justify-end gap-3 bg-[var(--bg-card)] px-5 py-4 border-t border-[var(--border-color)]">
+            <button type="button" onClick={handleDownloadXml} className="px-4 py-2 border border-[var(--border-color)] rounded text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)] flex items-center gap-2"><Download className="w-4 h-4" /> Download XML</button>
+            <button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-[var(--border-color)] rounded text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)] flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
             <button type="button" onClick={goBack} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
           </div>
         ) : (
           <>
-            <div className="flex justify-end px-5 pb-3"><button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim Form</button></div>
+            <div className="flex justify-end px-5 pb-3"><button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-[var(--border-color)] rounded text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)] flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim Form</button></div>
             <ClaimFooter onCancel={goBack} onSave={handleSave} saving={isSubmitting} />
           </>
         )}
