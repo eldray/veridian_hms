@@ -433,7 +433,7 @@ export default function UserManagement() {
           { label: 'Roles', value: rolesCount, icon: Shield, bg: 'bg-[var(--icon-purple-bg)]', color: 'text-[var(--icon-purple-text)]' },
         ].map((s) => (
           <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] flex items-center justify-between">
-            <div><p className="text-sm text-[var(--text-secondary)]">{s.label}</p><p className="text-2xl font-bold text-[var(--text-primary)]">{s.value}</p></div>
+            <div><p className="text-sm text-[var(--text-secondary)]">{s.label}</p><p className="text-xl font-bold text-[var(--text-primary)]">{s.value}</p></div>
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.bg}`}><s.icon className={`w-5 h-5 ${s.color}`} /></div>
           </div>
         ))}
@@ -678,7 +678,7 @@ export default function UserManagement() {
           </div>
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             {filteredShifts.length === 0 ? (
-              <div className="text-center py-12"><Clock className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-[var(--text-secondary)]">No shifts found</p></div>
+              <div className="text-center py-8"><Clock className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-[var(--text-secondary)]">No shifts found</p></div>
             ) : (
               <>
                 <div className="overflow-x-auto">
@@ -799,7 +799,7 @@ export default function UserManagement() {
               <p className="text-sm text-[var(--text-primary)] mb-6">Deactivate <strong>{deactivatingUser.fullName}</strong>?</p>
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
                 <button onClick={() => setDeactivatingUser(null)} className="flex-1 px-5 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg text-sm font-medium">Cancel</button>
-                <button onClick={handleDeactivateUser} disabled={isLoading} className="flex-1 px-5 py-2.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white text-sm font-medium disabled:opacity-50">{isLoading ? 'Deactivating…' : 'Deactivate'}</button>
+                <button onClick={handleDeactivateUser} disabled={isLoading} className="flex-1 px-5 py-2.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">{isLoading ? 'Deactivating…' : 'Deactivate'}</button>
               </div>
             </div>
           </div>
@@ -828,7 +828,7 @@ export default function UserManagement() {
               <p className="mt-2 text-xs text-[var(--text-secondary)]">At least 12 characters. The account is signed out on every machine, so give the password to the member of staff directly and have them choose their own afterwards.</p>
               <div className="flex gap-3 pt-4 mt-5 border-t border-[var(--border-color)]">
                 <button onClick={() => setResettingUser(null)} className="flex-1 px-5 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg text-sm font-medium">Cancel</button>
-                <button onClick={handlePasswordReset} disabled={isLoading || newPassword.length < 12} className="flex-1 px-5 py-2.5 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded-lg hover:bg-[var(--icon-orange-text)] hover:text-white text-sm font-medium disabled:opacity-50">{isLoading ? 'Resetting…' : 'Reset password'}</button>
+                <button onClick={handlePasswordReset} disabled={isLoading || newPassword.length < 12} className="flex-1 px-5 py-2.5 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">{isLoading ? 'Resetting…' : 'Reset password'}</button>
               </div>
             </div>
           </div>
