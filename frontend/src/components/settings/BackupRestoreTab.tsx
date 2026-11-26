@@ -256,7 +256,7 @@ export default function BackupRestoreTab() {
             </label>
           )}
           {canRestoreBackup && (
-            <button onClick={handleRestoreBackup} disabled={restoring || creatingBackup || isLoading || !selectedFile} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium">
+            <button onClick={handleRestoreBackup} disabled={restoring || creatingBackup || isLoading || !selectedFile} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-[var(--icon-yellow-on-text)] disabled:opacity-50 transition-all text-sm font-medium">
               {restoring ? <Loader className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{restoring ? 'Restoring...' : 'Restore Backup'}
             </button>
           )}
