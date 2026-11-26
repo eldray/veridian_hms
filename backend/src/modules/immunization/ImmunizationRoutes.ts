@@ -307,7 +307,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
           where: {
             patientId: { in: patientIds },
             vaccineId: { in: vaccineIds },
-            administeredAt: { gt: earliestDue }
+            administeredAt: { gte: earliestDue }
           },
           select: { patientId: true, vaccineId: true, administeredAt: true }
         })
