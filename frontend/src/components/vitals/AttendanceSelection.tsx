@@ -109,7 +109,7 @@ export const AttendanceSelection: React.FC<AttendanceSelectionProps> = ({
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                       selectedAttendanceId === getEntityId(attendance)
                         ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
-                        : 'bg-gray-100 text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
+                        : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
                     }`}
                   >
                     {selectedAttendanceId === getEntityId(attendance) ? 'Selected' : 'Select'}
