@@ -895,11 +895,40 @@ useEffect(() => {
     [postnatalRecords, selectedAttendanceId]
   );
 
-  const showDeliveryQuickSwitch =
+  const showRecordQuickSwitch =
     !!selectedAttendanceId &&
     (currentAttendance?.attendanceType === 'antenatal' || currentAttendance?.attendanceType === 'delivery') &&
     currentAttendance?.status !== 'discharged' &&
     currentAttendance?.status !== 'completed';
+
+  const handleRecordForCurrentAttendance = () => {
+    if (currentAttendance?.attendanceType === 'antenatal') {
+      if (hasActiveBooking && currentRecord?.id) {
+        setEditingVisit(null);
+        setSelectedBookingId(currentRecord.id);
+        setShowANCVisitModal(true);
+      } else {
+        setModalType('anc_booking');
+      }
+      setActiveTab('anc');
+      return;
+    }
+    if (currentAttendance?.attendanceType === 'delivery') {
+      setEditingDelivery(null);
+      setShowDeliveryModal(true);
+      setActiveTab('delivery');
+    }
+  };
+
+  const handleAddANCVisit = () => {
+    if (!hasActiveBooking || !currentRecord?.id) {
+      setModalType('anc_booking');
+      return;
+    }
+    setEditingVisit(null);
+    setSelectedBookingId(currentRecord.id);
+    setShowANCVisitModal(true);
+  };
 
   const showPostnatalQuickSwitch =
     !!selectedAttendanceId &&
@@ -908,12 +937,6 @@ useEffect(() => {
     !postnatalForCurrentVisit &&
     currentAttendance?.status !== 'discharged' &&
     currentAttendance?.status !== 'completed';
-
-  const goToDeliveryTab = () => {
-    setActiveTab('delivery');
-    setEditingDelivery(null);
-    setShowDeliveryModal(true);
-  };
 
   const goToPostnatalTab = () => {
     setActiveTab('postnatal');
@@ -1224,11 +1247,14 @@ useEffect(() => {
                   })}
                 </div>
                 <div className="flex items-center gap-1.5 pr-2 shrink-0">
-                  {showDeliveryQuickSwitch && activeTab !== 'delivery' && (
-                    <button onClick={goToDeliveryTab}
+                  {showRecordQuickSwitch && (
+                    <button onClick={handleRecordForCurrentAttendance}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold
-                        bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:opacity-90 transition-all whitespace-nowrap">
-                      <Hospital className="w-3 h-3" /> Record Delivery <ArrowRight className="w-3 h-3" />
+                        bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all whitespace-nowrap">
+                      {currentAttendance?.attendanceType === 'antenatal'
+                        ? <><Baby className="w-3 h-3" /> Record ANC Visit</>
+                        : <><Hospital className="w-3 h-3" /> Record Delivery</>}
+                      <ArrowRight className="w-3 h-3" />
                     </button>
                   )}
                   {showPostnatalQuickSwitch && activeTab !== 'postnatal' && (
@@ -1494,17 +1520,23 @@ useEffect(() => {
                   <SectionCard
                     icon={<Baby className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
                     title={`ANC Visit History (${currentVisits.length})`}
-                    action={hasActiveBooking && currentAttendanceVisit && (
-                      <button onClick={handleEditCurrentVisit}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold
-                          bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 transition-all">
-                        <Edit className="w-3 h-3" /> Edit Visit
-                      </button>
+                    action={canAddEntries && (
+                      <div className="flex items-center gap-1.5">
+                        {hasActiveBooking && currentAttendanceVisit && (
+                          <button onClick={handleEditCurrentVisit}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold
+                              bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:text-[var(--icon-cyan-text)] transition-all">
+                            <Edit className="w-3 h-3" /> Edit Visit
+                          </button>
+                        )}
+                        <AddBtn onClick={handleAddANCVisit} label={hasActiveBooking ? 'Add Visit' : 'Create Record'} />
+                      </div>
                     )}
                     maxH="max-h-none"
                   >
                     {currentVisits.length === 0
-                      ? <EmptySlate icon={<Baby className="w-9 h-9" />} label="No ANC visits recorded yet" />
+                      ? <EmptySlate icon={<Baby className="w-9 h-9" />} label="No ANC visits recorded yet"
+                          action={canAddEntries ? <AddBtn onClick={handleAddANCVisit} label={hasActiveBooking ? 'Record First ANC Visit' : 'Create Pregnancy Record'} /> : undefined} />
                       : (
                         <div className="divide-y divide-[var(--border-color)]">
                           {currentVisits.map((v: any) => {
