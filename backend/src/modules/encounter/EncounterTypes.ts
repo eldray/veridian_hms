@@ -130,7 +130,11 @@ export interface AddVitalsDTO {
   fetalMovement?: boolean;
   oedema?: boolean;
 }
-export interface AddPrescriptionDTO { stockItemId: string; serviceCatalogId: string; dosage: string; frequency: string; duration: string; route?: string; instructions?: string; quantity?: number; }
+export interface AddPrescriptionDTO {
+  stockItemId: string; serviceCatalogId: string; dosage: string; frequency: string; duration: string;
+  route?: string; instructions?: string; quantity?: number;
+  prnIndication?: string; prnMaxDosesPerDay?: number; prnMinimumIntervalHours?: number;
+}
 export type AddMedicationDTO = AddPrescriptionDTO;
 export interface AddLabTestDTO { templateId: string; serviceCatalogId?: string; priority?: 'routine' | 'urgent' | 'stat'; notes?: string; }
 export interface AddScanDTO { templateId: string; serviceCatalogId: string; priority?: 'routine' | 'urgent' | 'stat'; notes?: string; }
