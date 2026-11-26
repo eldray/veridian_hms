@@ -131,12 +131,12 @@ export default function ODQInput({ value, onChange }: ODQInputProps) {
 
   const getColorClass = (color: string) => {
     const colors: Record<string, string> = {
-      orange: 'border-orange-300 dark:border-orange-700 bg-orange-50 dark:bg-orange-950/20',
-      blue: 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950/20',
-      purple: 'border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-950/20',
-      red: 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950/20',
-      yellow: 'border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-950/20',
-      green: 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/20',
+      orange: 'border-[var(--icon-orange-text)] bg-[var(--icon-orange-bg)]/30',
+      blue: 'border-[var(--icon-blue-text)] bg-[var(--icon-blue-bg)]/30',
+      purple: 'border-[var(--icon-purple-text)] bg-[var(--icon-purple-bg)]/30',
+      red: 'border-[var(--icon-red-text)] bg-[var(--icon-red-bg)]/30',
+      yellow: 'border-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)]/30',
+      green: 'border-[var(--icon-green-text)] bg-[var(--icon-green-bg)]/30',
     };
     return colors[color] || colors.blue;
   };
@@ -159,9 +159,9 @@ export default function ODQInput({ value, onChange }: ODQInputProps) {
                 inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs cursor-pointer transition-all
                 ${hasValue 
                   ? `${getColorClass(field.color)} border` 
-                  : 'bg-[var(--bg-main)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:border-gray-400'
+                  : 'bg-[var(--bg-main)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:border-[var(--icon-cyan-text)]'
                 }
-                ${isActive ? 'ring-1 ring-blue-500' : ''}
+                ${isActive ? 'ring-1 ring-[var(--icon-cyan-text)]' : ''}
               `}
             >
               {field.icon}
@@ -194,13 +194,13 @@ export default function ODQInput({ value, onChange }: ODQInputProps) {
                   if (e.key === 'Escape') closeField(false);
                 }}
                 placeholder={fields.find(f => f.id === activeField)?.placeholder}
-                className="w-full px-2 py-1 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-blue-500 text-[var(--text-primary)]"
+                className="w-full px-2 py-1 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)]"
               />
             </div>
             <button
               type="button"
               onClick={() => closeField(true)}
-              className="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600"
+              className="px-2 py-1 text-xs bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-green-text)]"
             >
               Save
             </button>
