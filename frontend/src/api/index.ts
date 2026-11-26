@@ -3852,6 +3852,16 @@ export const getFinancialReport = async (params: ReportFilter) => {
   return response.data;
 };
 
+export const getPatientBillingRegister = async (params: ReportFilter & { attendanceCategory?: 'opd' | 'ipd' }) => {
+  const response = await api.get('/reports/patient-billing-register', { params });
+  return response.data;
+};
+
+export const getPatientsSeenByStaffReport = async (params: ReportFilter) => {
+  const response = await api.get('/reports/patients-seen-by-staff', { params });
+  return response.data;
+};
+
 export const getInsuranceClaimsReport = async (params: ReportFilter) => {
   const response = await api.get('/reports/insurance-claims', { params });
   return response.data;
@@ -4795,7 +4805,7 @@ export default {
   getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSEPIReport, getGHSMalariaReport, getGHSDeliveryReport, getGHSFormAReport,
   getMorbidityMortalityReport, getTopDiagnoses, getFamilyPlanningReport, getConsultingRoomRegister,
   getReportSubmissions, getReportSubmissionById, exportGHSReportToCSV,
-  getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,
+  getFinancialReport, getInsuranceClaimsReport, getPatientBillingRegister, getClinicalReport, getEncounterReport,
   getRevenueReport, getDemographicReport, exportReport, exportReportToCSV,
   getLabReport, getScanReport, getProcedureReport, getMedicationReport, getVitalsReport,
 

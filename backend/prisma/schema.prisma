@@ -205,6 +205,58 @@ model ServiceCatalog {
 // PATIENT & CORE EMR (FIXED: Added Histories, Allergies, Consents)
 // ============================================================
 
+
+// ============================================================
+// HIV TESTING SERVICES (HTS)
+// Restricted clinical record: do not expose HIV status on general attendance views.
+// Each counselling/testing episode is retained as an immutable-in-history record.
+// ============================================================
+
+model HIVTestingRecord {
+  id                    String   @id @default(cuid())
+  patientId             String
+  attendanceId          String?
+  testedAt              DateTime @default(now())
+  entryPoint            String
+  testingApproach       String?
+  consentGiven          Boolean  @default(false) // Consent for HTS counselling
+  testingConsentGiven   Boolean  @default(false)
+  consentRecordedAt     DateTime?
+  counsellingPreTest    Boolean  @default(false)
+  counsellingPostTest   Boolean  @default(false)
+  testingStatus         String   @default("not_started")
+  result                String   @default("pending")
+  resultConfirmed       Boolean  @default(false)
+  testAlgorithm         String?
+  testKit               String?
+  firstTimeTester       Boolean?
+  previousTesting       String?
+  previouslyKnownPositive Boolean @default(false)
+  newlyIdentifiedPositive Boolean @default(false)
+  indexTesting          Boolean  @default(false)
+  stiRelated            Boolean  @default(false)
+  keyPopulationCategory String?
+  linkageStatus         String   @default("not_assessed")
+  linkedToCareAt        DateTime?
+  referralFacility      String?
+  referralOutcome       String?
+  notes                 String?  @db.Text
+  counsellorId          String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  Patient    Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  Attendance Attendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  Counsellor User        @relation(fields: [counsellorId], references: [id])
+
+  @@index([testedAt])
+  @@index([patientId, testedAt])
+  @@index([attendanceId])
+  @@index([entryPoint, testedAt])
+  @@index([result, testedAt])
+  @@index([linkageStatus, testedAt])
+}
+
 model Patient {
   id               String       @id @default(cuid())
   folderNumber     String       @unique
@@ -258,6 +310,7 @@ model Patient {
   familyPlanningServices FamilyPlanningService[]
   nursingNotes           NursingNote[]
   nursingTasks           NursingTask[]
+  hivTestingRecords      HIVTestingRecord[]
 
   // NEW: Core EMR Models
   allergies         PatientAllergy[]
@@ -600,6 +653,7 @@ model Attendance {
   nursingNotes            NursingNote[]
   nursingTasks            NursingTask[]
   immunizationRecords    ImmunizationRecord[]
+  hivTestingRecords      HIVTestingRecord[]
 
   familyPlanningServices   FamilyPlanningService[]
   antenatalBookings        AntenatalBooking[]      @relation("FirstANCAttendance")
@@ -2458,6 +2512,7 @@ model User {
   PatientWaiver_approved   PatientWaiver[]       @relation("Waiver_approvedBy")
   ReferralRecord           ReferralRecord[]
   ANCVisit                 ANCVisit[]
+  hivTestingRecords        HIVTestingRecord[]
   ghsReportSubmissions     GHSReportSubmission[]
   idsrAlerts               IDSRAlert[]
   deliveryRecords          DeliveryRecord[]

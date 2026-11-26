@@ -18,6 +18,7 @@ const REPORT_TITLES: Record<string, string> = {
   // The reports the shared shell renders from config/reportRegistry.ts — the same names the
   // pills on the Reports screen carry, so an exported file matches what the officer saw.
   'collections': 'Payment Collections', 'revenue-lines': 'Revenue Lines', 'claims': 'Insurance Claims Detail',
+  'patient-billing-register': 'OPD/IPD Patient Billing Register', 'patients-seen-by-staff': 'Patients Seen by Staff',
 };
 
 export class ReportController {
@@ -83,6 +84,33 @@ export class ReportController {
     } catch (error) {
       console.error('Revenue report error:', error);
       return res.status(500).json({ success: false, message: 'Error generating revenue report' });
+    }
+  };
+
+  // ==================== OPD/IPD PATIENT BILLING REGISTER ====================
+  getPatientBillingRegister = async (req: Request, res: Response) => {
+    try {
+      const { startDate, endDate } = this.parseDateFilters(req.query);
+      const { attendanceCategory, paymentMode } = req.query as any;
+      const report = await this.service.getPatientBillingRegister({
+        startDate, endDate, attendanceCategory, paymentMode,
+      });
+      return res.json({ success: true, data: report });
+    } catch (error) {
+      console.error('Patient billing register error:', error);
+      return res.status(500).json({ success: false, message: 'Error generating OPD/IPD patient billing register' });
+    }
+  };
+
+  // ==================== USER ACTIVITY / PATIENTS SEEN BY STAFF ====================
+  getPatientsSeenByStaffReport = async (req: Request, res: Response) => {
+    try {
+      const { startDate, endDate } = this.parseDateFilters(req.query);
+      const report = await this.service.getPatientsSeenByStaffReport({ startDate, endDate });
+      return res.json({ success: true, data: report });
+    } catch (error) {
+      console.error('Patients seen by staff report error:', error);
+      return res.status(500).json({ success: false, message: 'Error generating patients-seen-by-staff report' });
     }
   };
 

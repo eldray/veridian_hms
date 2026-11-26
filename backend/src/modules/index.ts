@@ -22,6 +22,7 @@ import { createAntenatalRoutes } from './antenatal/AntenatalRoutes';
 import { createFamilyPlanningRoutes } from './familyPlanning/FamilyPlanningRoutes';
 import { createImmunizationRoutes } from './immunization/ImmunizationRoutes';
 import { createReferralRoutes } from './referral/ReferralRoutes';
+import { createHIVTestingRoutes } from './hivTesting/HIVTestingRoutes';
 
 // Counter (walk-in point of sale)
 import { createCounterRoutes } from './counter/CounterRoutes';
@@ -135,6 +136,8 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('✅ Family Planning routes mounted at /family-planning');
   
   app.use('/referrals', createReferralRoutes(prisma));
+  app.use('/hiv-testing', createHIVTestingRoutes(prisma));
+  console.log('✅ Restricted HIV Testing routes mounted at /hiv-testing');
   console.log('✅ Referral routes mounted at /referrals');
 
   // ============================================
