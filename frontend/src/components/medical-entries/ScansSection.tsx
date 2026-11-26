@@ -71,13 +71,17 @@ const ScansSection: React.FC<ScansSectionProps> = ({
   }, [scanSearch, scanTemplates]);
 
   const getScanPrice = (template: ScanTemplate) => {
-    const pricing = (template as any)?.pricing || (template as any)?.serviceCatalog?.pricing || [];
-    const price = pricing[0] || {};
+    const relation = (template as any)?.serviceCatalog ?? (template as any)?.ServiceCatalog;
+    const catalog = Array.isArray(relation) ? relation[0] : relation;
+    const rawPricing = (template as any)?.pricing;
+    const pricing = catalog?.pricing ?? (Array.isArray(rawPricing) ? rawPricing[0] : rawPricing) ?? {};
+    const cash = Number(pricing.cashPrice ?? (template as any).cashPrice ?? (template as any).tariffGhC ?? 0) || 0;
     switch (paymentMode) {
-      case 'cash': return Number(price.cashPrice ?? price.price ?? template.cashPrice ?? 0) || 0;
-      case 'nhis': return Number(price.nhisPrice ?? price.cashPrice ?? template.nhisPrice ?? template.cashPrice ?? price.price ?? 0) || 0;
-      case 'private_insurance': return Number(price.insurancePrice ?? price.cashPrice ?? template.insurancePrice ?? template.cashPrice ?? price.price ?? 0) || 0;
-      default: return Number(template.cashPrice ?? price.cashPrice ?? 0) || 0;
+      case 'cash': return cash;
+      case 'nhis': return Number(pricing.nhisPrice ?? (template as any).nhisPrice ?? 0) || 0;
+      // Private insurance uses the same facility cash price as cash patients.
+      case 'private_insurance': return cash;
+      default: return cash;
     }
   };
 
