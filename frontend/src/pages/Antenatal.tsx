@@ -686,7 +686,7 @@ useEffect(() => {
     const isClinical = noteModal.section === 'clinical';
     const existingNotes = isClinical ? physicianNotes : treatmentNotes;
     const now = new Date().toISOString();
-    const actor = user?.fullName || user?.username || 'Clinical staff';
+    const actor = user?.fullName || 'Clinical staff';
     const nextNotes = [...existingNotes];
     if (noteModal.index === null) {
       nextNotes.push({
