@@ -65,7 +65,7 @@ const Pagination: React.FC<PaginationProps> = ({
         <span>Showing <b className="text-[var(--text-primary)]">{startIndex + 1}</b>–<b className="text-[var(--text-primary)]">{Math.min(endIndex, totalItems)}</b> of <b className="text-[var(--text-primary)]">{totalItems}</b></span>
         <span className="hidden sm:inline text-[var(--border-color)]">·</span>
         <label className="hidden sm:flex items-center gap-1.5"><span>Per page</span>
-          <select value={pageSize} onChange={e => onPageSizeChange(parseInt(e.target.value, 10))} className="px-2 py-1 text-xs border border-[var(--border-color)] rounded-md bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500">
+          <select value={pageSize} onChange={e => onPageSizeChange(parseInt(e.target.value, 10))} className="px-2 py-1 text-xs border border-[var(--border-color)] rounded-md bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)]">
             {pageSizeOptions.map(sz => (<option key={sz} value={sz}>{sz}</option>))}
           </select>
         </label>
@@ -74,7 +74,7 @@ const Pagination: React.FC<PaginationProps> = ({
         <button type="button" className={navBtn} onClick={() => onPageChange(1)} disabled={currentPage === 1} title="First page"><ChevronsLeft className="w-3.5 h-3.5" /></button>
         <button type="button" className={navBtn} onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1} title="Previous"><ChevronLeft className="w-3.5 h-3.5" /></button>
         {pageWindow.map((p, i) => typeof p === 'number' ? (
-          <button key={`p-${p}`} type="button" onClick={() => onPageChange(p)} className={`inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-md text-xs font-bold transition-all border ${p === currentPage ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm shadow-cyan-500/20' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>{p}</button>
+          <button key={`p-${p}`} type="button" onClick={() => onPageChange(p)} className={`inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-md text-xs font-bold transition-all border ${p === currentPage ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--border-color)] shadow-sm shadow-cyan-500/20' : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'}`}>{p}</button>
         ) : (<span key={`e-${i}`} className="px-1 text-[var(--text-tertiary)] text-xs">…</span>))}
         <button type="button" className={navBtn} onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages} title="Next"><ChevronRight className="w-3.5 h-3.5" /></button>
         <button type="button" className={navBtn} onClick={() => onPageChange(totalPages)} disabled={currentPage === totalPages} title="Last page"><ChevronsRight className="w-3.5 h-3.5" /></button>
@@ -106,22 +106,22 @@ const ROLE_LABELS: Record<string, string> = {
 
 // ── From the old Settings tab: seniority / shift / leave configs ─────────────
 const SENIORITY_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  TRAINEE: { label: 'Trainee', color: 'bg-purple-100 text-purple-700', icon: GraduationCap },
-  JUNIOR: { label: 'Junior', color: 'bg-blue-100 text-blue-700', icon: UserIcon },
-  SENIOR: { label: 'Senior', color: 'bg-orange-100 text-orange-700', icon: TrendingUp },
+  TRAINEE: { label: 'Trainee', color: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]', icon: GraduationCap },
+  JUNIOR: { label: 'Junior', color: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]', icon: UserIcon },
+  SENIOR: { label: 'Senior', color: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]', icon: TrendingUp },
   PRINCIPAL: { label: 'Principal', color: 'bg-amber-100 text-amber-700', icon: Shield },
 };
 const LEAVE_STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  approved: { label: 'Approved', color: 'bg-green-100 text-green-700', icon: CheckCircle },
-  rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700', icon: XCircle },
-  cancelled: { label: 'Cancelled', color: 'bg-gray-100 text-gray-700', icon: XCircle },
+  pending: { label: 'Pending', color: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]', icon: Clock },
+  approved: { label: 'Approved', color: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]', icon: CheckCircle },
+  rejected: { label: 'Rejected', color: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]', icon: XCircle },
+  cancelled: { label: 'Cancelled', color: 'bg-[var(--bg-main)] text-[var(--text-secondary)]', icon: XCircle },
 };
 const SHIFT_TYPE_CONFIG: Record<string, { label: string; color: string }> = {
-  morning: { label: 'Morning', color: 'bg-green-100 text-green-700' },
-  afternoon: { label: 'Afternoon', color: 'bg-orange-100 text-orange-700' },
-  night: { label: 'Night', color: 'bg-purple-100 text-purple-700' },
-  on_call: { label: 'On Call', color: 'bg-blue-100 text-blue-700' },
+  morning: { label: 'Morning', color: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
+  afternoon: { label: 'Afternoon', color: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' },
+  night: { label: 'Night', color: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]' },
+  on_call: { label: 'On Call', color: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]' },
 };
 
 // ── Main page ────────────────────────────────────────────────────────────────
@@ -331,7 +331,7 @@ export default function UserManagement() {
     return (<span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}><Icon className="w-3 h-3" />{config.label}</span>);
   };
   const renderShiftTypeBadge = (shiftType: string) => {
-    const config = SHIFT_TYPE_CONFIG[shiftType] || { label: shiftType, color: 'bg-gray-100 text-gray-700' };
+    const config = SHIFT_TYPE_CONFIG[shiftType] || { label: shiftType, color: 'bg-[var(--bg-main)] text-[var(--text-secondary)]' };
     return (<span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}><Clock className="w-3 h-3" />{config.label}</span>);
   };
   const renderLeaveStatusBadge = (status: string) => {
@@ -418,7 +418,7 @@ export default function UserManagement() {
           <>
             <button onClick={() => getAllUsers()} disabled={isLoading} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm text-[var(--text-primary)]"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh</button>
             {activeTab === 'directory' && canAdministerAccounts && (
-              <button onClick={() => setShowRegisterModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"><Plus className="w-4 h-4" /> Add User</button>
+              <button onClick={() => setShowRegisterModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 text-sm font-medium"><Plus className="w-4 h-4" /> Add User</button>
             )}
           </>
         )}
@@ -455,7 +455,7 @@ export default function UserManagement() {
             <button key={t.id} type="button" role="tab" aria-selected={selected}
               aria-controls={`user-management-panel-${t.id}`}
               onClick={() => setActiveTab(t.id)}
-              className={`flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-center text-xs font-semibold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 ${selected ? 'border-cyan-600 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm' : 'border-transparent text-[var(--text-secondary)] hover:border-[var(--border-color)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'}`}>
+              className={`flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-center text-xs font-semibold leading-tight transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] focus-visible:ring-offset-2 ${selected ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm' : 'border-transparent text-[var(--text-secondary)] hover:border-[var(--border-color)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'}`}>
               <Icon className="h-4 w-4 shrink-0" /><span className="min-w-0 break-words">{t.label}</span>
             </button>
           );
@@ -502,10 +502,10 @@ export default function UserManagement() {
             {(searchQuery || filterRole !== 'all' || filterStatus !== 'all' || seniorityFilter !== 'ALL') && (
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-color)] flex-wrap text-xs">
                 <span className="text-[var(--text-tertiary)] font-medium">Active:</span>
-                {searchQuery && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded-md font-medium">Search: "{searchQuery}"<button onClick={() => setSearchQuery('')} className="hover:text-cyan-900"><X className="w-3 h-3" /></button></span>)}
-                {filterRole !== 'all' && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded-md font-medium">Role: {getRoleLabel(filterRole)}<button onClick={() => setFilterRole('all')} className="hover:text-cyan-900"><X className="w-3 h-3" /></button></span>)}
-                {seniorityFilter !== 'ALL' && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded-md font-medium">Seniority: {seniorityFilter}<button onClick={() => setSeniorityFilter('ALL')} className="hover:text-cyan-900"><X className="w-3 h-3" /></button></span>)}
-                {filterStatus !== 'all' && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded-md font-medium capitalize">Status: {filterStatus}<button onClick={() => setFilterStatus('all')} className="hover:text-cyan-900"><X className="w-3 h-3" /></button></span>)}
+                {searchQuery && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-md font-medium">Search: "{searchQuery}"<button onClick={() => setSearchQuery('')} className="hover:opacity-80"><X className="w-3 h-3" /></button></span>)}
+                {filterRole !== 'all' && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-md font-medium">Role: {getRoleLabel(filterRole)}<button onClick={() => setFilterRole('all')} className="hover:opacity-80"><X className="w-3 h-3" /></button></span>)}
+                {seniorityFilter !== 'ALL' && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-md font-medium">Seniority: {seniorityFilter}<button onClick={() => setSeniorityFilter('ALL')} className="hover:opacity-80"><X className="w-3 h-3" /></button></span>)}
+                {filterStatus !== 'all' && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-md font-medium capitalize">Status: {filterStatus}<button onClick={() => setFilterStatus('all')} className="hover:opacity-80"><X className="w-3 h-3" /></button></span>)}
                 <span className="ml-auto text-[var(--text-tertiary)]">{filteredUsers.length} of {userList.length}{filteredUsers.length > dirPageSize && <> · page {dir.safePage}/{dir.totalPages}</>}</span>
               </div>
             )}
@@ -513,7 +513,7 @@ export default function UserManagement() {
 
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             {filteredUsers.length === 0 ? (
-              <div className="p-12 text-center"><Users className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" /><p className="text-sm text-[var(--text-secondary)]">No users found.</p></div>
+              <div className="p-8 text-center"><Users className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" /><p className="text-sm text-[var(--text-secondary)]">No users found.</p></div>
             ) : (
               <>
                 <div className="overflow-x-auto">
@@ -570,7 +570,7 @@ export default function UserManagement() {
               <select value={payrollMonth} onChange={(e) => setPayrollMonth(Number(e.target.value))} className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">{Array.from({ length: 12 }, (_, i) => i + 1).map(m => (<option key={m} value={m}>{new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' })}</option>))}</select></div>
             <div><label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Year</label>
               <select value={payrollYear} onChange={(e) => setPayrollYear(Number(e.target.value))} className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">{[0, 1, 2].map(i => { const y = new Date().getFullYear() - i; return <option key={y} value={y}>{y}</option>; })}</select></div>
-            <button onClick={handleRunPayroll} disabled={payrollRunning} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium disabled:opacity-50 ml-auto"><Play className={`w-4 h-4 ${payrollRunning ? 'animate-pulse' : ''}`} />{payrollRunning ? 'Running…' : `Run Payroll for ${payrollMonth}/${payrollYear}`}</button>
+            <button onClick={handleRunPayroll} disabled={payrollRunning} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50 ml-auto"><Play className={`w-4 h-4 ${payrollRunning ? 'animate-pulse' : ''}`} />{payrollRunning ? 'Running…' : `Run Payroll for ${payrollMonth}/${payrollYear}`}</button>
           </div>
           {allPayslips?.totals && (
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -585,7 +585,7 @@ export default function UserManagement() {
           )}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             {!allPayslips || payRecords.length === 0 ? (
-              <div className="p-12 text-center"><DollarSign className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" /><p className="text-sm text-[var(--text-secondary)]">No payslips for {payrollMonth}/{payrollYear}.</p><p className="text-xs text-[var(--text-tertiary)] mt-1">Click "Run Payroll" to generate them.</p></div>
+              <div className="p-8 text-center"><DollarSign className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" /><p className="text-sm text-[var(--text-secondary)]">No payslips for {payrollMonth}/{payrollYear}.</p><p className="text-xs text-[var(--text-tertiary)] mt-1">Click "Run Payroll" to generate them.</p></div>
             ) : (
               <>
                 <div className="overflow-x-auto">
@@ -613,7 +613,7 @@ export default function UserManagement() {
                           <td className="px-3 py-3 text-right">{formatCedis(r.allowances)}</td>
                           <td className="px-3 py-3 text-right">{formatCedis(r.deductions)}</td>
                           <td className="px-3 py-3 text-right font-semibold">{formatCedis(r.netPay)}</td>
-                          <td className="px-3 py-3 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${r.isPaid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{r.isPaid ? <Check className="w-3 h-3" /> : <Clock className="w-3 h-3" />}{r.isPaid ? 'Paid' : 'Pending'}</span></td>
+                          <td className="px-3 py-3 text-center"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${r.isPaid ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>{r.isPaid ? <Check className="w-3 h-3" /> : <Clock className="w-3 h-3" />}{r.isPaid ? 'Paid' : 'Pending'}</span></td>
                           <td className="px-3 py-3 text-center"><button onClick={() => handleTogglePaid(r.id, !r.isPaid)} className="text-xs text-[var(--icon-cyan-text)] hover:underline">Mark {r.isPaid ? 'Pending' : 'Paid'}</button></td>
                         </tr>
                       ))}
@@ -631,7 +631,7 @@ export default function UserManagement() {
       {activeTab === 'documents' && (
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
           {docsList.length === 0 ? (
-            <div className="p-12 text-center"><FileText className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" /><p className="text-sm text-[var(--text-secondary)]">No documents on file.</p></div>
+            <div className="p-8 text-center"><FileText className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" /><p className="text-sm text-[var(--text-secondary)]">No documents on file.</p></div>
           ) : (
             <>
               <div className="overflow-x-auto">
@@ -650,7 +650,7 @@ export default function UserManagement() {
                         <td className="px-3 py-3 font-medium text-[var(--text-primary)]">{d.staff?.user.fullName || '—'}</td>
                         <td className="px-3 py-3">{d.title || d.type}</td>
                         <td className="px-3 py-3 text-[var(--text-secondary)]">{d.expiryDate ? new Date(d.expiryDate).toLocaleDateString() : '—'}</td>
-                        <td className="px-3 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${d.isVerified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{d.isVerified ? 'Verified' : 'Pending'}</span></td>
+                        <td className="px-3 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${d.isVerified ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>{d.isVerified ? 'Verified' : 'Pending'}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -760,18 +760,18 @@ export default function UserManagement() {
                         return (
                           <tr key={l.id} className="hover:bg-[var(--bg-main)]">
                             <td className="px-3 py-3 font-medium text-[var(--text-primary)] whitespace-nowrap">{u?.fullName || 'Unknown'}</td>
-                            <td className="px-3 py-3 whitespace-nowrap"><span className="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">{l.leaveType?.toUpperCase()}</span></td>
+                            <td className="px-3 py-3 whitespace-nowrap"><span className="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-[var(--bg-main)] text-[var(--text-secondary)]">{l.leaveType?.toUpperCase()}</span></td>
                             <td className="px-3 py-3 whitespace-nowrap">{renderLeaveStatusBadge(l.status)}</td>
                             <td className="px-3 py-3 whitespace-nowrap">{new Date(l.startDate).toLocaleDateString()}</td>
                             <td className="px-3 py-3 whitespace-nowrap">{new Date(l.endDate).toLocaleDateString()}</td>
                             <td className="px-3 py-3 whitespace-nowrap">{l.totalDays} day{l.totalDays !== 1 ? 's' : ''}</td>
                             <td className="px-3 py-3 text-[var(--text-secondary)]">{l.reason || '—'}</td>
-                            <td className="px-3 py-3 text-green-600 whitespace-nowrap">{l.approver?.fullName || '—'}</td>
+                            <td className="px-3 py-3 text-[var(--icon-green-text)] whitespace-nowrap">{l.approver?.fullName || '—'}</td>
                             <td className="px-3 py-3 text-center whitespace-nowrap">
                               {l.status === 'pending' ? (
                                 <div className="flex gap-2 justify-center">
-                                  <button onClick={() => { setSelectedLeaveId(l.id); setShowApprovalModal(true); }} className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-medium hover:bg-green-200">Approve</button>
-                                  <button onClick={() => { setSelectedLeaveId(l.id); setShowRejectionModal(true); }} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-medium hover:bg-red-200">Reject</button>
+                                  <button onClick={() => { setSelectedLeaveId(l.id); setShowApprovalModal(true); }} className="px-3 py-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg text-xs font-medium hover:opacity-90">Approve</button>
+                                  <button onClick={() => { setSelectedLeaveId(l.id); setShowRejectionModal(true); }} className="px-3 py-1.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg text-xs font-medium hover:opacity-90">Reject</button>
                                 </div>
                               ) : '—'}
                             </td>
@@ -835,10 +835,10 @@ export default function UserManagement() {
         </div>
       )}
       {showApprovalModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md"><h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Approve Leave Request</h3><p className="text-sm text-[var(--text-secondary)] mb-4">Are you sure you want to approve this leave request?</p><div className="flex gap-3"><button onClick={handleApproveLeave} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Yes, Approve</button><button onClick={() => setShowApprovalModal(false)} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg">Cancel</button></div></div></div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md"><h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Approve Leave Request</h3><p className="text-sm text-[var(--text-secondary)] mb-4">Are you sure you want to approve this leave request?</p><div className="flex gap-3"><button onClick={handleApproveLeave} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:opacity-90">Yes, Approve</button><button onClick={() => setShowApprovalModal(false)} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg">Cancel</button></div></div></div>
       )}
       {showRejectionModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md"><h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Reject Leave Request</h3><p className="text-sm text-[var(--text-secondary)] mb-4">Please provide a reason for rejection:</p><textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} rows={3} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm mb-4" placeholder="Reason for rejection..." /><div className="flex gap-3"><button onClick={handleRejectLeave} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Yes, Reject</button><button onClick={() => setShowRejectionModal(false)} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg">Cancel</button></div></div></div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"><div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md"><h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Reject Leave Request</h3><p className="text-sm text-[var(--text-secondary)] mb-4">Please provide a reason for rejection:</p><textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} rows={3} className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm mb-4" placeholder="Reason for rejection..." /><div className="flex gap-3"><button onClick={handleRejectLeave} className="flex-1 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:opacity-90">Yes, Reject</button><button onClick={() => setShowRejectionModal(false)} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg">Cancel</button></div></div></div>
       )}
     </div>
   );
