@@ -424,9 +424,9 @@ export const generateCCC = async (
     await prisma.attendance.update({
       where: { id: encounterId },
       data: {
-        nhisCCCCode: eligibilityData.cccCode,
+        nhisCCCCode: result.data.cccCode,
         nhisCCCGeneratedAt: new Date(),
-        nhisCCCValidUntil: eligibilityData.validUntil
+        nhisCCCValidUntil: result.data.validUntil
           ? new Date(eligibilityData.validUntil)
           : null,
         updatedAt: new Date(),
