@@ -19,7 +19,7 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
   const [message, setMessage] = useState('');
   const [form, setForm] = useState<any>({
     entryPoint: 'OPD', testingApproach: 'provider_initiated',
-    consentGiven: false, counsellingPreTest: false, counsellingPostTest: false,
+    consentGiven: false, testingConsentGiven: false, counsellingPreTest: false, counsellingPostTest: false,
     testingStatus: 'not_started', result: 'pending', resultConfirmed: false,
     firstTimeTester: null, previousTesting: 'unknown', previouslyKnownPositive: false,
     newlyIdentifiedPositive: false, indexTesting: false, stiRelated: false,
@@ -42,13 +42,16 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
   const update = (key: string, value: any) => setForm((old: any) => ({ ...old, [key]: value }));
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form.consentGiven) { setMessage('Document consent before saving an HIV testing episode.'); return; }
+    if (!form.consentGiven) { setMessage('Document consent for HTS counselling before saving.'); return; }
+    if (['testing', 'completed'].includes(form.testingStatus) && !form.testingConsentGiven) { setMessage('Separate consent for HIV testing is required before testing begins.'); return; }
+    if (form.testingStatus === 'completed' && form.result === 'pending') { setMessage('A completed test must have a recorded result.'); return; }
+    if (form.testingStatus === 'declined' && form.result !== 'pending') { setMessage('A declined test cannot have a test result.'); return; }
     setSaving(true); setMessage('');
     try {
       await api.post('/hiv-testing', { ...form, patientId, attendanceId });
       setMessage('HTS record saved.');
       setShowForm(false);
-      setForm((old: any) => ({ ...old, consentGiven: false, result: 'pending', resultConfirmed: false, testingStatus: 'not_started', counsellingPreTest: false, counsellingPostTest: false, notes: '' }));
+      setForm((old: any) => ({ ...old, consentGiven: false, testingConsentGiven: false, result: 'pending', resultConfirmed: false, testingStatus: 'not_started', counsellingPreTest: false, counsellingPostTest: false, notes: '' }));
       await load();
     } catch (error: any) {
       setMessage(error.response?.data?.message || error.message || 'Could not save HTS record.');
@@ -94,7 +97,8 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
         <label className="block"><span className={labelClass}>Referral outcome</span><input className={inputClass} value={form.referralOutcome} onChange={e => update('referralOutcome',e.target.value)} /></label>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 rounded-lg bg-[var(--bg-main)] p-3">
-        {check('Consent documented', 'consentGiven')}
+        {check('Consent for HTS counselling documented', 'consentGiven')}
+        {check('Separate consent for HIV testing', 'testingConsentGiven')}
         {check('Pre-test counselling completed', 'counsellingPreTest')}
         {check('Post-test counselling completed', 'counsellingPostTest')}
         {check('Final result confirmed', 'resultConfirmed')}
