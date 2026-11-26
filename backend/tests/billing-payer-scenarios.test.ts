@@ -13,7 +13,8 @@ describe('visit billing payer scenarios', () => {
   it('uses the NHIS tariff only for a service marked as NHIS-covered', () => {
     expect(resolveUnitPrice(configuredPrices, 'nhis', { isNHISCovered: true })).toBe(65);
     expect(resolveUnitPrice(configuredPrices, 'nhis', { isNHISCovered: false })).toBe(100);
-    expect(resolveUnitPrice({ cashPrice: 100, nhisPrice: null }, 'nhis', { isNHISCovered: true })).toBe(100);
+    // Missing NHIS tariff is not a valid tariff; the UI must flag it instead of showing cash or 0.00.
+    expect(isPayerCovered({ cashPrice: 100, nhisPrice: null }, 'nhis', { isNHISCovered: true })).toBe(false);
   });
 
   it('uses the private-insurance tariff unless the service is explicitly exempted', () => {
