@@ -170,7 +170,7 @@ export default function AdmissionDetails() {
   const getStatusBadge = () => {
     if (admission?.status === 'cancelled') return <span className="inline-flex items-center rounded-full border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-2.5 py-1 text-[10px] font-bold text-[var(--icon-red-text)]">CANCELLED</span>;
     const discharged = Boolean(admission?.dischargeDate) || attendance?.status === 'discharged' || attendance?.status === 'completed';
-    return discharged ? <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">DISCHARGED</span> : <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-[10px] font-bold text-green-700"><CircleDot className="h-3 w-3" />ACTIVE</span>;
+    return discharged ? <span className="inline-flex items-center rounded-full border border-[var(--border-color)] bg-[var(--bg-main)] px-2.5 py-1 text-[10px] font-bold text-[var(--text-secondary)]">DISCHARGED</span> : <span className="inline-flex items-center gap-1 rounded-full border border-[var(--icon-green-text)] bg-[var(--icon-green-bg)] px-2.5 py-1 text-[10px] font-bold text-[var(--icon-green-text)]"><CircleDot className="h-3 w-3" />ACTIVE</span>;
   };
 
   const getLengthOfStay = () => {
