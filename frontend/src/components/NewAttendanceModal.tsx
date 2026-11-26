@@ -313,13 +313,13 @@ export default function NewAttendanceModal({
 
   const getColorClasses = (color: string) => {
     const colors: Record<string, { selected: string; bg: string; text: string; border: string }> = {
-      blue: { selected: 'bg-blue-50 border-blue-500', bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200' },
-      green: { selected: 'bg-green-50 border-green-500', bg: 'bg-green-100', text: 'text-green-600', border: 'border-green-200' },
-      purple: { selected: 'bg-purple-50 border-purple-500', bg: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200' },
-      yellow: { selected: 'bg-yellow-50 border-yellow-500', bg: 'bg-yellow-100', text: 'text-yellow-600', border: 'border-yellow-200' },
-      red: { selected: 'bg-red-50 border-red-500', bg: 'bg-red-100', text: 'text-red-600', border: 'border-red-200' },
-      cyan: { selected: 'bg-cyan-50 border-cyan-500', bg: 'bg-cyan-100', text: 'text-cyan-600', border: 'border-cyan-200' },
-      indigo: { selected: 'bg-indigo-50 border-indigo-500', bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200' }
+      blue: { selected: 'bg-[var(--icon-blue-bg)] border-[var(--icon-blue-text)]', bg: 'bg-[var(--icon-blue-bg)]', text: 'text-[var(--icon-blue-text)]', border: 'border-[var(--icon-blue-text)]/30' },
+      green: { selected: 'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)]', bg: 'bg-[var(--icon-green-bg)]', text: 'text-[var(--icon-green-text)]', border: 'border-[var(--icon-green-text)]/30' },
+      purple: { selected: 'bg-[var(--icon-purple-bg)] border-[var(--icon-purple-text)]', bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]', border: 'border-[var(--icon-purple-text)]/30' },
+      yellow: { selected: 'bg-[var(--icon-yellow-bg)] border-[var(--icon-yellow-text)]', bg: 'bg-[var(--icon-yellow-bg)]', text: 'text-[var(--icon-yellow-text)]', border: 'border-[var(--icon-yellow-text)]/30' },
+      red: { selected: 'bg-[var(--icon-red-bg)] border-[var(--icon-red-text)]', bg: 'bg-[var(--icon-red-bg)]', text: 'text-[var(--icon-red-text)]', border: 'border-[var(--icon-red-text)]/30' },
+      cyan: { selected: 'bg-[var(--icon-cyan-bg)] border-[var(--icon-cyan-text)]', bg: 'bg-[var(--icon-cyan-bg)]', text: 'text-[var(--icon-cyan-text)]', border: 'border-[var(--icon-cyan-text)]/30' },
+      indigo: { selected: 'bg-[var(--icon-purple-bg)] border-[var(--icon-purple-text)]', bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]', border: 'border-[var(--icon-purple-text)]/30' }
     };
     return colors[color] || colors.blue;
   };
@@ -516,7 +516,7 @@ export default function NewAttendanceModal({
                       className={`p-2 rounded-lg border text-left transition-all duration-200 ${
                         isSelected
                           ? `${colors.selected} border`
-                          : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-gray-300'
+                          : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--text-tertiary)]'
                       }`}
                       disabled={isLoading}
                     >
@@ -567,7 +567,7 @@ export default function NewAttendanceModal({
               <div className={`rounded-lg p-3 border ${
                 resolvedNhisEligible
                   ? 'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)]'
-                  : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                  : 'bg-[var(--icon-yellow-bg)] border-[var(--icon-yellow-text)]/30'
               }`}>
                 <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2 flex items-center gap-1">
                   <Shield className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
@@ -621,7 +621,7 @@ export default function NewAttendanceModal({
                     <p className={`text-xs mt-1 ${
                       nhisCCC.trim() && /^\d{5}$/.test(nhisCCC.trim())
                         ? 'text-[var(--icon-green-text)]'
-                        : 'text-yellow-700 dark:text-yellow-500'
+                        : 'text-[var(--icon-yellow-text)]'
                     }`}>
                       {nhisCCC.trim()
                         ? nhisCCC.trim().length === 5
