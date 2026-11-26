@@ -391,6 +391,31 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
     expect(child.origin).toBe('procedure');
   });
 
+  it('maps K21.9 only to the Annex C paediatric oesophageal surgery group and requires the procedure', () => {
+    const mapping = diagnosisGdrgMappings.find((entry) => entry.icdCode === 'K21.9');
+    expect(mapping?.status).toBe('verified');
+    expect(mapping?.gdrgCodes).toEqual(['PSUR14C']);
+
+    const diagnosisOnly = row('PSUR14C', true, 'diagnosis');
+    expect(() => resolvePrincipalGdrg({
+      caseType: 'ipd',
+      age: 8,
+      facilityLevel: 2,
+      links: [diagnosisOnly],
+      fallbacks: [],
+    })).toThrow(/needs a principal G-DRG/);
+
+    const resolved = resolvePrincipalGdrg({
+      caseType: 'ipd',
+      age: 8,
+      facilityLevel: 2,
+      links: [diagnosisOnly, row('PSUR14C', false, 'procedure')],
+      fallbacks: [],
+    });
+    expect(resolved.tariff.gdrgCode).toBe('PSUR14C');
+    expect(resolved.origin).toBe('procedure');
+  });
+
   it('keeps the Annex C-confirmed diagnosis mappings exact and marked verified', () => {
     const byIcd = new Map(diagnosisGdrgMappings.map((mapping) => [mapping.icdCode, mapping]));
     const expected: Record<string, string[]> = {
@@ -403,6 +428,7 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
       'K62.5': ['MEDI25A', 'OPDC06A', 'OPDC06C'],
       'K70.10': ['MEDI24A', 'OPDC06A', 'OPDC06C'],
       'J90': ['ASUR03A', 'PSUR34C'],
+      'K21.9': ['PSUR14C'],
       'L23.9': ['MEDI31A', 'PAED26C', 'OPDC06A', 'OPDC06C'],
       'L30.9': ['MEDI18A', 'PAED26C', 'OPDC06A', 'OPDC06C'],
       'M25.50': ['MEDI30A', 'PAED38C', 'OPDC06A', 'OPDC06C'],
