@@ -401,7 +401,7 @@ export default function VitalsEntry() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
+        <div className="text-center bg-[var(--bg-card)] p-6 rounded-xl border border-[var(--border-color)]">
           <div className="w-12 h-12 border-4 border-[var(--icon-red-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Vitals Data...</h2>
         </div>
@@ -410,7 +410,7 @@ export default function VitalsEntry() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-3 sm:p-4">
       {/* Header */}
       <PageHeader
         title="Vital Signs"
@@ -455,7 +455,7 @@ export default function VitalsEntry() {
       {selectedPatientId && !selectedAttendanceId && (
         <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-6 text-center">
           <Calendar className="w-12 h-12 text-[var(--icon-yellow-text)] mx-auto mb-3 opacity-50" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Select an Attendance</h3>
+          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">Select an Attendance</h3>
           <p className="text-[var(--text-secondary)]">
             Please select an attendance from the dropdown above to record vitals for {getPatientName(selectedPatient)}.
           </p>
@@ -469,9 +469,9 @@ export default function VitalsEntry() {
 
       {/* No Patient Selected */}
       {!selectedPatientId && (
-        <div className="bg-[var(--icon-cyan-bg)] border border-[var(--icon-cyan-text)] rounded-xl p-8 text-center">
-          <User className="w-12 h-12 text-[var(--icon-cyan-text)] mx-auto mb-3 opacity-50" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Select a Patient</h3>
+        <div className="bg-[var(--icon-cyan-bg)] border border-[var(--icon-cyan-text)] rounded-xl p-6 text-center">
+          <User className="w-8 h-8 text-[var(--icon-cyan-text)] mx-auto mb-2 opacity-50" />
+          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">Select a Patient</h3>
           <p className="text-[var(--text-secondary)]">
             Search and select a patient from the dropdown above to view or record vitals.
           </p>
@@ -661,8 +661,8 @@ export default function VitalsEntry() {
 
           {/* Show message when no vitals */}
           {vitalsList.length === 0 && !vitalsLoading && (
-            <div className="bg-[var(--bg-card)] rounded-xl p-8 text-center border border-[var(--border-color)]">
-              <Activity className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
+            <div className="bg-[var(--bg-card)] rounded-xl p-6 text-center border border-[var(--border-color)]">
+              <Activity className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-50" />
               <p className="text-[var(--text-secondary)]">No vitals recorded for this visit</p>
               {canRecord && (
                 <button
