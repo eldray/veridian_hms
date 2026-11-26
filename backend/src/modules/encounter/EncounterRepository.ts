@@ -1390,6 +1390,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         (!Number.isInteger(Number(data.prnMaxDosesPerDay)) || Number(data.prnMaxDosesPerDay) < 1 || Number(data.prnMaxDosesPerDay) > 24)) {
       throw new ValidationError('PRN maximum doses per day must be between 1 and 24');
     }
+    if (frequencyCode === 'PRN' && data.prnMinimumIntervalHours != null &&
+        (!Number.isInteger(Number(data.prnMinimumIntervalHours)) || Number(data.prnMinimumIntervalHours) < 1 || Number(data.prnMinimumIntervalHours) > 24)) {
+      throw new ValidationError('PRN minimum interval must be between 1 and 24 hours');
+    }
 
     // Keep the prescription and its medication-administration schedule atomic. If
     // dose creation fails, the prescription itself must roll back as well.
