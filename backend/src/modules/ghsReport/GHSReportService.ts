@@ -715,19 +715,22 @@ export class GHSReportService extends BaseService {
     }
     const covidDoseLabels = ['COVID-19, Single Dose','COVID-19, Dose 1','COVID-19, Dose 2','COVID-19, Booster 1','COVID-19, Booster 2','COVID-19, Booster 3','COVID-19, Booster 4'];
     const covidVaccinations = covidDoseLabels.map(label => ({ dose: label, age6MonthsTo14Years: 0, age15To17Years: 0, age18To59Years: 0, age60Plus: 0, totalDoses: 0, underlyingConditions: 0, healthWorkers: 0, pregnantWomen: 0 }));
-    const tdVaccinationLabels = ['Td-1','Td-2','Td-3','Td-4','Td-5','Td-5+ (Not Vaccinated)'];
+    const tdVaccinationLabels = ['Td-1','Td-2','Td-3','Td-4','Td-5'];
     const tdVaccinations = tdVaccinationLabels.map(dose => ({ dose, pregnantWomen: 0, nonPregnant: 0, others: 0 }));
     for (const record of records) {
       const text = normalize(record.Vaccine.code + ' ' + record.Vaccine.name);
       const dose = normalize(record.doseNumber);
       if (text.includes('covid') || text.includes('janssen') || text.includes('astrazeneca') || text.includes('pfizer') || text.includes('moderna')) {
-        const doseNumber = Number((dose.match(/[1-4]/) || [])[0] || 1);
-        const label = text.includes('single') || text.includes('janssen') ? 'COVID-19, Single Dose' : doseNumber === 1 ? 'COVID-19, Dose 1' : doseNumber === 2 ? 'COVID-19, Dose 2' : 'COVID-19, Booster ' + Math.min(4, Math.max(1, doseNumber - 2));
+        const booster = dose.match(/booster([1-4])/);
+        const doseMatch = dose.match(/(?:dose)?([12])/);
+        const doseNumber = doseMatch ? Number(doseMatch[1]) : 1;
+        const label = text.includes('single') || text.includes('janssen') ? 'COVID-19, Single Dose' : booster ? 'COVID-19, Booster ' + booster[1] : doseNumber === 1 ? 'COVID-19, Dose 1' : 'COVID-19, Dose 2';
         const row = covidVaccinations.find(item => item.dose === label);
         if (row) {
           const years = this.calculateAge(record.Patient.dateOfBirth, record.administeredAt);
-          if (years < 15) row.age6MonthsTo14Years++;
-          else if (years < 18) row.age15To17Years++;
+          const ageMonths = Math.max(0, (record.administeredAt.getTime() - new Date(record.Patient.dateOfBirth).getTime()) / (30.4375 * 86400000));
+          if (ageMonths >= 6 && years < 15) row.age6MonthsTo14Years++;
+          else if (years >= 15 && years < 18) row.age15To17Years++;
           else if (years < 60) row.age18To59Years++;
           else row.age60Plus++;
           row.totalDoses++;
