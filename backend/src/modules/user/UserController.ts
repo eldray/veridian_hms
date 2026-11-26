@@ -434,6 +434,9 @@ export class UserController extends BaseController {
       userId: req.query.userId as string,
       departmentId: req.query.departmentId as string,
       status: req.query.status as any,
+      statuses: typeof req.query.statuses === 'string'
+        ? (req.query.statuses as string).split(',').map((value) => value.trim()).filter((value) => ['pending', 'approved', 'rejected', 'cancelled'].includes(value)) as any
+        : undefined,
       fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
       toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined,
       page: parsePage(req.query.page),
