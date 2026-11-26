@@ -61,7 +61,7 @@ export default function EPIMonthlyStockReturnEditor({ from, to }: { from: string
   const save = async () => {
     const fields = ['beginningBalance','quantityReceived','quantityUsed','dosesOpened','vvmStatusChange','quantityExpired','otherLosses','stockAtEnd','stockoutDays'] as const;
     for (const line of lines) for (const field of fields) {
-      if (line[field] !== '' && (!/^\\d+$/.test(line[field]) || Number(line[field]) < 0)) {
+      if (line[field] !== '' && (!/^\d+$/.test(line[field]) || Number(line[field]) < 0)) {
         toastError(line.itemLabel+': enter a non-negative whole number or leave the field blank.'); return;
       }
       if (field === 'stockoutDays' && line[field] !== '' && Number(line[field]) > 31) {
