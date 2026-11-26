@@ -4382,6 +4382,10 @@ model ImmunizationRecord {
   administeredById        String?
   recordedById            String
   stockTransactionId      String? @unique
+  // EPI disaggregation captured at administration time; nullable means not recorded.
+  underlyingCondition     Boolean?
+  healthWorker            Boolean?
+  pregnancyStatus         String? // pregnant | non_pregnant | not_applicable | unknown
   StockTransaction        StockTransaction? @relation(fields: [stockTransactionId], references: [id], onDelete: SetNull)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
@@ -4399,4 +4403,49 @@ model ImmunizationRecord {
   @@index([nextDoseDue])
   @@index([batchNumber])
   @@map("immunization_records")
+}
+
+
+// Monthly EPI return: manually verified monthly stock/commodity figures and source metadata.
+// One header per facility reporting period; lines retain explicit values (including true zeroes).
+model EPIMonthlyReturn {
+  id          String   @id @default(cuid())
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+  facility    String?
+  notes       String?  @db.Text
+  createdById String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  lines       EPIMonthlyReturnLine[]
+
+  @@unique([periodStart, periodEnd])
+  @@index([periodStart, periodEnd])
+  @@map("epi_monthly_returns")
+}
+
+model EPIMonthlyReturnLine {
+  id                   String   @id @default(cuid())
+  monthlyReturnId      String
+  section              String // vaccine_stock | other_commodity
+  itemKey              String
+  itemLabel            String
+  beginningBalance     Int?
+  quantityReceived     Int?
+  quantityUsed         Int?
+  dosesOpened          Int?
+  vvmStatusChange      Int?
+  quantityExpired      Int?
+  otherLosses          Int?
+  stockAtEnd           Int?
+  stockoutDays         Int?
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  monthlyReturn        EPIMonthlyReturn @relation(fields: [monthlyReturnId], references: [id], onDelete: Cascade)
+
+  @@unique([monthlyReturnId, section, itemKey])
+  @@index([section, itemKey])
+  @@map("epi_monthly_return_lines")
 }
