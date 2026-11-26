@@ -3683,6 +3683,7 @@ enum AuditAction {
   reject
   submit
   print
+  view
   login
   logout
 }
