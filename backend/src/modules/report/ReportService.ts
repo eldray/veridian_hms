@@ -13,7 +13,7 @@ export class ReportService {
   constructor(prisma: PrismaClient) {
     this.prisma = prisma;
     // Reports over big date ranges take seconds; share one result per range for 60 s
-    cacheReadMethods(this, ['getDemographicReport','getFinancialReport','getInsuranceClaimsReport','getClinicalReport','getAttendanceReport','getRevenueReport','getNhisExpiryReport','getNhisClaimsWithExpiry'], 60000);
+    cacheReadMethods(this, ['getDemographicReport','getFinancialReport','getInsuranceClaimsReport','getClinicalReport','getAttendanceReport','getPatientsSeenByStaffReport','getRevenueReport','getNhisExpiryReport','getNhisClaimsWithExpiry'], 60000);
   }
 
   private calculateAge(dateOfBirth: Date, asOfDate: Date = new Date()): number {
@@ -219,6 +219,236 @@ export class ReportService {
     };
   }
 
+  // ==================== OPD/IPD PATIENT BILLING REGISTER ====================
+  async getPatientBillingRegister(filters: ReportFilters) {
+    const { startDate, endDate, attendanceCategory, paymentMode } = filters;
+    const range = parseReportRange(startDate, endDate);
+    const where: any = {
+      patientId: { not: null },
+      encounterCategory: attendanceCategory === 'opd' || attendanceCategory === 'ipd'
+        ? attendanceCategory : { in: ['opd', 'ipd'] },
+      status: { not: 'cancelled' },
+    };
+    if (range) where.dateTime = range;
+    if (paymentMode) where.paymentMode = paymentMode;
+
+    const attendances = await this.prisma.attendance.findMany({
+      where,
+      orderBy: [{ dateTime: 'desc' }, { attendanceNumber: 'desc' }],
+      take: 10000,
+      include: {
+        Patient: { select: {
+          surname: true, otherNames: true, dateOfBirth: true, folderNumber: true,
+          gender: true, phoneNumber: true, contact: true, nhisNumber: true,
+        } },
+        Admission: { select: { admissionDate: true, dischargeDate: true } },
+        InsuranceProvider: { select: { name: true } },
+        CorporateAccount: { select: { companyName: true } },
+        User_Attendance_createdByIdToUser: { select: { username: true, fullName: true } },
+        Bill: { include: { BillLineItem: { where: { isVoided: false }, select: {
+          serviceType: true, lineTotal: true,
+        } } } },
+      },
+    });
+
+    const rows = attendances.map(attendance => {
+      const patient = attendance.Patient!;
+      const bill = attendance.Bill;
+      const lineItems = bill?.BillLineItem || [];
+      const drugs = money(lineItems.filter(item => item.serviceType === 'medication')
+        .reduce((sum, item) => sum + toNum(item.lineTotal), 0));
+      const services = money(lineItems.filter(item => item.serviceType !== 'medication')
+        .reduce((sum, item) => sum + toNum(item.lineTotal), 0));
+      const age = this.calculateAge(patient.dateOfBirth, attendance.dateTime);
+      const status = attendance.status === 'completed' || attendance.status === 'discharged'
+        ? 'Complete' : attendance.status.charAt(0).toUpperCase() + attendance.status.slice(1);
+      return {
+        attendanceId: attendance.id,
+        attendanceNumber: attendance.attendanceNumber,
+        beginDate: attendance.dateTime,
+        beginTime: attendance.dateTime,
+        endDate: attendance.encounterCategory === 'ipd'
+          ? (attendance.Admission?.dischargeDate || null) : attendance.dateTime,
+        encounterCategory: attendance.encounterCategory.toUpperCase(),
+        name: `${patient.surname} ${patient.otherNames || ''}`.trim(),
+        age,
+        cardNo: patient.nhisNumber || attendance.nhisCCC || '—',
+        folderNo: patient.folderNumber,
+        gender: patient.gender,
+        phoneNo: patient.phoneNumber || patient.contact || '',
+        mode: attendance.paymentMode.toUpperCase(),
+        patientBalance: money(attendance.outstandingBalance),
+        patientBill: money(bill?.patientPayable ?? 0),
+        accreditorBill: money(bill?.insuranceCovered ?? 0),
+        drugs,
+        services,
+        total: money(bill?.totalAmount ?? attendance.totalBill),
+        status,
+        accreditor: attendance.InsuranceProvider?.name
+          || attendance.CorporateAccount?.companyName
+          || (attendance.paymentMode === 'cash' ? 'Self Pay' : attendance.paymentMode.toUpperCase()),
+        createdBy: attendance.User_Attendance_createdByIdToUser?.username
+          || attendance.User_Attendance_createdByIdToUser?.fullName || '',
+        createdOn: attendance.createdAt,
+        billStatus: bill?.status || null,
+      };
+    });
+
+    const total = rows.reduce((sum, row) => sum + row.total, 0);
+    return {
+      reportType: 'OPD/IPD PATIENT BILLING REGISTER' as const,
+      period: this.periodOf(startDate, endDate),
+      summary: {
+        totalAttendances: rows.length,
+        opd: rows.filter(row => row.encounterCategory === 'OPD').length,
+        ipd: rows.filter(row => row.encounterCategory === 'IPD').length,
+        totalBilled: money(total),
+        totalPatientBalance: money(rows.reduce((sum, row) => sum + row.patientBalance, 0)),
+        totalPatientBill: money(rows.reduce((sum, row) => sum + row.patientBill, 0)),
+        totalAccreditorBill: money(rows.reduce((sum, row) => sum + row.accreditorBill, 0)),
+      },
+      entries: rows,
+      generatedAt: new Date(),
+    };
+  }
+
+  // ==================== USER ACTIVITY / PATIENTS SEEN BY STAFF ====================
+  // Count each patient attendance once per staff member, even when the same staff member
+  // records several services for that attendance. Attribution follows the recorded actor
+  // for each workflow, not audit-log events or the attendance registrar alone.
+  async getPatientsSeenByStaffReport(filters: ReportFilters) {
+    const { startDate, endDate } = filters;
+    const range = parseReportRange(startDate, endDate);
+    const patientAttendance = {
+      Attendance: { patientId: { not: null }, status: { not: 'cancelled' } },
+    };
+    const activityRange = () => range || { not: null };
+
+    const [
+      attendances, labTests, medications, ancVisits, postnatalRecords,
+      renderedServices, scans, procedures, vitals, familyPlanning, immunizations,
+      nursingNotes, nursingTasks,
+    ] = await Promise.all([
+      this.prisma.attendance.findMany({
+        where: { patientId: { not: null }, status: { not: 'cancelled' }, ...(range ? { dateTime: range } : {}) },
+        select: { id: true, createdById: true, providerId: true },
+      }),
+      this.prisma.labTest.findMany({
+        where: { performedById: { not: null }, completedAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, performedById: true },
+      }),
+      this.prisma.medication.findMany({
+        where: { dispensedById: { not: null }, dispensedAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, dispensedById: true },
+      }),
+      this.prisma.aNCVisit.findMany({
+        where: { visitDate: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, recordedById: true },
+      }),
+      this.prisma.postnatalRecord.findMany({
+        where: { examinationDate: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, createdById: true },
+      }),
+      this.prisma.serviceRendered.findMany({
+        where: { date: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, performedById: true },
+      }),
+      this.prisma.scan.findMany({
+        where: { performedById: { not: null }, completedAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, performedById: true },
+      }),
+      this.prisma.procedure.findMany({
+        where: { performedById: { not: null }, performedAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, performedById: true },
+      }),
+      this.prisma.vitals.findMany({
+        where: { recordedAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, recordedById: true },
+      }),
+      this.prisma.familyPlanningService.findMany({
+        where: { attendanceId: { not: null }, serviceDate: activityRange(), Attendance: { patientId: { not: null }, status: { not: 'cancelled' } } },
+        select: { attendanceId: true, providedById: true },
+      }),
+      this.prisma.immunizationRecord.findMany({
+        where: { administeredAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, recordedById: true, administeredById: true },
+      }),
+      this.prisma.nursingNote.findMany({
+        where: { attendanceId: { not: null }, createdAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, createdById: true },
+      }),
+      this.prisma.nursingTask.findMany({
+        where: { completedById: { not: null }, completedAt: activityRange(), ...patientAttendance },
+        select: { attendanceId: true, completedById: true },
+      }),
+    ]);
+
+    const attendanceByUser = new Map<string, Set<string>>();
+    const add = (userId: string | null | undefined, attendanceId: string) => {
+      if (!userId) return;
+      const ids = attendanceByUser.get(userId) || new Set<string>();
+      ids.add(attendanceId);
+      attendanceByUser.set(userId, ids);
+    };
+
+    for (const attendance of attendances) {
+      add(attendance.createdById, attendance.id);
+      add(attendance.providerId, attendance.id);
+    }
+    for (const row of labTests) add(row.performedById, row.attendanceId);
+    for (const row of medications) add(row.dispensedById, row.attendanceId);
+    for (const row of ancVisits) add(row.recordedById, row.attendanceId);
+    for (const row of postnatalRecords) add(row.createdById, row.attendanceId);
+    for (const row of renderedServices) add(row.performedById, row.attendanceId);
+    for (const row of scans) add(row.performedById, row.attendanceId);
+    for (const row of procedures) add(row.performedById, row.attendanceId);
+    for (const row of vitals) add(row.recordedById, row.attendanceId);
+    for (const row of familyPlanning) add(row.providedById, row.attendanceId!);
+    for (const row of immunizations) {
+      add(row.recordedById, row.attendanceId);
+      add(row.administeredById, row.attendanceId);
+    }
+    for (const row of nursingNotes) add(row.createdById, row.attendanceId!);
+    for (const row of nursingTasks) add(row.completedById, row.attendanceId);
+
+    const userIds = Array.from(attendanceByUser.keys());
+    const users = userIds.length ? await this.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true, username: true, fullName: true,
+        department: { select: { name: true } },
+        staffProfile: { select: { department: { select: { name: true } } } },
+      },
+    }) : [];
+    const entries = users.map(user => ({
+      department: (user.department?.name || user.staffProfile?.department?.name || 'UNASSIGNED').toUpperCase(),
+      username: (user.username || user.fullName || 'UNKNOWN').toUpperCase(),
+      patientsSeen: attendanceByUser.get(user.id)?.size || 0,
+      userId: user.id,
+    })).sort((a, b) => a.department.localeCompare(b.department) || a.username.localeCompare(b.username));
+
+    const departmentTotals = Array.from(entries.reduce((map, row) => {
+      map.set(row.department, (map.get(row.department) || 0) + row.patientsSeen);
+      return map;
+    }, new Map<string, number>()).entries())
+      .map(([department, patientsSeen]) => ({ department, patientsSeen }))
+      .sort((a, b) => a.department.localeCompare(b.department));
+
+    return {
+      reportType: 'USER ACTIVITY / PATIENTS SEEN BY STAFF' as const,
+      period: this.periodOf(startDate, endDate),
+      summary: {
+        totalStaff: entries.length,
+        totalPatientStaffAttendances: entries.reduce((sum, row) => sum + row.patientsSeen, 0),
+        departments: departmentTotals.length,
+      },
+      departmentTotals,
+      entries,
+      methodology: 'A patient attendance is counted once per staff member when that staff member is recorded as the attendance registrar or clinician, or as the performer/recorder of a completed laboratory test, dispensed medication, ANC/postnatal visit, rendered service, scan, procedure, vital-signs record, family-planning service, immunization, nursing note or completed nursing task. Repeat activities by the same staff member on the same attendance count once. The same attendance may count for more than one staff member.',
+      generatedAt: new Date(),
+    };
+  }
+
   // ==================== INSURANCE CLAIMS REPORT ====================
   async getInsuranceClaimsReport(filters: ReportFilters) {
     const { startDate, endDate, insuranceProviderId, status, corporateAccountId } = filters;
@@ -315,6 +545,7 @@ export class ReportService {
     const rows = await this.prisma.attendanceDiagnosis.findMany({
       where: range ? { Attendance: { dateTime: range } } : {},
       select: {
+        classification: true,
         Diagnosis: { select: { name: true, icdCode: true, morbidityGroup: true } },
         Attendance: {
           select: {
@@ -324,6 +555,115 @@ export class ReportService {
         },
       },
     });
+
+    const ncdConditions = [
+      'Complicated Hypertension', 'Pre Diabetes', 'Complicated Diabetes',
+      'Dyslipidaemia (High Cholesterol)', 'Acute Kidney Disease', 'Chronic Kidney Disease',
+      'Heart Failure', 'Heart Attack', 'Rheumatic / Valvular Heart Diseases',
+      'Hypertensive Heart Diseases', 'Cardiac Arrhythmia', 'Deep Vein Thrombosis',
+      'Pulmonary Embolism', 'Congenital Heart Disease', 'Leukemia',
+      'Brain and Spinal Cord Tumors', 'Neuroblastoma', 'Childhood Cancers',
+      'Rhabdomyosarcoma', 'Retinoblastoma', 'Bone Cancer', 'Lung Cancer',
+      'Stomach Cancer', 'Colorectal Cancer', 'Liver Cancer', 'Eczema',
+    ];
+    const ncdAgeBands = [
+      { key: 'under28Days', label: '<28 days' },
+      { key: 'months1To11', label: '1-11 months' },
+      { key: 'years1To4', label: '1-4 years' },
+      { key: 'years5To9', label: '5-9 years' },
+      { key: 'years10To14', label: '10-14 years' },
+      { key: 'years15To17', label: '15-17 years' },
+      { key: 'years18To19', label: '18-19 years' },
+      { key: 'years20To34', label: '20-34 years' },
+      { key: 'years35To49', label: '35-49 years' },
+      { key: 'years50To59', label: '50-59 years' },
+      { key: 'years60To69', label: '60-69 years' },
+      { key: 'years70Plus', label: '70+' },
+    ];
+    const normalizeNcdName = (value: string) => value.toLowerCase().normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const ncdRows = new Map<string, any>();
+    const makeNcdRow = (condition: string) => {
+      const row: any = { condition, total: 0 };
+      for (const band of ncdAgeBands) {
+        row[`male_${band.key}`] = 0;
+        row[`female_${band.key}`] = 0;
+      }
+      return row;
+    };
+    ncdConditions.forEach(condition => ncdRows.set(condition, makeNcdRow(condition)));
+    const reAttendanceRow = makeNcdRow('Re-attendances');
+    const ageBandFor = (dob: Date, visitDate: Date): string | null => {
+      const days = Math.floor((new Date(visitDate).getTime() - new Date(dob).getTime()) / 86400000);
+      if (!Number.isFinite(days) || days < 0) return null;
+      if (days < 28) return 'under28Days';
+      if (days < 365) return 'months1To11';
+      const years = this.calculateAge(dob, visitDate);
+      if (years < 5) return 'years1To4';
+      if (years < 10) return 'years5To9';
+      if (years < 15) return 'years10To14';
+      if (years < 18) return 'years15To17';
+      if (years < 20) return 'years18To19';
+      if (years < 35) return 'years20To34';
+      if (years < 50) return 'years35To49';
+      if (years < 60) return 'years50To59';
+      if (years < 70) return 'years60To69';
+      return 'years70Plus';
+    };
+    const diagnosisAliases: Record<string, string[]> = {
+      'Complicated Hypertension': ['complicated hypertension'],
+      'Pre Diabetes': ['pre diabetes', 'prediabetes'],
+      'Complicated Diabetes': ['complicated diabetes'],
+      'Dyslipidaemia (High Cholesterol)': ['dyslipidaemia', 'dyslipidemia', 'high cholesterol'],
+      'Acute Kidney Disease': ['acute kidney disease', 'acute kidney injury'],
+      'Chronic Kidney Disease': ['chronic kidney disease', 'chronic renal disease'],
+      'Heart Failure': ['heart failure', 'cardiac failure'],
+      'Heart Attack': ['heart attack', 'myocardial infarction'],
+      'Rheumatic / Valvular Heart Diseases': ['rheumatic heart', 'valvular heart'],
+      'Hypertensive Heart Diseases': ['hypertensive heart'],
+      'Cardiac Arrhythmia': ['cardiac arrhythmia', 'cardiac dysrhythmia'],
+      'Deep Vein Thrombosis': ['deep vein thrombosis', 'dvt'],
+      'Pulmonary Embolism': ['pulmonary embolism'],
+      'Congenital Heart Disease': ['congenital heart disease'],
+      'Leukemia': ['leukemia', 'leukaemia'],
+      'Brain and Spinal Cord Tumors': ['brain tumor', 'brain tumour', 'spinal cord tumor', 'spinal cord tumour'],
+      'Neuroblastoma': ['neuroblastoma'],
+      'Childhood Cancers': ['childhood cancer'],
+      'Rhabdomyosarcoma': ['rhabdomyosarcoma'],
+      'Retinoblastoma': ['retinoblastoma'],
+      'Bone Cancer': ['bone cancer', 'bone tumour', 'bone tumor'],
+      'Lung Cancer': ['lung cancer'],
+      'Stomach Cancer': ['stomach cancer', 'gastric cancer'],
+      'Colorectal Cancer': ['colorectal cancer', 'colon cancer', 'rectal cancer'],
+      'Liver Cancer': ['liver cancer', 'hepatocellular carcinoma'],
+      'Eczema': ['eczema'],
+    };
+    const addNcdCase = (row: any, patient: any, visitDate: Date) => {
+      row.total++;
+      if (!patient?.dateOfBirth) return;
+      const band = ageBandFor(patient.dateOfBirth, visitDate);
+      if (!band) return;
+      if (patient.gender === 'male') row[`male_${band}`]++;
+      else if (patient.gender === 'female') row[`female_${band}`]++;
+    };
+    for (const row of rows) {
+      const patient = row.Attendance?.Patient;
+      const visitDate = row.Attendance?.dateTime;
+      if (!patient || !visitDate) continue;
+      const diagnosisName = normalizeNcdName(row.Diagnosis?.name || '');
+      if (!diagnosisName) continue;
+      const matchedCondition = ncdConditions.find(condition => {
+        const aliases = (diagnosisAliases[condition] || [condition]).map(normalizeNcdName);
+        return aliases.some(alias => diagnosisName === alias || diagnosisName.includes(alias));
+      });
+      if (!matchedCondition) continue;
+      if (row.classification === 'OLD_DIAGNOSIS') {
+        addNcdCase(reAttendanceRow, patient, visitDate);
+      } else if (row.classification === 'NEW_DIAGNOSIS') {
+        addNcdCase(ncdRows.get(matchedCondition), patient, visitDate);
+      }
+    }
+    const ncdMorbidityReport = [...ncdRows.values(), reAttendanceRow];
 
     interface Acc {
       diagnosis: string; icdCode: string | null; morbidityGroup: any;
@@ -376,8 +716,11 @@ export class ReportService {
       summary: {
         totalDiagnoses: rows.length,
         distinctDiagnoses: reportData.length,
+        ncdNewCases: ncdConditions.reduce((sum, condition) => sum + ncdRows.get(condition).total, 0),
+        ncdReAttendances: reAttendanceRow.total,
       },
       clinicalReport: reportData,
+      ncdMorbidityReport,
       generatedAt: new Date(),
     };
   }
