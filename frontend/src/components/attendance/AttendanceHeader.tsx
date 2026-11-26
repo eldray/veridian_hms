@@ -15,15 +15,15 @@ export const AttendanceHeader: React.FC<AttendanceHeaderProps> = ({
   refreshing
 }) => {
   return (
-    <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-xl p-4 text-white shadow-md">
+    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-3 sm:p-4 text-[var(--text-primary)] shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Hospital className="w-5 h-5 text-blue-600" />
+          <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <Hospital className="w-5 h-5 text-[var(--icon-cyan-text)]" />
             Attendance Management
           </h1>
-          <p className="text-white text-sm mt-1">Manage patient visits and clinical records</p>
-          <p className="text-blue-200 text-xs mt-0.5">
+          <p className="text-[var(--text-secondary)] text-sm mt-1">Manage patient visits and clinical records</p>
+          <p className="text-[var(--text-tertiary)] text-xs mt-0.5">
             {filteredAttendances.length} attendance(s) • {patients.length} patient(s)
           </p>
         </div>
@@ -31,7 +31,7 @@ export const AttendanceHeader: React.FC<AttendanceHeaderProps> = ({
         <button
           onClick={onRefresh}
           disabled={refreshing}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-cyan-text)] text-white hover:opacity-90 rounded-lg transition-opacity font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing...' : 'Refresh'}
