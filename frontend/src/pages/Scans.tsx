@@ -186,9 +186,9 @@ export default function ScansWaitingList() {
 
   if (isLoading || worklistLoading) {
     return (
-      <div className="space-y-6 p-6">
+      <div className="w-full min-w-0 max-w-full min-h-0 flex flex-col gap-3 overflow-x-hidden">
         {queueHeader}
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-8 text-center">
           <div className="w-12 h-12 border-4 border-[var(--icon-indigo-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)]">Loading Scans Queue…</p>
         </div>
@@ -197,7 +197,7 @@ export default function ScansWaitingList() {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="w-full min-w-0 max-w-full min-h-0 flex flex-col gap-3 overflow-x-hidden">
       {queueHeader}
 
       {worklistError && (
