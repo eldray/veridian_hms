@@ -1095,7 +1095,8 @@ export default function EditNHISClaim() {
     const attendance = a(currentClaim);
 
     if (patient?.nhisNumber) setPatientNhisNumber(patient.nhisNumber);
-    else if (attendance?.nhisCCC) setCccCode(attendance.nhisCCC);
+    // The member number and attendance CCC are separate identifiers; load both.
+    setCccCode(attendance?.nhisCCC || '');
     if (patient?.folderNumber) setFolderNumber(patient.folderNumber);
 
     setPatientId(patient?.id || '');
