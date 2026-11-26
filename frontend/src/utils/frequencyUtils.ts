@@ -44,7 +44,7 @@ export interface FrequencyInfo {
       return { type: 'Weekly', requiredDoses: 1, intervalHours: 168 };
     }
     if (freq.includes('prn') || freq.includes('as needed') || freq.includes('when required')) {
-      return { type: 'As Needed (PRN)', requiredDoses: 1, intervalHours: 4 };
+      return { type: 'As Needed (PRN)', requiredDoses: 0, intervalHours: 0 };
     }
   
     // Default fallback
@@ -57,6 +57,7 @@ export interface FrequencyInfo {
   
   export function isDoseDue(medication: any): boolean {
     const freq = getFrequencyInfo(medication.frequency);
+    if (freq.requiredDoses === 0) return false;
     const doses = medication.administeredDoses || [];
     if (doses.length === 0) return true;
     if (doses.length >= freq.requiredDoses) return false;
