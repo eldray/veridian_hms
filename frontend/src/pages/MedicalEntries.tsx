@@ -36,11 +36,12 @@ ClinicalAssessmentSummary,
 type ClinicalAssessmentValue,
 } from '../components/medical-entries/ClinicalAssessmentModal';
 import { useAdmissionStore } from '../store/admissionStore';
+import HIVTestingPanel from '../components/hivTesting/HIVTestingPanel';
 import {
 RefreshCw, Stethoscope, Pill, FlaskConical, Info, Building2,
 Scissors, Scan, FileText, Activity, AlertCircle, Plus, Trash2,
 Hospital, User, Calendar, DollarSign, Heart, Thermometer,
-Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle,
+Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle, Shield,
 Printer, History, Eye, Edit, ClipboardList, Microscope, Image,
 ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Moon, Sun, Bed, Package, Send,
 } from 'lucide-react';
@@ -50,7 +51,7 @@ entity?._id || entity?.id;
 
 // Define Tabs
 type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | 'consumable' | null;
-type EntryTab = 'clinical' | 'orders' | 'vitals'; // Added 'vitals'
+type EntryTab = 'clinical' | 'orders' | 'vitals' | 'hiv-testing';
 
 // ─── Reusable section card ───────────────────────────────────────────────────
 const SectionCard: React.FC<{
@@ -632,7 +633,7 @@ diagnoses, labTestTemplates, procedureTemplates, scanTemplates,
 getDiagnoses, getLabTestTemplates, getProcedureTemplates, getScanTemplates,
 } = useMedicalServicesStore();
 const { stockItems, getStockItems } = useStockStore();
-const { user } = useAuthStore();
+const { user, hasRole } = useAuthStore();
 const { hospital } = useHospitalStore();
 const [isLoading, setIsLoading] = useState(true);
 const [refreshing, setRefreshing] = useState(false);
@@ -1813,6 +1814,7 @@ style={{ boxShadow: 'var(--shadow-sm)' }}>
 { key: 'clinical' as EntryTab, label: 'Clinical', icon: <Stethoscope className="w-3.5 h-3.5" />, count: diagnosesList.length },
 { key: 'orders' as EntryTab, label: 'Orders', icon: <ClipboardList className="w-3.5 h-3.5" />, count: openOrderCount },
 { key: 'vitals' as EntryTab, label: 'Vitals History', icon: <Activity className="w-3.5 h-3.5" />, count: allVitals.length },
+...(hasRole(['admin', 'doctor', 'nurse', 'midwife']) ? [{ key: 'hiv-testing' as EntryTab, label: 'HIV Counselling / HTS', icon: <Shield className="w-3.5 h-3.5" />, count: 0 }] : []),
 ].map(tab => {
 const isActive = activeTab === tab.key;
 return (
@@ -2408,6 +2410,11 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                         </SectionCard>
                     </div>
                 </div>
+            )}
+
+            {/* ── CONFIDENTIAL HIV COUNSELLING / HTS TAB ── */}
+            {activeTab === 'hiv-testing' && hasRole(['admin', 'doctor', 'nurse', 'midwife']) && selectedPatientId && (
+                <HIVTestingPanel patientId={selectedPatientId} attendanceId={selectedAttendanceId || undefined} />
             )}
 
             {/* ── VITALS TAB ── */}
