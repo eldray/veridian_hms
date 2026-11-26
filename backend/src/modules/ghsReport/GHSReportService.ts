@@ -668,6 +668,73 @@ export class GHSReportService extends BaseService {
       if (years < 15) return '5–14 years';
       return '15+ years';
     };
+    const monthlyVaccineLabels = [
+      'BCG','Hep B','OPV0','OPV1','OPV2','OPV3','IPV-1','IPV-2',
+      'Rotavirus-1','Rotavirus-2','Rotavirus-3','Penta-1','Penta-2','Penta-3',
+      'PCV-1','PCV-2','PCV-3','Malaria Vaccine-1','Malaria Vaccine-2',
+      'Malaria Vaccine-3','Malaria Vaccine-4','Measles Rubella-1',
+      'Measles Rubella-2 (at 18 Months)','YF','Men A','Fully Immunized','LLIN - Children',
+    ];
+    const monthlyVaccinations = monthlyVaccineLabels.map(label => ({
+      vaccine: label, under12Months: 0, months12To23: 0, months24Plus: 0, totalAdministered: 0,
+    }));
+    const normalize = (value: unknown) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const rowForRecord = (record: typeof records[number]) => {
+      const vaccineText = normalize(record.Vaccine.code + ' ' + record.Vaccine.name);
+      const doseText = normalize(record.doseNumber);
+      const combined = vaccineText + doseText;
+      const aliases: Array<[string, string[]]> = [
+        ['BCG',['bcg']], ['Hep B',['hepb','hepatitisb']],
+        ['OPV0',['opv0']], ['OPV1',['opv1']], ['OPV2',['opv2']], ['OPV3',['opv3']],
+        ['IPV-1',['ipv1']], ['IPV-2',['ipv2']],
+        ['Rotavirus-1',['rotavirus1','rota1']], ['Rotavirus-2',['rotavirus2','rota2']], ['Rotavirus-3',['rotavirus3','rota3']],
+        ['Penta-1',['penta1','pentavalent1']], ['Penta-2',['penta2','pentavalent2']], ['Penta-3',['penta3','pentavalent3']],
+        ['PCV-1',['pcv1']], ['PCV-2',['pcv2']], ['PCV-3',['pcv3']],
+        ['Malaria Vaccine-1',['malaria1','rtss1','malariavaccine1']], ['Malaria Vaccine-2',['malaria2','rtss2','malariavaccine2']],
+        ['Malaria Vaccine-3',['malaria3','rtss3','malariavaccine3']], ['Malaria Vaccine-4',['malaria4','rtss4','malariavaccine4']],
+        ['Measles Rubella-1',['measlesrubella1','mr1']], ['Measles Rubella-2 (at 18 Months)',['measlesrubella2','mr2']],
+        ['YF',['yellowfever','yf']], ['Men A',['mena','meningitisa']],
+        ['LLIN - Children',['llin','insecticidetreatednet']],
+      ];
+      const match = aliases.find(([, keys]) => keys.some(key => combined.includes(key)));
+      return match ? monthlyVaccinations.find(row => row.vaccine === match[0]) : undefined;
+    };
+    for (const record of records) {
+      const row = rowForRecord(record);
+      if (row) {
+        const months = Math.max(0, (record.administeredAt.getTime() - new Date(record.Patient.dateOfBirth).getTime()) / (30.4375 * 86400000));
+        if (months < 12) row.under12Months++;
+        else if (months < 24) row.months12To23++;
+        else row.months24Plus++;
+        row.totalAdministered++;
+      }
+    }
+    const covidDoseLabels = ['COVID-19, Single Dose','COVID-19, Dose 1','COVID-19, Dose 2','COVID-19, Booster 1','COVID-19, Booster 2','COVID-19, Booster 3','COVID-19, Booster 4'];
+    const covidVaccinations = covidDoseLabels.map(label => ({ dose: label, age6MonthsTo14Years: 0, age15To17Years: 0, age18To59Years: 0, age60Plus: 0, totalDoses: 0, underlyingConditions: 0, healthWorkers: 0, pregnantWomen: 0 }));
+    const tdVaccinationLabels = ['Td-1','Td-2','Td-3','Td-4','Td-5','Td-5+ (Not Vaccinated)'];
+    const tdVaccinations = tdVaccinationLabels.map(dose => ({ dose, pregnantWomen: 0, nonPregnant: 0, others: 0 }));
+    for (const record of records) {
+      const text = normalize(record.Vaccine.code + ' ' + record.Vaccine.name);
+      const dose = normalize(record.doseNumber);
+      if (text.includes('covid') || text.includes('janssen') || text.includes('astrazeneca') || text.includes('pfizer') || text.includes('moderna')) {
+        const doseNumber = Number((dose.match(/[1-4]/) || [])[0] || 1);
+        const label = text.includes('single') || text.includes('janssen') ? 'COVID-19, Single Dose' : doseNumber === 1 ? 'COVID-19, Dose 1' : doseNumber === 2 ? 'COVID-19, Dose 2' : 'COVID-19, Booster ' + Math.min(4, Math.max(1, doseNumber - 2));
+        const row = covidVaccinations.find(item => item.dose === label);
+        if (row) {
+          const years = this.calculateAge(record.Patient.dateOfBirth, record.administeredAt);
+          if (years < 15) row.age6MonthsTo14Years++;
+          else if (years < 18) row.age15To17Years++;
+          else if (years < 60) row.age18To59Years++;
+          else row.age60Plus++;
+          row.totalDoses++;
+        }
+      }
+      if (text.includes('tetanus') || text.includes('td')) {
+        const n = Number((dose.match(/[1-5]/) || [])[0] || 1);
+        const row = tdVaccinations.find(item => item.dose === 'Td-' + n);
+        if (row) row.others++;
+      }
+    }
     const byVaccine: Record<string, any> = {};
     const byAgeGroup: Record<string, number> = { '<1 year': 0, '1–4 years': 0, '5–14 years': 0, '15+ years': 0 };
     const byDoseNumber: Record<string, number> = {};
@@ -712,7 +779,7 @@ export class GHSReportService extends BaseService {
         overdueFollowUps, upcomingFollowUps, adverseReactions, batchesUsed: batchNumbers.size,
       },
       byVaccine: Object.values(byVaccine).sort((a: any, b: any) => b.doses - a.doses),
-      byAgeGroup, byDoseNumber, byGender,
+      byAgeGroup, byDoseNumber, byGender, monthlyVaccinations, covidVaccinations, tdVaccinations,
       coverage: null,
       fullyImmunizedChildren: null,
       dropoutRates: null,
