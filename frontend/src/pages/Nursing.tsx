@@ -649,7 +649,7 @@ export default function Nursing() {
                       fallbackClassName="text-[var(--icon-cyan-text)]"
                     />
                     {badges.alerts > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-[var(--icon-red-bg)]0 text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-[var(--bg-card)] animate-pulse">
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-[var(--icon-red-text)] text-white rounded-full flex items-center justify-center text-[10px] font-bold border-2 border-[var(--bg-card)] animate-pulse">
                         {badges.alerts}
                       </span>
                     )}
@@ -817,7 +817,7 @@ export default function Nursing() {
                               fallbackClassName="text-[var(--icon-cyan-text)]"
                             />
                             {badges.alerts > 0 && (
-                              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--icon-red-bg)]0 text-white rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-[var(--bg-card)]">
+                              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--icon-red-text)] text-white rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-[var(--bg-card)]">
                                 {badges.alerts}
                               </span>
                             )}
