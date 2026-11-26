@@ -818,7 +818,7 @@ export default function ScansEntry() {
                             <button
                               onClick={() => handleMarkInProgress(scan.id)}
                               disabled={!canUpdateScan}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-xs font-semibold hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-xs font-semibold hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <Play className="w-3 h-3" />
                               Start
@@ -945,7 +945,7 @@ export default function ScansEntry() {
               {canAddEntries && (
                 <button
                   onClick={() => setShowScanModal(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 text-sm font-semibold transition-all shadow-sm "
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--icon-cyan-text)] text-[var(--icon-cyan-on-text)] rounded-lg hover:opacity-90 text-sm font-semibold transition-all shadow-sm "
                 >
                   <Plus className="w-4 h-4" />
                   Request First Scan
