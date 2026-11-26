@@ -49,9 +49,9 @@ function detectNextShift(current: ShiftName): ShiftName {
 }
 
 const shiftIcon: Record<ShiftName, React.ReactNode> = {
-  Morning:   <Sunrise className="w-4 h-4 text-yellow-500" />,
-  Afternoon: <Sun className="w-4 h-4 text-orange-500" />,
-  Night:     <Moon className="w-4 h-4 text-indigo-500" />,
+  Morning:   <Sunrise className="w-4 h-4 text-[var(--icon-yellow-text)]" />,
+  Afternoon: <Sun className="w-4 h-4 text-[var(--icon-orange-text)]" />,
+  Night:     <Moon className="w-4 h-4 text-[var(--icon-purple-text)]" />,
 };
 
 // ── Simple print helper ───────────────────────────────────────────────────────
@@ -157,8 +157,8 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
         {/* ── Header ───────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-color)] bg-[var(--bg-main)] rounded-t-xl flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Send className="w-4 h-4 text-orange-600" />
+            <div className="w-9 h-9 bg-[var(--icon-orange-bg)] rounded-lg flex items-center justify-center">
+              <Send className="w-4 h-4 text-[var(--icon-orange-text)]" />
             </div>
             <div>
               <h2 className="text-base font-bold text-[var(--text-primary)]">Shift Handover</h2>
@@ -192,8 +192,8 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: 'Patients', value: patients.length, color: 'text-[var(--icon-cyan-text)]' },
-              { label: 'Pending tasks', value: totalPending, color: 'text-yellow-600' },
-              { label: 'Marked done', value: totalCompleted, color: 'text-green-600' },
+              { label: 'Pending tasks', value: totalPending, color: 'text-[var(--icon-yellow-text)]' },
+              { label: 'Marked done', value: totalCompleted, color: 'text-[var(--icon-green-text)]' },
             ].map(s => (
               <div key={s.label} className="text-center bg-[var(--bg-main)] rounded-lg px-3 py-2 border border-[var(--border-color)]">
                 <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
@@ -212,7 +212,7 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
               onChange={e => setHandoverNotes(e.target.value)}
               rows={4}
               placeholder={`Write key handover points:\n• Any critical patient changes this shift\n• Pending results or decisions\n• Special instructions for next team\n• Family communications needed`}
-              className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 placeholder-[var(--text-tertiary)]"
+              className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] placeholder-[var(--text-tertiary)]"
             />
           </div>
 
@@ -230,8 +230,8 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
                     <div key={p.id} className="bg-[var(--bg-main)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                       {/* Patient header */}
                       <div className="flex items-center gap-3 px-4 py-2.5 bg-[var(--bg-card)] border-b border-[var(--border-color)]">
-                        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                          <User className="w-3 h-3 text-teal-600" />
+                        <div className="w-6 h-6 rounded-full bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
+                          <User className="w-3 h-3 text-[var(--icon-cyan-text)]" />
                         </div>
                         <span className="text-sm font-semibold text-[var(--text-primary)]">{name}</span>
                         {p.bedNumber && (
@@ -251,14 +251,14 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
                             <label
                               key={task.id}
                               className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
-                                checked ? 'bg-green-50' : 'hover:bg-[var(--bg-card)]'
+                                checked ? 'bg-[var(--icon-green-bg)]' : 'hover:bg-[var(--bg-card)]'
                               }`}
                             >
                               <input
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => toggleTask(p.id, task.id)}
-                                className="w-4 h-4 rounded text-green-600 focus:ring-green-500"
+                                className="w-4 h-4 rounded text-[var(--icon-green-text)] focus:ring-[var(--icon-green-text)]"
                               />
                               <div className="flex-1 min-w-0">
                                 <span className={`text-xs font-medium ${checked ? 'line-through text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`}>
@@ -272,9 +272,9 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
                                 )}
                               </div>
                               <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                                task.priority === 'high'   ? 'bg-red-100 text-red-700' :
-                                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-blue-100 text-blue-700'
+                                task.priority === 'high'   ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' :
+                                task.priority === 'medium' ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' :
+                                'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
                               }`}>
                                 {task.priority}
                               </span>
@@ -291,9 +291,9 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
 
           {/* Patients with no tasks */}
           {patientsWithoutTasks.length > 0 && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-green-50 border border-green-200">
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-[var(--icon-green-bg)] border border-[var(--border-color)]">
               <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-              <p className="text-xs text-green-700">
+              <p className="text-xs text-[var(--icon-green-text)]">
                 <span className="font-semibold">{patientsWithoutTasks.length} patient{patientsWithoutTasks.length > 1 ? 's' : ''}</span>
                 {' '}({patientsWithoutTasks.map(p => p.patient ? getPatientName(p.patient) : (p.patientName || 'Unknown')).join(', ')}) have no pending tasks.
               </p>
@@ -316,7 +316,7 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition-colors font-medium"
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:opacity-90 transition-colors font-medium"
           >
             <Printer className="w-4 h-4" />
             Print Preview
@@ -324,7 +324,7 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 py-2 text-sm font-semibold bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded-lg hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-orange-text)] transition-colors disabled:opacity-50"
           >
             {isSubmitting
               ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
