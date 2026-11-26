@@ -663,10 +663,10 @@ export const getRoleDashboard = (role?: string | null): RoleDashboard =>
 // ============================================
 
 export const SENIORITY_CONFIG: Record<Seniority, { label: string; color: string; icon: any }> = {
-  TRAINEE: { label: 'Trainee', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: GraduationCap },
-  JUNIOR: { label: 'Junior Staff', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: UserIcon },
-  SENIOR: { label: 'Senior Staff', color: 'bg-orange-100 text-orange-700 border-orange-200', icon: TrendingUp },
-  PRINCIPAL: { label: 'Principal', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Shield },
+  TRAINEE: { label: 'Trainee', color: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-bg)]', icon: GraduationCap },
+  JUNIOR: { label: 'Junior Staff', color: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-bg)]', icon: UserIcon },
+  SENIOR: { label: 'Senior Staff', color: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] border-[var(--icon-orange-bg)]', icon: TrendingUp },
+  PRINCIPAL: { label: 'Principal', color: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-bg)]', icon: Shield },
 };
 
 // ============================================
