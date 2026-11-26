@@ -73,16 +73,20 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
 
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> HIV Testing Services</h2>
-        <p className="text-xs text-[var(--text-secondary)] mt-1">Confidential HTS history. Access is restricted and every episode is retained separately.</p></div>
+      <div><h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> HIV Counselling &amp; Testing (HTS)</h2>
+        <p className="text-xs text-[var(--text-secondary)] mt-1">This is where you record each HIV counselling episode, whether or not the client proceeds to testing. Records are confidential and retained separately.</p></div>
       <div className="flex gap-2">
         <button type="button" onClick={() => void load()} className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm text-[var(--text-secondary)]"><RefreshCw className="inline h-4 w-4 mr-1" /> Refresh</button>
-        <button type="button" onClick={() => setShowForm(v => !v)} className="rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-3 py-2 text-sm font-medium"><Plus className="inline h-4 w-4 mr-1" /> New HTS episode</button>
+        <button type="button" onClick={() => setShowForm(v => !v)} className="rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-3 py-2 text-sm font-medium"><Plus className="inline h-4 w-4 mr-1" /> Record counselling / test</button>
       </div>
     </div>
     {message && <div role="status" className="rounded-lg border border-[var(--border-color)] p-3 text-sm text-[var(--text-secondary)]">{message}</div>}
+    <div className="rounded-lg border border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)] p-3 text-xs text-[var(--icon-cyan-text)]">
+      <strong>Where to enter counselling:</strong> Select <strong>Record counselling / test</strong>, document HTS counselling consent, then choose <strong>Counselling</strong> as the episode status and tick pre-test and/or post-test counselling as applicable. Separate HIV testing consent is required only when testing is to begin.
+    </div>
     {showForm && <form onSubmit={save} className="rounded-xl border border-[var(--border-color)] p-4 space-y-4">
-      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]"><ClipboardList className="h-4 w-4" /> Counselling and testing record</div>
+      <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]"><ClipboardList className="h-4 w-4" /> HTS counselling episode / testing record</div>
+      <p className="text-xs text-[var(--text-secondary)]">For a counselling-only visit, keep the test result as Pending and set the episode status to Counselling. Do not record a test result unless a test was performed.</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {field('Entry point', 'entryPoint', ['OPD','IPD','ANC','CWC','Family Planning','Maternity','Outreach','Other'])}
         {field('Testing approach', 'testingApproach', ['provider_initiated','client_initiated','index_testing','other'])}
