@@ -8,7 +8,7 @@ type RecordRow = {
   previouslyKnownPositive: boolean; newlyIdentifiedPositive: boolean; linkageStatus: string;
 };
 
-const inputClass = 'w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)]';
+const inputClass = 'w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]';
 const labelClass = 'mb-1 block text-xs font-medium text-[var(--text-secondary)]';
 
 export default function HIVTestingPanel({ patientId, attendanceId }: { patientId: string; attendanceId?: string }) {
@@ -67,7 +67,7 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
   );
   const check = (title: string, key: string) => (
     <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-      <input type="checkbox" checked={!!form[key]} onChange={e => update(key, e.target.checked)} className="rounded border-[var(--border-color)]" /> {title}
+      <input type="checkbox" checked={!!form[key]} onChange={e => update(key, e.target.checked)} className="h-4 w-4 rounded border-[var(--border-color)] accent-[var(--icon-cyan-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]" /> {title}
     </label>
   );
 
@@ -76,8 +76,8 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
       <div><h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> HIV Counselling &amp; Testing (HTS)</h2>
         <p className="text-xs text-[var(--text-secondary)] mt-1">This is where you record each HIV counselling episode, whether or not the client proceeds to testing. Records are confidential and retained separately.</p></div>
       <div className="flex gap-2">
-        <button type="button" onClick={() => void load()} className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm text-[var(--text-secondary)]"><RefreshCw className="inline h-4 w-4 mr-1" /> Refresh</button>
-        <button type="button" onClick={() => setShowForm(v => !v)} className="rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-3 py-2 text-sm font-medium"><Plus className="inline h-4 w-4 mr-1" /> Record counselling / test</button>
+        <button type="button" onClick={() => void load()} className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"><RefreshCw className="inline h-4 w-4 mr-1" /> Refresh</button>
+        <button type="button" aria-expanded={showForm} onClick={() => setShowForm(v => !v)} className="rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-3 py-2 text-sm font-medium hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"><Plus className="inline h-4 w-4 mr-1" /> Record counselling / test</button>
       </div>
     </div>
     {message && <div role="status" className="rounded-lg border border-[var(--border-color)] p-3 text-sm text-[var(--text-secondary)]">{message}</div>}
@@ -113,14 +113,14 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
         {check('STI-related testing', 'stiRelated')}
       </div>
       <label className="block"><span className={labelClass}>Counselling / follow-up notes (avoid unnecessary identifying details)</span><textarea className={inputClass} rows={3} value={form.notes} onChange={e => update('notes',e.target.value)} /></label>
-      <div className="flex justify-end gap-2"><button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-sm">Cancel</button><button disabled={saving} className="rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-4 py-2 text-sm font-semibold disabled:opacity-50">{saving ? 'Saving…' : 'Save HTS record'}</button></div>
+      <div className="flex justify-end gap-2"><button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]">Cancel</button><button disabled={saving} className="rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-4 py-2 text-sm font-semibold hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] disabled:opacity-50">{saving ? 'Saving…' : 'Save HTS record'}</button></div>
     </form>}
     <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
-      <table className="w-full text-sm"><thead className="bg-[var(--bg-main)] text-[var(--text-secondary)]"><tr>{['Date','Entry point','Status','Result','Counselling','Previous positive','New positive','Linkage'].map(h => <th key={h} className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap">{h}</th>)}</tr></thead>
+      <table className="w-full text-sm text-[var(--text-primary)]"><thead className="bg-[var(--bg-main)] text-[var(--text-secondary)]"><tr>{['Date','Entry point','Status','Result','Counselling','Previous positive','New positive','Linkage'].map(h => <th key={h} className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap">{h}</th>)}</tr></thead>
       <tbody className="divide-y divide-[var(--border-color)]">
         {loading ? <tr><td colSpan={8} className="p-5 text-center text-[var(--text-secondary)]">Loading confidential history…</td></tr>
         : records.length === 0 ? <tr><td colSpan={8} className="p-5 text-center text-[var(--text-secondary)]">No HTS records for this patient.</td></tr>
-        : records.map(row => <tr key={row.id}><td className="px-3 py-2 whitespace-nowrap">{new Date(row.testedAt).toLocaleDateString('en-GB')}</td><td className="px-3 py-2">{row.entryPoint}</td><td className="px-3 py-2">{row.testingStatus}</td><td className="px-3 py-2">{row.result}{row.result === 'positive' && !row.resultConfirmed ? ' (unconfirmed)' : ''}</td><td className="px-3 py-2">{row.counsellingPreTest ? 'Pre' : ''}{row.counsellingPreTest && row.counsellingPostTest ? ' + ' : ''}{row.counsellingPostTest ? 'Post' : '—'}</td><td className="px-3 py-2">{row.previouslyKnownPositive ? 'Yes' : 'No'}</td><td className="px-3 py-2">{row.newlyIdentifiedPositive ? 'Yes' : 'No'}</td><td className="px-3 py-2">{row.linkageStatus}</td></tr>)}
+        : records.map(row => <tr key={row.id} className="transition-colors hover:bg-[var(--bg-main)]"><td className="px-3 py-2 whitespace-nowrap text-[var(--text-secondary)]">{new Date(row.testedAt).toLocaleDateString('en-GB')}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.entryPoint}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.testingStatus.replaceAll('_', ' ')}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.result}{row.result === 'positive' && !row.resultConfirmed ? ' (unconfirmed)' : ''}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.counsellingPreTest ? 'Pre' : ''}{row.counsellingPreTest && row.counsellingPostTest ? ' + ' : ''}{row.counsellingPostTest ? 'Post' : '—'}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.previouslyKnownPositive ? 'Yes' : 'No'}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.newlyIdentifiedPositive ? 'Yes' : 'No'}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.linkageStatus.replaceAll('_', ' ')}</td></tr>)}
       </tbody></table>
     </div>
     <p className="flex items-start gap-2 text-xs text-[var(--text-tertiary)]"><AlertCircle className="h-4 w-4 shrink-0" /> A reactive screening result is not automatically a confirmed HIV diagnosis. Follow the approved national testing algorithm and record linkage only when confirmed.</p>
