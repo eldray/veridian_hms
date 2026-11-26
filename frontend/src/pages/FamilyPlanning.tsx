@@ -280,19 +280,19 @@ const FamilyPlanningServiceModal: React.FC<{
         <div className="relative bg-[var(--bg-card)] rounded-2xl shadow-2xl max-w-2xl w-full max-h-[94vh] flex flex-col overflow-hidden border border-[var(--border-color)]">
 
           {/* Header */}
-          <div className="relative bg-gradient-to-br from-slate-800 via-slate-800 to-slate-900 px-6 py-5 text-white flex-shrink-0">
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-purple-400 via-fuchsia-400 to-transparent" />
+          <div className="relative bg-[var(--bg-card)] border-b border-[var(--border-color)] px-4 py-4 text-[var(--text-primary)] flex-shrink-0">
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--icon-purple-text)]" />
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-11 h-11 rounded-xl bg-purple-500/15 border border-purple-400/30 flex items-center justify-center flex-shrink-0">
-                  <ShieldCheck className="w-6 h-6 text-purple-300" />
+                <div className="w-11 h-11 rounded-xl bg-[var(--icon-purple-bg)] border border-[var(--border-color)] flex items-center justify-center flex-shrink-0">
+                  <ShieldCheck className="w-6 h-6 text-[var(--icon-purple-text)]" />
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-lg font-bold truncate text-white">
                     {existingService ? 'Edit Family Planning Record' : 'Record Family Planning Service'}
                   </h2>
                   {patient && (
-                    <p className="text-xs text-slate-400 mt-0.5 truncate">
+                    <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">
                       {patient.surname} {patient.otherNames} · <span className="font-mono">{patient.folderNumber}</span>
                     </p>
                   )}
@@ -300,7 +300,7 @@ const FamilyPlanningServiceModal: React.FC<{
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0 text-slate-300 hover:text-white"
+                className="p-1.5 hover:bg-[var(--bg-main)] rounded-lg transition-colors flex-shrink-0 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -310,13 +310,13 @@ const FamilyPlanningServiceModal: React.FC<{
             {/* Live preview */}
             {selectedMethod && (
               <div className="mt-4 flex items-center gap-2 bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2">
-                <BadgeCheck className="w-4 h-4 text-purple-300 flex-shrink-0" />
+                <BadgeCheck className="w-4 h-4 text-[var(--icon-purple-text)] flex-shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Selected Method</p>
+                  <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">Selected Method</p>
                   <p className="text-sm font-bold text-white truncate">{selectedMethod}</p>
                 </div>
                 {selectedCategory && (
-                  <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-purple-500/20 text-purple-200 border border-purple-400/30 flex-shrink-0">
+                  <span className="text-[10px] font-semibold px-2 py-1 rounded-full bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)] flex-shrink-0">
                     {selectedCategory}
                   </span>
                 )}
@@ -330,39 +330,39 @@ const FamilyPlanningServiceModal: React.FC<{
             {/* Section 1: Service Date */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <Calendar className="w-4 h-4 text-purple-600" />
+                <Calendar className="w-4 h-4 text-[var(--icon-purple-text)]" />
                 <h4 className="text-sm font-semibold text-[var(--text-primary)]">Service Information</h4>
               </div>
               <div>
                 <label className="block text-xs font-semibold mb-1.5 text-[var(--text-primary)]">
-                  Service Date <span className="text-red-500">*</span>
+                  Service Date <span className="text-[var(--icon-red-text)]">*</span>
                 </label>
                 <input
                   type="date"
                   value={formData.serviceDate}
                   onChange={e => handleChange('serviceDate', e.target.value)}
                   required
-                  className="w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                  className="w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-purple-text)] focus:border-[var(--icon-purple-text)] transition-all"
                 />
               </div>
             </div>
 
             {/* Section 2: Method */}
-            <div className="bg-purple-50/40 rounded-xl p-4 border border-purple-100">
+            <div className="bg-[var(--icon-purple-bg)] rounded-xl p-4 border border-[var(--border-color)]">
               <div className="flex items-center gap-2 mb-3">
-                <Pill className="w-4 h-4 text-purple-600" />
-                <h4 className="text-sm font-semibold text-purple-800">Method Selection</h4>
+                <Pill className="w-4 h-4 text-[var(--icon-purple-text)]" />
+                <h4 className="text-sm font-semibold text-[var(--icon-purple-text)]">Method Selection</h4>
               </div>
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-semibold mb-1.5 text-[var(--text-primary)]">
-                    FP Method <span className="text-red-500">*</span>
+                    FP Method <span className="text-[var(--icon-red-text)]">*</span>
                   </label>
                   <select
                     value={formData.method}
                     onChange={e => handleChange('method', e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                    className="w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-purple-text)] focus:border-[var(--icon-purple-text)] transition-all"
                   >
                     <option value="">Select method…</option>
                     {Object.entries(FP_METHODS).map(([cat, methods]) => (
@@ -374,8 +374,8 @@ const FamilyPlanningServiceModal: React.FC<{
                 </div>
 
                 {formData.methodCategory && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/60 border border-purple-100">
-                    <Info className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" />
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)]">
+                    <Info className="w-3.5 h-3.5 text-[var(--icon-purple-text)] flex-shrink-0" />
                     <span className="text-xs text-[var(--text-primary)]">
                       Auto-categorized as
                     </span>
@@ -401,18 +401,18 @@ const FamilyPlanningServiceModal: React.FC<{
                         key={key}
                         className={`flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
                           checked
-                            ? 'bg-purple-50 border-purple-300 shadow-sm'
-                            : 'bg-[var(--bg-card)] border-[var(--border-color)] hover:border-purple-200'
+                            ? 'bg-[var(--icon-purple-bg)] border-[var(--icon-purple-text)] shadow-sm'
+                            : 'bg-[var(--bg-card)] border-[var(--border-color)] hover:border-[var(--icon-purple-text)]'
                         } ${key === 'isPostAbortion' ? 'col-span-2' : ''}`}
                       >
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={e => handleChange(key, e.target.checked)}
-                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 w-4 h-4"
+                          className="rounded border-[var(--border-color)] text-[var(--icon-purple-text)] focus:ring-[var(--icon-purple-text)] w-4 h-4"
                         />
-                        <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${checked ? 'text-purple-600' : 'text-[var(--text-tertiary)]'}`} />
-                        <span className={`text-xs font-medium ${checked ? 'text-purple-800' : 'text-[var(--text-primary)]'}`}>
+                        <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${checked ? 'text-[var(--icon-purple-text)]' : 'text-[var(--text-tertiary)]'}`} />
+                        <span className={`text-xs font-medium ${checked ? 'text-[var(--icon-purple-text)]' : 'text-[var(--text-primary)]'}`}>
                           {label}
                         </span>
                       </label>
@@ -456,7 +456,7 @@ const FamilyPlanningServiceModal: React.FC<{
                       value={formData.postpartumWeeks}
                       onChange={e => handleChange('postpartumWeeks', e.target.value)}
                       placeholder="e.g. 6"
-                      className="w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
+                      className="w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-purple-text)] focus:border-[var(--icon-purple-text)] transition-all"
                     />
                     </div>
                   </div>
@@ -526,7 +526,7 @@ const FamilyPlanningServiceModal: React.FC<{
                     className="w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all"
                   />
                   {isLongActing && !formData.nextFollowUpDate && (
-                    <p className="text-[10px] text-orange-600 mt-1 flex items-center gap-1">
+                    <p className="text-[10px] text-[var(--icon-orange-text)] mt-1 flex items-center gap-1">
                       <AlertTriangle className="w-2.5 h-2.5" />
                       Long-acting methods typically need a follow-up
                     </p>
@@ -562,7 +562,7 @@ const FamilyPlanningServiceModal: React.FC<{
               type="button"
               onClick={handleSubmit}
               disabled={loading || !formData.method}
-              className="flex items-center gap-2 px-5 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold shadow-sm shadow-purple-500/20 transition-all"
+              className="flex items-center gap-2 px-5 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)] rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold transition-opacity"
             >
               {loading ? (
                 <>
@@ -737,7 +737,7 @@ export default function FamilyPlanning() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-2 border-[var(--icon-purple-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)]">Loading Family Planning…</p>
         </div>
       </div>
@@ -828,14 +828,14 @@ export default function FamilyPlanning() {
               type="date"
               value={dateRange.start}
               onChange={e => setDateRange({ ...dateRange, start: e.target.value })}
-              className="px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-purple-500 transition-all"
+              className="px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-purple-text)] transition-all"
             />
             <span className="text-[var(--text-tertiary)] text-xs">to</span>
             <input
               type="date"
               value={dateRange.end}
               onChange={e => setDateRange({ ...dateRange, end: e.target.value })}
-              className="px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-purple-500 transition-all"
+              className="px-3 py-1.5 text-xs text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-purple-text)] transition-all"
             />
             <span className="ml-auto text-xs text-[var(--text-tertiary)]">
               {activeTab === 'register' ? `${filteredServices.length} record${filteredServices.length === 1 ? '' : 's'}` : 'Report period'}
@@ -875,7 +875,7 @@ export default function FamilyPlanning() {
 
           {/* Queue content */}
           {filteredQueue.length === 0 ? (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center shadow-sm">
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center shadow-sm">
               {isOutstanding ? (
                 <>
                   <div className="w-16 h-16 bg-[var(--icon-green-bg)] rounded-full flex items-center justify-center mx-auto mb-4">
@@ -993,7 +993,7 @@ export default function FamilyPlanning() {
                 <button
                   key={item.id}
                   onClick={() => handleQueueClick(item)}
-                  className="text-left bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:border-purple-400 hover:shadow-lg transition-all overflow-hidden group flex flex-col"
+                  className="text-left bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:border-[var(--icon-purple-text)] hover:shadow-lg transition-all overflow-hidden group flex flex-col"
                 >
                   {/* Header */}
                   <div className="flex items-start gap-3 p-4 pb-3">
@@ -1038,7 +1038,7 @@ export default function FamilyPlanning() {
                   </div>
 
                   {/* CTA */}
-                  <div className="mt-auto px-4 py-2.5 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between text-xs font-semibold text-purple-600 group-hover:bg-purple-50 transition-colors">
+                  <div className="mt-auto px-4 py-2.5 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between text-xs font-semibold text-[var(--icon-purple-text)] group-hover:bg-[var(--icon-purple-bg)] transition-colors">
                     {isDone ? 'View record' : isOutstanding ? 'View visit' : 'Start FP service'}
                     <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                   </div>
@@ -1094,7 +1094,7 @@ export default function FamilyPlanning() {
                 </thead>
                 <tbody>
                   {filteredServices.length === 0 ? (
-                    <tr><td colSpan={10} className="px-3 py-12 text-center">
+                    <tr><td colSpan={10} className="px-3 py-8 text-center">
                       <Shield className="w-10 h-10 mx-auto mb-2 text-[var(--text-tertiary)] opacity-30" />
                       <p className="text-sm text-[var(--text-secondary)] font-medium">No FP services recorded in this period</p>
                       <p className="text-xs text-[var(--text-tertiary)] mt-1">Try adjusting the date range above</p>
@@ -1191,7 +1191,7 @@ export default function FamilyPlanning() {
                       </span>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="w-16 h-1.5 bg-[var(--bg-main)] rounded-full overflow-hidden">
-                          <div className="h-full bg-purple-500 rounded-full" style={{ width: `${Math.min(100, count * 10)}%` }} />
+                          <div className="h-full bg-[var(--icon-purple-text)] rounded-full" style={{ width: `${Math.min(100, count * 10)}%` }} />
                         </div>
                         <span className="text-xs font-bold text-[var(--text-primary)] w-6 text-right">{count}</span>
                       </div>
@@ -1211,7 +1211,7 @@ export default function FamilyPlanning() {
                       <CategoryBadge category={cat} />
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="w-16 h-1.5 bg-[var(--bg-main)] rounded-full overflow-hidden">
-                          <div className="h-full bg-fuchsia-500 rounded-full" style={{ width: `${Math.min(100, count * 10)}%` }} />
+                          <div className="h-full bg-[var(--icon-purple-text)] rounded-full" style={{ width: `${Math.min(100, count * 10)}%` }} />
                         </div>
                         <span className="text-xs font-bold text-[var(--text-primary)] w-6 text-right">{count}</span>
                       </div>
@@ -1249,7 +1249,7 @@ export default function FamilyPlanning() {
                 </thead>
                 <tbody>
                   {methodMix.length === 0 ? (
-                    <tr><td colSpan={4} className="px-4 py-12 text-center">
+                    <tr><td colSpan={4} className="px-4 py-8 text-center">
                       <PieChart className="w-10 h-10 mx-auto mb-2 text-[var(--text-tertiary)] opacity-30" />
                       <p className="text-sm text-[var(--text-secondary)]">No data available</p>
                     </td></tr>
@@ -1262,7 +1262,7 @@ export default function FamilyPlanning() {
                         <div className="flex items-center gap-3">
                           <div className="w-24 h-2 bg-[var(--bg-main)] rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full transition-all"
+                              className="h-full bg-[var(--icon-purple-text)] rounded-full transition-all"
                               style={{ width: `${item.percentage}%` }}
                             />
                           </div>
