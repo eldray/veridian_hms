@@ -7,7 +7,7 @@
 // never return, so the Financial and Revenue exports came out empty and "Excel" / "PDF" were just CSV.
 // This works from the report's own shape instead, so every current and future report exports correctly.
 
-import { Workbook } from 'exceljs';
+import ExcelJS from 'exceljs';
 // @ts-ignore  pdfkit has no type package in this project (@types/pdfkit is not installed)
 import PDFDocument from 'pdfkit';
 
@@ -271,7 +271,7 @@ function widths(aoa: Cell[][]): number[] {
 }
 
 export async function documentToXlsx(doc: ReportDocument): Promise<Buffer> {
-  const wb = new Workbook();
+  const wb = new ExcelJS.Workbook();
   wb.creator = 'Veridian HMS';
   const used = new Set<string>();
 
