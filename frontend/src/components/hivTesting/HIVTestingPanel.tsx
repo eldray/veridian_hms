@@ -10,6 +10,7 @@ type RecordRow = {
 
 const inputClass = 'w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]';
 const labelClass = 'mb-1 block text-xs font-medium text-[var(--text-secondary)]';
+const formatOption = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, character => character.toUpperCase());
 
 export default function HIVTestingPanel({ patientId, attendanceId }: { patientId: string; attendanceId?: string }) {
   const [records, setRecords] = useState<RecordRow[]>([]);
@@ -78,7 +79,7 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
           update('resultConfirmed', false);
         }
       }}>
-        {options.map(option => <option key={option} value={option}>{option.replaceAll('_', ' ')}</option>)}
+        {options.map(option => <option key={option} value={option}>{formatOption(option)}</option>)}
       </select>
     </label>
   );
@@ -187,7 +188,7 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
       <tbody className="divide-y divide-[var(--border-color)]">
         {loading ? <tr><td colSpan={8} className="p-5 text-center text-[var(--text-secondary)]">Loading confidential history…</td></tr>
         : records.length === 0 ? <tr><td colSpan={8} className="p-5 text-center text-[var(--text-secondary)]">No HTS records for this patient.</td></tr>
-        : records.map(row => <tr key={row.id} className="transition-colors hover:bg-[var(--bg-main)]"><td className="px-3 py-2 whitespace-nowrap text-[var(--text-secondary)]">{new Date(row.testedAt).toLocaleDateString('en-GB')}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.entryPoint}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.testingStatus.replaceAll('_', ' ')}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.result}{row.result === 'positive' && !row.resultConfirmed ? ' (unconfirmed)' : ''}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.counsellingPreTest ? 'Pre' : ''}{row.counsellingPreTest && row.counsellingPostTest ? ' + ' : ''}{row.counsellingPostTest ? 'Post' : '—'}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.previouslyKnownPositive ? 'Yes' : 'No'}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.newlyIdentifiedPositive ? 'Yes' : 'No'}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.linkageStatus.replaceAll('_', ' ')}</td></tr>)}
+        : records.map(row => <tr key={row.id} className="transition-colors hover:bg-[var(--bg-main)]"><td className="px-3 py-2 whitespace-nowrap text-[var(--text-secondary)]">{new Date(row.testedAt).toLocaleDateString('en-GB')}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.entryPoint}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{formatOption(row.testingStatus)}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{formatOption(row.result)}{row.result === 'positive' && !row.resultConfirmed ? ' (unconfirmed)' : ''}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.counsellingPreTest ? 'Pre' : ''}{row.counsellingPreTest && row.counsellingPostTest ? ' + ' : ''}{row.counsellingPostTest ? 'Post' : '—'}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.previouslyKnownPositive ? 'Yes' : 'No'}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{row.newlyIdentifiedPositive ? 'Yes' : 'No'}</td><td className="px-3 py-2 text-[var(--text-secondary)]">{formatOption(row.linkageStatus)}</td></tr>)}
       </tbody></table>
     </div>
     <p className="flex items-start gap-2 text-xs text-[var(--text-tertiary)]"><AlertCircle className="h-4 w-4 shrink-0" /> A reactive screening result is not automatically a confirmed HIV diagnosis. Follow the approved national testing algorithm and record linkage only when confirmed.</p>
