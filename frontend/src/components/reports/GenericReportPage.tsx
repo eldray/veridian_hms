@@ -433,7 +433,7 @@
         )}
 
         {!loading && !failed && data && isReportEmpty(shape, data) && (
-          <div className="flex flex-col items-center justify-center gap-2 py-16 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <div className="flex flex-col items-center justify-center gap-2 py-8 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
             <FileText className="w-8 h-8 opacity-25 text-[var(--text-tertiary)]" />
             <p className="text-xs text-[var(--text-tertiary)]">{shape.emptyNote || `Nothing recorded for ${shape.label} in this period.`}</p>
           </div>

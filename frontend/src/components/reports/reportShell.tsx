@@ -603,7 +603,7 @@ export const SortIcons = ({ direction }: { direction: 'asc' | 'desc' | null }) =
 
 export const EmptyRows = ({ colSpan, message }: { colSpan: number; message: string }) => (
   <tr>
-    <td colSpan={colSpan} className="px-4 py-12">
+    <td colSpan={colSpan} className="px-4 py-6">
       <div className="flex flex-col items-center justify-center gap-2 text-center">
         <FileText className="w-8 h-8 opacity-25 text-[var(--text-tertiary)]" />
         <p className="text-xs text-[var(--text-tertiary)]">{message}</p>
