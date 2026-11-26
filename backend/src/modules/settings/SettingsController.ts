@@ -185,7 +185,7 @@ export const testNHISConnection = async (req: Request, res: Response) => {
 // NHIS ELIGIBILITY VERIFICATION CONTROLLERS
 // ==========================================
 
-export const verifyNHISEligibility = async (req: Request, res: Response) => {
+export const verifyNHISEligibility = async (req: AuthRequest, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -193,7 +193,8 @@ export const verifyNHISEligibility = async (req: Request, res: Response) => {
     }
 
     const { policyNumber } = req.body;
-    const result = await nhisEligibilityService.verifyNHISEligibility(policyNumber);
+    if (!req.user?.userId) return res.status(401).json({ success: false, message: 'Authentication is required to record NHIS verification' });
+    const result = await nhisEligibilityService.verifyNHISEligibility(policyNumber, req.user.userId);
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error: any) {
     console.error('Verify NHIS eligibility error:', error);
@@ -201,7 +202,7 @@ export const verifyNHISEligibility = async (req: Request, res: Response) => {
   }
 };
 
-export const bulkVerifyNHISEligibility = async (req: Request, res: Response) => {
+export const bulkVerifyNHISEligibility = async (req: AuthRequest, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -217,7 +218,8 @@ export const bulkVerifyNHISEligibility = async (req: Request, res: Response) => 
       });
     }
 
-    const result = await nhisEligibilityService.bulkVerifyNHISEligibility(policyNumbers);
+    if (!req.user?.userId) return res.status(401).json({ success: false, message: 'Authentication is required to record NHIS verification' });
+    const result = await nhisEligibilityService.bulkVerifyNHISEligibility(policyNumbers, req.user.userId);
     return res.json(result);
   } catch (error: any) {
     console.error('Bulk verify NHIS eligibility error:', error);
@@ -225,7 +227,7 @@ export const bulkVerifyNHISEligibility = async (req: Request, res: Response) => 
   }
 };
 
-export const generateCCC = async (req: Request, res: Response) => {
+export const generateCCC = async (req: AuthRequest, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -233,10 +235,12 @@ export const generateCCC = async (req: Request, res: Response) => {
     }
 
     const { policyNumber, encounterId, totalAmount } = req.body;
+    if (!req.user?.userId) return res.status(401).json({ success: false, message: 'Authentication is required to record NHIS verification' });
     const result = await nhisEligibilityService.generateCCC(
       policyNumber,
       encounterId,
-      parseFloat(totalAmount.toString())
+      parseFloat(totalAmount.toString()),
+      req.user.userId
     );
     return res.status(result.success ? 200 : 400).json(result);
   } catch (error: any) {

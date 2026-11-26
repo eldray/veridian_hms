@@ -32,7 +32,6 @@ export class EncounterService extends BaseService {
   // ============================================
   async createEncounter(data: CreateEncounterDTO, userId: string) {
     validateClinicalDocumentation(data as Record<string, any>);
-    if (data.paymentMode === 'nhis' && !data.nhisCCC) throw new ValidationError('NHIS CCC number is required for NHIS payments');
     if (data.paymentMode === 'corporate' && !data.corporateAccountId) throw new ValidationError('Corporate Account ID is required');
 
     // Keep facility-level NEW/OLD classification consistent with the repository path used by reports.
@@ -77,6 +76,58 @@ export class EncounterService extends BaseService {
     if (data.bedId && !data.wardId) throw new ValidationError('A ward is required when assigning a bed');
 
     return await this.prisma.$transaction(async (tx) => {
+      let nhisCCC = data.nhisCCC;
+      if (data.paymentMode === 'nhis') {
+        // Lock the patient row so membership edits cannot race this eligibility check.
+        if (typeof tx.$queryRaw === 'function') {
+          await tx.$queryRaw`SELECT "id" FROM "Patient" WHERE "id" = ${data.patientId} FOR UPDATE`;
+        }
+        const patient = await tx.patient.findUnique({
+          where: { id: data.patientId },
+          select: { id: true, nhisNumber: true, nhisActive: true, nhisExpiryDate: true },
+        });
+        if (!patient) throw new NotFoundError('Patient', data.patientId);
+
+        const membershipId = String(patient.nhisNumber ?? '').trim();
+        if (!membershipId || !patient.nhisExpiryDate) {
+          throw new ValidationError('NHIS membership details are missing. Update the patient record with the membership number and expiry date before creating an NHIS attendance.');
+        }
+
+        const now = new Date();
+        const patientExpiry = new Date(patient.nhisExpiryDate);
+        const patientExpiryEnd = new Date(patientExpiry);
+        patientExpiryEnd.setHours(23, 59, 59, 999);
+        if (!patient.nhisActive || Number.isNaN(patientExpiry.getTime()) || patientExpiryEnd < now) {
+          throw new ValidationError('NHIS membership is inactive or expired. Verify or update the patient membership before creating an NHIS attendance.');
+        }
+
+        // nhisActive is also set from coverage dates in registration; it is not proof
+        // of verification. The latest NHIA result must match the current membership.
+        const latestCheck = await tx.nHISEligibilityCheck.findFirst({
+          where: { patientId: patient.id },
+          orderBy: { checkTimestamp: 'desc' },
+        });
+        const verifiedExpiryEnd = latestCheck?.membershipExpiry
+          ? new Date(latestCheck.membershipExpiry)
+          : null;
+        verifiedExpiryEnd?.setHours(23, 59, 59, 999);
+        if (
+          !latestCheck ||
+          latestCheck.membershipId.trim() !== membershipId ||
+          latestCheck.status !== 'active' ||
+          !verifiedExpiryEnd ||
+          Number.isNaN(verifiedExpiryEnd.getTime()) ||
+          verifiedExpiryEnd < now ||
+          latestCheck.checkTimestamp > now
+        ) {
+          throw new ValidationError('NHIS membership has not been verified as active with NHIA for this membership number. Verify the patient membership before creating an NHIS attendance.');
+        }
+
+        nhisCCC = String(data.nhisCCC ?? '').trim();
+        if (!/^\d{5}$/.test(nhisCCC)) {
+          throw new ValidationError('A valid 5-digit NHIS CCC number is required for an eligible NHIS attendance');
+        }
+      }
       // Validate and reserve the bed inside the same transaction as encounter creation.
       // A stale bed list or two concurrent registrations must not allocate one bed twice.
       if (data.bedId) {
@@ -105,7 +156,7 @@ export class EncounterService extends BaseService {
           attendanceType: data.attendanceType,
           paymentMode: data.paymentMode,
           corporateAccountId: data.corporateAccountId,
-          nhisCCC: data.nhisCCC,
+          nhisCCC,
           insuranceProviderId,
           // Persist the same clinical assessment fields accepted by the encounter repository.
           // This service owns the atomic ANC/admission creation flow used by the API controller.

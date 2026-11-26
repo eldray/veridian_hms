@@ -165,10 +165,42 @@ export const getNHISAccessToken = async (): Promise<string | null> => {
  * Uses Patient.nhisNumber (the NHIS membership card number) for lookup,
  * then updates Patient.nhisExpiryDate and Patient.nhisActive on success.
  */
+const recordUnresolvedMembership = async (
+  policyNumber: string,
+  checkedById: string,
+  rawResponse: unknown,
+): Promise<void> => {
+  const patient = await prisma.patient.findFirst({
+    where: { nhisNumber: policyNumber },
+  });
+  if (!patient) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.patient.update({
+      where: { id: patient.id },
+      data: { nhisActive: false, updatedAt: new Date() },
+    });
+    await tx.nHISEligibilityCheck.create({
+      data: {
+        patientId: patient.id,
+        membershipId: policyNumber,
+        checkMethod: 'nhia_portal',
+        status: 'not_found',
+        membershipExpiry: null,
+        rawResponse: JSON.parse(JSON.stringify(rawResponse ?? {})),
+        checkedById,
+      },
+    });
+  });
+};
+
 export const verifyNHISEligibility = async (
-  policyNumber: string
+  policyNumber: string,
+  checkedById: string
 ): Promise<{ success: boolean; message: string; data?: any }> => {
   try {
+    const normalizedPolicyNumber = String(policyNumber ?? '').trim();
+    if (!normalizedPolicyNumber) return { success: false, message: 'NHIS membership number is required', data: null };
     const config = await getNHISApiConfig();
 
     if (!config) {
@@ -190,7 +222,7 @@ export const verifyNHISEligibility = async (
     }
 
     const response = await axios.get<NHISEligibilityResponse>(
-      `${config.eligibilityEndpoint}/${encodeURIComponent(policyNumber)}`,
+      `${config.eligibilityEndpoint}/${encodeURIComponent(normalizedPolicyNumber)}`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -203,6 +235,11 @@ export const verifyNHISEligibility = async (
     const result = response.data;
 
     if (!result.success || !result.data) {
+      await recordUnresolvedMembership(
+        normalizedPolicyNumber,
+        checkedById,
+        result,
+      );
       return {
         success: false,
         message: result.message || 'Policy not found or inactive',
@@ -210,22 +247,58 @@ export const verifyNHISEligibility = async (
       };
     }
 
-    // ✅ ALIGNED: Patient model uses nhisNumber (not nhisPolicyNumber)
-    //             and has nhisExpiryDate + nhisActive (added via migration above)
+    // Persist the NHIA response as the authoritative verification record. Patient.nhisActive
+    // alone is not proof: registration can set it from coverage dates without an NHIA check.
     const patient = await prisma.patient.findFirst({
-      where: { nhisNumber: policyNumber },
+      where: { nhisNumber: normalizedPolicyNumber },
     });
 
-    if (patient && result.data.isActive) {
-      await prisma.patient.update({
-        where: { id: patient.id },
-        data: {
-          nhisExpiryDate: result.data.expiryDate
-            ? new Date(result.data.expiryDate)
-            : null,
-          nhisActive: result.data.isActive,
-          updatedAt: new Date(),
-        },
+    if (patient) {
+      const parsedExpiry = result.data.expiryDate ? new Date(result.data.expiryDate) : null;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const expiryIsValid = !!parsedExpiry &&
+        !Number.isNaN(parsedExpiry.getTime()) &&
+        parsedExpiry >= today;
+      const eligible = result.data.isActive === true &&
+        result.data.isEligible === true &&
+        expiryIsValid;
+      const status = eligible
+        ? 'active'
+        : result.data.isActive !== true
+          ? 'suspended'
+          : !expiryIsValid
+            ? 'expired'
+            : String(result.data.reason || '').toLowerCase().includes('facility')
+              ? 'referred_facility_mismatch'
+              : 'suspended';
+
+      await prisma.$transaction(async (tx) => {
+        await tx.patient.update({
+          where: { id: patient.id },
+          data: {
+            nhisExpiryDate: parsedExpiry && !Number.isNaN(parsedExpiry.getTime())
+              ? parsedExpiry
+              : null,
+            nhisActive: eligible,
+            updatedAt: new Date(),
+          },
+        });
+        await tx.nHISEligibilityCheck.create({
+          data: {
+            patientId: patient.id,
+            membershipId: normalizedPolicyNumber,
+            checkMethod: 'nhia_portal',
+            status,
+            memberName: result.data.fullName || null,
+            membershipExpiry: parsedExpiry && !Number.isNaN(parsedExpiry.getTime())
+              ? parsedExpiry
+              : null,
+            responseReference: null,
+            rawResponse: JSON.parse(JSON.stringify(result.data)),
+            checkedById,
+          },
+        });
       });
     }
 
@@ -243,6 +316,11 @@ export const verifyNHISEligibility = async (
     );
 
     if (error.response?.status === 404) {
+      await recordUnresolvedMembership(
+        String(policyNumber ?? '').trim(),
+        checkedById,
+        error.response?.data || { message: 'Policy number not found in NHIS database' },
+      );
       return {
         success: false,
         message: 'Policy number not found in NHIS database',
@@ -273,11 +351,12 @@ export const verifyNHISEligibility = async (
 export const generateCCC = async (
   policyNumber: string,
   encounterId: string,
-  totalAmount: number
+  totalAmount: number,
+  checkedById: string
 ): Promise<{ success: boolean; message: string; data?: any }> => {
   try {
     // Verify eligibility first
-    const eligibilityResult = await verifyNHISEligibility(policyNumber);
+    const eligibilityResult = await verifyNHISEligibility(policyNumber, checkedById);
 
     if (!eligibilityResult.success || !eligibilityResult.data?.isEligible) {
       return {
@@ -374,7 +453,8 @@ export const generateCCC = async (
  * Bulk eligibility verification for multiple patients
  */
 export const bulkVerifyNHISEligibility = async (
-  policyNumbers: string[]
+  policyNumbers: string[],
+  checkedById: string
 ): Promise<{
   success: boolean;
   message: string;
@@ -388,7 +468,7 @@ export const bulkVerifyNHISEligibility = async (
   const results = [];
 
   for (const policyNumber of policyNumbers) {
-    const result = await verifyNHISEligibility(policyNumber);
+    const result = await verifyNHISEligibility(policyNumber, checkedById);
     results.push({ policyNumber, ...result });
   }
 
