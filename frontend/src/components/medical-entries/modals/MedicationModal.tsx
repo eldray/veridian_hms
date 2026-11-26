@@ -49,7 +49,7 @@ const DURATION_OPTIONS = [...Array.from({ length: 30 }, (_, index) => index + 1)
 // Offer relative dose suggestions from a simple, single-strength catalog value.
 // Compound concentrations (for example, mg/5 mL) are deliberately left to manual entry.
 const getDosageSuggestions = (strength?: string): string[] => {
-  const match = strength?.trim().match(/^(\\d+(?:\\.\\d+)?)\\s*(mcg|μg|ug|mg|g|iu|units?)$/i);
+  const match = strength?.trim().match(/^(\d+(?:\.\d+)?)\s*(mcg|μg|ug|mg|g|iu|units?)$/i);
   if (!match) return [];
   const base = Number(match[1]);
   if (!Number.isFinite(base) || base <= 0) return [];
