@@ -381,7 +381,7 @@ export const REPORT_REGISTRY: ReportShape[] = [
   {
     key: 'ncd-morbidity',
     label: 'PHD Monthly NCD Morbidity',
-    group: 'clinical',
+    group: 'ghs',
     description: 'Monthly NCD morbidity return: new cases by condition, sex and age band, with re-attendances shown separately.',
     source: { api: 'getClinicalReport' },
     roles: CLINICAL_STATS_ROLES,
@@ -625,7 +625,7 @@ export const REPORT_REGISTRY: ReportShape[] = [
   {
     key: 'hiv-testing',
     label: 'PHD Monthly HIV Testing & Counselling',
-    group: 'clinical',
+    group: 'ghs',
     description: 'Monthly HIV testing return with age and sex breakdowns of recorded test events.',
     source: { api: 'getLabReport' },
     roles: SERVICE_ORDER_ROLES,
