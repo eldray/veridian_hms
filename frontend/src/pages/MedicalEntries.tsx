@@ -146,7 +146,7 @@ const AddBtn: React.FC<{ onClick: () => void; label: string }> = ({ onClick, lab
 onClick={onClick}
 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold
 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]
-hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all"
+hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-all"
 >
 <Plus className="w-3 h-3" />{label}
 </button>
@@ -252,7 +252,7 @@ focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none t
 <button
 onClick={() => onSaveResult(scan.id, { findings, impression, result, status: 'completed', completedAt: new Date().toISOString() })}
 disabled={saving}
-className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white
+className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-[var(--icon-cyan-on-text)]
 hover:opacity-90 disabled:opacity-50 transition-all"
 >
 {saving ? 'Saving…' : 'Save Results'}
@@ -534,7 +534,7 @@ className={`p-2 rounded-lg border text-center transition-all ${selectedBedId ===
 <button
 onClick={handleConfirm}
 disabled={!selectedWardId || !selectedBedId || isLoading}
-className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[var(--icon-cyan-text)] text-white
+className="flex-1 py-2 rounded-lg text-sm font-semibold bg-[var(--icon-cyan-text)] text-[var(--icon-cyan-on-text)]
 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
 >
 {isLoading ? 'Processing...' : 'Confirm Assignment'}
@@ -601,7 +601,7 @@ text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-al
 onClick={handleSave}
 disabled={saving || !text.trim()}
 className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
-bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-40 transition-all"
+bg-[var(--icon-cyan-text)] text-[var(--icon-cyan-on-text)] hover:opacity-90 disabled:opacity-40 transition-all"
 >
 {saving ? 'Saving…' : 'Add Note'}
 </button>
@@ -1457,7 +1457,7 @@ return (
 onClick={handleConvertToIPD}
 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]
-hover:bg-[var(--icon-purple-text)] hover:text-white transition-all"
+hover:bg-[var(--icon-purple-text)] hover:text-[var(--icon-purple-on-text)] transition-all"
 >
 <ArrowRight className="w-3.5 h-3.5" /> Convert to IPD
 </button>
@@ -1465,7 +1465,7 @@ hover:bg-[var(--icon-purple-text)] hover:text-white transition-all"
 onClick={handleDischargeFromObservation}
 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]
-hover:bg-[var(--icon-green-text)] hover:text-white transition-all"
+hover:bg-[var(--icon-green-text)] hover:text-[var(--icon-green-on-text)] transition-all"
 >
 <CheckCircle className="w-3.5 h-3.5" /> Discharge
 </button>
@@ -1479,7 +1479,7 @@ if (status === 'admitted' && category === 'ipd') {
 return (
 <div className="flex flex-wrap gap-2">
 <button onClick={() => navigate(`/dashboard/admissions/${currentAttendance?.Admission?.id || ''}`)}
-className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all">
+className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-[var(--icon-green-on-text)] transition-all">
 <Hospital className="w-3.5 h-3.5" /> Manage Admission
 </button>
 <button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
@@ -1494,7 +1494,7 @@ return (
 onClick={handleDaySurgery}
 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]
-hover:bg-[var(--icon-purple-text)] hover:text-white transition-all"
+hover:bg-[var(--icon-purple-text)] hover:text-[var(--icon-purple-on-text)] transition-all"
 >
 <Sun className="w-3.5 h-3.5" /> Day Surgery
 </button>
@@ -1502,7 +1502,7 @@ hover:bg-[var(--icon-purple-text)] hover:text-white transition-all"
 onClick={handleDetainPatient}
 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]
-hover:bg-[var(--icon-orange-text)] hover:text-white transition-all"
+hover:bg-[var(--icon-orange-text)] hover:text-[var(--icon-orange-on-text)] transition-all"
 >
 <Moon className="w-3.5 h-3.5" /> Detain/Observe
 </button>
@@ -1510,7 +1510,7 @@ hover:bg-[var(--icon-orange-text)] hover:text-white transition-all"
 onClick={handleDirectAdmit}
 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]
-hover:bg-[var(--icon-green-text)] hover:text-white transition-all"
+hover:bg-[var(--icon-green-text)] hover:text-[var(--icon-green-on-text)] transition-all"
 >
 <Hospital className="w-3.5 h-3.5" /> Admit (IPD)
 </button>
@@ -1922,7 +1922,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
                                             <button
                                                 onClick={handleSaveClinical} disabled={isClinicalFinalized}
                                                 className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50
-                      bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all"
+                      bg-[var(--icon-cyan-text)] text-[var(--icon-cyan-on-text)] hover:opacity-90 transition-all"
                                             >
                                                 <CheckCircle className="w-3.5 h-3.5" /> Save Clinical Info
                                             </button>
@@ -2547,7 +2547,7 @@ className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border
         onSave={saveAssessment}
     />
     {/* ── MODALS ─────────────────────────────────────────────────────────── */}
-    {editingNote && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/50" onClick={() => !savingNote && setEditingNote(null)} /><div className="relative w-full max-w-lg rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl"><div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]"><h3 className="text-sm font-bold text-[var(--text-primary)]">{editingNote?.type === 'plan' ? 'Edit Treatment Plan Entry' : 'Edit Clinical Note'}</h3><button disabled={savingNote} onClick={() => setEditingNote(null)} className="text-[var(--text-tertiary)]"><XCircle className="w-4 h-4" /></button></div><div className="p-4"><textarea value={editingNoteText} onChange={e => setEditingNoteText(e.target.value)} rows={6} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" /></div><div className="flex gap-2 p-4 border-t border-[var(--border-color)]"><button disabled={savingNote || !editingNoteText.trim()} onClick={handleSaveNoteEdit} className="flex-1 rounded-lg bg-[var(--icon-cyan-text)] text-white py-2 text-sm font-semibold disabled:opacity-50">{savingNote ? 'Saving…' : editingNote?.type === 'plan' ? 'Save plan entry' : 'Save note'}</button><button disabled={savingNote} onClick={() => setEditingNote(null)} className="px-4 rounded-lg border border-[var(--border-color)] text-sm">Cancel</button></div></div></div>}
+    {editingNote && <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/50" onClick={() => !savingNote && setEditingNote(null)} /><div className="relative w-full max-w-lg rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl"><div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]"><h3 className="text-sm font-bold text-[var(--text-primary)]">{editingNote?.type === 'plan' ? 'Edit Treatment Plan Entry' : 'Edit Clinical Note'}</h3><button disabled={savingNote} onClick={() => setEditingNote(null)} className="text-[var(--text-tertiary)]"><XCircle className="w-4 h-4" /></button></div><div className="p-4"><textarea value={editingNoteText} onChange={e => setEditingNoteText(e.target.value)} rows={6} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]" /></div><div className="flex gap-2 p-4 border-t border-[var(--border-color)]"><button disabled={savingNote || !editingNoteText.trim()} onClick={handleSaveNoteEdit} className="flex-1 rounded-lg bg-[var(--icon-cyan-text)] text-[var(--icon-cyan-on-text)] py-2 text-sm font-semibold disabled:opacity-50">{savingNote ? 'Saving…' : editingNote?.type === 'plan' ? 'Save plan entry' : 'Save note'}</button><button disabled={savingNote} onClick={() => setEditingNote(null)} className="px-4 rounded-lg border border-[var(--border-color)] text-sm">Cancel</button></div></div></div>}
     {editingEntry && <MedicalEntryEditModal type={editingEntry.type} entry={editingEntry.entry} saving={savingEntry} onClose={() => setEditingEntry(null)} onSave={handleSaveEntryEdit} />}
     <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} diagnoses={diagnoses} canAdd={canAddEntries}
