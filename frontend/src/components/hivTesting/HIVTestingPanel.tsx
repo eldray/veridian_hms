@@ -183,8 +183,29 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
       <label className="block"><span className={labelClass}>Counselling / follow-up notes (avoid unnecessary identifying details)</span><textarea className={inputClass} rows={3} value={form.notes} onChange={e => update('notes',e.target.value)} /></label>
       <div className="flex justify-end gap-2"><button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]">Cancel</button><button disabled={saving} className="rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-4 py-2 text-sm font-semibold hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] disabled:opacity-50">{saving ? 'Saving…' : 'Save HTS record'}</button></div>
     </form>}
-    <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
-      <table className="w-full text-sm text-[var(--text-primary)]"><thead className="bg-[var(--bg-main)] text-[var(--text-secondary)]"><tr>{['Date','Entry point','Status','Result','Counselling','Previous positive','New positive','Linkage'].map(h => <th key={h} className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap">{h}</th>)}</tr></thead>
+    <div className="flex items-center justify-between gap-3">
+      <h3 className="text-sm font-semibold text-[var(--text-primary)]">HTS history</h3>
+      <span className="rounded-full bg-[var(--bg-main)] px-2.5 py-1 text-xs text-[var(--text-secondary)]">{records.length} {records.length === 1 ? 'record' : 'records'}</span>
+    </div>
+    <div className="space-y-2 md:hidden">
+      {loading ? <div className="rounded-lg border border-[var(--border-color)] p-4 text-center text-sm text-[var(--text-secondary)]">Loading confidential history…</div>
+      : records.length === 0 ? <div className="rounded-lg border border-[var(--border-color)] p-4 text-center text-sm text-[var(--text-secondary)]">No HTS records for this patient.</div>
+      : records.map(row => <article key={row.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-3 space-y-2">
+        <div className="flex items-start justify-between gap-3">
+          <div><p className="text-sm font-medium text-[var(--text-primary)]">{new Date(row.testedAt).toLocaleDateString('en-GB')}</p><p className="text-xs text-[var(--text-secondary)]">{row.entryPoint}</p></div>
+          <span className="rounded-full bg-[var(--bg-main)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)]">{formatOption(row.testingStatus)}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-color)] pt-2 text-xs">
+          <div><p className="text-[var(--text-tertiary)]">Result</p><p className="mt-0.5 text-[var(--text-primary)]">{formatOption(row.result)}{row.result === 'positive' && !row.resultConfirmed ? ' (unconfirmed)' : ''}</p></div>
+          <div><p className="text-[var(--text-tertiary)]">Counselling</p><p className="mt-0.5 text-[var(--text-primary)]">{row.counsellingPreTest ? 'Pre-test' : ''}{row.counsellingPreTest && row.counsellingPostTest ? ' + ' : ''}{row.counsellingPostTest ? 'Post-test' : !row.counsellingPreTest ? '—' : ''}</p></div>
+          <div><p className="text-[var(--text-tertiary)]">Previously known positive</p><p className="mt-0.5 text-[var(--text-primary)]">{row.previouslyKnownPositive ? 'Yes' : 'No'}</p></div>
+          <div><p className="text-[var(--text-tertiary)]">Newly identified positive</p><p className="mt-0.5 text-[var(--text-primary)]">{row.newlyIdentifiedPositive ? 'Yes' : 'No'}</p></div>
+        </div>
+        <p className="text-xs text-[var(--text-secondary)]">Linkage: {formatOption(row.linkageStatus)}</p>
+      </article>)}
+    </div>
+    <div className="hidden overflow-x-auto rounded-xl border border-[var(--border-color)] md:block">
+      <table className="min-w-[760px] w-full text-sm text-[var(--text-primary)]"><thead className="bg-[var(--bg-main)] text-[var(--text-secondary)]"><tr>{['Date','Entry point','Status','Result','Counselling','Previous positive','New positive','Linkage'].map(h => <th key={h} className="px-3 py-2 text-left text-xs font-semibold whitespace-nowrap">{h}</th>)}</tr></thead>
       <tbody className="divide-y divide-[var(--border-color)]">
         {loading ? <tr><td colSpan={8} className="p-5 text-center text-[var(--text-secondary)]">Loading confidential history…</td></tr>
         : records.length === 0 ? <tr><td colSpan={8} className="p-5 text-center text-[var(--text-secondary)]">No HTS records for this patient.</td></tr>
