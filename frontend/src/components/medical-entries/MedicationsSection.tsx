@@ -84,18 +84,17 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
 
   const getMedicationPrice = (stockItem: StockItem) => {
     const servicePricing = stockItem.ServiceCatalog?.[0]?.pricing?.[0];
-    if (servicePricing) {
-      return paymentMode === 'cash'
-        ? Number(servicePricing.cashPrice || 0)
-        : paymentMode === 'nhis'
-          ? Number(servicePricing.nhisPrice || 0)
-          : Number(servicePricing.insurancePrice || 0);
+    const cashPrice = Number(servicePricing?.cashPrice ?? (stockItem as any).sellingPrice ?? 0) || 0;
+    if (paymentMode === 'nhis') {
+      return Number(servicePricing?.nhisPrice ?? (stockItem as any).nhisPrice ?? 0) || 0;
     }
-
-    return paymentMode === 'cash'
-      ? (stockItem as any).sellingPrice || 0
-      : (stockItem as any).insurancePrice || 0;
+    // Private and corporate medication prices use the hospital cash selling price.
+    return cashPrice;
   };
+  const medicationPriceLabel = (stockItem: StockItem) =>
+    paymentMode === 'nhis' && getMedicationPrice(stockItem) <= 0
+      ? 'NHIS tariff not configured'
+      : `GHS ${getMedicationPrice(stockItem).toFixed(2)}`;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -229,7 +228,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                             {item.strength} • Stock: {item.currentStock}
                           </div>
                           <div className="text-xs text-[var(--text-secondary)] mt-0.5">
-                            ${getMedicationPrice(item).toFixed(2)} ({paymentMode})
+                            {medicationPriceLabel(item)} ({paymentMode})
                           </div>
                         </button>
                       ))}
@@ -395,14 +394,14 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                   <label className="block text-xs font-semibold text-[var(--text-primary)] mb-0.5">Unit Price</label>
                   <span className="text-xs text-[var(--text-primary)] flex items-center gap-0.5">
                     <DollarSign className="w-2.5 h-2.5" />
-                    {getMedicationPrice(selectedMedication).toFixed(2)}
+                    {medicationPriceLabel(selectedMedication)}
                   </span>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-[var(--text-primary)] mb-0.5">Total Cost</label>
                   <span className="text-xs text-[var(--text-primary)] flex items-center gap-0.5">
                     <DollarSign className="w-2.5 h-2.5" />
-                    {(getMedicationPrice(selectedMedication) * currentMed.quantity).toFixed(2)}
+                    {paymentMode === 'nhis' && getMedicationPrice(selectedMedication) <= 0 ? 'Not available' : `GHS ${(getMedicationPrice(selectedMedication) * currentMed.quantity).toFixed(2)}`}
                   </span>
                 </div>
                 <div>

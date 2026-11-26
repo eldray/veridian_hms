@@ -1429,9 +1429,32 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     console.log('🔄 Creating unified service catalog with pricing...');
     const serviceCatalogEntries: any[] = [];
 
+    // Use the supplied NHIA tariff schedules as the sole NHIS source of truth.
+    // Facility cash prices remain independently configurable; private/corporate
+    // prices are normalized to the facility cash selling price by createServicePricing.
+    const tariffSource = readJSON('gdrgTariffs.json');
+    const gdrgTariffByCode = new Map<string, any>(
+      (tariffSource?.gdrgTariffs || []).map((row: any) => [String(row.gdrgCode || '').trim().toUpperCase(), row]),
+    );
+    const labTariffByCode = new Map<string, any>(
+      (readJSON('labTests.json') || []).map((row: any) => [String(row.investigationCode || '').trim().toUpperCase(), row]),
+    );
+    const scanTariffByCode = new Map<string, any>(
+      (readJSON('scans.json') || []).map((row: any) => [String(row.scanCode || '').trim().toUpperCase(), row]),
+    );
+    const positiveTariff = (value: unknown): number | null => {
+      const amount = Number(value);
+      return Number.isFinite(amount) && amount > 0 ? Math.round((amount + Number.EPSILON) * 100) / 100 : null;
+    };
+
     for (const ct of consultationTypes) {
-      const pricing = pricingConfig.consultations?.[ct.code] || {
-        cashPrice: ct.cashPrice, nhisPrice: ct.nhisPrice, insurancePrice: ct.insurancePrice,
+      const configured = pricingConfig.consultations?.[ct.code] || {};
+      // The general OPD consultation uses OPDC06A in the facility's supplied G-DRG schedule.
+      const consultationTariff = positiveTariff(gdrgTariffByCode.get('OPDC06A')?.tariffGhC);
+      const pricing = {
+        ...configured,
+        cashPrice: configured.cashPrice ?? ct.cashPrice ?? consultationTariff ?? 0,
+        nhisPrice: consultationTariff ?? positiveTariff(configured.nhisPrice) ?? 0,
       };
       serviceCatalogEntries.push({
         name: ct.name,
@@ -1439,7 +1462,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
         serviceType: ServiceType.consultation,
         serviceCategory: ServiceCategory.opd,
         subType: ct.code === 'CONS-GEN' ? 'general' : 'specialist',
-        nhisServiceCode: ct.code,
+        nhisServiceCode: 'OPDC06A', // General OPD consultation tariff; child claims resolve OPDC06C by age.
         consultationTypeId: consultationTypeMap.get(ct.code)?.id,
         isActive: true,
         pricing,
@@ -1447,7 +1470,13 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     }
 
     for (const [code, template] of labTemplateMap) {
-      const pricing = pricingConfig.labTests?.[code] || { cashPrice: 80, nhisPrice: 60, insurancePrice: 75 };
+      const configured = pricingConfig.labTests?.[code] || {};
+      const officialTariff = positiveTariff(labTariffByCode.get(String(code).trim().toUpperCase())?.price);
+      const pricing = {
+        ...configured,
+        cashPrice: configured.cashPrice ?? officialTariff ?? 0,
+        nhisPrice: officialTariff ?? positiveTariff(configured.nhisPrice) ?? 0,
+      };
       serviceCatalogEntries.push({
         name: template.name,
         code,
@@ -1462,7 +1491,14 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     }
 
     for (const [code, template] of scanTemplateMap) {
-      const pricing = pricingConfig.scans?.[code] || { cashPrice: 200, nhisPrice: 150, insurancePrice: 180 };
+      const configured = pricingConfig.scans?.[code] || {};
+      const scanSource = scanTariffByCode.get(String(code).trim().toUpperCase());
+      const officialTariff = positiveTariff(scanSource?.tariffGhC);
+      const pricing = {
+        ...configured,
+        cashPrice: configured.cashPrice ?? officialTariff ?? 0,
+        nhisPrice: officialTariff ?? positiveTariff(configured.nhisPrice) ?? 0,
+      };
       serviceCatalogEntries.push({
         name: template.name,
         code: `SCAN-${code}`,
@@ -1485,7 +1521,14 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     }
 
     for (const [code, template] of procedureTemplateMap) {
-      const pricing = pricingConfig.procedures?.[code] || { cashPrice: 500, nhisPrice: 350, insurancePrice: 450 };
+      const configured = pricingConfig.procedures?.[code] || {};
+      const officialTariff = positiveTariff(gdrgTariffByCode.get(String(code).trim().toUpperCase())?.tariffGhC);
+      const pricing = {
+        ...configured,
+        cashPrice: configured.cashPrice ?? officialTariff ?? 0,
+        // Procedure NHIS prices come from the matching G-DRG, never the old local estimate.
+        nhisPrice: officialTariff ?? positiveTariff(configured.nhisPrice) ?? 0,
+      };
       serviceCatalogEntries.push({
         name: template.name,
         code: `PROC-${code}`,

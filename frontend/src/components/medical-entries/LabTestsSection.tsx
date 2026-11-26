@@ -64,19 +64,17 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
   const getLabTestPrice = (template: LabTestTemplate) => {
     const catalogTemplate = template as LabTestTemplate & {
       ServiceCatalog?: Array<{ pricing?: { cashPrice?: number; nhisPrice?: number; insurancePrice?: number } }>;
+      serviceCatalog?: { pricing?: { cashPrice?: number; nhisPrice?: number; insurancePrice?: number } } | Array<{ pricing?: { cashPrice?: number; nhisPrice?: number; insurancePrice?: number } }>;
+      price?: number;
     };
-
-    if (catalogTemplate.ServiceCatalog?.[0]?.pricing) {
-      const pricing = catalogTemplate.ServiceCatalog[0].pricing;
-      return paymentMode === 'cash'
-        ? pricing.cashPrice ?? 0
-        : paymentMode === 'nhis'
-          ? pricing.nhisPrice ?? 0
-          : pricing.insurancePrice ?? 0;
-    }
-
-    console.warn('No pricing found for lab test:', template.name);
-    return 0;
+    const relation = catalogTemplate.serviceCatalog ?? catalogTemplate.ServiceCatalog;
+    const catalog = Array.isArray(relation) ? relation[0] : relation;
+    const pricing = catalog?.pricing;
+    const cashPrice = Number(pricing?.cashPrice ?? catalogTemplate.price ?? 0) || 0;
+    if (paymentMode === 'cash') return cashPrice;
+    if (paymentMode === 'nhis') return Number(pricing?.nhisPrice ?? catalogTemplate.price ?? 0) || 0;
+    // Private insurance follows the hospital cash selling price.
+    return cashPrice;
   };
 
   const getStatusColor = (status: string) => {
@@ -186,7 +184,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
                         {template.specimenType}
                       </span>
                       <span className="text-xs font-semibold text-[var(--icon-cyan-text)]">
-                        ${getLabTestPrice(template).toFixed(2)}
+                        {paymentMode === 'nhis' && getLabTestPrice(template) <= 0 ? 'NHIS tariff not configured' : `GHS ${getLabTestPrice(template).toFixed(2)}`}
                       </span>
                     </div>
                     {((paymentMode === 'nhis' && template.nhisRequiresAuth) || (paymentMode === 'private_insurance' && template.privateInsRequiresAuth)) && (
@@ -260,7 +258,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
               <label className="block text-xs font-semibold text-[var(--text-primary)] mb-0.5">Price</label>
               <span className="text-xs text-[var(--text-primary)] flex items-center gap-0.5">
                 <DollarSign className="w-2.5 h-2.5" />
-                {getLabTestPrice(selectedTemplate).toFixed(2)} ({paymentMode})
+                {paymentMode === 'nhis' && getLabTestPrice(selectedTemplate) <= 0 ? 'NHIS tariff not configured' : `GHS ${getLabTestPrice(selectedTemplate).toFixed(2)}`} ({paymentMode})
               </span>
             </div>
             <div>
