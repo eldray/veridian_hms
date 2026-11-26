@@ -1212,7 +1212,7 @@ export default function StockReports() {
         )}
 
         {!reportData && !busy && !activeConfig && (
-          <div className="rounded-lg p-10 text-center border border-dashed border-[var(--border-color)] bg-[var(--bg-card)]">
+          <div className="rounded-lg p-6 text-center border border-dashed border-[var(--border-color)] bg-[var(--bg-card)]">
             <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 bg-[var(--icon-cyan-bg)]">
               <Sparkles className="w-6 h-6 text-[var(--icon-cyan-text)]" />
             </div>
