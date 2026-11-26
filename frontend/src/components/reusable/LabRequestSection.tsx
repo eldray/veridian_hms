@@ -96,7 +96,7 @@ export const LabRequestSection: React.FC<LabRequestSectionProps> = ({
         <button
           onClick={onRequestLabTest}
           disabled={isRequestingLab || !currentLabRequest.templateId || !canRequestLab}
-          className="w-full px-4 py-3 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-[var(--icon-blue-on-text)] transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isRequestingLab ? (
             <>
