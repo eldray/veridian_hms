@@ -17,6 +17,7 @@ export interface ReportFilters {
   period?: string;
   diagnosisCode?: string;
   attendanceType?: string;
+  attendanceCategory?: 'opd' | 'ipd';
   paymentMode?: string;
   serviceCategory?: string;
   insuranceProviderId?: string;
@@ -117,6 +118,8 @@ export interface ClinicalReport {
     startDate?: string;
     endDate?: string;
   };
+  summary?: { ncdNewCases?: number; ncdReAttendances?: number };
+  ncdMorbidityReport?: Array<Record<string, string | number>>;
   clinicalReport: Array<{
     diagnosis: string;
     icdCode: string;
