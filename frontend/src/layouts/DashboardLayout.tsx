@@ -648,13 +648,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         </aside>
 
         <main
-          className={`flex-1 transition-all duration-300 ${
+          className={`flex-1 min-w-0 transition-all duration-300 ${
             location.pathname === '/dashboard/theatre'
               ? 'h-[calc(100dvh-60px)] min-h-0 overflow-hidden'
               : 'min-h-[calc(100vh-60px)]'
           } ${sidebarCollapsed ? 'lg:ml-[64px]' : 'lg:ml-[248px]'}`}
         >
-          <div className={location.pathname === '/dashboard/theatre' ? 'h-full min-h-0 overflow-hidden p-4' : 'p-5'}>
+          <div className={location.pathname === '/dashboard/theatre' ? 'h-full min-h-0 overflow-hidden p-4' : 'min-w-0 p-5'}>
             <Suspense
               fallback={
                 <div
