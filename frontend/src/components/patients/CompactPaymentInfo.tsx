@@ -41,7 +41,7 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
         {/* Cash Card */}
         <div className={getPaymentModeClasses('cash', patient.paymentMode === 'cash')}>
           <div className="flex items-center gap-2 mb-2">
-            <div className={`p-2 rounded ${patient.paymentMode === 'cash' ? 'bg-[var(--text-secondary)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
+            <div className={`p-2 rounded ${patient.paymentMode === 'cash' ? 'bg-[var(--icon-cyan-text)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
               <DollarSign className="w-4 h-4" />
             </div>
             <h3 className="font-semibold text-[var(--text-primary)] text-sm">Cash</h3>
@@ -50,7 +50,7 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
           {patient.paymentMode === 'cash' && patientId && (
             <Link
               to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=cash`}
-              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-[var(--text-secondary)] text-white rounded text-xs font-medium hover:opacity-90 transition-colors"
+              className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-[var(--icon-cyan-text)] text-white rounded text-xs font-medium hover:opacity-90 transition-colors"
             >
               <Plus className="w-3 h-3" />
               Create Attendance
