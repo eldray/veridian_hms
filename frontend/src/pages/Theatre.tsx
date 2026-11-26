@@ -190,8 +190,8 @@ export default function Theatre() {
     return (
       <div className="w-full h-full min-w-0 max-w-full min-h-0 flex flex-col gap-3 overflow-hidden">
         {queueHeader}
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-8 text-center">
-          <div className="w-12 h-12 border-4 border-[var(--icon-purple-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-6 text-center">
+          <div className="w-8 h-8 border-4 border-[var(--icon-purple-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)]">Loading Theatre Queue…</p>
         </div>
       </div>
@@ -239,28 +239,28 @@ export default function Theatre() {
         contentClassName="flex-1 min-h-0 min-w-0 flex flex-col"
       >
         {filteredPatients.length === 0 ? (
-          <div className="p-8 text-center">
+          <div className="p-6 text-center">
             {worklistError ? (
               <>
-                <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3 opacity-75" />
+                <AlertCircle className="w-8 h-8 text-[var(--icon-red-text)] mx-auto mb-2 opacity-75" />
                 <p className="text-[var(--text-secondary)]">Theatre waiting list unavailable</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Refresh to try again</p>
               </>
             ) : isDone ? (
               <>
-                <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
+                <History className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No procedures completed in the last 72 hours</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Performed procedures will appear here</p>
               </>
             ) : isOutstanding ? (
               <>
-                <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
+                <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No closed visit is owing a procedure</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Every procedure scheduled before discharge has been performed</p>
               </>
             ) : (
               <>
-                <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
+                <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No pending procedures</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">All procedures have been completed</p>
               </>

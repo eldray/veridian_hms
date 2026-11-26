@@ -188,8 +188,8 @@ export default function ScansWaitingList() {
     return (
       <div className="w-full min-w-0 max-w-full min-h-0 flex flex-col gap-3 overflow-x-hidden">
         {queueHeader}
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-8 text-center">
-          <div className="w-12 h-12 border-4 border-[var(--icon-indigo-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-6 text-center">
+          <div className="w-8 h-8 border-4 border-[var(--icon-indigo-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)]">Loading Scans Queue…</p>
         </div>
       </div>
@@ -259,13 +259,13 @@ export default function ScansWaitingList() {
               </>
             ) : isOutstanding ? (
               <>
-                <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
+                <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No closed visit is owing a scan report</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Scans requested before discharge have all been reported</p>
               </>
             ) : (
               <>
-                <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
+                <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No pending scans</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">All scans have been completed</p>
               </>
