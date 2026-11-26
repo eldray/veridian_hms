@@ -1670,11 +1670,77 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         }
       }
 
+      let replacementSchedule: ReturnType<MarService['parseSchedule']> | null = null;
+      const isPrescriptionEdit = prescriptionFields.some((field) => data[field] !== undefined);
+      if (isPrescriptionEdit && med.status === 'prescribed') {
+        const nextDosage = String(data.dosage ?? med.dosage ?? '');
+        const nextFrequency = String(data.frequency ?? med.frequency ?? '');
+        const nextDuration = String(data.duration ?? med.duration ?? '');
+        const nextPrnIndication = String(data.prnIndication ?? med.prnIndication ?? '').trim();
+        const normalizedFrequency = nextFrequency.trim().toLowerCase();
+        const frequencyAliases: Record<string, string> = {
+          once: 'OD', od: 'OD', 'once daily': 'OD', daily: 'OD',
+          bd: 'BD', bid: 'BD', 'twice daily': 'BD',
+          tds: 'TDS', tid: 'TDS', 'three times daily': 'TDS',
+          qid: 'QID', qds: 'QID', 'four times daily': 'QID',
+          stat: 'STAT', prn: 'PRN', sos: 'PRN', 'as needed': 'PRN',
+          nocte: 'NOCTE', mane: 'MANE',
+        };
+        const schedule = this.marService.parseSchedule(nextFrequency, nextDuration, new Date());
+        const nextFrequencyCode = frequencyAliases[normalizedFrequency] ??
+          (/^(?:q\s*\d+\s*h|every\s+\d+\s*hours?)$/.test(normalizedFrequency) ? 'INTERVAL' : null);
+        if (nextFrequencyCode === 'PRN' && !nextPrnIndication) {
+          throw new ValidationError('An indication is required for PRN medication');
+        }
+        const doseMatch = nextDosage.trim().match(/^([0-9]+(?:\.\d+)?)\s*(mcg|μg|ug|mg|g|ml|mL|iu|units?)$/i);
+        const intervalMatch = normalizedFrequency.match(/^(?:q\s*|every\s+)(\d+)\s*h(?:ours?)?$/);
+        const durationMatch = nextDuration.trim().match(/^([0-9]+)\s*(hours?|hrs?|h|days?|d|weeks?|wks?)$/i);
+        const unit = doseMatch?.[2].toLowerCase();
+        Object.assign(updateData, {
+          doseAmount: doseMatch ? new Prisma.Decimal(doseMatch[1]) : null,
+          doseUnit: unit ? (unit === 'μg' || unit === 'ug' ? 'mcg' : unit) : null,
+          frequencyCode: nextFrequencyCode,
+          frequencyIntervalHours: nextFrequencyCode === 'INTERVAL'
+            ? Number(intervalMatch?.[1] ?? schedule.intervalHours)
+            : null,
+          durationValue: durationMatch ? Number(durationMatch[1]) : null,
+          durationUnit: durationMatch
+            ? (/^h|hour|hr/i.test(durationMatch[2]) ? 'hours' : /^w/i.test(durationMatch[2]) ? 'weeks' : 'days')
+            : null,
+          quantityUnit: data.quantityUnit ?? med.quantityUnit ?? med.StockItem?.unitOfMeasure ?? null,
+          prnIndication: nextPrnIndication || null,
+          prnMaxDosesPerDay: data.prnMaxDosesPerDay ?? med.prnMaxDosesPerDay ?? null,
+          prnMinimumIntervalHours: data.prnMinimumIntervalHours ?? med.prnMinimumIntervalHours ?? null,
+          prescriptionVersion: { increment: 1 },
+        });
+        const administeredDoseCount = await tx.medicationDose.count({
+          where: { medicationId, status: 'administered' },
+        });
+        if (administeredDoseCount > 0) {
+          throw new ConflictError('This prescription already has administered doses and cannot be rewritten; use the documented clinical correction workflow');
+        }
+        await tx.medicationDose.deleteMany({ where: { medicationId } });
+        replacementSchedule = schedule;
+      }
+
       const updated = await tx.medication.update({
         where: { id: medicationId },
         data: updateData,
         include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
       });
+      if (replacementSchedule && replacementSchedule.requiredDoses > 0) {
+        const replacementRows = Array.from({ length: replacementSchedule.requiredDoses }, (_, index) => ({
+          medicationId,
+          doseNumber: index + 1,
+          scheduledAt: new Date(replacementSchedule!.firstDoseAt.getTime() + index * replacementSchedule!.intervalHours * 3_600_000),
+          status: 'scheduled' as const,
+          dose: updated.dosage,
+          route: updated.route,
+          doseAmount: updated.doseAmount,
+          doseUnit: updated.doseUnit,
+        }));
+        await tx.medicationDose.createMany({ data: replacementRows });
+      }
 
       if (administrationDose) {
         // Conditional claim prevents two staff sessions from recording the same dose.
