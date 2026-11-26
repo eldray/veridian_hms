@@ -322,7 +322,6 @@ export class ReportService {
     const patientAttendance = {
       Attendance: { patientId: { not: null }, status: { not: 'cancelled' as const } },
     };
-    const activityRange = () => range;
 
     const [
       attendances, labTests, medications, ancVisits, postnatalRecords,
