@@ -34,6 +34,7 @@ import {
 } from '../../utils/nhisAttendanceMapping';
 import { nhisNumberError, sanitizeNhisInput } from '../../utils/nhisNumber';
 import { describeApiError, describeApiErrorTitle } from '../../utils/apiError';
+import { EMPTY_PRESCRIPTION, PrescriptionFields, formatPrescriptionDetails, parsePrescriptionDetails, type PrescriptionDetails } from '../../components/claims/ClaimPrescriptionFields';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -70,6 +71,8 @@ interface MedicineItem {
   dosage?: string;
   frequency?: string;
   duration?: string;
+  route?: string;
+  instructions?: string;
   stockItemId?: string;
   serviceCatalogId?: string;
   /** The NHIS-covered amount per unit, set by the payer rule when the claim saves. */
@@ -640,9 +643,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
   const [pickedItem, setPickedItem] = useState<NhisMedicineQuote | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [dosage, setDosage] = useState('');
-  const [frequency, setFrequency] = useState('');
-  const [duration, setDuration] = useState('');
+  const [prescription, setPrescription] = useState<PrescriptionDetails>({ ...EMPTY_PRESCRIPTION });
 
   // Reset / pre-fill each time the dialog opens
   useEffect(() => {
@@ -651,9 +652,8 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
     setPickedItem(null);
     setQuantity(editing?.quantity || 1);
     setServiceDate(editing?.date || new Date().toISOString().split('T')[0]);
-    setDosage(editing?.dosage || '');
-    setFrequency(editing?.frequency || '');
-    setDuration(editing?.duration || '');
+    const parsed = parsePrescriptionDetails(editing?.prescription);
+    setPrescription(editing ? { ...parsed, dosage: editing.dosage || parsed.dosage, frequency: editing.frequency || parsed.frequency, duration: editing.duration || parsed.duration, route: editing.route || parsed.route || 'oral', instructions: editing.instructions || parsed.instructions } : { ...EMPTY_PRESCRIPTION });
   }, [isOpen, editing]);
 
   // Current selection: what the user picked, else the row being edited
@@ -672,7 +672,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
 
   const handleAdd = () => {
     if (!selectedItem) return;
-    const prescription = `${dosage} ${frequency} x ${duration}`.trim();
+    const prescriptionText = formatPrescriptionDetails(prescription) || editing?.prescription || 'As prescribed';
     const claimed = Math.max(1, Math.min(Number(quantity) || 1, maxQuantity || Number(quantity) || 1));
     onAdd({
       id: editing?.id,
@@ -681,10 +681,8 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
       quantity: claimed,
       date: serviceDate,
       // keep the original prescription text when no dose details were entered
-      prescription: prescription || editing?.prescription || 'As prescribed',
-      dosage,
-      frequency,
-      duration,
+      prescription: prescriptionText,
+      ...prescription,
       stockItemId: selectedItem.stockItemId,
       serviceCatalogId: selectedItem.serviceCatalogId ?? editing?.serviceCatalogId,
       unitPrice,
@@ -693,9 +691,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
     setSelectedItem(null);
     setSearchTerm('');
     setQuantity(1);
-    setDosage('');
-    setFrequency('');
-    setDuration('');
+    setPrescription({ ...EMPTY_PRESCRIPTION });
     onClose();
   };
 
@@ -731,20 +727,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
               <input type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Dosage</label>
-              <input type="text" value={dosage} onChange={(e) => setDosage(e.target.value)} placeholder="e.g., 500mg" className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Frequency</label>
-              <input type="text" value={frequency} onChange={(e) => setFrequency(e.target.value)} placeholder="e.g., BD" className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Duration</label>
-              <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="e.g., 7 days" className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
-            </div>
-          </div>
+          <PrescriptionFields value={prescription} onChange={setPrescription} strength={(selectedItem as any)?.strength} />
           <div className="max-h-48 overflow-y-auto space-y-1">
             <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
             {filtered.length === 0 && (
