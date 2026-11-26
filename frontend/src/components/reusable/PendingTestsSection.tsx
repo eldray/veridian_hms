@@ -77,7 +77,7 @@ export const PendingTestsSection: React.FC<PendingTestsSectionProps> = ({
                         e.stopPropagation();
                         onMarkInProgress(getEntityId(test) || '');
                       }}
-                      className="px-2 py-1 text-xs bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors"
+                      className="px-2 py-1 text-xs bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded hover:bg-[var(--icon-blue-text)] hover:text-[var(--icon-blue-on-text)] transition-colors"
                     >
                       Start
                     </button>

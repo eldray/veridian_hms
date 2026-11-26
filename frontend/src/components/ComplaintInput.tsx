@@ -139,7 +139,7 @@ export default function ComplaintInput({
                 addComplaint(searchTerm);
                 setSearchTerm('');
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded hover:bg-[var(--icon-green-text)] hover:text-white transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded hover:bg-[var(--icon-green-text)] hover:text-[var(--icon-green-on-text)] transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
             </button>
