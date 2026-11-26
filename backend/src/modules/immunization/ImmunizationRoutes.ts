@@ -296,11 +296,17 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
       orderBy: { nextDoseDue: 'asc' }
     });
 
+    // Prisma retains the nullable model type even though the date filter excludes nulls.
+    // Narrow explicitly before comparing due dates or building the reminder list.
+    const datedDueRecords = dueRecords.filter(
+      (record): record is typeof record & { nextDoseDue: Date } => record.nextDoseDue !== null
+    );
+
     // A due reminder is resolved by a later recorded dose of the same vaccine
     // for that patient. Do not keep showing the earlier reminder as overdue.
-    const patientIds = [...new Set(dueRecords.map(record => record.patientId))];
-    const vaccineIds = [...new Set(dueRecords.map(record => record.vaccineId))];
-    const earliestDue = dueRecords.reduce<Date | null>((earliest, record) =>
+    const patientIds = [...new Set(datedDueRecords.map(record => record.patientId))];
+    const vaccineIds = [...new Set(datedDueRecords.map(record => record.vaccineId))];
+    const earliestDue = datedDueRecords.reduce<Date | null>((earliest, record) =>
       !earliest || record.nextDoseDue < earliest ? record.nextDoseDue : earliest, null);
     const laterRecords = patientIds.length && vaccineIds.length && earliestDue
       ? await prisma.immunizationRecord.findMany({
@@ -312,7 +318,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
           select: { patientId: true, vaccineId: true, administeredAt: true }
         })
       : [];
-    const activeReminders = dueRecords.filter(record => !laterRecords.some(later =>
+    const activeReminders = datedDueRecords.filter(record => !laterRecords.some(later =>
       later.patientId === record.patientId &&
       later.vaccineId === record.vaccineId &&
       later.administeredAt >= record.nextDoseDue
