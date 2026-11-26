@@ -63,3 +63,8 @@ SET "quantityUnit" = stock."unitOfMeasure"
 FROM "StockItem" AS stock
 WHERE medication."stockItemId" = stock."id"
   AND medication."quantityUnit" IS NULL;
+
+UPDATE "Medication"
+SET "durationValue" = (regexp_match(LOWER(TRIM("duration")), '^([0-9]+)\s*(hour|hours|hr|hrs|h)$'))[1]::INTEGER,
+    "durationUnit" = 'hours'
+WHERE "duration" ~* '^[0-9]+\s*(hour|hours|hr|hrs|h)$';
