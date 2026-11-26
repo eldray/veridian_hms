@@ -724,8 +724,8 @@ export class GHSReportService extends BaseService {
       const rawDose = String(record.doseNumber || '');
       const dose = normalize(rawDose);
       if (/covid|janssen|astrazeneca|pfizer|moderna/i.test(vaccineDescriptor)) {
-        const booster = rawDose.match(/booster\\s*([1-4])/i);
-        const doseMatch = rawDose.match(/(?:dose\\s*)?([12])\\b/i);
+        const booster = rawDose.match(/booster\s*([1-4])/i);
+        const doseMatch = rawDose.match(/(?:dose\s*)?([12])\b/i);
         const doseNumber = doseMatch ? Number(doseMatch[1]) : 1;
         const label = text.includes('single') || text.includes('janssen') ? 'COVID-19, Single Dose' : booster ? 'COVID-19, Booster ' + booster[1] : doseNumber === 1 ? 'COVID-19, Dose 1' : 'COVID-19, Dose 2';
         const row = covidVaccinations.find(item => item.dose === label);
