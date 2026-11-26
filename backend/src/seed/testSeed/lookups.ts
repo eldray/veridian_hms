@@ -447,16 +447,16 @@ export const buildLookups = async (): Promise<Lookups> => {
 
   const medicationStock = stockItems.filter((s) => s.isMedication).map((s) => ({
     id: s.id, name: s.name, category: s.category, drugCode: s.drugCode,
-    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice), unitOfMeasure: s.unitOfMeasure,
+    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice), unitOfMeasure: s.unitOfMeasure, unitOfMeasure: s.unitOfMeasure,
   }));
   const consumableStock = stockItems.filter((s) => !s.isMedication).map((s) => ({
     id: s.id, name: s.name, category: s.category, drugCode: s.drugCode,
-    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice),
+    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice), unitOfMeasure: s.unitOfMeasure,
   }));
   // Slot indices point into the full list ordered by name, exactly as the generator assumes.
   const allStock: StockRow[] = stockItems.map((s) => ({
     id: s.id, name: s.name, category: s.category, drugCode: s.drugCode,
-    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice),
+    isMedication: s.isMedication, currentStock: s.currentStock, costPrice: toNumber(s.costPrice), unitOfMeasure: s.unitOfMeasure,
   }));
   const stockSlot = (slot: number): StockRow | null => allStock[slot] ?? null;
 
