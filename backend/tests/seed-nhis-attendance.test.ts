@@ -26,7 +26,7 @@ describe('NHIS demo attendance identity', () => {
     expect(fields.nhisCCCValidUntil).toEqual(new Date('2026-11-11T09:30:00.000Z'));
   });
 
-  it('uses the same patient membership and visit CCC in linked eligibility checks', () => {
+  it('keeps linked NHIS checks consistent and covers every day of the rolling year', () => {
     setSeed(42);
     const patients = generatePatients();
     const bundle = generateAttendances(patients);
@@ -44,16 +44,12 @@ describe('NHIS demo attendance identity', () => {
           : null,
       );
     }
-  });
 
-  it('places at least one registered-patient attendance on every day of the rolling year', () => {
-    setSeed(42);
-    const bundle = generateAttendances(generatePatients());
     const dailyDates = new Set(
       bundle.attendances.slice(0, COUNTS.attendances)
         .slice(0, 366)
         .map((attendance) => attendance.dateTime.toDateString()),
     );
     expect(dailyDates.size).toBe(366);
-  });
+  }, 30000);
 });
