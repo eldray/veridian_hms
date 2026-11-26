@@ -672,7 +672,7 @@ export default function Referrals() {
 
       {/* List */}
       {displayedReferrals.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center">
           <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4">
             <Send className="w-8 h-8 text-[var(--text-tertiary)] opacity-40" />
           </div>
