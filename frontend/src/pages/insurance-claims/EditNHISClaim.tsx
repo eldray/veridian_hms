@@ -1702,7 +1702,7 @@ export default function EditNHISClaim() {
         title="Update Claim"
         subtitle={`${currentClaim?.claimNumber ?? ''} · NHIS`}
         status={
-          <span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-green-100 text-green-800'}`}>
+          <span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'}`}>
             {isDraft ? 'DRAFT' : 'FINALIZED'}
           </span>
         }
