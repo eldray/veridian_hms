@@ -194,7 +194,7 @@ export default function Appointments() {
             <div><h2 className="text-lg font-semibold text-[var(--text-primary)]">Vaccine doses due and overdue</h2><p className="text-sm text-[var(--text-secondary)]">Patients with a recorded next-dose date up to the next 30 days, including overdue doses.</p></div>
             <Button size="sm" icon={RefreshCw} loading={immunizationLoading} onClick={loadImmunizationDue}>Refresh list</Button>
           </div>
-          {immunizationError && <div role="alert" className="rounded-lg border border-red-300/50 bg-red-50/50 p-3 text-sm text-red-700">{immunizationError}</div>}
+          {immunizationError && <div role="alert" className="rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] p-3 text-sm text-[var(--icon-red-text)]">{immunizationError}</div>}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard label="Follow-ups" value={immunizationDue.length} />
             <StatCard label="Overdue" value={immunizationDue.filter((r: any) => new Date(r.nextDoseDue).getTime() < new Date(new Date().toDateString()).getTime()).length} accent="red" />
