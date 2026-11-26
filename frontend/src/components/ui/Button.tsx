@@ -61,7 +61,7 @@ export function buttonClasses({
     'inline-flex items-center justify-center font-medium transition-all duration-150 select-none whitespace-nowrap',
     'disabled:opacity-50 disabled:pointer-events-none',
     SIZES[size],
-    variant === 'soft' ? `bg-[var(--icon-cyan-text)] ${accent === 'cyan' ? 'text-[var(--icon-cyan-on-text)]' : 'text-white'} hover:opacity-90 shadow-sm` : VARIANTS[variant],
+    variant === 'soft' ? 'hover:opacity-90 shadow-sm' : VARIANTS[variant],
     iconOnly && (size === 'md' ? 'p-2' : size === 'sm' ? 'p-1.5' : 'p-1'),
     fullWidth && 'w-full',
     className,
@@ -70,7 +70,9 @@ export function buttonClasses({
 
 /** `soft` paints the accent solid, which a class cannot express per scheme. */
 export function buttonStyle({ variant = 'secondary', accent = 'cyan', style }: ButtonSurfaceProps = {}): CSSProperties | undefined {
-  return variant === 'soft' ? { ...style, background: accentVar(accent, 'text') } : style;
+  return variant === 'soft'
+    ? { ...style, background: accentVar(accent, 'text'), color: `var(--icon-${accent}-on-text)` }
+    : style;
 }
 
 function ButtonGlyphs({
