@@ -251,7 +251,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
   const renderInput = (field: TemplateField) => {
     const baseCls =
       'w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg ' +
-      'text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500';
+      'text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]';
 
     const val = values[field.fieldName] ?? '';
 
@@ -331,7 +331,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
           {/* Header */}
           <div className="bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] flex items-center justify-between flex-shrink-0">
             <h2 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <FileText className="w-4 h-4 text-indigo-600" />
+              <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
               Enter Results: {getScanDisplayName(scan)}
             </h2>
             <button onClick={onClose} className="p-1 hover:bg-[var(--bg-card)] rounded-lg">
@@ -371,7 +371,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
               </label>
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-[var(--border-color)] rounded-lg p-3 text-center cursor-pointer hover:border-indigo-400 transition-colors"
+                className="border-2 border-dashed border-[var(--border-color)] rounded-lg p-3 text-center cursor-pointer hover:border-[var(--icon-cyan-text)] transition-colors"
               >
                 <input
                   ref={fileInputRef}
@@ -391,14 +391,14 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
                     <div key={`existing-${idx}-${url}`} className="relative group">
                       <img src={url} alt={`Existing scan image ${idx + 1}`} className="w-full h-20 object-cover rounded-lg border border-[var(--border-color)]" />
                       <span className="absolute left-1 bottom-1 text-[9px] bg-black/60 text-white rounded px-1">Saved</span>
-                      <button type="button" onClick={() => removeExistingImage(idx)} aria-label={`Remove saved image ${idx + 1}`} title="Remove image" className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
+                      <button type="button" onClick={() => removeExistingImage(idx)} aria-label={`Remove saved image ${idx + 1}`} title="Remove image" className="absolute top-1 right-1 p-1 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-full opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
                     </div>
                   ))}
                   {imagePreviews.map((preview, idx) => (
                     <div key={`new-${idx}`} className="relative group">
                       <img src={preview} alt={`New scan image ${idx + 1}`} className="w-full h-20 object-cover rounded-lg border border-[var(--border-color)]" />
-                      <span className="absolute left-1 bottom-1 text-[9px] bg-indigo-600/80 text-white rounded px-1">New</span>
-                      <button type="button" onClick={() => removeNewImage(idx)} aria-label={`Remove new image ${idx + 1}`} title="Remove image" className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
+                      <span className="absolute left-1 bottom-1 text-[9px] bg-[var(--icon-cyan-text)]/80 text-white rounded px-1">New</span>
+                      <button type="button" onClick={() => removeNewImage(idx)} aria-label={`Remove new image ${idx + 1}`} title="Remove image" className="absolute top-1 right-1 p-1 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-full opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></button>
                     </div>
                   ))}
                 </div>
@@ -452,7 +452,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
                   value={findingsText}
                   onChange={(e) => setFindingsText(e.target.value)}
                   rows={6}
-                  className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] resize-none"
                   placeholder="Describe radiological findings…"
                 />
               </div>
@@ -469,7 +469,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
                   onClick={addCustomField}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold
                     bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]
-                    hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all"
+                    hover:opacity-90 transition-all"
                 >
                   <Plus className="w-3 h-3" />
                   Add Field
@@ -492,19 +492,19 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
                         value={field.label}
                         onChange={(e) => updateCustomField(field.id, { label: e.target.value })}
                         placeholder="Field name (e.g. Spleen, Free Fluid)"
-                        className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                       />
                       <textarea
                         rows={2}
                         value={field.value}
                         onChange={(e) => updateCustomField(field.id, { value: e.target.value })}
                         placeholder="Enter findings for this field…"
-                        className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                        className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] resize-none"
                       />
                       <button
                         type="button"
                         onClick={() => removeCustomField(field.id)}
-                        className="p-2 rounded-lg text-red-500 hover:bg-red-50 transition-all self-start"
+                        className="p-2 rounded-lg text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all self-start"
                         title="Remove this field"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -527,7 +527,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
                   value={impression}
                   onChange={(e) => setImpression(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] resize-none"
                   placeholder="Clinical impression based on findings…"
                 />
               </div>
@@ -543,7 +543,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
-                  className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                  className="w-full px-3 py-2 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] resize-none"
                   placeholder="Any additional comments…"
                 />
               </div>
@@ -561,7 +561,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
             <button
               onClick={handleSubmit}
               disabled={saving || uploading}
-              className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-90 transition-all text-sm font-medium disabled:opacity-50"
             >
               {saving || uploading ? 'Saving…' : 'Save Results'}
             </button>
