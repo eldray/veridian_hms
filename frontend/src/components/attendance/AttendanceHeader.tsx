@@ -31,7 +31,7 @@ export const AttendanceHeader: React.FC<AttendanceHeaderProps> = ({
         <button
           onClick={onRefresh}
           disabled={refreshing}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-cyan-text)] text-white hover:opacity-90 rounded-lg transition-opacity font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 rounded-lg transition-opacity font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing...' : 'Refresh'}
