@@ -65,13 +65,13 @@ export default function EstimateDetails() {
     return (
       <div className="p-4 md:p-6 text-[var(--text-primary)]">
         <PageHeader title="Estimate" icon={FileText} accent="cyan" backTo="/dashboard/estimates" />
-        <div className="p-10 flex items-center justify-center text-[var(--text-tertiary)]"><Loader className="w-5 h-5 animate-spin mr-2" /> Loading estimate…</div>
+        <div className="p-6 flex items-center justify-center text-[var(--text-tertiary)]"><Loader className="w-5 h-5 animate-spin mr-2" /> Loading estimate…</div>
       </div>
     );
   }
   if (!est) {
     return (
-      <div className="p-10 text-center">
+      <div className="p-6 text-center">
         <p className="text-[var(--text-secondary)]">Estimate not found.</p>
         <Button variant="primary" className="mt-4" onClick={goBack}>Back to Estimates</Button>
       </div>

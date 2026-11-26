@@ -458,7 +458,7 @@ export default function EstimateForm() {
     return (
       <div className="p-6 text-[var(--text-primary)]">
         <PageHeader title={editing ? 'Edit Estimate' : 'New Estimate'} subtitle="Create a draft proforma invoice from priced services." icon={FileText} accent="cyan" backTo="/dashboard/estimates" />
-        <div className="p-10 text-center text-sm text-[var(--text-secondary)]">Loading estimate form…</div>
+        <div className="p-6 text-center text-sm text-[var(--text-secondary)]">Loading estimate form…</div>
       </div>
     );
   }
