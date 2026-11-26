@@ -1093,7 +1093,7 @@ export default function TheatreProcedure() {
                       <button
                         type="button"
                         onClick={() => handleStartProcedure(selectedProcedure.id)}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--icon-yellow-text)] text-white hover:opacity-90 text-xs font-bold shadow-sm transition-all"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--icon-yellow-text)] text-[var(--icon-yellow-on-text)] hover:opacity-90 text-xs font-bold shadow-sm transition-all"
                       >
                         <Activity className="w-4 h-4" /> Start procedure
                       </button>
