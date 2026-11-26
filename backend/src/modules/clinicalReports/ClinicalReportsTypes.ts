@@ -15,12 +15,12 @@ export interface LabReportSummary {
   byPriority: Record<string, number>;
   averageTurnaroundTime: number;
   hiv: { testsOrdered: number; completed: number; resultsEntered: number; positive: number; negative: number; indeterminate: number; pending: number; positivityRate: number | null };
-  hts: { counsellingEpisodes: number; completedTests: number; confirmedPositive: number; newlyIdentifiedPositive: number; previouslyKnownPositive: number; linkedToCare: number };
 }
 
 export interface LabReportData {
   period: ClinicalReportPeriod;
   summary: LabReportSummary;
+  hts: { counsellingEpisodes: number; completedTests: number; confirmedPositive: number; newlyIdentifiedPositive: number; previouslyKnownPositive: number; linkedToCare: number };
   topTests: Array<{ testName: string; count: number; completed: number; resulted: number; positive: number; positiveRate: number }>;
   allTests: Array<{ testName: string; count: number; completed: number; resulted: number; positive: number; positiveRate: number }>;
   hivTestBreakdown: Array<{ testName: string; ordered: number; completed: number; positive: number; negative: number; indeterminate: number; resultsEntered: number }>;
