@@ -226,6 +226,26 @@ export class NursingService extends BaseService {
     });
   }
 
+  async administerPrnMedication(
+    medicationId: string,
+    userId: string,
+    data: { doseAmount: number; doseUnit: string; reason: string; administeredAt?: string },
+  ) {
+    const medication = await this.prisma.medication.findUnique({
+      where: { id: medicationId },
+      select: { id: true, attendanceId: true, frequencyCode: true, status: true },
+    });
+    if (!medication) throw new NotFoundError('Medication', medicationId);
+    if (medication.frequencyCode !== 'PRN') throw new ValidationError('Only PRN prescriptions can use this action');
+    await this.ensureEncounterOpenForDose(medication.attendanceId);
+    return this.repository.administerPrnMedication(medicationId, userId, {
+      doseAmount: data.doseAmount,
+      doseUnit: data.doseUnit,
+      reason: data.reason,
+      administeredAt: data.administeredAt ? new Date(data.administeredAt) : undefined,
+    });
+  }
+
   async recordVariance(doseId: string, userId: string, data: VarianceDoseDTO) {
     const existing = await this.repository.findDoseById(doseId);
     if (!existing) throw new NotFoundError('MAR dose', doseId);
