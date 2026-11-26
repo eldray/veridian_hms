@@ -749,7 +749,7 @@ export default function WardManagement() {
 
       {/* ── Empty state ─────────────────────────────────────────────────── */}
       {filteredWards.length === 0 ? (
-        <div className="rounded-xl p-12 text-center border" style={cardStyle}>
+        <div className="rounded-xl p-8 text-center border" style={cardStyle}>
           <div
             className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
             style={{ background: 'var(--bg-main)' }}
