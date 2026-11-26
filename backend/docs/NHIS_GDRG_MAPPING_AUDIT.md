@@ -197,3 +197,23 @@ A safe implementation requires structured, auditable procedure attributes (major
 This is an identified reimbursement-logic gap, not a diagnosis-mapping correction. No tariff amount or mapping was changed in this assessment.
 
 Source: NHIA Tariffs Operation Manual v22, section 3.5, printed pages 9–10 (official PDF: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf).
+
+
+## e-claims XML format compatibility check — 26 November 2026
+
+The published NHIA standardized e-claims XML methodology v8.6 (2018-08-25) specifies a document rooted at `<batch>`, with `GeneralInformation`, `BatchInformation`, `ProviderInformation`, and `Patients/PatientData/Claims/Claim` structures. It uses fields such as `ClaimIdentificationNumber`, `MemberNumber`, `ServiceType`, `TotalCost`, `TreatmentsCount`, and `MedicinesCount`.
+
+The facility's stored export sample `all(2).xml` uses a different `<claims>` root and a flatter per-claim structure (`claimid`, `memberInfo`, `serviceInfo`, `diagnoses`, `investigations`, `procedures`, and `medicines`). The current `NHISClaimXMLBuilder` and its tests are intentionally aligned with this facility sample.
+
+These are materially different formats. The public v8.6 document is dated 2018, while the facility sample is a 2026 export. It would be unsafe to replace the live format with the older public schema without confirming which format the current NHIA submission channel accepts for this facility.
+
+### Decision / next verification
+
+- Preserve the current facility XML format for now; do not change the root, element names, nesting, or date conventions based only on the older public v8.6 PDF.
+- Obtain the current accepted NHIA upload template or a recent successful/accepted export from the facility's portal.
+- Compare that accepted document with `NHISClaimXMLBuilder` and add an automated structural/schema regression test against the confirmed current format.
+- Keep CLAIM-it JSON/XML as a separate integration contract; do not mix its payload shape with the facility batch XML.
+
+Sources:
+- NHIA, *Standardized e-claims interface for health providers' Hospital Information Systems, XML Methodology v8.6*, document history and file structure (2018-08-25): https://nhis.gov.gh/files/NHIA%20Standardized%20e-claims%20interface%28XML%29%20v8.6.pdf.
+- Facility sample: `all(2).xml` in the project Library.
