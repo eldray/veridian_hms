@@ -68,7 +68,7 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({
           <tbody>
             {attendances.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-[var(--text-secondary)]">
                   No attendance records to display.
                 </td>
               </tr>
