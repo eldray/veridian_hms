@@ -25,7 +25,7 @@ export default function ImmunizationPanel({ patientId, attendances, initialAtten
   const [showForm, setShowForm] = useState(false);
   const [showCatalogue, setShowCatalogue] = useState(false);
   const [editingVaccineId, setEditingVaccineId] = useState<string | null>(null);
-  const [form, setForm] = useState({ attendanceId: '', vaccineId: '', doseNumber: '1', administeredAt: localToday(), doseVolume: '', route: '', administrationSite: '', batchNumber: '', expiryDate: '', nextDoseDue: '', adverseReaction: '', notes: '' });
+  const [form, setForm] = useState({ attendanceId: '', vaccineId: '', doseNumber: '1', administeredAt: localToday(), doseVolume: '', route: '', administrationSite: '', batchNumber: '', expiryDate: '', nextDoseDue: '', adverseReaction: '', notes: '', underlyingCondition: '', healthWorker: '', pregnancyStatus: '' });
   const [catalogue, setCatalogue] = useState({ code: '', name: '', description: '', defaultDoseVolume: '', defaultRoute: '', stockItemId: '' });
   const immunizationVisits = useMemo(() => attendances.filter(v => v.attendanceType === 'immunization'), [attendances]);
   useEffect(() => {
@@ -98,8 +98,8 @@ export default function ImmunizationPanel({ patientId, attendances, initialAtten
     if (!form.attendanceId || !form.vaccineId || !form.doseNumber.trim() || !form.administeredAt) { setError('Choose an immunization visit, vaccine, dose number and administration date.'); return; }
     setSaving(true);
     try {
-      await api.post('/immunization/records', { patientId, ...form, administeredAt: form.administeredAt, expiryDate: form.expiryDate || null, nextDoseDue: form.nextDoseDue || null });
-      setShowForm(false); setForm(prev => ({ ...prev, doseNumber: '1', administeredAt: localToday(), doseVolume: '', route: '', administrationSite: '', batchNumber: '', expiryDate: '', nextDoseDue: '', adverseReaction: '', notes: '' }));
+      await api.post('/immunization/records', { patientId, ...form, underlyingCondition: form.underlyingCondition === 'yes' ? true : form.underlyingCondition === 'no' ? false : null, healthWorker: form.healthWorker === 'yes' ? true : form.healthWorker === 'no' ? false : null, administeredAt: form.administeredAt, expiryDate: form.expiryDate || null, nextDoseDue: form.nextDoseDue || null });
+      setShowForm(false); setForm(prev => ({ ...prev, doseNumber: '1', administeredAt: localToday(), doseVolume: '', route: '', administrationSite: '', batchNumber: '', expiryDate: '', nextDoseDue: '', adverseReaction: '', notes: '', underlyingCondition: '', healthWorker: '', pregnancyStatus: '' }));
       await load();
     } catch (e: any) { setError(e.response?.data?.message || e.message || 'Failed to save vaccination.'); }
     finally { setSaving(false); }
@@ -186,6 +186,9 @@ export default function ImmunizationPanel({ patientId, attendances, initialAtten
         <label className="text-xs text-[var(--text-secondary)]">Vaccine expiry<input type="date" value={form.expiryDate} onChange={e => update('expiryDate', e.target.value)} className={cn(INPUT, 'mt-1 w-full')} /></label>
       </>}
       <label className="text-xs text-[var(--text-secondary)]">Next dose due<input type="date" value={form.nextDoseDue} onChange={e => update('nextDoseDue', e.target.value)} className={cn(INPUT, 'mt-1 w-full')} /></label>
+      <label className="text-xs text-[var(--text-secondary)]">Underlying condition (COVID-19 reporting)<select value={form.underlyingCondition} onChange={e => update('underlyingCondition', e.target.value)} className={cn(INPUT, 'mt-1 w-full')}><option value="">Not recorded / not applicable</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+      <label className="text-xs text-[var(--text-secondary)]">Health worker (COVID-19 reporting)<select value={form.healthWorker} onChange={e => update('healthWorker', e.target.value)} className={cn(INPUT, 'mt-1 w-full')}><option value="">Not recorded / not applicable</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+      <label className="text-xs text-[var(--text-secondary)]">Pregnancy status (Td / COVID-19 reporting)<select value={form.pregnancyStatus} onChange={e => update('pregnancyStatus', e.target.value)} className={cn(INPUT, 'mt-1 w-full')}><option value="">Not recorded</option><option value="pregnant">Pregnant</option><option value="non_pregnant">Non-pregnant</option><option value="not_applicable">Others / not applicable</option><option value="unknown">Unknown</option></select></label>
       <label className="text-xs text-[var(--text-secondary)] md:col-span-2">Adverse reaction<input value={form.adverseReaction} onChange={e => update('adverseReaction', e.target.value)} placeholder="None observed, or describe" className={cn(INPUT, 'mt-1 w-full')} /></label>
       <label className="text-xs text-[var(--text-secondary)] md:col-span-2">Notes<textarea rows={2} value={form.notes} onChange={e => update('notes', e.target.value)} className={cn(INPUT, 'mt-1 w-full')} /></label>
       <div className="md:col-span-2 flex justify-end gap-2"><button type="button" onClick={() => setShowForm(false)} className="rounded-md border border-[var(--border-color)] px-3 py-2 text-xs">Cancel</button><button disabled={saving} className="rounded-md bg-[var(--icon-cyan-bg)] px-3 py-2 text-xs font-semibold text-[var(--icon-cyan-text)]">{saving ? 'Saving…' : 'Save vaccination record'}</button></div>
