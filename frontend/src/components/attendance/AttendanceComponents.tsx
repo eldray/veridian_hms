@@ -29,15 +29,15 @@ export const AttendanceCard: React.FC<AttendanceCardProps> = ({
   onEditAttendance
 }) => {
   return (
-    <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200">
+    <div className="bg-[var(--bg-card)] rounded-lg p-3 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all duration-200">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <PatientAvatar patient={patient} size="md" />
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm leading-tight">
+            <h3 className="font-semibold text-[var(--text-primary)] text-sm leading-tight">
               {patient?.fullName || `Patient ${attendance.patientId?.toString().slice(-6) || 'Unknown'}`}
             </h3>
-            <p className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border mt-0.5">
+            <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] px-1.5 py-0.5 rounded border mt-0.5">
               {patient?.folderNumber || 'No Folder'} • {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
             </p>
           </div>
@@ -48,26 +48,26 @@ export const AttendanceCard: React.FC<AttendanceCardProps> = ({
       </div>
 
       <div className="space-y-1.5 text-xs mb-3">
-        <div className="flex items-center gap-1.5 text-gray-600">
+        <div className="flex items-center gap-1.5 text-[var(--text-secondary)]">
           <Calendar className="w-3.5 h-3.5" />
           <span className="font-medium">{formattedDate}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <Stethoscope className="w-3.5 h-3.5 text-blue-600" />
-          <span className="font-medium text-blue-700">{attendanceTypeLabel}</span>
+          <Stethoscope className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
+          <span className="font-medium text-[var(--icon-cyan-text)]">{attendanceTypeLabel}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {paymentModeIcon}
-          <span className="font-medium text-gray-700">{paymentModeLabel}</span>
+          <span className="font-medium text-[var(--text-secondary)]">{paymentModeLabel}</span>
         </div>
         {attendance.complaints && attendance.complaints !== 'No complaints recorded' && (
-          <p className="text-gray-700 text-xs truncate">
+          <p className="text-[var(--text-secondary)] text-xs truncate">
             <span className="font-semibold">Complaints:</span> {attendance.complaints}
           </p>
         )}
       </div>
 
-      <div className="flex items-center gap-2 mb-3 text-xs text-gray-600">
+      <div className="flex items-center gap-2 mb-3 text-xs text-[var(--text-secondary)]">
         <span className="flex items-center gap-0.5">
           <Pill className="w-3 h-3" />
           {attendance.medications?.length || 0}
@@ -88,17 +88,17 @@ export const AttendanceCard: React.FC<AttendanceCardProps> = ({
         )}
       </div>
 
-      <div className="flex gap-1.5 pt-2 border-t border-gray-200">
+      <div className="flex gap-1.5 pt-2 border-t border-[var(--border-color)]">
         <Link
           to={`/dashboard/attendance/${attendanceId}`}
-          className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all duration-200 font-medium text-xs"
+          className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border border-[var(--border-color)] rounded-md hover:opacity-90 transition-all duration-200 font-medium text-xs"
         >
           <Eye className="w-3 h-3" />
           View
         </Link>
         <button
           onClick={() => onEditAttendance(attendance)}
-          className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-all duration-200 font-medium text-xs"
+          className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] border border-[var(--border-color)] rounded-md hover:opacity-90 transition-all duration-200 font-medium text-xs"
         >
           <Edit className="w-3 h-3" />
           Edit
