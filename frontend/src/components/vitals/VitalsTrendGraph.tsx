@@ -34,22 +34,22 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-white p-3 border border-gray-300 rounded-lg shadow-sm">
-          <p className="font-semibold text-gray-900">{data.fullTime}</p>
+        <div className="bg-[var(--bg-card)] p-3 border border-[var(--border-color)] rounded-lg shadow-sm">
+          <p className="font-semibold text-[var(--text-primary)]">{data.fullTime}</p>
           {data.systolic && (
-            <p className="text-sm text-blue-600">BP: {data.systolic}/{data.diastolic} mmHg</p>
+            <p className="text-sm text-[var(--icon-blue-text)]">BP: {data.systolic}/{data.diastolic} mmHg</p>
           )}
           {data.temperature && (
-            <p className="text-sm text-orange-600">Temp: {data.temperature}°C</p>
+            <p className="text-sm text-[var(--icon-yellow-text)]">Temp: {data.temperature}°C</p>
           )}
           {data.pulse && (
-            <p className="text-sm text-green-600">Pulse: {data.pulse} bpm</p>
+            <p className="text-sm text-[var(--icon-green-text)]">Pulse: {data.pulse} bpm</p>
           )}
           {data.respiration && (
-            <p className="text-sm text-purple-600">Resp: {data.respiration} bpm</p>
+            <p className="text-sm text-[var(--icon-purple-text)]">Resp: {data.respiration} bpm</p>
           )}
           {data.spo2 && (
-            <p className="text-sm text-red-600">SpO2: {data.spo2}%</p>
+            <p className="text-sm text-[var(--icon-red-text)]">SpO2: {data.spo2}%</p>
           )}
         </div>
       );
@@ -59,23 +59,23 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
 
   if (chartData.length === 0) {
     return (
-      <div className="h-full bg-gray-50 rounded-lg flex items-center justify-center text-gray-500">
+      <div className="h-full bg-[var(--bg-main)] rounded-lg flex items-center justify-center text-[var(--text-secondary)]">
         No chartable vitals data available
       </div>
     );
   }
 
   return (
-    <div className="h-full bg-gray-50 rounded-lg p-4">
+    <div className="h-full bg-[var(--bg-main)] rounded-lg p-4">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
           <XAxis 
             dataKey="timestamp" 
             tick={{ fontSize: 12 }}
-            stroke="#6b7280"
+            stroke="var(--text-tertiary)"
           />
-          <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" />
+          <YAxis tick={{ fontSize: 12 }} stroke="var(--text-tertiary)" />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
           
@@ -83,7 +83,7 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
             <Line 
               type="monotone" 
               dataKey="systolic" 
-              stroke="#3b82f6" 
+              stroke="var(--icon-blue-text)" 
               strokeWidth={3}
               name="Systolic BP"
               dot={{ r: 4 }}
@@ -95,7 +95,7 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
             <Line 
               type="monotone" 
               dataKey="diastolic" 
-              stroke="#ef4444" 
+              stroke="var(--icon-red-text)" 
               strokeWidth={3}
               name="Diastolic BP"
               dot={{ r: 4 }}
@@ -107,7 +107,7 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
             <Line 
               type="monotone" 
               dataKey="pulse" 
-              stroke="#10b981" 
+              stroke="var(--icon-green-text)" 
               strokeWidth={2}
               name="Pulse Rate"
               dot={{ r: 3 }}
@@ -119,7 +119,7 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
             <Line 
               type="monotone" 
               dataKey="respiration" 
-              stroke="#8b5cf6" 
+              stroke="var(--icon-purple-text)" 
               strokeWidth={2}
               name="Respiration"
               dot={{ r: 3 }}
@@ -131,7 +131,7 @@ export const VitalsTrendGraph: React.FC<VitalsTrendGraphProps> = ({ vitals }) =>
             <Line 
               type="monotone" 
               dataKey="temperature" 
-              stroke="#f59e0b" 
+              stroke="var(--icon-yellow-text)" 
               strokeWidth={2}
               name="Temperature"
               dot={{ r: 3 }}
