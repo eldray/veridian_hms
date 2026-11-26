@@ -1,5 +1,5 @@
 // src/modules/nursing/NursingRepository.ts
-import { PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
+import { Prisma, PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { ConflictError, NotFoundError } from '../../utils/errors';
 import { appendAuditLogWithinTransaction } from '../../services/auditChain';
