@@ -172,6 +172,89 @@ export class NursingRepository extends BaseRepository<any, any, any> {
     }, { timeout: 15000, maxWait: 5000 });
   }
 
+  async administerPrnMedication(
+    medicationId: string,
+    userId: string,
+    data: { doseAmount: number; doseUnit: string; reason: string; administeredAt?: Date },
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "Medication" WHERE "id" = ${medicationId} FOR UPDATE`;
+      const medication = await tx.medication.findUnique({
+        where: { id: medicationId },
+        select: {
+          id: true, name: true, status: true, attendanceId: true, frequencyCode: true,
+          prnIndication: true, prnMaxDosesPerDay: true, prnMinimumIntervalHours: true,
+          route: true, doseAmount: true, doseUnit: true,
+          Attendance: { select: { status: true } },
+        },
+      });
+      if (!medication) throw new NotFoundError('Medication', medicationId);
+      if (medication.frequencyCode !== 'PRN') throw new ConflictError('Only a PRN prescription can use as-needed administration');
+      if (!['dispensed', 'administered'].includes(medication.status)) {
+        throw new ConflictError('PRN medication must be dispensed before it can be administered');
+      }
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(medication.Attendance.status)) {
+        throw new ConflictError('Medication administration is not allowed for a closed encounter');
+      }
+      if (!Number.isFinite(data.doseAmount) || data.doseAmount <= 0 || !data.doseUnit.trim()) {
+        throw new ValidationError('Enter a valid administered dose and unit');
+      }
+      const administeredAt = data.administeredAt ?? new Date();
+      const dayStart = new Date(administeredAt);
+      dayStart.setHours(0, 0, 0, 0);
+      const todayCount = await tx.medicationDose.count({
+        where: { medicationId, status: 'administered', administeredAt: { gte: dayStart, lte: administeredAt } },
+      });
+      if (medication.prnMaxDosesPerDay != null && todayCount >= medication.prnMaxDosesPerDay) {
+        throw new ConflictError(`The prescribed maximum of ${medication.prnMaxDosesPerDay} PRN doses for today has been reached`);
+      }
+      if (medication.prnMinimumIntervalHours != null) {
+        const latest = await tx.medicationDose.findFirst({
+          where: { medicationId, status: 'administered', administeredAt: { not: null } },
+          orderBy: { administeredAt: 'desc' },
+          select: { administeredAt: true },
+        });
+        if (latest?.administeredAt) {
+          const elapsed = administeredAt.getTime() - latest.administeredAt.getTime();
+          if (elapsed < medication.prnMinimumIntervalHours * 3_600_000) {
+            throw new ConflictError(`Wait at least ${medication.prnMinimumIntervalHours} hours between PRN doses`);
+          }
+        }
+      }
+      const last = await tx.medicationDose.findFirst({
+        where: { medicationId },
+        orderBy: { doseNumber: 'desc' },
+        select: { doseNumber: true },
+      });
+      const created = await tx.medicationDose.create({
+        data: {
+          medicationId,
+          doseNumber: (last?.doseNumber ?? 0) + 1,
+          scheduledAt: administeredAt,
+          administeredAt,
+          administeredById: userId,
+          status: 'administered',
+          dose: `${data.doseAmount} ${data.doseUnit}`,
+          doseAmount: new Prisma.Decimal(data.doseAmount),
+          doseUnit: data.doseUnit.trim(),
+          route: medication.route,
+          administrationReason: data.reason.trim(),
+          recordedAt: new Date(),
+        },
+        include: this.doseInclude(),
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'MedicationDose',
+        entityId: created.id,
+        action: 'create',
+        performedById: userId,
+        newState: { medicationId, status: 'administered', administeredAt },
+        metadata: { operation: 'prn_medication_administered', reasonRecorded: true, clinicalContentOmitted: true },
+      });
+      return created;
+    }, { timeout: 15000, maxWait: 5000 });
+  }
+
   async recordDoseVariance(
     doseId: string,
     userId: string,
