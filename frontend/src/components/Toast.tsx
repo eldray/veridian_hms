@@ -49,10 +49,10 @@ export function Toast({ toast, onRemove }: ToastProps) {
   };
 
   const styles = {
-    success: 'bg-green-50 border-green-200 text-green-800',
-    error: 'bg-red-50 border-red-200 text-red-800',
-    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-    info: 'bg-blue-50 border-blue-200 text-blue-800',
+    success: 'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)] text-[var(--icon-green-text)]',
+    error: 'bg-[var(--icon-red-bg)] border-[var(--icon-red-text)] text-[var(--icon-red-text)]',
+    warning: 'bg-[var(--icon-yellow-bg)] border-[var(--icon-yellow-text)] text-[var(--icon-yellow-text)]',
+    info: 'bg-[var(--icon-blue-bg)] border-[var(--icon-blue-text)] text-[var(--icon-blue-text)]',
   };
 
   const Icon = icons[toast.type];
@@ -60,9 +60,9 @@ export function Toast({ toast, onRemove }: ToastProps) {
   return (
     <div className={`flex items-start gap-3 p-4 rounded-xl border ${styles[toast.type]} shadow-xl w-full max-w-none animate-in slide-in-from-right duration-300`}>
       <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
-        toast.type === 'success' ? 'text-green-600' :
-        toast.type === 'error' ? 'text-red-600' :
-        toast.type === 'warning' ? 'text-yellow-600' : 'text-blue-600'
+        toast.type === 'success' ? 'text-[var(--icon-green-text)]' :
+        toast.type === 'error' ? 'text-[var(--icon-red-text)]' :
+        toast.type === 'warning' ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-blue-text)]'
       }`} />
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-base leading-snug">{toast.title}</p>
@@ -72,7 +72,7 @@ export function Toast({ toast, onRemove }: ToastProps) {
       </div>
       <button
         onClick={() => onRemove(toast.id)}
-        className="flex-shrink-0 rounded-md p-1 text-gray-500 hover:text-gray-800 hover:bg-black/5 transition-colors"
+        className="flex-shrink-0 rounded-md p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
       >
         <X className="w-4 h-4" />
       </button>
