@@ -135,9 +135,9 @@ export const Hint: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 export const ClaimFooter: React.FC<{ onCancel: () => void; onSave?: () => void; saving?: boolean; saveLabel?: string; extra?: React.ReactNode }> = ({ onCancel, onSave, saving, saveLabel = 'SAVE', extra }) => (
   <div className="flex justify-end items-center gap-3 pt-4 bg-[var(--bg-card)] px-5 py-4 border-t border-[var(--border-color)]">
     {extra}
-    <button type="button" onClick={onCancel} className="px-8 py-2 border rounded text-[15px] hover:bg-[var(--icon-red-bg)]" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Cancel</button>
+    <button type="button" onClick={onCancel} className="px-8 py-2 border border-[var(--icon-red-text)] text-[var(--icon-red-text)] rounded text-[15px] hover:bg-[var(--icon-red-bg)] transition-colors">Cancel</button>
     {onSave && (
-      <button type="button" onClick={onSave} disabled={saving} className="px-6 py-2 border rounded text-[15px] flex items-center gap-2 hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50" style={{ borderColor: '#4a7ca8', color: '#3a6a96' }}>
+      <button type="button" onClick={onSave} disabled={saving} className="px-6 py-2 border border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)] rounded text-[15px] flex items-center gap-2 hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50 transition-colors">
         <Check className="w-4 h-4" /> {saving ? 'SAVING…' : saveLabel}
       </button>
     )}
