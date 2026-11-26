@@ -181,6 +181,7 @@ interface AttendanceState {
     duration: string; 
     route?: string; 
     instructions?: string;
+    quantity?: number;
     prnIndication?: string;
     prnMaxDosesPerDay?: number;
     prnMinimumIntervalHours?: number;
@@ -706,7 +707,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // MEDICATION OPERATIONS
   // ==========================================
 
-  addMedication: async (attendanceId, { stockItemId, serviceCatalogId, dosage, frequency, duration, route, instructions }) => {
+  addMedication: async (attendanceId, { stockItemId, serviceCatalogId, dosage, frequency, duration, route, instructions, quantity, prnIndication, prnMaxDosesPerDay, prnMinimumIntervalHours }) => {
     const state = get();
     const att = state.attendances.find((a) => a.id === attendanceId)
       || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
@@ -724,6 +725,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         duration,
         route,
         instructions,
+        quantity,
+        prnIndication,
+        prnMaxDosesPerDay,
+        prnMinimumIntervalHours,
       });
       const refreshedAttendance = await get().refreshAttendance(attendanceId);
       set({ isLoading: false, error: null });
