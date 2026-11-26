@@ -16,7 +16,6 @@ import { useWardStore } from '../store/wardStore';
 import { useAdmissionStore } from '../store/admissionStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { VitalsDisplay } from '../components/medical-entries/VitalsDisplay';
-import NewAttendanceModal from '../components/NewAttendanceModal';
 import { ANCBookingModal } from '../components/antenatal/ANCBookingModal';
 import { ANCVisitModal } from '../components/antenatal/ANCVisitModal';
 import { DeliveryModal } from '../components/delivery/DeliveryModal';
@@ -396,7 +395,6 @@ export default function Antenatal() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('clinical');
   const [modalType, setModalType] = useState<ModalType>(null);
-  const [showNewAttendance, setShowNewAttendance] = useState(false);
   const [noteModal, setNoteModal] = useState<{ section: 'clinical' | 'treatment'; index: number | null; text: string } | null>(null);
   const [savingNote, setSavingNote] = useState(false);
 
@@ -415,10 +413,9 @@ export default function Antenatal() {
   const [selectedPostnatal, setSelectedPostnatal] = useState<any>(null);
   const [showPostnatalDetails, setShowPostnatalDetails] = useState(false);
 
-  const [physicianNoteText, setPhysicianNoteText] = useState('');
-  const [physicianNotes, setPhysicianNotes] = useState<{ author: string; date: string; text: string }[]>([]);
-  const [treatmentPlan, setTreatmentPlan] = useState('');
-  const [treatmentNotes, setTreatmentNotes] = useState<{ author: string; date: string; text: string }[]>([]);
+  type MaternalNote = { id?: string; author: string; date: string; text: string; updatedBy?: string; updatedById?: string; updatedAt?: string };
+  const [physicianNotes, setPhysicianNotes] = useState<MaternalNote[]>([]);
+  const [treatmentNotes, setTreatmentNotes] = useState<MaternalNote[]>([]);
 
   // Bed/Ward Admission States
   const [showBedWardModal, setShowBedWardModal] = useState(false);
@@ -551,8 +548,6 @@ const prescribedMeds = medicationsList.filter((m: any) => m.status === 'prescrib
         if (att.patientId) setSelectedPatientId(att.patientId);
         setPhysicianNotes((att as any).physicianNotes || []);
         setTreatmentNotes((att as any).treatmentNotes || []);
-        setTreatmentPlan('');
-        setPhysicianNoteText('');
       })
       .catch((err: any) => {
         if (isCurrent) {
@@ -674,38 +669,6 @@ useEffect(() => {
     } catch (err: any) {
       toastError('Registration failed', err.message);
     }
-  };
-
-  const handleAttendanceCreated = async (newId: string) => {
-    setShowNewAttendance(false);
-    await loadData();
-    setSelectedAttendanceId(newId);
-    setTimeout(async () => {
-      const att = await getAttendance(newId);
-      if (!att) return;
-
-      const patientId = att.patient?.id
-        || att.patient?._id
-        || (typeof att.patientId === 'object' ? att.patientId?.id : att.patientId)
-        || selectedPatientId;
-
-      if (patientId) setSelectedPatientId(patientId);
-
-      if (att.attendanceType === 'antenatal') {
-        setActiveTab('anc');
-        const record = await getActiveAntenatalRecordByPatient(patientId).catch(() => null);
-        // Encounter creation seeds a blank booking/visit for the workflow. Open the
-        // booking form when that shell still lacks LMP so it can be completed instead
-        // of attempting to create a duplicate pregnancy record.
-        if (!record?.isActive || record?.isCompleted || !record?.lmp) setModalType('anc_booking');
-      } else if (att.attendanceType === 'delivery') {
-        setActiveTab('delivery'); setEditingDelivery(null); setShowDeliveryModal(true);
-      } else if (att.attendanceType === 'postnatal') {
-        setActiveTab('postnatal'); setEditingPostnatal(null); setShowPostnatalModal(true);
-      } else {
-        setActiveTab('clinical');
-      }
-    }, 500);
   };
 
   const afterModal = async () => {
@@ -891,10 +854,9 @@ useEffect(() => {
               'bg-pink-100 text-pink-700 border border-pink-300'
           }`}>
           <Hospital className="w-3 h-3" />
-          {admissionType === 'antenatal_observation' ? 'ANTENATAL OBSERVATION' :
-            admissionType === 'delivery' ? 'IN LABOR / DELIVERY' :
-              admissionType === 'postpartum_observation' ? 'POSTPARTUM OBSERVATION' :
-                'ADMITTED'}
+          {currentAttendance?.attendanceType === 'antenatal' ? 'ANTENATAL OBSERVATION' :
+            currentAttendance?.attendanceType === 'delivery' ? 'DELIVERY OBSERVATION' :
+              currentAttendance?.attendanceType === 'postnatal' ? 'POSTNATAL OBSERVATION' : 'ADMITTED'}
         </span>
       );
     }
@@ -1807,20 +1769,12 @@ useEffect(() => {
           <AlertCircle className="w-10 h-10 text-[var(--icon-yellow-text)] opacity-60" />
           <div className="text-center">
             <p className="text-sm font-semibold text-[var(--text-primary)]">No Visit Selected</p>
-            <p className="text-xs text-[var(--text-secondary)] mt-1">Select an existing visit or create a new one</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">Select an existing antenatal, delivery or postnatal attendance</p>
           </div>
-          <button onClick={() => setShowNewAttendance(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-pink-100 text-pink-700 hover:bg-pink-700 hover:text-white transition-all">
-            <Plus className="w-3.5 h-3.5" /> New Visit
-          </button>
         </div>
       ) : null}
 
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
-      {showNewAttendance && selectedPatientId && (
-        <NewAttendanceModal patientId={selectedPatientId} onSuccess={handleAttendanceCreated} onClose={() => setShowNewAttendance(false)} isEditMode={false} />
-      )}
-
       {noteModal && (
         <ModalShell
           title={noteModal.section === 'clinical' ? (noteModal.index === null ? 'Add Clinical Note' : 'Edit Clinical Note') : (noteModal.index === null ? 'Add Treatment Plan' : 'Edit Treatment Plan')}
