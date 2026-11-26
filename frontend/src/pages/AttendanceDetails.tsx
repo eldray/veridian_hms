@@ -2224,13 +2224,12 @@ export default function AttendanceDetails() {
               </div>
             );
           })()}
+          {/* Confidential HTS panel — available only to authorised clinical roles. */}
+          {activeTab === 'hiv-testing' && hasRole(['admin', 'doctor', 'nurse', 'midwife']) && patient?.id && (
+            <HIVTestingPanel patientId={patient.id} attendanceId={currentAttendance?.id} />
+          )}
         </div>
       </div>
-
-      {/* Confidential HTS panel — available only to authorised clinical roles. */}
-      {activeTab === 'hiv-testing' && hasRole(['admin', 'doctor', 'nurse', 'midwife']) && patient?.id && (
-        <HIVTestingPanel patientId={patient.id} attendanceId={currentAttendance?.id} />
-      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
