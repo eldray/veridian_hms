@@ -224,6 +224,8 @@ export default function Reports() {
   const [billingPage, setBillingPage] = useState(1);
   const [deliveryPage, setDeliveryPage] = useState(1);
   const [deliveryPageSize, setDeliveryPageSize] = useState(10);
+  const [consultingRegisterPage, setConsultingRegisterPage] = useState(1);
+  const [consultingRegisterPageSize, setConsultingRegisterPageSize] = useState(20);
   // FIX #50 — remember whether the user has deliberately picked a category, so the
   // fallback effect does not bounce them back out of an empty one.
   const userPickedCategory = useRef(false);
@@ -317,6 +319,7 @@ export default function Reports() {
 
   useEffect(() => { loadReport(); return () => { if (loadDebounce.current) clearTimeout(loadDebounce.current); }; }, [loadReport]);
   useEffect(() => { setDeliveryPage(1); setPatientsSeenPage(1); }, [reportType, dateRange.start, dateRange.end]);
+  useEffect(() => { setConsultingRegisterPage(1); }, [reportType, dateRange.start, dateRange.end, consultingRegisterPageSize]);
   const getActiveReport = () => {
     const map: Record<string, any> = {
       'monthly-overview': monthlyOverview, 'patient-billing-register': patientBillingReport, 'patients-seen-by-staff': patientsSeenReport,
@@ -385,6 +388,9 @@ export default function Reports() {
     const report = consultingRoomRegister as any;
     if (!report) return <EmptyState message="No consulting room register data available" />;
     const entries = report.entries || [];
+    const totalPages = Math.max(1, Math.ceil(entries.length / consultingRegisterPageSize));
+    const safePage = Math.min(consultingRegisterPage, totalPages);
+    const visibleEntries = entries.slice((safePage - 1) * consultingRegisterPageSize, safePage * consultingRegisterPageSize);
 
     // GHS consulting-room line-list: keep the full register fields visible.
     // Long investigations, results and medication names must wrap, never truncate.
@@ -452,7 +458,7 @@ export default function Reports() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
-                  {entries.map((entry: any, index: number) => (
+                  {visibleEntries.map((entry: any, index: number) => (
                     <tr key={entry.attendanceId || `${entry.patientNo}-${index}`} className={TR}>
                       {columns.map(column => (
                         <td
@@ -472,9 +478,19 @@ export default function Reports() {
               </table>
           </div>
           <div className="border-t border-[var(--border-color)] px-3 py-2 text-[11px] text-[var(--text-tertiary)]">
-            Scroll within this register to browse records vertically and horizontally. Long laboratory details, diagnoses and medicines wrap in full; they are not shortened.
+            Showing {(entries.length ? (safePage - 1) * consultingRegisterPageSize + 1 : 0).toLocaleString()}–{Math.min(safePage * consultingRegisterPageSize, entries.length).toLocaleString()} of {entries.length.toLocaleString()} records. Use the horizontal scrollbar to view all register fields.
           </div>
         </Card>
+        <Pagination
+          page={safePage}
+          totalPages={totalPages}
+          itemsPerPage={consultingRegisterPageSize}
+          totalItems={entries.length}
+          noun="register records"
+          onChange={setConsultingRegisterPage}
+          pageSizeOptions={[15, 20, 25, 50]}
+          onPageSizeChange={size => { setConsultingRegisterPageSize(size); setConsultingRegisterPage(1); }}
+        />
       </div>
     );
   };
