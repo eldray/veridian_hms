@@ -122,11 +122,11 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="p-4 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                <User className="w-4 h-4 inline mr-2 text-blue-600" />
+                <User className="w-4 h-4 inline mr-2 text-[var(--icon-cyan-text)]" />
                 Full Name *
               </label>
               <input
@@ -134,21 +134,21 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30 focus:border-[var(--icon-cyan-text)] transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                 required
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                <Shield className="w-4 h-4 inline mr-2 text-purple-600" />
+                <Shield className="w-4 h-4 inline mr-2 text-[var(--icon-purple-text)]" />
                 Role *
               </label>
               <select
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30 focus:border-[var(--icon-cyan-text)] transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                 required
               >
                 <option value="">Select Role</option>
@@ -168,14 +168,14 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
 
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                <TrendingUp className="w-4 h-4 inline mr-2 text-amber-600" />
+                <TrendingUp className="w-4 h-4 inline mr-2 text-[var(--icon-yellow-text)]" />
                 Seniority Level *
               </label>
               <select
                 name="seniority"
                 value={formData.seniority}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30 focus:border-[var(--icon-cyan-text)] transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                 required
               >
                 {SENIORITY_OPTIONS.map((option) => (
@@ -188,7 +188,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
 
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                <Mail className="w-4 h-4 inline mr-2 text-green-600" />
+                <Mail className="w-4 h-4 inline mr-2 text-[var(--icon-green-text)]" />
                 Email
               </label>
               <input
@@ -196,13 +196,13 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30 focus:border-[var(--icon-cyan-text)] transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                <Phone className="w-4 h-4 inline mr-2 text-orange-600" />
+                <Phone className="w-4 h-4 inline mr-2 text-[var(--icon-orange-text)]" />
                 Phone
               </label>
               <input
@@ -210,14 +210,14 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30 focus:border-[var(--icon-cyan-text)] transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
               />
             </div>
 
             {requiresLicense && (
               <div>
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                  <IdCard className="w-4 h-4 inline mr-2 text-yellow-600" />
+                  <IdCard className="w-4 h-4 inline mr-2 text-[var(--icon-yellow-text)]" />
                   License/PIN Number *
                 </label>
                 <input
@@ -225,7 +225,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
                   name="licenseNumber"
                   value={formData.licenseNumber}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
+                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30 focus:border-[var(--icon-cyan-text)] transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                   required={requiresLicense}
                 />
               </div>
@@ -234,7 +234,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
             {requiresSpecialization && (
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                  <Stethoscope className="w-4 h-4 inline mr-2 text-red-600" />
+                  <Stethoscope className="w-4 h-4 inline mr-2 text-[var(--icon-red-text)]" />
                   Specialization *
                 </label>
                 <input
@@ -242,7 +242,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
                   name="specialization"
                   value={formData.specialization}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
+                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]/30 focus:border-[var(--icon-cyan-text)] transition-all text-sm bg-[var(--bg-main)] text-[var(--text-primary)]"
                   required={requiresSpecialization}
                   placeholder="e.g., Pediatrics, Surgery, etc."
                 />
@@ -256,7 +256,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
                   name="isActive"
                   checked={formData.isActive}
                   onChange={handleChange}
-                  className="rounded border-[var(--border-color)] text-blue-600 focus:ring-blue-500"
+                  className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)]/30"
                 />
                 <span className="ml-2 text-sm text-[var(--text-primary)]">User is active</span>
               </label>
