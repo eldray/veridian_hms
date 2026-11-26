@@ -38,6 +38,9 @@ export interface AdministerDoseDTO {
   administeredAt?: string;
   site?: string;
   notes?: string;
+  administrationReason?: string;
+  doseAmount?: number;
+  doseUnit?: string;
 }
 
 export interface VarianceDoseDTO {
