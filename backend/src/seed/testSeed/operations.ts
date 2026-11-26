@@ -172,6 +172,8 @@ export const seedFamilyPlanning = async (
 
   let written = 0;
   let rejected = 0;
+  const rejectionReasons = new Map<string, number>();
+  const rejectionExamples: string[] = [];
   const ordered = [...plans].sort((a, b) => a.serviceDate.getTime() - b.serviceDate.getTime());
 
   for (const [index, plan] of ordered.entries()) {
@@ -205,13 +207,30 @@ export const seedFamilyPlanning = async (
         notes,
       });
       written++;
-    } catch {
+    } catch (error) {
       rejected++;
+      const message = (error instanceof Error ? error.message : String(error)).replace(/\\s+/g, ' ').trim();
+      const reason = message.slice(0, 180) || 'Unknown error';
+      rejectionReasons.set(reason, (rejectionReasons.get(reason) ?? 0) + 1);
+      if (rejectionExamples.length < 8) {
+        const attendanceId = byServiceDay.get(`${plan.patientFolderNumber}|${asCalendarDay(plan.serviceDate).getTime()}`);
+        rejectionExamples.push(
+          `patient ${plan.patientFolderNumber}; method ${plan.method}/${plan.methodCategory}; `
+          + `date ${plan.serviceDate.toISOString().slice(0, 10)}; attendance ${attendanceId ?? 'unlinked'}; ${reason}`,
+        );
+      }
     }
   }
 
   stats['family planning'] = (stats['family planning'] ?? 0) + written;
   console.log(`✅ ${written}/${plans.length} family planning services${rejected ? ` (${rejected} rejected)` : ''}`);
+  if (rejected) {
+    console.warn('   Family-planning rejection reasons:');
+    for (const [reason, count] of [...rejectionReasons.entries()].sort((a, b) => b[1] - a[1])) {
+      console.warn(`   - ${count} × ${reason}`);
+    }
+    for (const example of rejectionExamples) console.warn(`   - Example: ${example}`);
+  }
 };
 
 /**
