@@ -564,7 +564,7 @@ export default function Reports() {
                   </td></tr>}
                 </React.Fragment>;
               })}
-              {visible.length === 0 && <tr><td colSpan={9} className="px-4 py-10 text-center text-[var(--text-tertiary)]">No patient billing records match these filters.</td></tr>}
+              {visible.length === 0 && <tr><td colSpan={9} className="px-4 py-6 text-center text-[var(--text-tertiary)]">No patient billing records match these filters.</td></tr>}
             </tbody>
           </table>
         </div>
