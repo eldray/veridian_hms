@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import ExcelJS from 'exceljs';
+import { Workbook } from 'exceljs';
 import { documentToCsv, documentToPdf, documentToXlsx, reportToDocument } from '../src/utils/reportExport';
 
 describe('report exports', () => {
@@ -29,7 +29,7 @@ describe('report exports', () => {
     const xlsx = await documentToXlsx(doc);
     expect(xlsx.subarray(0, 2).toString('ascii')).toBe('PK');
     expect(xlsx.length).toBeGreaterThan(100);
-    const workbook = new ExcelJS.Workbook();
+    const workbook = new Workbook();
     await workbook.xlsx.load(xlsx);
     expect(workbook.worksheets.map(sheet => sheet.name)).toEqual(['Report', 'Rows']);
     expect(workbook.getWorksheet('Report')?.getCell('A1').value).toBe('Monthly Facility Overview');
