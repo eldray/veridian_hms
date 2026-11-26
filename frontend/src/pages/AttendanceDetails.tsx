@@ -1131,7 +1131,7 @@ export default function AttendanceDetails() {
             <span className="bg-[var(--icon-orange-bg)] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--icon-orange-text)] font-semibold">
               💰 {formatCurrency(currentAttendance.totalBill || 0)}
             </span>
-            <span className="bg-[var(--icon-red-bg)] px-2 py-1 rounded border border-red-200 dark:border-red-700 text-[var(--icon-red-text)]">
+            <span className="bg-[var(--icon-red-bg)] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--icon-red-text)]">
               ❤️ Vitals: {vitalsList.length}
             </span>
           </div>
