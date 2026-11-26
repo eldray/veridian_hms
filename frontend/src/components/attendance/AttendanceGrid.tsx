@@ -15,12 +15,12 @@ export const AttendanceGrid: React.FC<AttendanceGridProps> = ({
 }) => {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'completed': return 'bg-green-100 text-green-800 border border-green-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border border-red-200';
-      case 'admitted': return 'bg-purple-100 text-purple-800 border border-purple-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
-      case 'active': return 'bg-blue-100 text-blue-800 border border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
+      case 'completed': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border border-[var(--icon-green-text)]';
+      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--icon-red-text)]';
+      case 'admitted': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--icon-purple-text)]';
+      case 'pending': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border border-[var(--icon-yellow-text)]';
+      case 'active': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border border-[var(--icon-blue-text)]';
+      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]';
     }
   };
 
@@ -48,9 +48,9 @@ export const AttendanceGrid: React.FC<AttendanceGridProps> = ({
 
   const getPaymentModeIcon = (mode: string) => {
     switch (mode) {
-      case 'nhis': return <Shield className="w-3.5 h-3.5 text-green-600" />;
-      case 'private_insurance': return <Hospital className="w-3.5 h-3.5 text-blue-600" />;
-      default: return <CreditCard className="w-3.5 h-3.5 text-gray-600" />;
+      case 'nhis': return <Shield className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />;
+      case 'private_insurance': return <Hospital className="w-3.5 h-3.5 text-[var(--icon-blue-text)]" />;
+      default: return <CreditCard className="w-3.5 h-3.5 text-[var(--text-secondary)]" />;
     }
   };
 
