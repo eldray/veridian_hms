@@ -24,6 +24,7 @@ export class ClinicalReportsService extends BaseService {
   async generateLabReport(filters: ClinicalReportFilters): Promise<LabReportData> {
     this.logInfo('Generating lab report', { startDate: filters.startDate, endDate: filters.endDate });
     const labTests = await this.repository.getLabTests(filters);
+    const scansForCases = await this.repository.getScans(filters);
     const completedTests = labTests.filter(t => t.status === 'completed');
     const totalTurnaround = completedTests.reduce((sum, t) => sum + (t.turnaroundMinutes || 0), 0);
 
@@ -56,6 +57,45 @@ export class ClinicalReportsService extends BaseService {
       return normalized.includes('negative') || normalized.includes('non reactive') || normalized.includes('nonreactive');
     };
     const indeterminate = (value: any) => /indeterminate|invalid|inconclusive/.test(normalizeResult(value));
+    const imagingCaseMap = new Map<string, any>();
+    for (const scan of scansForCases) {
+      const code = scan.ScanTemplate?.scanCode || scan.ServiceCatalog?.code || 'UN-CODED';
+      const description = scan.ScanTemplate?.name || scan.ServiceCatalog?.name || scan.description || 'Unknown scan';
+      const row = imagingCaseMap.get(code) || { code, description, cases: 0, male: 0, female: 0, unknown: 0 };
+      row.cases++;
+      const gender = String(scan.Attendance?.Patient?.gender || '').toLowerCase();
+      if (gender === 'male') row.male++;
+      else if (gender === 'female') row.female++;
+      else row.unknown++;
+      imagingCaseMap.set(code, row);
+    }
+    const imagingCaseBreakdown = Array.from(imagingCaseMap.values()).sort((a, b) => a.description.localeCompare(b.description));
+
+    const labCaseMap = new Map<string, any>();
+    for (const test of labTests) {
+      const code = test.LabTestTemplate?.investigationCode || test.ServiceCatalog?.code || 'UN-CODED';
+      const description = test.LabTestTemplate?.name || test.ServiceCatalog?.name || 'Unknown investigation';
+      const row = labCaseMap.get(code) || { code, description, cases: 0, malePositive: 0, femalePositive: 0, totalPositive: 0, maleNegative: 0, femaleNegative: 0, totalNegative: 0, unknown: 0 };
+      row.cases++;
+      const gender = String(test.Attendance?.Patient?.gender || '').toLowerCase();
+      const values = resultValues(test);
+      const hasPositive = values.some(positive);
+      const hasNegative = values.some(negative) && !hasPositive;
+      if (hasPositive) {
+        row.totalPositive++;
+        if (gender === 'male') row.malePositive++;
+        else if (gender === 'female') row.femalePositive++;
+        else row.unknown++;
+      } else if (hasNegative) {
+        row.totalNegative++;
+        if (gender === 'male') row.maleNegative++;
+        else if (gender === 'female') row.femaleNegative++;
+        else row.unknown++;
+      } else row.unknown++;
+      labCaseMap.set(code, row);
+    }
+    const labCaseBreakdown = Array.from(labCaseMap.values()).sort((a, b) => a.description.localeCompare(b.description));
+
     const testCounts: Record<string, { count: number; completed: number; resulted: number; positive: number }> = {};
     for (const test of labTests) {
       const testName = test.LabTestTemplate?.name || test.ServiceCatalog?.name || 'Unknown';
@@ -120,6 +160,42 @@ export class ClinicalReportsService extends BaseService {
       if (item.indeterminate) row.indeterminate++;
     });
     const hivBreakdown = Object.entries(hivTestCounts).map(([testName, counts]) => ({ testName, ...counts })).sort((a,b) => b.ordered-a.ordered);
+    const hivAgeBands = [
+      { key: '0_4', label: '0-4', min: 0, max: 4 },
+      { key: '5_9', label: '5-9', min: 5, max: 9 },
+      { key: '10_14', label: '10-14', min: 10, max: 14 },
+      { key: '15_19', label: '15-19', min: 15, max: 19 },
+      { key: '20_24', label: '20-24', min: 20, max: 24 },
+      { key: '25_29', label: '25-29', min: 25, max: 29 },
+      { key: '30_34', label: '30-34', min: 30, max: 34 },
+      { key: '35_39', label: '35-39', min: 35, max: 39 },
+      { key: '40_44', label: '40-44', min: 40, max: 44 },
+      { key: '45_49', label: '45-49', min: 45, max: 49 },
+      { key: '50_plus', label: '50+', min: 50, max: Number.POSITIVE_INFINITY },
+    ];
+    const hivAgeSexMap = new Map(hivAgeBands.map(band => [band.key, {
+      ageGroup: band.label, maleTested: 0, femaleTested: 0,
+      malePositive: 0, femalePositive: 0, totalTested: 0, totalPositive: 0,
+    }]));
+    const hivResultByTestId = new Map(hivResults.map(item => [item.test.id, item]));
+    for (const test of hivTests) {
+      const patient = test.Attendance?.Patient;
+      if (!patient?.dateOfBirth) continue;
+      const age = this.calculateAge(patient.dateOfBirth, test.requestedAt || test.createdAt);
+      const band = hivAgeBands.find(candidate => age >= candidate.min && age <= candidate.max);
+      if (!band) continue;
+      const row = hivAgeSexMap.get(band.key)!;
+      row.totalTested++;
+      if (patient.gender === 'male') row.maleTested++;
+      else if (patient.gender === 'female') row.femaleTested++;
+      if (hivResultByTestId.get(test.id)?.positive) {
+        row.totalPositive++;
+        if (patient.gender === 'male') row.malePositive++;
+        else if (patient.gender === 'female') row.femalePositive++;
+      }
+    }
+    const hivAgeSexBreakdown = hivAgeBands.map(band => hivAgeSexMap.get(band.key)!);
+
     const hivPositive = hivResults.filter(r => r.positive).length;
     const hivNegative = hivResults.filter(r => r.negative).length;
     const hivIndeterminate = hivResults.filter(r => r.indeterminate).length;
@@ -155,7 +231,10 @@ export class ClinicalReportsService extends BaseService {
       topTests,
       allTests,
       hivTestBreakdown: hivBreakdown,
+      hivAgeSexBreakdown,
       positivityRates: topTests.map(t => ({ testName: t.testName, rate: t.positiveRate.toFixed(1) })),
+      labCaseBreakdown,
+      imagingCaseBreakdown,
     };
   }
 
