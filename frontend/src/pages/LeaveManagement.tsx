@@ -379,13 +379,13 @@ export default function LeaveManagement() {
       {(view === 'pending' || view === 'history') && (
         <>
           {isLoading ? (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-10 text-center">
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6 text-center">
               <RefreshCw className="w-6 h-6 text-[var(--text-tertiary)] mx-auto mb-3 animate-spin" />
               <p className="text-sm text-[var(--text-secondary)]">Loading leaves…</p>
             </div>
           ) : visibleLeaves.length === 0 ? (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center">
-              <FileText className="w-14 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6 text-center">
+              <FileText className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-3" />
               <p className="text-sm font-medium text-[var(--text-primary)] mb-1">{view === 'pending' ? 'No pending leave requests' : 'No leave requests found'}</p>
               <p className="text-xs text-[var(--text-secondary)]">{view === 'pending' ? 'All caught up.' : 'Try widening your filters.'}</p>
             </div>
@@ -476,7 +476,7 @@ export default function LeaveManagement() {
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
                   {paginatedStaffRows.length === 0 ? (
-                    <tr><td colSpan={13} className="px-4 py-12 text-center text-sm text-[var(--text-secondary)]">No leave records found for {year}</td></tr>
+                    <tr><td colSpan={13} className="px-4 py-6 text-center text-sm text-[var(--text-secondary)]">No leave records found for {year}</td></tr>
                   ) : (
                     paginatedStaffRows.map((row) => (
                       <tr key={row.id} className="hover:bg-[var(--bg-main)]">
