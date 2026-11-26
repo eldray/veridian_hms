@@ -511,7 +511,13 @@ export const REPORT_REGISTRY: ReportShape[] = [
       { label: 'HIV positive results', field: 'summary.hiv.positive', value: 'number', hint: 'Recorded screening/confirmatory results only' },
       { label: 'HIV negative results', field: 'summary.hiv.negative', value: 'number' },
       { label: 'HIV tests pending', field: 'summary.hiv.pending', value: 'number' },
-      { label: 'HIV positivity (%)', field: 'summary.hiv.positivityRate', value: 'percent', hint: 'Among HIV test results entered; blank when none' },
+      { label: 'HIV positivity (%)', field: 'summary.hiv.positivityRate', value: 'percent', hint: 'Among laboratory HIV test results entered; blank when none' },
+      { label: 'HTS counselling episodes', field: 'hts.counsellingEpisodes', value: 'number' },
+      { label: 'HTS completed tests', field: 'hts.completedTests', value: 'number' },
+      { label: 'HTS confirmed positive', field: 'hts.confirmedPositive', value: 'number' },
+      { label: 'HTS newly identified positive', field: 'hts.newlyIdentifiedPositive', value: 'number' },
+      { label: 'HTS previously known positive', field: 'hts.previouslyKnownPositive', value: 'number' },
+      { label: 'HTS linked to care', field: 'hts.linkedToCare', value: 'number' },
     ],
     tables: [
       countTable('By state', 'summary.byStatus', 'State', 'Tests'),
@@ -531,7 +537,7 @@ export const REPORT_REGISTRY: ReportShape[] = [
           { header: 'Female HIV positive', field: 'femalePositive', value: 'number' },
           { header: 'Total HIV positive', field: 'totalPositive', value: 'number' },
         ],
-        note: 'Counts are HIV test events. Age is calculated at the test request date. Pending tests count under tested but not positive. Patients without date of birth are excluded from age-band rows. A positive screening result is not treated as confirmed diagnosis.',
+        note: 'Counts are completed HTS testing episodes, not unique people. Age is calculated at the testing date. Only confirmed positive results count as HIV positive; patients without date of birth are excluded from age-band rows.',
       },
       {
         title: 'HIV Test Results Breakdown',
