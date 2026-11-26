@@ -7,7 +7,7 @@ describe('GHS EPI report', () => {
     const findMany = vi.fn().mockResolvedValue([
       {
         patientId: 'patient-1', vaccineId: 'bcg', doseNumber: 'Dose 1',
-        administeredAt: new Date('2026-12-10T10:00:00.000Z'),
+        administeredAt: new Date('2026-11-10T10:00:00.000Z'),
         nextDoseDue: new Date('2026-12-10T10:00:00.000Z'),
         batchNumber: 'B-001', adverseReaction: null, underlyingCondition: true, healthWorker: false, pregnancyStatus: 'pregnant',
         Vaccine: { id: 'bcg', code: 'BCG', name: 'BCG', diseaseTargets: ['Tuberculosis'], doseSchedule: null },
