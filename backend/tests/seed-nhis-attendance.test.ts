@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeNhisNumber, setSeed } from '../src/seed/bulkGenerator';
+import { COUNTS, generateAttendances, generatePatients, makeNhisNumber, setSeed } from '../src/seed/bulkGenerator';
 import { nhisCCCFor, nhisSeedCCCFields } from '../src/seed/testSeed/encounters';
 
 describe('NHIS demo attendance identity', () => {
