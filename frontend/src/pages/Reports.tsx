@@ -824,8 +824,13 @@ export default function Reports() {
     const report = epiReport as any;
     if (!report?.available) return <EmptyState message={report?.message || 'No immunization records are available for this period'} />;
     const summary = report.summary || {};
-    const vaccines = Array.isArray(report.byVaccine) ? report.byVaccine : [];
+    const vaccines = Array.isArray(report.monthlyVaccinations) ? report.monthlyVaccinations : [];
+    const covid = Array.isArray(report.covidVaccinations) ? report.covidVaccinations : [];
+    const td = Array.isArray(report.tdVaccinations) ? report.tdVaccinations : [];
     const count = (value: any) => Number(value || 0).toLocaleString('en-GH');
+    const table = 'w-full min-w-[680px] text-xs border-collapse';
+    const th = 'px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wide text-[var(--text-tertiary)] bg-[var(--bg-main)] border-b border-[var(--border-color)]';
+    const num = 'px-3 py-2 text-right tabular-nums text-[var(--text-primary)] border-b border-[var(--border-color)]';
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -834,47 +839,32 @@ export default function Reports() {
           <StatCard label="Overdue follow-ups" value={count(summary.overdueFollowUps)} icon={Calendar} accent="orange" />
           <StatCard label="Adverse reactions recorded" value={count(summary.adverseReactions)} icon={AlertTriangle} accent="red" />
         </div>
-        <Card title="Vaccine doses by vaccine" icon={Baby} accent="purple" padded={false}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs table-fixed">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr>
-                <th className={TEXT_TH}>Vaccine</th><th className={NUM_TH}>Doses</th><th className={NUM_TH}>Children</th>
-                <th className={NUM_TH}>Under 1</th><th className={NUM_TH}>1–4 yrs</th><th className={NUM_TH}>5–14 yrs</th><th className={NUM_TH}>15+ yrs</th>
-              </tr></thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {vaccines.map((v: any) => <tr key={v.vaccineId}>
-                  <td className={TEXT_TD}><div className="font-semibold">{v.vaccine}</div><div className="text-[10px] text-[var(--text-tertiary)]">{v.code}</div></td>
-                  <td className={NUM_TD_BOLD}>{count(v.doses)}</td><td className={NUM_TD}>{count(v.uniquePatients)}</td>
-                  <td className={NUM_TD}>{count(v.ageGroups?.['<1 year'])}</td><td className={NUM_TD}>{count(v.ageGroups?.['1–4 years'])}</td>
-                  <td className={NUM_TD}>{count(v.ageGroups?.['5–14 years'])}</td><td className={NUM_TD}>{count(v.ageGroups?.['15+ years'])}</td>
-                </tr>)}
-                {!vaccines.length && <tr><td className={TEXT_TD} colSpan={7}>No vaccine administrations recorded for this period.</td></tr>}
-              </tbody>
-              <tfoot className="border-t-2 border-[var(--border-color)] bg-[var(--bg-main)]"><tr>
-                <td className={TEXT_TD}>TOTAL</td><td className={NUM_TD_BOLD}>{count(summary.totalDoses)}</td>
-                <td className={NUM_TD_BOLD}>{count(summary.uniquePatients)}</td>
-                {['<1 year','1–4 years','5–14 years','15+ years'].map(age => <td key={age} className={NUM_TD_BOLD}>{count(report.byAgeGroup?.[age])}</td>)}
-              </tr></tfoot>
-            </table>
-          </div>
+        <Card title="Monthly vaccinations given by age" description="Administration counts grouped by age on the vaccination date." icon={Baby} accent="purple" padded={false}>
+          <div className="overflow-x-auto"><table className={table}>
+            <thead><tr><th className={th}>Vaccine / Commodities</th><th className={th + ' text-right'}>0–11 months</th><th className={th + ' text-right'}>12–23 months</th><th className={th + ' text-right'}>≥24 months</th><th className={th + ' text-right'}>Total administered</th></tr></thead>
+            <tbody>{vaccines.map((row: any) => <tr key={row.vaccine}><td className="px-3 py-2 font-medium text-[var(--text-primary)]">{row.vaccine}</td><td className={num}>{count(row.under12Months)}</td><td className={num}>{count(row.months12To23)}</td><td className={num}>{count(row.months24Plus)}</td><td className={num + ' font-bold bg-[var(--bg-main)]'}>{count(row.totalAdministered)}</td></tr>)}
+              {!vaccines.length && <tr><td className="px-3 py-5 text-center text-[var(--text-tertiary)]" colSpan={5}>No mapped vaccine administrations for this period.</td></tr>}</tbody>
+            <tfoot><tr className="bg-[var(--bg-main)]"><td className="px-3 py-2 font-bold text-[var(--text-primary)]">TOTAL</td>{['under12Months','months12To23','months24Plus','totalAdministered'].map(key => <td key={key} className={num + ' font-bold'}>{count(vaccines.reduce((sum: number, row: any) => sum + Number(row[key] || 0), 0))}</td>)}</tr></tfoot>
+          </table></div>
         </Card>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card title="Dose sequence" icon={ClipboardList} padded={false}>
-            <div className="divide-y divide-[var(--border-color)]">{Object.entries(report.byDoseNumber || {}).map(([dose, total]: any) =>
-              <div key={dose} className="flex justify-between px-4 py-2.5 text-xs"><span>{dose}</span><strong>{count(total)}</strong></div>)}
-              {!Object.keys(report.byDoseNumber || {}).length && <p className="p-4 text-xs text-[var(--text-tertiary)]">No dose entries in this period.</p>}
-            </div>
-          </Card>
-          <Card title="Reporting limitations" icon={Shield} padded>
-            <p className="text-xs text-[var(--text-secondary)]">Coverage and fully immunized rates are not calculated without a catchment-population denominator and validated vaccine schedules.</p>
-            <ul className="mt-2 list-disc pl-5 space-y-1 text-xs text-[var(--text-tertiary)]">{(report.dataLimitations || []).map((item: string, i: number) => <li key={i}>{item}</li>)}</ul>
-          </Card>
-        </div>
+        <Card title="COVID-19 vaccination" description="Age-group totals. Risk-group attributes are not currently captured separately." icon={Shield} padded={false}>
+          <div className="overflow-x-auto"><table className={table}>
+            <thead><tr><th className={th}>Doses</th><th className={th + ' text-right'}>6 months–14 yrs</th><th className={th + ' text-right'}>15–17 yrs</th><th className={th + ' text-right'}>18–59 yrs</th><th className={th + ' text-right'}>60+ yrs</th><th className={th + ' text-right'}>Total doses</th><th className={th + ' text-right'}>Underlying conditions</th><th className={th + ' text-right'}>Health workers</th><th className={th + ' text-right'}>Pregnant women</th></tr></thead>
+            <tbody>{covid.map((row: any) => <tr key={row.dose}><td className="px-3 py-2 text-[var(--text-primary)]">{row.dose}</td><td className={num}>{count(row.age6MonthsTo14Years)}</td><td className={num}>{count(row.age15To17Years)}</td><td className={num}>{count(row.age18To59Years)}</td><td className={num}>{count(row.age60Plus)}</td><td className={num + ' font-bold'}>{count(row.totalDoses)}</td><td className={num}>—</td><td className={num}>—</td><td className={num}>—</td></tr>)}</tbody>
+          </table></div>
+        </Card>
+        <Card title="Td vaccination" icon={Baby} padded={false}>
+          <div className="overflow-x-auto"><table className={table}>
+            <thead><tr><th className={th}>Td vaccination</th><th className={th + ' text-right'}>Pregnant women</th><th className={th + ' text-right'}>Non-pregnant</th><th className={th + ' text-right'}>Others</th></tr></thead>
+            <tbody>{td.map((row: any) => <tr key={row.dose}><td className="px-3 py-2 text-[var(--text-primary)]">{row.dose}</td><td className={num}>{count(row.pregnantWomen)}</td><td className={num}>{count(row.nonPregnant)}</td><td className={num}>{count(row.others)}</td></tr>)}
+              <tr><td className="px-3 py-2 text-[var(--text-primary)]">LLIN – Pregnant Women</td><td className={num}>—</td><td className={num}>—</td><td className={num}>—</td></tr></tbody>
+          </table></div>
+        </Card>
+        <p className="text-[11px] text-[var(--text-tertiary)]">Stock balances, expired doses, other losses and stockout days are not inferred from current stock alone. COVID-19 risk groups and Td pregnancy status are also not yet separately captured; these fields remain unreported rather than being shown as zero.</p>
       </div>
     );
   };
 
-  // -------------------------------------------------------------------------
   // IDSR
   // -------------------------------------------------------------------------
   const renderIDSRReport = () => {
