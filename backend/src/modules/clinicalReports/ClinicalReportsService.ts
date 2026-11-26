@@ -25,6 +25,7 @@ export class ClinicalReportsService extends BaseService {
     this.logInfo('Generating lab report', { startDate: filters.startDate, endDate: filters.endDate });
     const labTests = await this.repository.getLabTests(filters);
     const scansForCases = await this.repository.getScans(filters);
+    const hivTestingRecords = await this.repository.getHIVTestingRecords(filters);
     const completedTests = labTests.filter(t => t.status === 'completed');
     const totalTurnaround = completedTests.reduce((sum, t) => sum + (t.turnaroundMinutes || 0), 0);
 
@@ -177,21 +178,21 @@ export class ClinicalReportsService extends BaseService {
       ageGroup: band.label, maleTested: 0, femaleTested: 0,
       malePositive: 0, femalePositive: 0, totalTested: 0, totalPositive: 0,
     }]));
-    const hivResultByTestId = new Map(hivResults.map(item => [item.test.id, item]));
-    for (const test of hivTests) {
-      const patient = test.Attendance?.Patient;
+    for (const record of hivTestingRecords) {
+      const patient = record.Patient;
       if (!patient?.dateOfBirth) continue;
-      const age = this.calculateAge(patient.dateOfBirth, test.requestedAt || test.createdAt);
+      const age = this.calculateAge(patient.dateOfBirth, record.testedAt);
       const band = hivAgeBands.find(candidate => age >= candidate.min && age <= candidate.max);
       if (!band) continue;
       const row = hivAgeSexMap.get(band.key)!;
       row.totalTested++;
-      if (patient.gender === 'male') row.maleTested++;
-      else if (patient.gender === 'female') row.femaleTested++;
-      if (hivResultByTestId.get(test.id)?.positive) {
+      const gender = String(patient.gender || '').toLowerCase();
+      if (gender === 'male') row.maleTested++;
+      else if (gender === 'female') row.femaleTested++;
+      if (record.result === 'positive' && record.resultConfirmed) {
         row.totalPositive++;
-        if (patient.gender === 'male') row.malePositive++;
-        else if (patient.gender === 'female') row.femalePositive++;
+        if (gender === 'male') row.malePositive++;
+        else if (gender === 'female') row.femalePositive++;
       }
     }
     const hivAgeSexBreakdown = hivAgeBands.map(band => hivAgeSexMap.get(band.key)!);
@@ -232,6 +233,14 @@ export class ClinicalReportsService extends BaseService {
       allTests,
       hivTestBreakdown: hivBreakdown,
       hivAgeSexBreakdown,
+      hts: {
+        counsellingEpisodes: hivTestingRecords.length,
+        completedTests: hivTestingRecords.length,
+        confirmedPositive: hivTestingRecords.filter(record => record.result === 'positive' && record.resultConfirmed).length,
+        newlyIdentifiedPositive: hivTestingRecords.filter(record => record.newlyIdentifiedPositive).length,
+        previouslyKnownPositive: hivTestingRecords.filter(record => record.previouslyKnownPositive).length,
+        linkedToCare: hivTestingRecords.filter(record => record.linkageStatus === 'linked').length,
+      },
       positivityRates: topTests.map(t => ({ testName: t.testName, rate: t.positiveRate.toFixed(1) })),
       labCaseBreakdown,
       imagingCaseBreakdown,
