@@ -5,6 +5,7 @@ import { Button, INPUT, cn } from '../../components/ui';
 
 type Vaccine = { id: string; code: string; name: string; isActive?: boolean; description?: string | null; defaultDoseVolume?: string | null; defaultRoute?: string | null; diseaseTargets?: string[]; recommendedAge?: string | null; StockItem?: { id: string; name: string; drugCode: string; currentStock: number } | null };
 type VaccineStockItem = { id: string; name: string; drugCode: string; currentStock: number; unitOfMeasure: string };
+type VaccineBatchAvailability = { stockItem: { id: string; name: string; currentStock: number }; batchTracked: boolean; departmentAssigned: boolean; batches: Array<{ id: string; batchNumber: string; expiryDate: string; quantity: number; receivedDate: string }>; usableQuantity: number };
 type RecordRow = { id: string; doseNumber: string; administeredAt: string; doseVolume?: string | null; route?: string | null; administrationSite?: string | null; batchNumber?: string | null; expiryDate?: string | null; nextDoseDue?: string | null; adverseReaction?: string | null; notes?: string | null; stockTransactionId?: string | null; StockTransaction?: { id: string; transactionType: string; quantity: number } | null; Vaccine?: Vaccine; Attendance?: { attendanceNumber?: string; dateTime?: string }; AdministeredBy?: { fullName?: string } };
 type Visit = { id: string; attendanceType?: string; attendanceNumber?: string; dateTime?: string; createdAt?: string; status?: string };
 const localToday = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -15,6 +16,9 @@ export default function ImmunizationPanel({ patientId, attendances, initialAtten
   const [catalogueVaccines, setCatalogueVaccines] = useState<Vaccine[]>([]);
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [vaccineStockItems, setVaccineStockItems] = useState<VaccineStockItem[]>([]);
+  const [batchAvailability, setBatchAvailability] = useState<VaccineBatchAvailability | null>(null);
+  const [batchAvailabilityLoading, setBatchAvailabilityLoading] = useState(false);
+  const [batchAvailabilityError, setBatchAvailabilityError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -34,6 +38,29 @@ export default function ImmunizationPanel({ patientId, attendances, initialAtten
     });
   }, [immunizationVisits, initialAttendanceId]);
   const selectedVaccine = useMemo(() => vaccines.find(v => v.id === form.vaccineId), [vaccines, form.vaccineId]);
+
+  useEffect(() => {
+    const vaccineId = selectedVaccine?.id;
+    if (!selectedVaccine?.StockItem?.id || !vaccineId) {
+      setBatchAvailability(null);
+      setBatchAvailabilityError('');
+      setBatchAvailabilityLoading(false);
+      return;
+    }
+    let active = true;
+    setBatchAvailabilityLoading(true);
+    setBatchAvailabilityError('');
+    api.get('/immunization/vaccines/' + vaccineId + '/stock-batches')
+      .then(response => { if (active) setBatchAvailability(response.data?.data ?? null); })
+      .catch((e: any) => {
+        if (active) {
+          setBatchAvailability(null);
+          setBatchAvailabilityError(e.response?.data?.message || e.message || 'Could not check vaccine batches.');
+        }
+      })
+      .finally(() => { if (active) setBatchAvailabilityLoading(false); });
+    return () => { active = false; };
+  }, [selectedVaccine?.id, selectedVaccine?.StockItem?.id]);
 
   const load = async () => {
     setLoading(true); setError('');
