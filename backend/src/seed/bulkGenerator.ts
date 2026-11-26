@@ -2114,7 +2114,8 @@ const emitEncounter = (
   const canStayOpen = encounterCategory === 'ipd' && daysBack < losGuess && state.activeAdmissions < MAX_ACTIVE_ADMISSIONS;
 
   let status: GeneratedAttendance['status'];
-  const randomlyCancelled = chance(0.006);\n  if (randomlyCancelled && !ensureDailyCoverage) status = 'cancelled';
+  const randomlyCancelled = chance(0.006);
+  if (randomlyCancelled && !ensureDailyCoverage) status = 'cancelled';
   else if (encounterCategory === 'ipd') status = canStayOpen && chance(0.55) ? 'admitted' : chance(0.03) ? 'absconded' : 'discharged';
   else if (encounterCategory === 'daycase') status = daysBack === 0 && chance(0.4) ? 'pending' : 'completed';
   else if (scenario.key === 'detention') status = 'admitted';
