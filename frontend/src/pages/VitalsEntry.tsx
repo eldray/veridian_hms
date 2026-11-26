@@ -46,35 +46,35 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
 // Vital Card Component
 const VitalCard = ({ icon: Icon, label, value, unit, type, abnormal }: any) => {
   const getVitalStatus = (type: string, value: any): { color: string; bgColor: string; message?: string } => {
-    if (!value) return { color: 'text-[var(--text-secondary)]', bgColor: 'bg-gray-100' };
+    if (!value) return { color: 'text-[var(--text-secondary)]', bgColor: 'bg-[var(--bg-main)]' };
     
     switch (type) {
       case 'bloodPressure':
         if (typeof value === 'string') {
           const [systolic, diastolic] = value.split('/').map(Number);
-          if (systolic > 140 || diastolic > 90) return { color: 'text-red-600', bgColor: 'bg-red-50', message: 'High' };
-          if (systolic < 90 || diastolic < 60) return { color: 'text-yellow-600', bgColor: 'bg-yellow-50', message: 'Low' };
+          if (systolic > 140 || diastolic > 90) return { color: 'text-[var(--icon-red-text)]', bgColor: 'bg-[var(--icon-red-bg)]', message: 'High' };
+          if (systolic < 90 || diastolic < 60) return { color: 'text-[var(--icon-yellow-text)]', bgColor: 'bg-[var(--icon-yellow-bg)]', message: 'Low' };
         }
-        return { color: 'text-green-600', bgColor: 'bg-green-50', message: 'Normal' };
+        return { color: 'text-[var(--icon-green-text)]', bgColor: 'bg-[var(--icon-green-bg)]', message: 'Normal' };
       case 'temperature':
-        if (value > 38) return { color: 'text-red-600', bgColor: 'bg-red-50', message: 'Fever' };
-        if (value < 35) return { color: 'text-yellow-600', bgColor: 'bg-yellow-50', message: 'Low' };
-        return { color: 'text-green-600', bgColor: 'bg-green-50', message: 'Normal' };
+        if (value > 38) return { color: 'text-[var(--icon-red-text)]', bgColor: 'bg-[var(--icon-red-bg)]', message: 'Fever' };
+        if (value < 35) return { color: 'text-[var(--icon-yellow-text)]', bgColor: 'bg-[var(--icon-yellow-bg)]', message: 'Low' };
+        return { color: 'text-[var(--icon-green-text)]', bgColor: 'bg-[var(--icon-green-bg)]', message: 'Normal' };
       case 'pulse':
-        if (value > 100) return { color: 'text-red-600', bgColor: 'bg-red-50', message: 'High' };
-        if (value < 60) return { color: 'text-yellow-600', bgColor: 'bg-yellow-50', message: 'Low' };
-        return { color: 'text-green-600', bgColor: 'bg-green-50', message: 'Normal' };
+        if (value > 100) return { color: 'text-[var(--icon-red-text)]', bgColor: 'bg-[var(--icon-red-bg)]', message: 'High' };
+        if (value < 60) return { color: 'text-[var(--icon-yellow-text)]', bgColor: 'bg-[var(--icon-yellow-bg)]', message: 'Low' };
+        return { color: 'text-[var(--icon-green-text)]', bgColor: 'bg-[var(--icon-green-bg)]', message: 'Normal' };
       case 'spo2':
-        if (value < 95) return { color: 'text-red-600', bgColor: 'bg-red-50', message: 'Low' };
-        return { color: 'text-green-600', bgColor: 'bg-green-50', message: 'Normal' };
+        if (value < 95) return { color: 'text-[var(--icon-red-text)]', bgColor: 'bg-[var(--icon-red-bg)]', message: 'Low' };
+        return { color: 'text-[var(--icon-green-text)]', bgColor: 'bg-[var(--icon-green-bg)]', message: 'Normal' };
       default:
         return { color: 'text-[var(--text-secondary)]', bgColor: 'bg-gray-100' };
     }
   };
   
   const status = getVitalStatus(type, value);
-  const displayColor = abnormal === true ? 'text-red-600' : abnormal === false ? 'text-green-600' : status.color;
-  const displayBg = abnormal === true ? 'bg-red-50' : abnormal === false ? 'bg-green-50' : status.bgColor;
+  const displayColor = abnormal === true ? 'text-[var(--icon-red-text)]' : abnormal === false ? 'text-[var(--icon-green-text)]' : status.color;
+  const displayBg = abnormal === true ? 'bg-[var(--icon-red-bg)]' : abnormal === false ? 'bg-[var(--icon-green-bg)]' : status.bgColor;
   
   return (
     <div className={`${displayBg} rounded-xl p-4 transition-all duration-200 border border-[var(--border-color)]`}>
@@ -102,14 +102,14 @@ const VitalCard = ({ icon: Icon, label, value, unit, type, abnormal }: any) => {
 // Status Badge component
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const colors: Record<string, string> = {
-    'pending': 'bg-yellow-100 text-yellow-800',
-    'active': 'bg-green-100 text-green-800',
-    'completed': 'bg-blue-100 text-blue-800',
-    'cancelled': 'bg-red-100 text-red-800',
-    'admitted': 'bg-purple-100 text-purple-800',
-    'discharged': 'bg-gray-100 text-gray-800'
+    'pending': 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
+    'active': 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
+    'completed': 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]',
+    'cancelled': 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
+    'admitted': 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
+    'discharged': 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
   };
-  const cls = colors[status?.toLowerCase()] || 'bg-gray-100 text-gray-800';
+  const cls = colors[status?.toLowerCase()] || 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
   return (
     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
       {status || 'pending'}
@@ -510,13 +510,13 @@ export default function VitalsEntry() {
               <div className="flex flex-wrap items-center gap-3">
                 <h2 className="text-lg font-semibold text-[var(--text-primary)]">Vital Signs Tracking</h2>
                 {hasAbnormalVitals && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs">
+                  <div className="flex items-center gap-1 px-2 py-0.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-full text-xs">
                     <AlertTriangle className="w-3 h-3" />
                     <span>Abnormal Values Detected</span>
                   </div>
                 )}
                 {latestVitals && (
-                  <div className="flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">
+                  <div className="flex items-center gap-1 px-2 py-0.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-full text-xs">
                     <CheckCircle className="w-3 h-3" />
                     <span>Updated: {new Date(latestVitals.recordedAt).toLocaleTimeString()}</span>
                   </div>
