@@ -29,6 +29,26 @@ export const seedPatients = async (
   stats: SeedStats,
   planned: SeedStats,
 ): Promise<PatientRecords> => {
+  // Only assign an insured payment mode when its real active provider/account exists.
+  // The patient plans are also passed to the encounter generator, so reconcile them here
+  // before either patients or visits are written.
+  const hasProvider = (type: string) => (lookups.insuranceProviderByType.get(type) ?? []).length > 0;
+  const hasCorporateAccount = lookups.corporateAccounts.length > 0;
+  const payerFallbacks = { nhis: 0, private: 0, corporate: 0 };
+  for (const patient of patients) {
+    const unavailable =
+      patient.paymentMode === 'nhis' && !hasProvider('nhis') ? 'nhis'
+      : patient.paymentMode === 'private_insurance' && !hasProvider('private') ? 'private'
+      : patient.paymentMode === 'corporate' && !hasCorporateAccount ? 'corporate'
+      : null;
+    if (!unavailable) continue;
+    patient.paymentMode = 'cash';
+    patient.nhisNumber = null;
+    patient.nhisExpiryDate = null;
+    patient.nhisActive = false;
+    patient.insuranceDetails = {};
+    payerFallbacks[unavailable] += 1;
+  }
   const rows: any[] = [];
   const nhisNumberByFolder = new Map<string, string>();
   const avatarByFolder = await seedAvatarImages('patients', patients.map((patient) => patient.folderNumber));
@@ -155,6 +175,10 @@ export const seedPatients = async (
   await writeMany('consents', (part) => prisma.patientConsent.createMany({ data: part }), consentRows, stats, planned);
 
   console.log(`✅ ${idByFolder.size} patients (${allergyRows.length} allergies, ${consentRows.length} consents)`);
+  const payerFallbackTotal = payerFallbacks.nhis + payerFallbacks.private + payerFallbacks.corporate;
+  if (payerFallbackTotal) {
+    console.warn(`   ${payerFallbackTotal} patient payer modes changed to cash because configured provider/account IDs were unavailable (NHIS ${payerFallbacks.nhis}, private ${payerFallbacks.private}, corporate ${payerFallbacks.corporate}).`);
+  }
   return { idByFolder, rowByFolder };
 };
 
