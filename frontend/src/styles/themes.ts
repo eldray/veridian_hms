@@ -73,7 +73,7 @@ const originalScheme: ColorScheme = {
     // Cyan — muted teal wash, not bright aqua
     '--icon-cyan-bg': '#E0F2F7',
     '--icon-cyan-text': '#0E7490',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     // Orange — desaturated amber
     '--icon-orange-bg': '#FDF3EC',
     '--icon-orange-text': '#C05621',
@@ -107,7 +107,7 @@ const originalScheme: ColorScheme = {
     '--text-tertiary': '#8FA1B5',
     '--icon-cyan-bg': '#0C2830',
     '--icon-cyan-text': '#4AACBF',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#271400',
     '--icon-orange-text': '#CC7A40',
     '--icon-red-bg': '#240A0A',
@@ -149,7 +149,7 @@ const arcticSlate: ColorScheme = {
     // Cyan slot → institutional navy-blue
     '--icon-cyan-bg': '#EAF0F8',
     '--icon-cyan-text': '#1A4080',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     // Orange → muted amber-rust
     '--icon-orange-bg': '#FDF2EB',
     '--icon-orange-text': '#B54A10',
@@ -183,7 +183,7 @@ const arcticSlate: ColorScheme = {
     '--text-tertiary': '#8FA1B5',
     '--icon-cyan-bg': '#0C1E40',
     '--icon-cyan-text': '#4880C8',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#261200',
     '--icon-orange-text': '#C07040',
     '--icon-red-bg': '#260808',
@@ -225,7 +225,7 @@ const sageClinic: ColorScheme = {
     // Cyan slot → forest green
     '--icon-cyan-bg': '#EAF4EE',
     '--icon-cyan-text': '#2D6A4F',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     // Orange → terracotta-amber
     '--icon-orange-bg': '#FBF0E8',
     '--icon-orange-text': '#A84010',
@@ -260,7 +260,7 @@ const sageClinic: ColorScheme = {
     // Forest green accent — not neon
     '--icon-cyan-bg': '#081E10',
     '--icon-cyan-text': '#4A9060',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#261000',
     '--icon-orange-text': '#B06030',
     '--icon-red-bg': '#220808',
@@ -303,7 +303,7 @@ const violetCare: ColorScheme = {
     // Cyan slot → deep plum
     '--icon-cyan-bg': '#EEE8FA',
     '--icon-cyan-text': '#4C1D95',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     // Orange → warm ochre
     '--icon-orange-bg': '#FBF2E8',
     '--icon-orange-text': '#A8440A',
@@ -337,7 +337,7 @@ const violetCare: ColorScheme = {
     '--text-tertiary': '#8FA1B5',
     '--icon-cyan-bg': '#200E50',
     '--icon-cyan-text': '#9070D0',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#281000',
     '--icon-orange-text': '#B87040',
     '--icon-red-bg': '#280818',
@@ -379,7 +379,7 @@ const obsidianGold: ColorScheme = {
     // Cyan slot → burnished amber-gold
     '--icon-cyan-bg': '#FAF2E0',
     '--icon-cyan-text': '#92620A',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     // Orange → clay-rust
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A0A',
@@ -414,7 +414,7 @@ const obsidianGold: ColorScheme = {
     // Gold accent — burnished, not yellow
     '--icon-cyan-bg': '#281E00',
     '--icon-cyan-text': '#B88A30',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#261000',
     '--icon-orange-text': '#A86030',
     '--icon-red-bg': '#220808',
@@ -457,7 +457,7 @@ const slateIndigo: ColorScheme = {
     // Cyan slot → deep indigo
     '--icon-cyan-bg': '#ECEEFA',
     '--icon-cyan-text': '#3730A3',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     // Orange → muted amber
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#984010',
@@ -491,7 +491,7 @@ const slateIndigo: ColorScheme = {
     '--text-tertiary': '#8FA1B5',
     '--icon-cyan-bg': '#10103A',
     '--icon-cyan-text': '#7880D0',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#260E00',
     '--icon-orange-text': '#A06030',
     '--icon-red-bg': '#240808',
@@ -533,7 +533,7 @@ const tealIvory: ColorScheme = {
     // Cyan slot → deep teal
     '--icon-cyan-bg': '#E4F4F2',
     '--icon-cyan-text': '#0A5C55',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     // Orange → warm amber-clay
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#984010',
@@ -568,7 +568,7 @@ const tealIvory: ColorScheme = {
     // Measured teal — not neon
     '--icon-cyan-bg': '#081E1A',
     '--icon-cyan-text': '#3A9490',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#241000',
     '--icon-orange-text': '#A06030',
     '--icon-red-bg': '#200808',
@@ -610,7 +610,7 @@ const warmNeutral: ColorScheme = {
     // Cyan slot → warm steel-blue, fits the stone palette
     '--icon-cyan-bg': '#EAF0F6',
     '--icon-cyan-text': '#2A5580',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     // Orange → warm terracotta
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A10',
@@ -645,7 +645,7 @@ const warmNeutral: ColorScheme = {
     // Warm steel blue — not cold sky blue
     '--icon-cyan-bg': '#0C1A28',
     '--icon-cyan-text': '#4880A8',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#241000',
     '--icon-orange-text': '#A07040',
     '--icon-red-bg': '#220808',
@@ -687,7 +687,7 @@ const clinicalBlue: ColorScheme = {
     // Cyan slot → deep hospital navy
     '--icon-cyan-bg': '#E8EFF8',
     '--icon-cyan-text': '#0A3870',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     // Orange → warm amber
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A10',
@@ -722,7 +722,7 @@ const clinicalBlue: ColorScheme = {
     // Measured navy-blue — not sky blue
     '--icon-cyan-bg': '#081428',
     '--icon-cyan-text': '#4878B8',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#220E00',
     '--icon-orange-text': '#986030',
     '--icon-red-bg': '#1E0808',
@@ -762,7 +762,7 @@ const graphiteSteel: ColorScheme = {
     '--text-tertiary': '#A0AEC0',
     '--icon-cyan-bg': '#E6F4F6',
     '--icon-cyan-text': '#007A8C',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A10',
     '--icon-red-bg': '#F8ECEC',
@@ -791,7 +791,7 @@ const graphiteSteel: ColorScheme = {
     '--text-tertiary': '#8FA1B5',
     '--icon-cyan-bg': '#0A2830',
     '--icon-cyan-text': '#3AAABB',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#261000',
     '--icon-orange-text': '#A86030',
     '--icon-red-bg': '#220808',
@@ -831,7 +831,7 @@ const sandstoneRust: ColorScheme = {
     '--text-tertiary': '#A08868',
     '--icon-cyan-bg': '#FAF0E8',
     '--icon-cyan-text': '#9A3810',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     '--icon-orange-bg': '#F8EEE4',
     '--icon-orange-text': '#803010',
     '--icon-red-bg': '#F8ECEC',
@@ -860,7 +860,7 @@ const sandstoneRust: ColorScheme = {
     '--text-tertiary': '#8FA1B5',
     '--icon-cyan-bg': '#301400',
     '--icon-cyan-text': '#C06038',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#281000',
     '--icon-orange-text': '#A85030',
     '--icon-red-bg': '#220808',
@@ -900,7 +900,7 @@ const chalkCobalt: ColorScheme = {
     '--text-tertiary': '#8088A8',
     '--icon-cyan-bg': '#E8EDF6',
     '--icon-cyan-text': '#0047AB',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A10',
     '--icon-red-bg': '#F8ECEC',
@@ -929,7 +929,7 @@ const chalkCobalt: ColorScheme = {
     '--text-tertiary': '#8FA1B5',
     '--icon-cyan-bg': '#081840',
     '--icon-cyan-text': '#4870C0',
-    '--icon-cyan-on-text': 'undefined',
+    '--icon-cyan-on-text': '#FFFFFF',
     '--icon-orange-bg': '#240E00',
     '--icon-orange-text': '#986030',
     '--icon-red-bg': '#200808',
