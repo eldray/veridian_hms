@@ -238,7 +238,7 @@ export const PatientSummarySidebar: React.FC<PatientSummarySidebarProps> = ({
                   const dosesDone = (med.administeredDoses || []).length;
                   return (
                     <div key={med.id} className={`flex items-center gap-3 px-4 py-2.5 ${due ? 'bg-[var(--icon-yellow-bg)]' : ''}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${due ? 'bg-[var(--icon-yellow-bg)]0' : 'bg-[var(--text-tertiary)]'}`} />
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${due ? 'bg-[var(--icon-yellow-text)]' : 'bg-[var(--text-tertiary)]'}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-[var(--text-primary)] truncate">{med.name}</p>
                         <p className="text-[10px] text-[var(--text-tertiary)]">
@@ -278,13 +278,13 @@ export const PatientSummarySidebar: React.FC<PatientSummarySidebarProps> = ({
                   return (
                     <div key={task.id} className={`flex items-center gap-3 px-4 py-2.5 ${overdue ? 'bg-[var(--icon-red-bg)]' : ''}`}>
                       <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                        task.priority === 'high' ? 'bg-[var(--icon-red-bg)]0' :
-                        task.priority === 'medium' ? 'bg-[var(--icon-yellow-bg)]0' : 'bg-blue-400'
+                        task.priority === 'high' ? 'bg-[var(--icon-red-text)]' :
+                        task.priority === 'medium' ? 'bg-[var(--icon-yellow-bg)]0' : 'bg-[var(--icon-cyan-text)]'
                       }`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-[var(--text-primary)] truncate">{task.title}</p>
                         {task.scheduledTime && (
-                          <p className={`text-[10px] ${overdue ? 'text-red-600 font-medium' : 'text-[var(--text-tertiary)]'}`}>
+                          <p className={`text-[10px] ${overdue ? 'text-[var(--icon-red-text)] font-medium' : 'text-[var(--text-tertiary)]'}`}>
                             {overdue ? 'Overdue · ' : ''}
                             {new Date(task.scheduledTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>

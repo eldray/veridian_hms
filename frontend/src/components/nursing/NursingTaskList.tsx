@@ -275,7 +275,7 @@ export const NursingTaskList: React.FC<NursingTaskListProps> = ({
 
         {/* Task list */}
         {filtered.length === 0 ? (
-          <div className="text-center py-10 bg-[var(--bg-main)] rounded-xl border border-dashed border-[var(--border-color)]">
+          <div className="text-center py-8 bg-[var(--bg-main)] rounded-xl border border-dashed border-[var(--border-color)]">
             <ClipboardList className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-2 opacity-40" />
             <p className="text-sm text-[var(--text-secondary)] font-medium">
               {filter === 'pending' ? 'No pending tasks' : filter === 'completed' ? 'No completed tasks yet' : 'No tasks added'}
