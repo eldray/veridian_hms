@@ -2081,7 +2081,7 @@ export default function EditNHISClaim() {
           <div className="flex justify-end gap-3 bg-[var(--bg-card)] px-5 py-4 border-t border-[var(--border-color)]">
             <button type="button" onClick={handleDownloadXml} className="px-4 py-2 border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] flex items-center gap-2"><Download className="w-4 h-4" /> Download XML</button>
             <button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-[var(--border-color)] rounded text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
-            <button type="button" onClick={goBack} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
+            <button type="button" onClick={goBack} className="px-6 py-2 border border-[var(--icon-red-text)] text-[var(--icon-red-text)] rounded text-sm hover:bg-[var(--icon-red-bg)] transition-colors">Close</button>
           </div>
         ) : (
           <ClaimFooter onCancel={goBack} onSave={handleSave} saving={isSubmitting} />
