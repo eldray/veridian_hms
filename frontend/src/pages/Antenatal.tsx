@@ -969,7 +969,7 @@ useEffect(() => {
               const c = cfg[t] ?? cfg.additional;
               return (
                 <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                  <TDp>{item.Diagnosis?.name}{item.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{item.notes}</p>}</TDp>
+                  <TDp>{item.Diagnosis?.name || '—'}</TDp>
                   <TD className="font-mono">{item.Diagnosis?.icdCode || '—'}</TD>
                   <TD><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></TD>
                   <TD>{item.createdBy?.fullName || '—'}</TD>
