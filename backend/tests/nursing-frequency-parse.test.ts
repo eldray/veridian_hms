@@ -19,6 +19,18 @@ describe('NursingService.parseFrequency', () => {
   it.each([['5 times a day', 25], ['three times daily', 15], ['twice per day', 10], ['4x daily', 20]])(
     'accepts "%s"', (f, doses) => { expect(parse(f as string).requiredDoses).toBe(doses); });
 
+  it('creates exactly one MAR row for STAT regardless of the entered course duration', () => {
+    expect(parse('STAT').requiredDoses).toBe(1);
+  });
+
+  it('does not create automatic MAR rows for PRN prescriptions', () => {
+    expect(parse('PRN').requiredDoses).toBe(0);
+  });
+
+  it('treats a 24-hour duration as 24 hours, not 24 days', () => {
+    expect(svc.parseSchedule('BD', '24 hours', new Date('2026-01-01T08:00:00Z')).requiredDoses).toBe(2);
+  });
+
   it('still rejects nonsense and out-of-range counts', () => {
     expect(() => parse('whenever')).toThrow(/Unsupported medication frequency/);
     expect(() => parse('seven times daily')).toThrow();
