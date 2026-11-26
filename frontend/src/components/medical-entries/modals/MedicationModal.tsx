@@ -55,6 +55,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('');
   const [duration, setDuration] = useState('');
+  const [route, setRoute] = useState('oral');
+  const [instructions, setInstructions] = useState('');
   const [durationSearch, setDurationSearch] = useState('');
   const [showDurationOptions, setShowDurationOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,6 +79,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setDosage('');
     setFrequency('');
     setDuration('');
+    setRoute('oral');
+    setInstructions('');
     setDurationSearch('');
     setShowDurationOptions(false);
     setShowDropdown(false);
@@ -183,6 +187,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
         dosage: dosage.trim(),
         frequency,
         duration: duration.trim(),
+        route,
+        instructions: instructions.trim() || undefined,
       });
       success('Medication prescribed', `${selectedMed.name} has been prescribed.`);
       clearSelection();
@@ -411,8 +417,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
             </div>
           )}
 
-          {/* Prescription details: dosage, frequency and course length only. */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Prescription details */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
                 Dosage
@@ -444,6 +450,30 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
               </select>
             </div>
 
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Route
+              </label>
+              <select
+                value={route}
+                onChange={e => setRoute(e.target.value)}
+                className={inputCls}
+                disabled={!canEdit}
+              >
+                <option value="oral">Oral</option>
+                <option value="intravenous">Intravenous (IV)</option>
+                <option value="intramuscular">Intramuscular (IM)</option>
+                <option value="subcutaneous">Subcutaneous (SC)</option>
+                <option value="topical">Topical</option>
+                <option value="inhalation">Inhalation</option>
+                <option value="rectal">Rectal</option>
+                <option value="sublingual">Sublingual</option>
+                <option value="nasal">Nasal</option>
+                <option value="ophthalmic">Ophthalmic (eye)</option>
+                <option value="otic">Otic (ear)</option>
+                <option value="vaginal">Vaginal</option>
+              </select>
+            </div>
             <div>
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
                 Days
@@ -505,6 +535,19 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
                 )}
               </div>
               <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Search or choose 1–30, 60 or 90 days.</p>
+            </div>
+            <div className="sm:col-span-2 lg:col-span-4">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Instructions <span className="normal-case font-normal">(optional)</span>
+              </label>
+              <input
+                value={instructions}
+                onChange={e => setInstructions(e.target.value)}
+                placeholder="Additional directions for the patient"
+                className={inputCls}
+                disabled={!canEdit}
+                autoComplete="off"
+              />
             </div>
           </div>
         </div>
