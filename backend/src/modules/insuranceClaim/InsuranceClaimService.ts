@@ -1791,7 +1791,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       clinician: it.clinician ?? null,
       prescriberNo: it.prescriberNo ?? null,
       prescriptionText: it.prescriptionText ?? (medication ? [medication.dosage, medication.frequency, medication.duration].filter(Boolean).join(' · ') : null),
-      prescriptionSnapshot,
+      prescriptionSnapshot: prescriptionSnapshot ?? Prisma.DbNull,
       prescriptionSnapshotAt: prescriptionSnapshot ? snapshotAt : null,
       prescriptionSnapshotVersion: prescriptionSnapshot ? (medication.prescriptionVersion ?? 1) : null,
       serviceCatalogId: it.serviceCatalogId && validCatalog.has(it.serviceCatalogId) ? it.serviceCatalogId : null,
@@ -1889,6 +1889,9 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         scanId: null,
         procedureId: null,
         medicationId: null,
+        prescriptionSnapshot: Prisma.DbNull,
+        prescriptionSnapshotAt: null,
+        prescriptionSnapshotVersion: null,
       };
       rows.unshift(gdrgRow);
       rows.forEach((row, index) => { row.itemNumber = index + 1; });
