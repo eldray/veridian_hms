@@ -240,9 +240,9 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-[var(--bg-card)] rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 bg-[var(--bg-card)] px-6 py-4 border-b flex justify-between items-center z-10">
+          <div className="sticky top-0 bg-[var(--bg-card)] px-6 py-4 border-b border-[var(--border-color)] flex justify-between items-center z-10">
             <div>
-              <h2 className="text-xl font-bold text-pink-600">
+              <h2 className="text-xl font-bold text-[var(--icon-purple-text)]">
                 {isEditing ? 'Edit Pregnancy Record' : 'Create Pregnancy Record'}
               </h2>
               <p className="text-sm text-[var(--text-secondary)]">
@@ -255,11 +255,11 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b px-6">
+          <div className="flex border-b border-[var(--border-color)] px-6">
             <button
               onClick={() => setActiveTab('pregnancy')}
               className={`py-2 px-4 text-sm font-medium flex items-center gap-2 ${
-                activeTab === 'pregnancy' ? 'border-b-2 border-pink-500 text-pink-600' : 'text-[var(--text-secondary)]'
+                activeTab === 'pregnancy' ? 'border-b-2 border-[var(--icon-purple-text)] text-[var(--icon-purple-text)]' : 'text-[var(--text-secondary)]'
               }`}
             >
               <Heart className="w-4 h-4" /> Pregnancy Details
@@ -267,7 +267,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
             <button
               onClick={() => setActiveTab('history')}
               className={`py-2 px-4 text-sm font-medium flex items-center gap-2 ${
-                activeTab === 'history' ? 'border-b-2 border-pink-500 text-pink-600' : 'text-[var(--text-secondary)]'
+                activeTab === 'history' ? 'border-b-2 border-[var(--icon-purple-text)] text-[var(--icon-purple-text)]' : 'text-[var(--text-secondary)]'
               }`}
             >
               <Calendar className="w-4 h-4" /> Obstetric History
@@ -275,7 +275,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
             <button
               onClick={() => setActiveTab('preventions')}
               className={`py-2 px-4 text-sm font-medium flex items-center gap-2 ${
-                activeTab === 'preventions' ? 'border-b-2 border-pink-500 text-pink-600' : 'text-[var(--text-secondary)]'
+                activeTab === 'preventions' ? 'border-b-2 border-[var(--icon-purple-text)] text-[var(--icon-purple-text)]' : 'text-[var(--text-secondary)]'
               }`}
             >
               <Syringe className="w-4 h-4" /> Preventions & Risk
@@ -295,7 +295,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         type="date"
                         value={formData.lmp}
                         onChange={(e) => handleChange('lmp', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg focus:ring-2 focus:ring-pink-500"
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)] focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                         required
                       />
                     </div>
@@ -305,7 +305,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         type="date"
                         value={formData.edd}
                         onChange={(e) => handleChange('edd', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                         placeholder="Auto-calculated from LMP"
                       />
                       <p className="text-xs text-[var(--text-secondary)] mt-1">Auto-calculated from LMP (40 weeks)</p>
@@ -317,14 +317,14 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         step="1"
                         value={formData.gestationalAgeWeeks}
                         onChange={(e) => handleChange('gestationalAgeWeeks', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                         placeholder="Auto-calculated from LMP"
                       />
                     </div>
                   </div>
                 ) : (
                   // Edit mode - show readonly info
-                  <div className="bg-gray-50 rounded-lg p-4 border">
+                  <div className="bg-[var(--bg-main)] rounded-lg p-4 border">
                     <p className="text-sm text-[var(--text-secondary)]">
                       <strong>LMP:</strong> {formData.lmp ? new Date(formData.lmp).toLocaleDateString() : 'Not recorded'} | 
                       <strong> EDD:</strong> {formData.edd ? new Date(formData.edd).toLocaleDateString() : 'N/A'} |
@@ -334,7 +334,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                   </div>
                 )}
 
-                <div className="border-t pt-4">
+                <div className="border-t border-[var(--border-color)] pt-4">
                   <h3 className="font-semibold mb-3">Measurements at Booking</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
@@ -346,7 +346,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                           step="0.1"
                           value={formData.bookingWeight}
                           onChange={(e) => handleChange('bookingWeight', e.target.value)}
-                          className="flex-1 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                          className="flex-1 px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                           placeholder="e.g., 65.5"
                         />
                       </div>
@@ -360,7 +360,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                           step="0.5"
                           value={formData.bookingHeight}
                           onChange={(e) => handleChange('bookingHeight', e.target.value)}
-                          className="flex-1 px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                          className="flex-1 px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                           placeholder="e.g., 160"
                         />
                       </div>
@@ -371,7 +371,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         type="text"
                         value={formData.bookingBMI}
                         readOnly
-                        className="w-full px-3 py-2 bg-gray-100 border rounded-lg"
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                         placeholder="Auto-calculated"
                       />
                     </div>
@@ -381,7 +381,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         type="text"
                         value={formData.bookingBP}
                         onChange={(e) => handleChange('bookingBP', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                         placeholder="e.g., 120/80"
                       />
                     </div>
@@ -392,7 +392,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         step="0.1"
                         value={formData.bookingHb}
                         onChange={(e) => handleChange('bookingHb', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                         placeholder="e.g., 11.5"
                       />
                     </div>
@@ -401,7 +401,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                       <select
                         value={formData.bloodGroup}
                         onChange={(e) => handleChange('bloodGroup', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                       >
                         <option value="">Select</option>
                         <option value="A+">A+</option>
@@ -419,7 +419,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                       <select
                         value={formData.rhesusFactor}
                         onChange={(e) => handleChange('rhesusFactor', e.target.value)}
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                       >
                         <option value="">Select</option>
                         <option value="Positive">Positive (+)</option>
@@ -442,7 +442,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                       min="1"
                       value={formData.gravida}
                       onChange={(e) => handleChange('gravida', parseInt(e.target.value) || 1)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                       required
                     />
                   </div>
@@ -453,7 +453,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                       min="0"
                       value={formData.para}
                       onChange={(e) => handleChange('para', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                       required
                     />
                   </div>
@@ -499,11 +499,11 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                     value={formData.previousComplicationsOther}
                     onChange={(e) => handleChange('previousComplicationsOther', e.target.value)}
                     placeholder="Other complications (specify)"
-                    className="mt-2 w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                    className="mt-2 w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                   />
                 </div>
 
-                <div className="border-t pt-4">
+                <div className="border-t border-[var(--border-color)] pt-4">
                   <h3 className="font-semibold mb-3">Medical History</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {[
@@ -529,7 +529,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                     <select
                       value={formData.hivStatus}
                       onChange={(e) => handleChange('hivStatus', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                     >
                       <option value="">Select</option>
                       <option value="Positive">Positive</option>
@@ -546,7 +546,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                     <select
                       value={formData.syphilisStatus}
                       onChange={(e) => handleChange('syphilisStatus', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                     >
                       <option value="">Select</option>
                       <option value="Positive">Positive</option>
@@ -559,7 +559,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                     <select
                       value={formData.hepatitisBStatus}
                       onChange={(e) => handleChange('hepatitisBStatus', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                     >
                       <option value="">Select</option>
                       <option value="Positive">Positive</option>
@@ -576,7 +576,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                       type="text"
                       value={formData.occupation}
                       onChange={(e) => handleChange('occupation', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                     />
                   </div>
                   <div>
@@ -585,7 +585,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                       type="text"
                       value={formData.partnerName}
                       onChange={(e) => handleChange('partnerName', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                     />
                   </div>
                   <div>
@@ -594,7 +594,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                       type="text"
                       value={formData.partnerContact}
                       onChange={(e) => handleChange('partnerContact', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                     />
                   </div>
                   <div>
@@ -602,7 +602,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                     <select
                       value={formData.partnerHIVStatus}
                       onChange={(e) => handleChange('partnerHIVStatus', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                     >
                       <option value="">Not tested</option>
                       <option value="Positive">Positive</option>
@@ -628,15 +628,15 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
             {/* Tab 3: Preventions & Risk */}
             {activeTab === 'preventions' && (
               <div className="space-y-5">
-                <div className="border rounded-lg p-4 bg-green-50/20">
+                <div className="border rounded-lg p-4 bg-[var(--icon-green-bg)]/20">
                   <h3 className="font-semibold flex items-center gap-2 mb-3">
-                    <Syringe className="w-4 h-4 text-green-600" />
+                    <Syringe className="w-4 h-4 text-[var(--icon-green-text)]" />
                     Vaccinations & Preventions
                   </h3>
                   
                   <div className="space-y-4">
                     {/* TT Doses - Sequential */}
-                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                    <div className="flex items-center justify-between p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]">
                       <div>
                         <span className="font-medium">Tetanus Toxoid (TT)</span>
                         <p className="text-xs text-[var(--text-secondary)]">Doses given: {formData.ttDosesGiven} of 5</p>
@@ -645,14 +645,14 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         type="button"
                         onClick={handleTTGiven}
                         disabled={formData.ttDosesGiven >= 5}
-                        className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50"
+                        className="px-3 py-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] text-sm rounded-lg hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-green-text)] disabled:opacity-50"
                       >
                         + Record TT Dose {formData.ttDosesGiven + 1}
                       </button>
                     </div>
 
                     {/* IPTp Doses - Sequential */}
-                    <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                    <div className="flex items-center justify-between p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]">
                       <div>
                         <span className="font-medium">IPTp (Sulfadoxine-Pyrimethamine)</span>
                         <p className="text-xs text-[var(--text-secondary)]">Doses given: {formData.iptpDosesGiven} of 5</p>
@@ -661,14 +661,14 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         type="button"
                         onClick={handleIPTpGiven}
                         disabled={formData.iptpDosesGiven >= 5}
-                        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        className="px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] text-sm rounded-lg hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)] disabled:opacity-50"
                       >
                         + Record IPTp Dose {formData.iptpDosesGiven + 1}
                       </button>
                     </div>
 
                     {/* Supplements */}
-                    <div className="flex flex-wrap gap-4 pt-2 border-t">
+                    <div className="flex flex-wrap gap-4 pt-2 border-t border-[var(--border-color)]">
                       <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -702,7 +702,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
 
                 <div className="border rounded-lg p-4">
                   <h3 className="font-semibold flex items-center gap-2 mb-3">
-                    <AlertTriangle className="w-4 h-4 text-orange-600" />
+                    <AlertTriangle className="w-4 h-4 text-[var(--icon-orange-text)]" />
                     Risk Assessment
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -712,9 +712,9 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         value={formData.riskLevel}
                         onChange={(e) => handleChange('riskLevel', e.target.value)}
                         className={`w-full px-3 py-2 border rounded-lg ${
-                          formData.riskLevel === 'high' ? 'bg-red-50 border-red-300' :
-                          formData.riskLevel === 'medium' ? 'bg-yellow-50 border-yellow-300' :
-                          'bg-green-50 border-green-300'
+                          formData.riskLevel === 'high' ? 'bg-[var(--icon-red-bg)] border-[var(--icon-red-text)]' :
+                          formData.riskLevel === 'medium' ? 'bg-[var(--icon-yellow-bg)] border-[var(--icon-yellow-text)]' :
+                          'bg-[var(--icon-green-bg)] border-[var(--icon-green-text)]'
                         }`}
                       >
                         <option value="low">Low Risk</option>
@@ -729,7 +729,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                         value={formData.riskFactors.join(', ')}
                         onChange={(e) => handleChange('riskFactors', e.target.value.split(',').map(s => s.trim()))}
                         placeholder="e.g., Advanced maternal age, Obesity, Multiple pregnancy"
-                        className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                        className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                       />
                     </div>
                   </div>
@@ -741,7 +741,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                     rows={3}
                     value={formData.notes}
                     onChange={(e) => handleChange('notes', e.target.value)}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--icon-purple-text)]"
                     placeholder="Additional clinical notes, concerns, or observations..."
                   />
                 </div>
@@ -760,7 +760,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 disabled:opacity-50"
+                className="px-4 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-purple-text)] disabled:opacity-50"
               >
                 {loading ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update Record' : 'Create Pregnancy Record')}
               </button>
