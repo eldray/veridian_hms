@@ -312,7 +312,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
             <button
               type="submit"
               disabled={isLoading}
-              className="flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex-1 justify-center"
+              className="flex items-center gap-2 px-6 py-3 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-on-text)] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex-1 justify-center"
             >
               <Heart className="w-4 h-4" />
               {isLoading ? 'Saving...' : (isEditing ? 'Update Vitals' : 'Record Vitals')}
