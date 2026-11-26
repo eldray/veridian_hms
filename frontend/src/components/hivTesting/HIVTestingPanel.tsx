@@ -135,7 +135,7 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {check('Separate consent for HIV testing', 'testingConsentGiven')}
-            {field('Test result', 'result', ['pending','positive','negative','invalid','inconclusive'])}
+            {form.testingStatus === 'completed' && field('Final test result', 'result', ['pending','positive','negative','invalid','inconclusive'])}
             {field('Previous testing history', 'previousTesting', ['unknown','never_tested','tested_before','known_positive'])}
             {field('First-time tester', 'firstTimeTester', ['unknown','yes','no'])}
             <label className="block"><span className={labelClass}>Test algorithm / sequence</span><input className={inputClass} value={form.testAlgorithm} onChange={e => update('testAlgorithm',e.target.value)} /></label>
@@ -172,7 +172,11 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
         <p className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-xs text-[var(--text-secondary)]">
           {form.testingStatus === 'counselling'
             ? 'Counselling-only episode: no test result or testing consent is required.'
-            : 'Testing fields will appear when the episode status is Testing or Completed.'}
+            : form.testingStatus === 'testing'
+              ? 'Testing is in progress. Record the result after the test is completed.'
+              : form.testingStatus === 'declined'
+                ? 'The client declined testing. No test result should be recorded.'
+                : 'Choose Counselling to record a counselling-only episode, or Testing when the client has consented to proceed.'}
         </p>
       )}
       <label className="block"><span className={labelClass}>Counselling / follow-up notes (avoid unnecessary identifying details)</span><textarea className={inputClass} rows={3} value={form.notes} onChange={e => update('notes',e.target.value)} /></label>
