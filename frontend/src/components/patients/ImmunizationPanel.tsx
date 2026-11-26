@@ -157,7 +157,7 @@ export default function ImmunizationPanel({ patientId, attendances, initialAtten
     </form>}
     {records.length > 0 && <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
       <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">Vaccinations recorded</p><p className="mt-1 text-xl font-bold text-[var(--text-primary)]">{records.length}</p></div>
-      <div className="rounded-lg border border-[var(--icon-yellow-text)]/30 bg-[var(--icon-yellow-bg)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-yellow-text)]]">Upcoming doses</p><p className="mt-1 text-xl font-bold text-[var(--icon-yellow-text)]">{upcomingRecords.length}</p></div>
+      <div className="rounded-lg border border-[var(--icon-yellow-text)]/30 bg-[var(--icon-yellow-bg)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-yellow-text)]">Upcoming doses</p><p className="mt-1 text-xl font-bold text-[var(--icon-yellow-text)]">{upcomingRecords.length}</p></div>
       <div className="rounded-lg border border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)] p-3"><p className="text-[10px] uppercase tracking-wide text-[var(--icon-red-text)]">Overdue doses</p><p className="mt-1 text-xl font-bold text-[var(--icon-red-text)]">{overdueRecords.length}</p></div>
     </div>}
     {dueRecords.length > 0 && <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
