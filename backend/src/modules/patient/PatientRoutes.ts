@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { PatientController } from './PatientController';
 // ✅ ADDED: Security Middleware
 import { protect, requireAdmin, requirePatientManagement } from '../../middleware/authMiddleware';
+import { auditPatientAccess } from '../../middleware/audit';
 import { uploadPatientPhoto, handleUploadError } from '../../middleware/uploadMiddleware';
 import { validateBody } from '../../middleware/validate';
 import { createAllergySchema, createMedicalHistorySchema } from './PatientSchemas';
@@ -19,6 +20,8 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   // Patients area (admin/super_admin are inherited by requirePatientManagement).
   // Other departments use their own scoped worklists instead of this patient-wide API.
   router.use(protect);
+  // Keep facility-wide clinical access while recording authenticated patient read attempts.
+  router.use(auditPatientAccess);
 
   // Search and list patients
   router.get('/', requirePatientManagement, controller.searchPatients);
