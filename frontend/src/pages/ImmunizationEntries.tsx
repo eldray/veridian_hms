@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import ImmunizationPanel from '../components/patients/ImmunizationPanel';
+import ImmunizationSectionTabs from '../components/immunization/ImmunizationSectionTabs';
 import { useAuthStore } from '../store/authStore';
 import { Syringe, RefreshCw } from 'lucide-react';
 import { Button, Card, PageHeader } from '../components/ui';
@@ -42,6 +43,7 @@ export default function ImmunizationEntries() {
 
   if (loading) return <main className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-secondary)]">Loading patient immunization entries…</main>;
   if (error || !patient) return <main className="space-y-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6">
+    <ImmunizationSectionTabs />
     <h1 className="text-xl font-semibold text-[var(--text-primary)]">Immunization Entries</h1>
     <p className="text-sm text-[var(--icon-red-text)]">{error || 'Patient not found.'}</p>
     <button onClick={() => navigate('/dashboard/immunization')} className="rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm">Back to waiting list</button>
@@ -56,6 +58,7 @@ export default function ImmunizationEntries() {
       backTo="/dashboard/immunization"
       actions={<Button icon={RefreshCw} loading={loading} onClick={() => void loadPatientWorkspace()}>Refresh</Button>}
     />
+    <ImmunizationSectionTabs />
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-color)] pb-4 mb-4">
         <div className="min-w-0">

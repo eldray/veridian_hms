@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import api from '../api/api';
 import { useToast } from '../store/toastStore';
 import { confirmDialog } from '../context/ConfirmDialog';
+import ImmunizationSectionTabs from '../components/immunization/ImmunizationSectionTabs';
 import {
   AlertCircle, CheckCircle, Edit, Plus, RefreshCw, Syringe, X,
   Link2, Package, Power, Save,
@@ -144,6 +145,7 @@ export default function VaccineCatalogue() {
           <Button icon={Plus} onClick={openCreate}>Add Vaccine</Button>
         </>}
       />
+      <ImmunizationSectionTabs />
 
       {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)] px-3 py-2.5 text-sm text-[var(--icon-red-text)]"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
 

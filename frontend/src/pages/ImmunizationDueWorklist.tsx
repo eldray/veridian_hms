@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
 import { useToast } from '../store/toastStore';
+import ImmunizationSectionTabs from '../components/immunization/ImmunizationSectionTabs';
 import { AlertCircle, ArrowRight, CalendarClock, CheckCircle, Clock, RefreshCw, Syringe } from 'lucide-react';
 import { Badge, Button, Card, PageHeader, SearchInput, StatCard, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR, cn } from '../components/ui';
 
@@ -47,6 +48,7 @@ export default function ImmunizationDueWorklist() {
     <div className="space-y-5 p-4 sm:p-6">
       <PageHeader title="Upcoming & Missed Doses" subtitle="Follow up patients whose next vaccine dose is due or overdue" icon={CalendarClock} accent="cyan" backTo="/dashboard/immunization"
         actions={<Button icon={RefreshCw} variant="outline" loading={loading} onClick={() => void load()}>Refresh</Button>} />
+      <ImmunizationSectionTabs />
       {error && <div role="alert" className="flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-4 py-3 text-sm text-[var(--icon-red-text)]"><AlertCircle className="h-4 w-4 shrink-0" /><span>{error}</span></div>}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard label="Outstanding reminders" value={filtered.length} icon={Syringe} accent="cyan" />
