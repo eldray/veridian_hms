@@ -34,7 +34,7 @@ export const ALL_ROLES: Role[] = [
 ];
 
 export type PageKey =
-  | 'dashboard' | 'notifications' | 'profile' | 'patients' | 'attendance'
+  | 'dashboard' | 'vaccine_catalogue' | 'notifications' | 'profile' | 'patients' | 'attendance'
   | 'appointments' | 'reports'
   | 'medical_waiting_list' | 'medical_entries' | 'vitals' | 'admissions'
   | 'wards' | 'theatre' | 'nursing' | 'maternal_waiting_list' | 'antenatal'
@@ -88,6 +88,7 @@ export const PAGES: PageDef[] = [
   { key: 'antenatal', paths: ['/dashboard/antenatal'], patterns: ['/dashboard/maternal/:attendanceId'], roles: ['doctor', 'midwife'] },
   { key: 'family_planning', paths: ['/dashboard/family-planning'], roles: ['doctor', 'midwife'], label: 'Family Planning', icon: Heart, group: 'Clinical' },
   { key: 'immunization', paths: ['/dashboard/immunization'], patterns: ['/dashboard/immunization/entries/:patientId'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Immunization', icon: Syringe, group: 'Clinical' },
+  { key: 'vaccine_catalogue', paths: ['/dashboard/vaccine-catalogue'], roles: [], label: 'Vaccine Catalogue', icon: Syringe, group: 'Clinical' },
   { key: 'admissions', paths: ['/dashboard/admissions'], patterns: ['/dashboard/admissions/:id'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Admissions', icon: BedDouble, group: 'Ward' },
   { key: 'wards', paths: ['/dashboard/wards'], roles: CLINICAL, label: 'Wards', icon: BedDouble, group: 'Ward' },
   { key: 'referrals', paths: ['/dashboard/referrals'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Referrals', icon: Send, group: 'Ward' },
