@@ -24,23 +24,35 @@ export interface ThemeVars {
   '--icon-cyan-on-text': string;
   '--icon-orange-bg': string;
   '--icon-orange-text': string;
+  /** Foreground with WCAG AA contrast on the solid orange accent. */
+  '--icon-orange-on-text': string;
   '--icon-red-bg': string;
   '--icon-red-text': string;
   /** Foreground with WCAG AA contrast on the solid red accent. */
   '--icon-red-on-text': string;
   '--icon-green-bg': string;
   '--icon-green-text': string;
+  /** Foreground with WCAG AA contrast on the solid green accent. */
+  '--icon-green-on-text': string;
   '--icon-purple-bg': string;
   '--icon-purple-text': string;
+  /** Foreground with WCAG AA contrast on the solid purple accent. */
+  '--icon-purple-on-text': string;
   '--icon-yellow-bg': string;
   '--icon-yellow-text': string;
+  /** Foreground with WCAG AA contrast on the solid yellow accent. */
+  '--icon-yellow-on-text': string;
   // Blue and indigo were referenced by ~215 call sites (private insurance, corporate
   // accounts, appointments, lab entry) without ever being defined, so those chips and
   // icons rendered as transparent washes with inherited text.
   '--icon-blue-bg': string;
   '--icon-blue-text': string;
+  /** Foreground with WCAG AA contrast on the solid blue accent. */
+  '--icon-blue-on-text': string;
   '--icon-indigo-bg': string;
   '--icon-indigo-text': string;
+  /** Foreground with WCAG AA contrast on the solid indigo accent. */
+  '--icon-indigo-on-text': string;
   '--border-color': string;
   '--shadow-sm': string;
   '--shadow-md': string;
@@ -79,6 +91,7 @@ const originalScheme: ColorScheme = {
     // Orange — desaturated amber
     '--icon-orange-bg': '#FDF3EC',
     '--icon-orange-text': '#C05621',
+    '--icon-orange-on-text': '#000000',
     // Red — soft rose, not alarm-red
     '--icon-red-bg': '#FDF0F0',
     '--icon-red-text': '#B91C1C',
@@ -86,18 +99,23 @@ const originalScheme: ColorScheme = {
     // Green — sage-toned, not neon lime
     '--icon-green-bg': '#EDFAF3',
     '--icon-green-text': '#15713A',
+    '--icon-green-on-text': '#FFFFFF',
     // Purple — lavender-grey wash
     '--icon-purple-bg': '#F3F0FA',
     '--icon-purple-text': '#6D28D9',
+    '--icon-purple-on-text': '#FFFFFF',
     // Yellow — pale straw, not highlighter
     '--icon-yellow-bg': '#FBF8EC',
     '--icon-yellow-text': '#926B04',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E9F1F8',
     '--icon-blue-text': '#1D5C8C',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EDEEF8',
     '--icon-indigo-text': '#4A4C9E',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#DDE1E7',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.04)',
     '--shadow-md': '0 4px 8px rgba(0,0,0,0.06)',
@@ -113,21 +131,27 @@ const originalScheme: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#271400',
     '--icon-orange-text': '#CC7A40',
+    '--icon-orange-on-text': '#000000',
     '--icon-red-bg': '#240A0A',
     '--icon-red-text': '#C87070',
     '--icon-red-on-text': '#000000',
     '--icon-green-bg': '#0A2016',
     '--icon-green-text': '#4A9E68',
+    '--icon-green-on-text': '#000000',
     '--icon-purple-bg': '#1C1238',
     '--icon-purple-text': '#9E7ED4',
+    '--icon-purple-on-text': '#000000',
     '--icon-yellow-bg': '#201800',
     '--icon-yellow-text': '#B89A30',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#0C2130',
     '--icon-blue-text': '#5CA8CC',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#191B36',
     '--icon-indigo-text': '#9092D8',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#38465A',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.35)',
     '--shadow-md': '0 4px 8px rgba(0,0,0,0.45)',
@@ -157,6 +181,7 @@ const arcticSlate: ColorScheme = {
     // Orange → muted amber-rust
     '--icon-orange-bg': '#FDF2EB',
     '--icon-orange-text': '#B54A10',
+    '--icon-orange-on-text': '#FFFFFF',
     // Red → cool rose
     '--icon-red-bg': '#FDF0F0',
     '--icon-red-text': '#A81C1C',
@@ -164,18 +189,23 @@ const arcticSlate: ColorScheme = {
     // Green → cool mint-sage
     '--icon-green-bg': '#EAF6F0',
     '--icon-green-text': '#0F5C3A',
+    '--icon-green-on-text': '#FFFFFF',
     // Purple → cool mauve
     '--icon-purple-bg': '#F5EFF8',
     '--icon-purple-text': '#6B1E6E',
+    '--icon-purple-on-text': '#FFFFFF',
     // Yellow → pale gold
     '--icon-yellow-bg': '#FAF5E8',
     '--icon-yellow-text': '#7A5A00',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E6F0FA',
     '--icon-blue-text': '#1B5E9E',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EBEBF8',
     '--icon-indigo-text': '#45429E',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#CAD4E0',
     '--shadow-sm': '0 1px 3px rgba(0,0,0,0.05)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.07)',
@@ -191,21 +221,27 @@ const arcticSlate: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#261200',
     '--icon-orange-text': '#C07040',
+    '--icon-orange-on-text': '#000000',
     '--icon-red-bg': '#260808',
     '--icon-red-text': '#C06060',
     '--icon-red-on-text': '#000000',
     '--icon-green-bg': '#081E14',
     '--icon-green-text': '#409060',
+    '--icon-green-on-text': '#000000',
     '--icon-purple-bg': '#1A0A28',
     '--icon-purple-text': '#9060C0',
+    '--icon-purple-on-text': '#000000',
     '--icon-yellow-bg': '#201800',
     '--icon-yellow-text': '#A88020',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#0A1E33',
     '--icon-blue-text': '#6BA6DC',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#14143A',
     '--icon-indigo-text': '#9A96DC',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#263448',
     '--shadow-sm': '0 1px 3px rgba(0,0,0,0.35)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.45)',
@@ -235,6 +271,7 @@ const sageClinic: ColorScheme = {
     // Orange → terracotta-amber
     '--icon-orange-bg': '#FBF0E8',
     '--icon-orange-text': '#A84010',
+    '--icon-orange-on-text': '#FFFFFF',
     // Red → dusty rose
     '--icon-red-bg': '#FAF0F0',
     '--icon-red-text': '#9A1C1C',
@@ -242,18 +279,23 @@ const sageClinic: ColorScheme = {
     // Green slot → muted sky for contrast
     '--icon-green-bg': '#EAF3F8',
     '--icon-green-text': '#0A5C80',
+    '--icon-green-on-text': '#FFFFFF',
     // Purple → muted plum
     '--icon-purple-bg': '#F4EFF8',
     '--icon-purple-text': '#5E1E6E',
+    '--icon-purple-on-text': '#FFFFFF',
     // Yellow → pale straw
     '--icon-yellow-bg': '#F8F4E8',
     '--icon-yellow-text': '#705A00',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E7F0F3',
     '--icon-blue-text': '#2A6B80',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#E9EAF4',
     '--icon-indigo-text': '#4A5391',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#C8D8CC',
     '--shadow-sm': '0 1px 3px rgba(0,0,0,0.05)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.07)',
@@ -270,22 +312,28 @@ const sageClinic: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#261000',
     '--icon-orange-text': '#B06030',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#B06060',
     '--icon-red-on-text': '#000000',
     // Muted sky blue for contrast in dark
     '--icon-green-bg': '#081828',
     '--icon-green-text': '#4A80A0',
+    '--icon-green-on-text': '#000000',
     '--icon-purple-bg': '#1A0828',
     '--icon-purple-text': '#8060A8',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#201800',
     '--icon-yellow-text': '#907820',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#0E2228',
     '--icon-blue-text': '#63A9BC',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#171A34',
     '--icon-indigo-text': '#98A0D6',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#1E3024',
     '--shadow-sm': '0 1px 3px rgba(0,0,0,0.35)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.45)',
@@ -315,6 +363,7 @@ const violetCare: ColorScheme = {
     // Orange → warm ochre
     '--icon-orange-bg': '#FBF2E8',
     '--icon-orange-text': '#A8440A',
+    '--icon-orange-on-text': '#FFFFFF',
     // Red → deep rose-red
     '--icon-red-bg': '#F8EEF2',
     '--icon-red-text': '#8A1040',
@@ -322,18 +371,23 @@ const violetCare: ColorScheme = {
     // Green → cool sage
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#1A5A30',
+    '--icon-green-on-text': '#FFFFFF',
     // Purple → mid plum tint
     '--icon-purple-bg': '#EEE8FA',
     '--icon-purple-text': '#3E1878',
+    '--icon-purple-on-text': '#FFFFFF',
     // Yellow → aged gold
     '--icon-yellow-bg': '#F8F3E8',
     '--icon-yellow-text': '#7A5A00',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E9EEF8',
     '--icon-blue-text': '#3A5A9E',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EDE9FA',
     '--icon-indigo-text': '#5B2FA8',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#DDD5F0',
     '--shadow-sm': '0 1px 3px rgba(20,10,50,0.06)',
     '--shadow-md': '0 4px 10px rgba(20,10,50,0.09)',
@@ -349,21 +403,27 @@ const violetCare: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#281000',
     '--icon-orange-text': '#B87040',
+    '--icon-orange-on-text': '#000000',
     '--icon-red-bg': '#280818',
     '--icon-red-text': '#B06080',
     '--icon-red-on-text': '#000000',
     '--icon-green-bg': '#082018',
     '--icon-green-text': '#409060',
+    '--icon-green-on-text': '#000000',
     '--icon-purple-bg': '#200E50',
     '--icon-purple-text': '#A888E0',
+    '--icon-purple-on-text': '#000000',
     '--icon-yellow-bg': '#201400',
     '--icon-yellow-text': '#A88020',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#121830',
     '--icon-blue-text': '#8AA4DC',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#1A1238',
     '--icon-indigo-text': '#A884DC',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#2E2250',
     '--shadow-sm': '0 1px 3px rgba(0,0,0,0.4)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.5)',
@@ -393,6 +453,7 @@ const obsidianGold: ColorScheme = {
     // Orange → clay-rust
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A0A',
+    '--icon-orange-on-text': '#FFFFFF',
     // Red → aged burgundy
     '--icon-red-bg': '#F8ECEA',
     '--icon-red-text': '#8A1A10',
@@ -400,18 +461,23 @@ const obsidianGold: ColorScheme = {
     // Green → dark forest
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#1A5A30',
+    '--icon-green-on-text': '#FFFFFF',
     // Purple → antique violet
     '--icon-purple-bg': '#F4EEF8',
     '--icon-purple-text': '#4E1E6E',
+    '--icon-purple-on-text': '#FFFFFF',
     // Yellow slot → ink blue for contrast
     '--icon-yellow-bg': '#EAF0F8',
     '--icon-yellow-text': '#1A3A70',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E8EEF5',
     '--icon-blue-text': '#2E5F8A',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EAE9F4',
     '--icon-indigo-text': '#4C4C93',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#E0DAC8',
     '--shadow-sm': '0 1px 3px rgba(28,26,16,0.06)',
     '--shadow-md': '0 4px 10px rgba(28,26,16,0.09)',
@@ -428,22 +494,28 @@ const obsidianGold: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#261000',
     '--icon-orange-text': '#A86030',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#A05050',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408050',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#180A28',
     '--icon-purple-text': '#8060A8',
+    '--icon-purple-on-text': '#FFFFFF',
     // Ink blue for contrast — deep, not electric
     '--icon-yellow-bg': '#08122A',
     '--icon-yellow-text': '#4870A8',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#101C28',
     '--icon-blue-text': '#74A8C8',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#181830',
     '--icon-indigo-text': '#9898D0',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#302C10',
     '--shadow-sm': '0 1px 3px rgba(0,0,0,0.35)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.45)',
@@ -473,6 +545,7 @@ const slateIndigo: ColorScheme = {
     // Orange → muted amber
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#984010',
+    '--icon-orange-on-text': '#FFFFFF',
     // Red → cool crimson
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
@@ -480,18 +553,23 @@ const slateIndigo: ColorScheme = {
     // Green → cool sage
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#145A30',
+    '--icon-green-on-text': '#FFFFFF',
     // Purple → medium grape
     '--icon-purple-bg': '#F0ECFA',
     '--icon-purple-text': '#4A1E90',
+    '--icon-purple-on-text': '#FFFFFF',
     // Yellow → dark gold
     '--icon-yellow-bg': '#F8F4E8',
     '--icon-yellow-text': '#705000',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E7EEF7',
     '--icon-blue-text': '#2C5A8C',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EAE9F7',
     '--icon-indigo-text': '#423C9E',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#D4D6E2',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.05)',
     '--shadow-md': '0 4px 8px rgba(0,0,0,0.07)',
@@ -507,21 +585,27 @@ const slateIndigo: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#260E00',
     '--icon-orange-text': '#A06030',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#240808',
     '--icon-red-text': '#A05858',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408060',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#180E38',
     '--icon-purple-text': '#8870C0',
+    '--icon-purple-on-text': '#000000',
     '--icon-yellow-bg': '#1C1600',
     '--icon-yellow-text': '#908030',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#0E1A2C',
     '--icon-blue-text': '#749FC8',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#16142F',
     '--icon-indigo-text': '#9690D8',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#222240',
     '--shadow-sm': '0 1px 3px rgba(0,0,0,0.4)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.5)',
@@ -551,6 +635,7 @@ const tealIvory: ColorScheme = {
     // Orange → warm amber-clay
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#984010',
+    '--icon-orange-on-text': '#FFFFFF',
     // Red → muted crimson
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
@@ -558,18 +643,23 @@ const tealIvory: ColorScheme = {
     // Green → mid forest
     '--icon-green-bg': '#EAF4EE',
     '--icon-green-text': '#1A5A30',
+    '--icon-green-on-text': '#FFFFFF',
     // Purple → soft plum
     '--icon-purple-bg': '#F4EEF8',
     '--icon-purple-text': '#5A1E6E',
+    '--icon-purple-on-text': '#FFFFFF',
     // Yellow → aged straw
     '--icon-yellow-bg': '#F8F4E8',
     '--icon-yellow-text': '#705800',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E8F0F4',
     '--icon-blue-text': '#2A6480',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EAEBF5',
     '--icon-indigo-text': '#48508F',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#C8DAD6',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.04)',
     '--shadow-md': '0 4px 8px rgba(0,0,0,0.06)',
@@ -586,21 +676,27 @@ const tealIvory: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#241000',
     '--icon-orange-text': '#A06030',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#200808',
     '--icon-red-text': '#A05858',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408058',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#180828',
     '--icon-purple-text': '#8058A8',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#1C1600',
     '--icon-yellow-text': '#887820',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#0C2228',
     '--icon-blue-text': '#6AA4B8',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#161A30',
     '--icon-indigo-text': '#96A0CC',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#1C3430',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.35)',
     '--shadow-md': '0 4px 8px rgba(0,0,0,0.45)',
@@ -630,6 +726,7 @@ const warmNeutral: ColorScheme = {
     // Orange → warm terracotta
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A10',
+    '--icon-orange-on-text': '#FFFFFF',
     // Red → warm rose-brick
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
@@ -637,18 +734,23 @@ const warmNeutral: ColorScheme = {
     // Green → warm olive-forest
     '--icon-green-bg': '#EDF4EC',
     '--icon-green-text': '#245A28',
+    '--icon-green-on-text': '#FFFFFF',
     // Purple → warm mauve
     '--icon-purple-bg': '#F5F0F8',
     '--icon-purple-text': '#5A2070',
+    '--icon-purple-on-text': '#FFFFFF',
     // Yellow → warm honey
     '--icon-yellow-bg': '#F8F4E8',
     '--icon-yellow-text': '#785800',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E9F0F6',
     '--icon-blue-text': '#2A5D80',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EBEAF4',
     '--icon-indigo-text': '#4A4C8C',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#DDD8D0',
     '--shadow-sm': '0 1px 2px rgba(28,25,23,0.05)',
     '--shadow-md': '0 4px 8px rgba(28,25,23,0.07)',
@@ -665,21 +767,27 @@ const warmNeutral: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#241000',
     '--icon-orange-text': '#A07040',
+    '--icon-orange-on-text': '#000000',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#A05858',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#0C1E0A',
     '--icon-green-text': '#488048',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#1A0A28',
     '--icon-purple-text': '#8860A8',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#1E1600',
     '--icon-yellow-text': '#988040',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#101E28',
     '--icon-blue-text': '#70A0BC',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#1A1830',
     '--icon-indigo-text': '#9898C8',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#3A3430',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.35)',
     '--shadow-md': '0 4px 8px rgba(0,0,0,0.45)',
@@ -709,6 +817,7 @@ const clinicalBlue: ColorScheme = {
     // Orange → warm amber
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A10',
+    '--icon-orange-on-text': '#FFFFFF',
     // Red → clean medical red
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
@@ -716,18 +825,23 @@ const clinicalBlue: ColorScheme = {
     // Green → clinical green
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#145A30',
+    '--icon-green-on-text': '#FFFFFF',
     // Purple → mid blue-violet
     '--icon-purple-bg': '#EEF0F8',
     '--icon-purple-text': '#3A2880',
+    '--icon-purple-on-text': '#FFFFFF',
     // Yellow → muted gold
     '--icon-yellow-bg': '#F8F4E8',
     '--icon-yellow-text': '#705800',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E5EFF8',
     '--icon-blue-text': '#0F5490',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#E9E9F6',
     '--icon-indigo-text': '#3E4590',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#CCd8E4',
     '--shadow-sm': '0 1px 2px rgba(10,30,60,0.05)',
     '--shadow-md': '0 4px 8px rgba(10,30,60,0.07)',
@@ -744,21 +858,27 @@ const clinicalBlue: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#220E00',
     '--icon-orange-text': '#986030',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#1E0808',
     '--icon-red-text': '#985858',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408060',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#100A28',
     '--icon-purple-text': '#6858A8',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#1A1400',
     '--icon-yellow-text': '#887830',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#0A2038',
     '--icon-blue-text': '#6AA6D6',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#141A34',
     '--icon-indigo-text': '#8E96D2',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#1A3048',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.38)',
     '--shadow-md': '0 4px 8px rgba(0,0,0,0.48)',
@@ -785,21 +905,27 @@ const graphiteSteel: ColorScheme = {
     '--icon-cyan-on-text': '#FFFFFF',
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A10',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#145A30',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#F2EEF8',
     '--icon-purple-text': '#3E2878',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#F8F4E8',
     '--icon-yellow-text': '#705800',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E8F0F5',
     '--icon-blue-text': '#26647F',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EAEAF3',
     '--icon-indigo-text': '#474E86',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#E2E6EC',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.04)',
     '--shadow-md': '0 4px 8px rgba(0,0,0,0.06)',
@@ -815,21 +941,27 @@ const graphiteSteel: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#261000',
     '--icon-orange-text': '#A86030',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#A05858',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#488060',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#180E28',
     '--icon-purple-text': '#8060A8',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#1C1600',
     '--icon-yellow-text': '#908030',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#0D2028',
     '--icon-blue-text': '#6AA8BC',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#171A2C',
     '--icon-indigo-text': '#949CC4',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#30363D',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.4)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.5)',
@@ -856,21 +988,27 @@ const sandstoneRust: ColorScheme = {
     '--icon-cyan-on-text': '#FFFFFF',
     '--icon-orange-bg': '#F8EEE4',
     '--icon-orange-text': '#803010',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#EAF4EE',
     '--icon-green-text': '#1A5A30',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#F5EEF8',
     '--icon-purple-text': '#502070',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#FAF4E4',
     '--icon-yellow-text': '#705800',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E8EFF2',
     '--icon-blue-text': '#2E6A80',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EAE9F0',
     '--icon-indigo-text': '#4C4F8A',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#EAE0D0',
     '--shadow-sm': '0 1px 3px rgba(60,30,10,0.05)',
     '--shadow-md': '0 4px 10px rgba(60,30,10,0.08)',
@@ -886,21 +1024,27 @@ const sandstoneRust: ColorScheme = {
     '--icon-cyan-on-text': '#000000',
     '--icon-orange-bg': '#281000',
     '--icon-orange-text': '#A85030',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#220808',
     '--icon-red-text': '#A05050',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#0C1E10',
     '--icon-green-text': '#488050',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#1A0A28',
     '--icon-purple-text': '#8860A8',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#201600',
     '--icon-yellow-text': '#987830',
+    '--icon-yellow-on-text': '#000000',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#14202A',
     '--icon-blue-text': '#6FA4B8',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#1C1A2C',
     '--icon-indigo-text': '#9898C8',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#382A1A',
     '--shadow-sm': '0 1px 3px rgba(0,0,0,0.38)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.48)',
@@ -927,21 +1071,27 @@ const chalkCobalt: ColorScheme = {
     '--icon-cyan-on-text': '#FFFFFF',
     '--icon-orange-bg': '#FAF0E8',
     '--icon-orange-text': '#8A3A10',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#F8ECEC',
     '--icon-red-text': '#8A1818',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#EAF4EC',
     '--icon-green-text': '#145A30',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#F0EAF8',
     '--icon-purple-text': '#401E80',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#F8F4E8',
     '--icon-yellow-text': '#705800',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#E6EDFB',
     '--icon-blue-text': '#1450B8',
+    '--icon-blue-on-text': '#FFFFFF',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#EAE7F8',
     '--icon-indigo-text': '#3E3AA0',
+    '--icon-indigo-on-text': '#FFFFFF',
     '--border-color': '#D8DEEC',
     '--shadow-sm': '0 1px 2px rgba(10,14,26,0.05)',
     '--shadow-md': '0 4px 8px rgba(10,14,26,0.07)',
@@ -957,21 +1107,27 @@ const chalkCobalt: ColorScheme = {
     '--icon-cyan-on-text': '#FFFFFF',
     '--icon-orange-bg': '#240E00',
     '--icon-orange-text': '#986030',
+    '--icon-orange-on-text': '#FFFFFF',
     '--icon-red-bg': '#200808',
     '--icon-red-text': '#985858',
     '--icon-red-on-text': '#FFFFFF',
     '--icon-green-bg': '#081A10',
     '--icon-green-text': '#408060',
+    '--icon-green-on-text': '#FFFFFF',
     '--icon-purple-bg': '#160A30',
     '--icon-purple-text': '#7058B0',
+    '--icon-purple-on-text': '#FFFFFF',
     '--icon-yellow-bg': '#1A1400',
     '--icon-yellow-text': '#886820',
+    '--icon-yellow-on-text': '#FFFFFF',
     // Blue — used by private insurance and information accents
     '--icon-blue-bg': '#0C1832',
     '--icon-blue-text': '#6E9CE0',
+    '--icon-blue-on-text': '#000000',
     // Indigo — used by corporate accounts
     '--icon-indigo-bg': '#14123A',
     '--icon-indigo-text': '#948CE0',
+    '--icon-indigo-on-text': '#000000',
     '--border-color': '#282C3C',
     '--shadow-sm': '0 1px 2px rgba(0,0,0,0.45)',
     '--shadow-md': '0 4px 10px rgba(0,0,0,0.55)',
