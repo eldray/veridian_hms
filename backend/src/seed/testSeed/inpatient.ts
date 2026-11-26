@@ -28,9 +28,9 @@ const shiftForHour = (hour: number): ShiftType =>
 
 const wardFor = (lookups: Lookups, hint: string): WardRow | null => {
   const pool = lookups.wardsByType.get(String(hint).toLowerCase()) ?? [];
-  if (pool.length) return pool[hashOf(hint) % pool.length];
-  const anyWard = [...lookups.wardById.values()];
-  return anyWard.length ? anyWard[0] : null;
+  // Do not place an ICU, maternity or paediatric admission in an unrelated first ward
+  // merely to manufacture an admission row.
+  return pool.length ? pool[hashOf(hint) % pool.length] : null;
 };
 
 const groupByAttendance = <T extends { attendanceKey: string }>(rows: T[]): Map<string, T[]> => {
