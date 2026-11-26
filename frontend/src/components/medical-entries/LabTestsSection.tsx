@@ -64,19 +64,17 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
   const getLabTestPrice = (template: LabTestTemplate) => {
     const catalogTemplate = template as LabTestTemplate & {
       ServiceCatalog?: Array<{ pricing?: { cashPrice?: number; nhisPrice?: number; insurancePrice?: number } }>;
+      serviceCatalog?: { pricing?: { cashPrice?: number; nhisPrice?: number; insurancePrice?: number } } | Array<{ pricing?: { cashPrice?: number; nhisPrice?: number; insurancePrice?: number } }>;
+      price?: number;
     };
-
-    if (catalogTemplate.ServiceCatalog?.[0]?.pricing) {
-      const pricing = catalogTemplate.ServiceCatalog[0].pricing;
-      return paymentMode === 'cash'
-        ? pricing.cashPrice ?? 0
-        : paymentMode === 'nhis'
-          ? pricing.nhisPrice ?? 0
-          : pricing.insurancePrice ?? 0;
-    }
-
-    console.warn('No pricing found for lab test:', template.name);
-    return 0;
+    const relation = catalogTemplate.serviceCatalog ?? catalogTemplate.ServiceCatalog;
+    const catalog = Array.isArray(relation) ? relation[0] : relation;
+    const pricing = catalog?.pricing;
+    const cashPrice = Number(pricing?.cashPrice ?? catalogTemplate.price ?? 0) || 0;
+    if (paymentMode === 'cash') return cashPrice;
+    if (paymentMode === 'nhis') return Number(pricing?.nhisPrice ?? catalogTemplate.price ?? 0) || 0;
+    // Private insurance follows the hospital cash selling price.
+    return cashPrice;
   };
 
   const getStatusColor = (status: string) => {
