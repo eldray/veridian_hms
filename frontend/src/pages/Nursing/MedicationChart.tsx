@@ -147,7 +147,7 @@ const MedicationChart: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Medication Administration Record (MAR)</h2>
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">Medication Administration Record (MAR)</h2>
         <Button onClick={() => setShowNoteModal(true)} variant="primary">
           📝 Add Clinical Note
         </Button>
@@ -158,11 +158,11 @@ const MedicationChart: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Medication / Dose</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Route</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Frequency</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Today's Administrations</th>
+              <tr className="bg-[var(--bg-main)] border-b">
+                <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--text-secondary)]">Medication / Dose</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--text-secondary)]">Route</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--text-secondary)]">Frequency</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-[var(--text-secondary)]">Today's Administrations</th>
               </tr>
             </thead>
             <tbody>
@@ -173,26 +173,26 @@ const MedicationChart: React.FC = () => {
                 );
 
                 return (
-                  <tr key={med.id} className="border-b hover:bg-gray-50">
+                  <tr key={med.id} className="border-b hover:bg-[var(--bg-main)]">
                     <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{med.name}</div>
-                      <div className="text-sm text-gray-500">{med.dose}</div>
+                      <div className="font-medium text-[var(--text-primary)]">{med.name}</div>
+                      <div className="text-sm text-[var(--text-secondary)]">{med.dose}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{med.route}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{med.frequency}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{med.route}</td>
+                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{med.frequency}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         {todayAdmins.length === 0 ? (
-                          <span className="text-sm text-gray-400">No administrations today</span>
+                          <span className="text-sm text-[var(--text-tertiary)]">No administrations today</span>
                         ) : (
                           todayAdmins.map((admin) => (
                             <div
                               key={admin.id}
                               className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors
-                                ${admin.status === 'GIVEN' ? 'bg-green-100 text-green-800' : ''}
-                                ${admin.status === 'REFUSED' ? 'bg-red-100 text-red-800' : ''}
-                                ${admin.status === 'DUE' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' : ''}
-                                ${admin.status === 'MISSED' ? 'bg-gray-100 text-gray-800' : ''}
+                                ${admin.status === 'GIVEN' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : ''}
+                                ${admin.status === 'REFUSED' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' : ''}
+                                ${admin.status === 'DUE' ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] hover:opacity-90' : ''}
+                                ${admin.status === 'MISSED' ? 'bg-[var(--bg-main)] text-[var(--text-primary)]' : ''}
                               `}
                               onClick={() => {
                                 if (admin.status === 'DUE') {
@@ -219,22 +219,22 @@ const MedicationChart: React.FC = () => {
       {/* Clinical Notes Section */}
       <Card>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-gray-800">📋 Clinical Notes & Care Plan</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">📋 Clinical Notes & Care Plan</h3>
         </div>
         
         <div className="space-y-4">
           {notes.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No clinical notes yet</p>
+            <p className="text-[var(--text-secondary)] text-center py-8">No clinical notes yet</p>
           ) : (
             notes.map((note) => (
               <div key={note.id} className="border-l-4 pl-4 py-2" style={{ borderColor: getCategoryColor(note.category) }}>
                 <div className="flex justify-between items-start mb-2">
                   <Badge color={getCategoryColor(note.category)}>{note.category}</Badge>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-[var(--text-secondary)]">
                     {formatDate(note.createdAt)} • {note.authorName}
                   </span>
                 </div>
-                <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
+                <p className="text-[var(--text-secondary)] whitespace-pre-wrap">{note.content}</p>
               </div>
             ))
           )}
@@ -249,26 +249,26 @@ const MedicationChart: React.FC = () => {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
                 Medication
               </label>
-              <p className="text-gray-900 font-medium">{selectedAdmin.medicationName}</p>
-              <p className="text-sm text-gray-600">{selectedAdmin.dose} • {selectedAdmin.route}</p>
+              <p className="text-[var(--text-primary)] font-medium">{selectedAdmin.medicationName}</p>
+              <p className="text-sm text-[var(--text-secondary)]">{selectedAdmin.dose} • {selectedAdmin.route}</p>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
                 Scheduled Time
               </label>
-              <p className="text-gray-900">{formatTime(selectedAdmin.scheduledTime)}</p>
+              <p className="text-[var(--text-primary)]">{formatTime(selectedAdmin.scheduledTime)}</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
                 Notes (Optional)
               </label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                 rows={3}
                 placeholder="e.g., Patient tolerated well, no adverse effects..."
                 onChange={(e) => setSelectedAdmin({...selectedAdmin, notes: e.target.value})}
@@ -303,7 +303,7 @@ const MedicationChart: React.FC = () => {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
                 Category
               </label>
               <Select
@@ -319,11 +319,11 @@ const MedicationChart: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
                 Note Content *
               </label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                 rows={5}
                 value={noteContent}
                 onChange={(e) => setNoteContent(e.target.value)}
