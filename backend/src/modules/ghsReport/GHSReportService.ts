@@ -686,7 +686,7 @@ export class GHSReportService extends BaseService {
     const rowForRecord = (record: typeof records[number]) => {
       const vaccineText = normalize(record.Vaccine.code + ' ' + record.Vaccine.name);
       const doseText = normalize(record.doseNumber);
-      const doseSuffix = (doseText.match(/\\d+/) || [doseText])[0];
+      const doseSuffix = (doseText.match(/\d+/) || [doseText])[0];
       const combined = vaccineText + doseSuffix;
       const aliases: Array<[string, string[]]> = [
         ['BCG',['bcg']], ['Hep B',['hepb','hepatitisb']],
