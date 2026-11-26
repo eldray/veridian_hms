@@ -318,6 +318,9 @@ export const seedClaims = async (
   const notes: string[] = [];
   const refusals: string[] = [];
   let rejected = 0;
+  let rejectedMissingPrerequisites = 0;
+  const rejectionReasons = new Map<string, number>();
+  const rejectionExamples: string[] = [];
   let skippedMissingPrimaryDiagnosis = 0;
   let skippedOverlappingInpatientStay = 0;
   let skippedUnbillableAntenatal = 0;
@@ -330,7 +333,17 @@ export const seedClaims = async (
     const encounter = encounters.get(plan.attendanceKey);
     const patientId = encounter ? payerByAttendance.get(encounter.attendanceId)?.patientId : null;
     const directClaimsOnly = plan.insuranceType === 'private' || plan.insuranceType === 'corporate';
-    if (!encounter || !patientId || (!directClaimsOnly && !encounter.billId)) { rejected++; continue; }
+    if (!encounter || !patientId || (!directClaimsOnly && !encounter.billId)) {
+      rejected++;
+      rejectedMissingPrerequisites++;
+      if (rejectionExamples.length < 8) {
+        const missing = !encounter ? 'encounter not found'
+          : !patientId ? 'patient/payer link not found'
+            : 'required bill not found';
+        rejectionExamples.push(`claim ${plan.key}; payer ${plan.insuranceType}; attendance key ${plan.attendanceKey}; ${missing}`);
+      }
+      continue;
+    }
     // The claims API requires a persisted primary diagnosis. Generated diagnosis
     // plans can still be absent from the database when a code is not in the facility's
     // configured diagnosis catalogue, so validate the actual encounter rows here.
@@ -434,7 +447,12 @@ export const seedClaims = async (
       if (events.length) await prisma.insuranceClaimTrackingEvent.createMany({ data: events });
     } catch (error) {
       rejected++;
-      const message = error instanceof Error ? error.message : String(error);
+      const message = (error instanceof Error ? error.message : String(error)).replace(/\\s+/g, ' ').trim();
+      const reason = message.slice(0, 180) || 'Unknown error';
+      rejectionReasons.set(reason, (rejectionReasons.get(reason) ?? 0) + 1);
+      if (rejectionExamples.length < 8) {
+        rejectionExamples.push(`claim ${plan.key}; payer ${plan.insuranceType}; attendance ${encounter.attendanceId}; ${reason}`);
+      }
       if (notes.length < 5) notes.push(message.slice(0, 90));
     }
   }
@@ -544,7 +562,13 @@ export const seedClaims = async (
   console.log(`✅ ${claimIdByKey.size}/${claims.length} claims generated, ${batchRows.length} batches, ${batchEventRows.length} payer events (${settledBatches} batches with a remittance)`);
   if (uncodedClaims) console.log(`   ${uncodedClaims} NHIS claims carry no G-DRG code and were left unbatched for coding`);
   if (notFinalizable) console.log(`   ${notFinalizable} claims the app refuses to finalize stayed drafts - ${refusals.join(' | ')}`);
-  if (rejected) console.log(`   ${rejected} claim plans could not be generated - ${notes.join(' | ') || 'no bill or no covered line'}`);
+  if (rejected) {
+    console.log(`   ${rejected} claim plans rejected: ${rejectedMissingPrerequisites} missing encounter/patient/bill prerequisites; ${rejected - rejectedMissingPrerequisites} service/database errors`);
+    for (const [reason, count] of [...rejectionReasons.entries()].sort((a, b) => b[1] - a[1])) {
+      console.log(`   - ${count} × ${reason}`);
+    }
+    for (const example of rejectionExamples) console.log(`   - Example: ${example}`);
+  }
   if (skippedUnbillableAntenatal) console.warn(`   ${skippedUnbillableAntenatal} NHIS ANC/PNC claim plans skipped: OPDC02A is not priced/applicable at facility level ${facilityLevel ?? 'unknown'} - ${skippedExamples.filter((example) => example.includes('ANC/PNC')).join(' | ')}`);
   if (skippedMissingPrimaryDiagnosis || skippedOverlappingInpatientStay) {
     console.warn(`   ${skippedMissingPrimaryDiagnosis + skippedOverlappingInpatientStay} claim plans were skipped before generation (${skippedMissingPrimaryDiagnosis} missing persisted primary diagnosis; ${skippedOverlappingInpatientStay} outpatient/inpatient date overlaps) - ${skippedExamples.join(' | ')}`);
