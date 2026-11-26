@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 export interface PrescriptionDetails {
   dosage: string;
@@ -85,6 +85,7 @@ export function PrescriptionFields({ value, onChange, strength }: {
 }) {
   const [durationSearch, setDurationSearch] = useState(value.duration || '');
   const [showDurations, setShowDurations] = useState(false);
+  useEffect(() => setDurationSearch(value.duration || ''), [value.duration]);
   const durations = useMemo(() => [...Array.from({ length: 30 }, (_, i) => i + 1), 60, 90]
     .map(days => days === 1 ? '24 hours' : days === 2 ? '48 hours' : `${days} days`)
     .filter(option => option.toLowerCase().includes(durationSearch.toLowerCase())), [durationSearch]);

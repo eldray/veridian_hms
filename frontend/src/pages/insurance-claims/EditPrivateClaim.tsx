@@ -11,6 +11,7 @@ import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../../components
 import { useToast } from '../../store/toastStore';
 import { ClaimFrame, ClaimCard, UField, ListSection, TH, ClaimFooter, Hint, fmtDate } from '../../components/claims/ClaimUI';
 import { payerUnitPrice, priceLabel, medicationCatalogByStockItemId } from '../../utils/pricing';
+import { EMPTY_PRESCRIPTION, PrescriptionFields, formatPrescriptionDetails, parsePrescriptionDetails, type PrescriptionDetails } from '../../components/claims/ClaimPrescriptionFields';
 import { Download, Printer, XCircle, Plus, Search, Edit, Trash2 as TrashIcon } from 'lucide-react';
 
 interface DiagnosisItem {
@@ -45,6 +46,11 @@ interface MedicineItem {
   stockItemId?: string;
   serviceCatalogId?: string;
   prescriptionText?: string;
+  dosage?: string;
+  frequency?: string;
+  duration?: string;
+  route?: string;
+  instructions?: string;
 }
 
 const p = (claim: any): any => claim?.patient ?? claim?.Patient ?? {};
@@ -80,6 +86,8 @@ function prescriptionTextForMedication(m: any): string {
     m.dosage && 'Dose: ' + m.dosage,
     m.frequency && 'Frequency: ' + m.frequency,
     m.duration && 'Duration: ' + m.duration,
+    m.route && 'Route: ' + m.route,
+    m.instructions && 'Instructions: ' + m.instructions,
   ].filter(Boolean);
   return details.join(' · ');
 }
@@ -315,106 +323,45 @@ function AddServiceModal({ isOpen, onClose, onAdd, itemCategory = 'service' }: a
   );
 }
 
-function AddMedicineModal({ isOpen, onClose, onAdd }: any) {
+function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: any) {
   const { stockItems, getStockItems } = useStockStore();
   const { serviceCatalog } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMedicine, setSelectedMedicine] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
   const [medicineDate, setMedicineDate] = useState(new Date().toISOString().split('T')[0]);
-
+  const [prescription, setPrescription] = useState<PrescriptionDetails>({ ...EMPTY_PRESCRIPTION });
+  useEffect(() => { if (isOpen) getStockItems({ isActive: true, isMedication: true }); }, [isOpen, getStockItems]);
   useEffect(() => {
-    if (isOpen) getStockItems({ isActive: true, isMedication: true });
-  }, [isOpen, getStockItems]);
-
+    if (!isOpen) return;
+    setSearchTerm(''); setSelectedMedicine(null); setQuantity(editing?.quantity || 1);
+    setMedicineDate(editing?.date || new Date().toISOString().split('T')[0]);
+    const parsed = parsePrescriptionDetails(editing?.prescriptionText);
+    setPrescription(editing ? { ...parsed, dosage: editing.dosage || parsed.dosage, frequency: editing.frequency || parsed.frequency, duration: editing.duration || parsed.duration, route: editing.route || parsed.route || 'oral', instructions: editing.instructions || parsed.instructions } : { ...EMPTY_PRESCRIPTION });
+  }, [isOpen, editing]);
   const catalogsByStock = medicationCatalogByStockItemId(serviceCatalog);
-
-  const filtered = (stockItems || []).filter(m =>
-    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (m.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
+  const filtered = (stockItems || []).filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()) || (m.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase()) || (m.strength || '').toLowerCase().includes(searchTerm.toLowerCase()));
+  const selected = selectedMedicine || (editing ? (stockItems || []).find(m => m.id === editing.stockItemId) || null : null);
   const handleAdd = () => {
-    if (!selectedMedicine) return;
-    // The drug's price is its catalog tariff for this payer, not the purchase cost on the stock card.
-    const catalog = catalogsByStock.get(selectedMedicine.id);
-    const unitPrice = payerUnitPrice(catalog, 'private_insurance');
-    onAdd({
-      description: selectedMedicine.name,
-      date: medicineDate,
-      stockItemId: selectedMedicine.id,
-      serviceCatalogId: catalog?.id,
-      quantity,
-      unitPrice,
-      total: quantity * unitPrice,
-    });
-    setSelectedMedicine(null);
-    setSearchTerm('');
-    setQuantity(1);
-    onClose();
+    if (!selected) return;
+    const catalog = catalogsByStock.get(selected.id);
+    const unitPrice = editing?.unitPrice ?? payerUnitPrice(catalog, 'private_insurance');
+    onAdd({ id: editing?.id, billLineItemId: editing?.billLineItemId, description: selected.name, date: medicineDate, stockItemId: selected.id, serviceCatalogId: catalog?.id || editing?.serviceCatalogId, quantity, unitPrice, total: quantity * unitPrice, ...prescription, prescriptionText: formatPrescriptionDetails(prescription) || editing?.prescriptionText || '' });
+    setSelectedMedicine(null); setSearchTerm(''); setQuantity(1); setPrescription({ ...EMPTY_PRESCRIPTION }); onClose();
   };
-
   if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
-        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Medicine</h3>
-          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
-            <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
-          </button>
-        </div>
-        <div className="p-4 space-y-4">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
-            <input
-              type="text"
-              placeholder="Search medicine by name or drug code..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity</label>
-              <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Date</label>
-              <input type="date" value={medicineDate} onChange={(e) => setMedicineDate(e.target.value)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-            </div>
-          </div>
-          <div className="max-h-48 overflow-y-auto space-y-1">
-            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
-            {capPickerRows(filtered).map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setSelectedMedicine(m)}
-                className={`w-full text-left p-2 rounded-lg transition-colors ${
-                  selectedMedicine?.id === m.id
-                    ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
-                    : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'
-                }`}
-              >
-                <div className="font-medium text-sm">{m.name}</div>
-                <div className="text-xs text-[var(--text-secondary)]">Code: {m.drugCode || m.code} | {priceLabel(payerUnitPrice(catalogsByStock.get(m.id), 'private_insurance'))}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button onClick={handleAdd} disabled={!selectedMedicine} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg disabled:opacity-50 text-sm font-medium">
-            Add Medicine
-          </button>
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
-            Cancel
-          </button>
-        </div>
+  return <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="bg-[var(--bg-card)] rounded-xl max-w-xl w-full border border-[var(--border-color)] max-h-[90vh] flex flex-col">
+      <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between"><h3 className="text-sm font-bold text-[var(--text-primary)]">{editing ? 'Edit Prescription' : 'Add Prescription'}</h3><button type="button" onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><XCircle className="w-5 h-5 text-[var(--text-secondary)]" /></button></div>
+      <div className="p-4 space-y-4 overflow-y-auto">
+        <div className="relative"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" /><input type="text" placeholder="Search medication by name, code or strength…" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedMedicine(null); }} className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></div>
+        {searchTerm.trim() && <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--border-color)]"><PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />{capPickerRows(filtered).map(m => <button type="button" key={m.id} onClick={() => setSelectedMedicine(m)} className={`w-full text-left p-2 border-b border-[var(--border-color)] last:border-0 ${selected?.id === m.id ? 'bg-[var(--icon-green-bg)]' : 'hover:bg-[var(--bg-main)]'}`}><div className="text-sm font-medium text-[var(--text-primary)]">{m.name} {m.strength || ''}</div><div className="text-xs text-[var(--text-secondary)]">Code: {m.drugCode} · {priceLabel(payerUnitPrice(catalogsByStock.get(m.id), 'private_insurance'))}</div></button>)}{!filtered.length && <p className="p-3 text-xs text-[var(--text-tertiary)]">No matching medication found.</p>}</div>}
+        {selected && <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3"><div className="text-sm font-semibold text-[var(--text-primary)]">{selected.name} {selected.strength || ''}</div><div className="text-xs text-[var(--text-secondary)]">{selected.drugCode || selected.code} · {priceLabel(payerUnitPrice(catalogsByStock.get(selected.id), 'private_insurance'))}</div></div>}
+        <div className="grid grid-cols-2 gap-3"><label className="text-xs font-medium text-[var(--text-secondary)]">Quantity<input type="number" min="1" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></label><label className="text-xs font-medium text-[var(--text-secondary)]">Date<input type="date" value={medicineDate} onChange={e => setMedicineDate(e.target.value)} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></label></div>
+        <PrescriptionFields value={prescription} onChange={setPrescription} strength={selected?.strength} />
       </div>
-    </div>
-  );
+      <div className="p-4 border-t border-[var(--border-color)] flex gap-2"><button type="button" onClick={handleAdd} disabled={!selected} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg disabled:opacity-50 text-sm font-medium">{editing ? 'Save Prescription' : 'Add Prescription'}</button><button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">Cancel</button></div>
+    </div></div>;
 }
 
 function EditServiceModal({ isOpen, onClose, onSave, service }: any) {
@@ -471,63 +418,6 @@ function EditServiceModal({ isOpen, onClose, onSave, service }: any) {
   );
 }
 
-function EditMedicineModal({ isOpen, onClose, onSave, medicine }: any) {
-  const [formData, setFormData] = useState<any>(null);
-  useEffect(() => { if (medicine) setFormData({ ...medicine }); }, [medicine]);
-
-  const handleSave = () => {
-    if (!formData) return;
-    formData.total = formData.quantity * formData.unitPrice;
-    onSave(formData);
-    onClose();
-  };
-
-  if (!isOpen || !formData) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
-        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Edit Medicine</h3>
-          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><XCircle className="w-5 h-5 text-[var(--text-secondary)]" /></button>
-        </div>
-        <div className="p-4 space-y-4">
-          <div className="bg-[var(--bg-main)] p-2 rounded-lg">
-            <p className="text-sm font-medium">{formData.description}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity</label>
-              <input type="number" min="1" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })} className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Unit Price (GHS)</label>
-              <input type="number" min="0" step="0.01" value={formData.unitPrice} onChange={(e) => setFormData({ ...formData, unitPrice: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-[var(--text-secondary)]">Date</label>
-            <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-[var(--text-secondary)]">Prescription / Directions</label>
-            <textarea rows={3} value={formData.prescriptionText || ''} onChange={(e) => setFormData({ ...formData, prescriptionText: e.target.value })} placeholder="Dose, frequency and duration" className="w-full px-3 py-2 border rounded-lg bg-[var(--bg-main)] text-sm text-[var(--text-primary)]" />
-          </div>
-          <div className="bg-[var(--icon-green-bg)] p-2 rounded-lg">
-            <div className="flex justify-between text-sm">
-              <span className="text-[var(--text-secondary)]">Total:</span>
-              <span className="font-bold text-[var(--icon-green-text)]">GHS {(formData.quantity * formData.unitPrice).toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button onClick={handleSave} className="flex-1 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg text-sm font-medium">Save Changes</button>
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-sm">Cancel</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function EditPrivateClaim() {
   const { id } = useParams<{ id: string }>();
@@ -736,7 +626,7 @@ export default function EditPrivateClaim() {
         serviceDate: m.date || null,
         serviceCatalogId: m.serviceCatalogId ?? null,
         billLineItemId: m.billLineItemId ?? null,
-        prescriptionText: m.prescriptionText ?? null,
+        prescriptionText: m.prescriptionText ?? (formatPrescriptionDetails({ dosage: m.dosage || '', frequency: m.frequency || '', duration: m.duration || '', route: m.route || 'oral', instructions: m.instructions || '' }) || null),
       });
     }
     return out;
@@ -966,9 +856,9 @@ export default function EditPrivateClaim() {
 
       <AddDiagnosisModalPrivate isOpen={activeModal === 'diagnosis'} onClose={() => setActiveModal(null)} onAdd={addDiagnosis} />
       <AddServiceModal isOpen={['service', 'procedure', 'investigation'].includes(activeModal || '')} itemCategory={activeModal || 'service'} onClose={() => setActiveModal(null)} onAdd={addService} />
-      <AddMedicineModal isOpen={activeModal === 'medicine'} onClose={() => setActiveModal(null)} onAdd={addMedicine} />
+      <AddMedicineModal isOpen={activeModal === 'medicine' || !!editingMedicine} onClose={() => { setActiveModal(null); setEditingMedicine(null); }} onAdd={editingMedicine ? updateMedicine : addMedicine} editing={editingMedicine} />
       <EditServiceModal isOpen={!!editingService} onClose={() => setEditingService(null)} onSave={updateService} service={editingService} />
-      <EditMedicineModal isOpen={!!editingMedicine} onClose={() => setEditingMedicine(null)} onSave={updateMedicine} medicine={editingMedicine} />
+      
     </>
   );
 }
