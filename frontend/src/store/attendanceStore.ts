@@ -180,7 +180,10 @@ interface AttendanceState {
     frequency: string; 
     duration: string; 
     route?: string; 
-    instructions?: string 
+    instructions?: string;
+    prnIndication?: string;
+    prnMaxDosesPerDay?: number;
+    prnMinimumIntervalHours?: number;
   }) => Promise<void>;
   updateMedicationStatus: (attendanceId: string, medicationId: string, data: any) => Promise<void>;
   dispenseMedication: (attendanceId: string, medicationId: string, data: { quantity: number; batchNumber?: string; expiryDate?: string }) => Promise<any>;
