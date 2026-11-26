@@ -20,25 +20,25 @@ export const PatientDetailsHeader: React.FC<PatientDetailsHeaderProps> = ({
   onBack
 }) => {
   return (
-    <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-xl p-4 text-white shadow-md">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-3 sm:p-4 text-[var(--text-primary)] shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={onBack}
-            className="p-2 hover:bg-white/20 rounded-lg transition-all duration-200"
+            className="p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]" aria-label="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-4">
-            <PatientAvatar patient={patient} size="xl" className="rounded-xl border-2 border-white/20 shadow-lg" />
+            <PatientAvatar patient={patient} size="lg" className="rounded-xl border border-[var(--border-color)] shadow-sm" />
             <div>
               <h1 className="text-xl font-bold text-white">{patient.fullName}</h1>
-              <div className="flex items-center gap-3 text-blue-100 mt-1 text-sm">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[var(--text-secondary)] mt-1 text-xs sm:text-sm">
                 <div className="flex items-center gap-1">
                   <Folder className="w-4 h-4" />
                   <span className="font-mono font-semibold">{patient.folderNumber}</span>
                 </div>
-                <div className="w-1 h-1 bg-blue-300 rounded-full"></div>
+                <div className="w-1 h-1 bg-[var(--text-tertiary)] rounded-full"></div>
                 <div className="flex items-center gap-1">
                   <User className="w-4 h-4" />
                   <span className="capitalize">{patient.gender}</span>
@@ -56,7 +56,7 @@ export const PatientDetailsHeader: React.FC<PatientDetailsHeaderProps> = ({
           {canCreateAttendance && (
             <button
               onClick={onNewAttendance}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 hover:shadow-md font-semibold text-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-green-text)] text-white rounded-lg hover:opacity-90 transition-opacity font-semibold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
             >
               <Plus className="w-4 h-4" />
               <span>New Visit</span>
@@ -65,7 +65,7 @@ export const PatientDetailsHeader: React.FC<PatientDetailsHeaderProps> = ({
           {canEdit && (
             <button
               onClick={onEdit}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-all duration-200 font-semibold text-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-subtle)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-hover)] transition-colors font-semibold text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
             >
               <Edit className="w-4 h-4" />
               <span>Edit</span>
