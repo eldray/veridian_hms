@@ -92,6 +92,9 @@ function buildMedicinesFromBill(bill: any, attendance: any): MedicineItem[] {
         unitPrice,
         total: toNum(li.lineTotal) || quantity * unitPrice,
         date: li.createdAt ? new Date(li.createdAt).toISOString().split('T')[0] : '',
+        stockItemId: li.serviceCatalog?.stockItemId,
+        serviceCatalogId: li.serviceCatalogId,
+        prescriptionText: li.prescriptionText || '',
       } as MedicineItem;
     });
   }
@@ -259,7 +262,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: any) {
   }, [isOpen, editing]);
   const catalogsByStock = medicationCatalogByStockItemId(serviceCatalog);
   const filtered = (stockItems || []).filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()) || (m.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase()) || (m.strength || '').toLowerCase().includes(searchTerm.toLowerCase()));
-  const selected = selectedMedicine || (editing ? (stockItems || []).find(m => m.id === editing.stockItemId) || null : null);
+  const selected = selectedMedicine || (editing ? (stockItems || []).find(m => m.id === editing.stockItemId || m.name?.toLowerCase() === editing.description?.toLowerCase()) || null : null);
   const handleAdd = () => {
     if (!selected) return;
     const catalog = catalogsByStock.get(selected.id);
