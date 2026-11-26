@@ -68,7 +68,7 @@ const VitalCard = ({ icon: Icon, label, value, unit, type, abnormal }: any) => {
         if (value < 95) return { color: 'text-[var(--icon-red-text)]', bgColor: 'bg-[var(--icon-red-bg)]', message: 'Low' };
         return { color: 'text-[var(--icon-green-text)]', bgColor: 'bg-[var(--icon-green-bg)]', message: 'Normal' };
       default:
-        return { color: 'text-[var(--text-secondary)]', bgColor: 'bg-gray-100' };
+        return { color: 'text-[var(--text-secondary)]', bgColor: 'bg-[var(--bg-main)]' };
     }
   };
   
