@@ -13,7 +13,7 @@ export type ButtonSize = 'xs' | 'sm' | 'md';
  * (main, side, destructive); it never depends on which page renders it.
  */
 const VARIANTS: Record<Exclude<ButtonVariant, 'soft'>, string> = {
-  primary: 'bg-[var(--icon-cyan-text)] text-white hover:opacity-90 shadow-sm',
+  primary: 'bg-[var(--icon-cyan-text)] text-[var(--icon-cyan-on-text)] hover:opacity-90 shadow-sm',
   secondary: 'bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-color)] hover:bg-[var(--bg-main)]',
   outline: 'bg-transparent text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]',
   ghost: 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]',
@@ -52,6 +52,7 @@ export interface ButtonSurfaceProps {
 export function buttonClasses({
   variant = 'secondary',
   size = 'md',
+  accent = 'cyan',
   iconOnly = false,
   fullWidth = false,
   className,
@@ -60,7 +61,7 @@ export function buttonClasses({
     'inline-flex items-center justify-center font-medium transition-all duration-150 select-none whitespace-nowrap',
     'disabled:opacity-50 disabled:pointer-events-none',
     SIZES[size],
-    variant === 'soft' ? 'bg-[var(--icon-cyan-text)] text-white hover:opacity-90 shadow-sm' : VARIANTS[variant],
+    variant === 'soft' ? `bg-[var(--icon-cyan-text)] ${accent === 'cyan' ? 'text-[var(--icon-cyan-on-text)]' : 'text-white'} hover:opacity-90 shadow-sm` : VARIANTS[variant],
     iconOnly && (size === 'md' ? 'p-2' : size === 'sm' ? 'p-1.5' : 'p-1'),
     fullWidth && 'w-full',
     className,
