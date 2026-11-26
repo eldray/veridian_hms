@@ -383,6 +383,8 @@ export default function EditCorporateClaim() {
   const [creditWarning, setCreditWarning] = useState(false);
 
   const isDraft = currentClaim?.status === 'draft';
+  const [isEditMode, setIsEditMode] = useState(false);
+  const canEditClaim = isDraft && isEditMode;
 
   const handleRefreshClaim = async () => {
     if (isDraft) {
@@ -640,8 +642,8 @@ export default function EditCorporateClaim() {
     if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) n--;
     return `Age: ${n}yrs`;
   })();
-  const locked = !isDraft;
-  const addBtn = (label: string, modal: string) => isDraft ? (
+  const locked = !canEditClaim;
+  const addBtn = (label: string, modal: string) => canEditClaim ? (
     <button type="button" onClick={() => setActiveModal(modal)} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 normal-case flex items-center gap-1"><Plus className="w-3 h-3" /> {label}</button>
   ) : undefined;
   const money = (n: number) => `GHS ${n.toFixed(2)}`;
@@ -653,11 +655,11 @@ export default function EditCorporateClaim() {
     return (
       <ListSection title={title} count={rows.length} open={tablesOpen} emptyText={category === 'service' ? 'No consultations or services added...' : category === 'procedure' ? 'No procedures added...' : 'No laboratory or imaging entries added...'} action={addBtn(addLabel, category)}>
         <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-sm">
-          <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">Actions</TH>}</tr></thead>
+          <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{canEditClaim && <TH className="text-center">Actions</TH>}</tr></thead>
           <tbody>{rows.map((item, idx) => (
             <tr key={item.id || item.billLineItemId || idx} className="border-t border-[var(--border-color)]">
               <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td><td className="px-3 py-3 text-[var(--text-secondary)]">{item.description}</td><td className="px-3 py-3 text-[var(--text-secondary)]">{fmtDate(item.date)}</td><td className="px-3 py-3 text-center text-[var(--text-secondary)]">{item.quantity}</td><td className="px-3 py-3 text-right text-[var(--text-secondary)]">{money(item.unitPrice)}</td><td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{money(item.quantity * item.unitPrice)}</td>
-              {isDraft && <td className="px-3 py-3 text-center whitespace-nowrap"><button type="button" onClick={() => setEditingService(item)} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button><button type="button" onClick={() => removeService(services.indexOf(item))} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button></td>}
+              {canEditClaim && <td className="px-3 py-3 text-center whitespace-nowrap"><button type="button" onClick={() => setEditingService(item)} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button><button type="button" onClick={() => removeService(services.indexOf(item))} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button></td>}
             </tr>
           ))}</tbody>
         </table></div>
@@ -670,7 +672,7 @@ export default function EditCorporateClaim() {
       <ClaimFrame
         title="Update Claim"
         subtitle={`${currentClaim?.claimNumber ?? ''} · Corporate`}
-        status={<span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'}`}>{isDraft ? 'DRAFT' : 'FINALIZED'}</span>}
+        status={<div className="flex items-center gap-2"><span className={`text-xs px-2 py-1 rounded ${isDraft ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'}`}>{isDraft ? 'DRAFT' : 'FINALIZED'}</span>{isDraft && <button type="button" aria-pressed={canEditClaim} onClick={() => setIsEditMode(value => !value)} className="text-xs px-3 py-1.5 rounded border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]">{canEditClaim ? 'Disable editing' : 'Edit claim'}</button>}</div>}
         onClose={goBack}
         onRefresh={handleRefreshClaim}
         onCollapse={() => setTablesOpen(o => !o)}
@@ -707,14 +709,14 @@ export default function EditCorporateClaim() {
 
         <ListSection title="DIAGNOSES" count={diagnoses.length} open={tablesOpen} emptyText="No diagnoses added..." action={addBtn('Add', 'diagnosis')}>
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Diagnosis</TH><TH>ICD10</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>Diagnosis</TH><TH>ICD10</TH>{canEditClaim && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {diagnoses.map((d, idx) => (
                 <tr key={idx} className="border-t border-[var(--border-color)]">
                   <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)]">{d.description}</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)]">{d.icd10}</td>
-                  {isDraft && <td className="px-3 py-3 text-center"><button type="button" onClick={() => removeDiagnosis(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button></td>}
+                  {canEditClaim && <td className="px-3 py-3 text-center"><button type="button" onClick={() => removeDiagnosis(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button></td>}
                 </tr>
               ))}
             </tbody>
@@ -727,7 +729,7 @@ export default function EditCorporateClaim() {
 
         <ListSection title="MEDICINES" count={medicines.length} open={tablesOpen} emptyText="No medicines added..." action={addBtn('Add', 'medicine')}>
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>Description</TH><TH>Date</TH><TH className="text-center">Qty</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{canEditClaim && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {medicines.map((med, idx) => (
                 <tr key={idx} className="border-t border-[var(--border-color)]">
@@ -737,7 +739,7 @@ export default function EditCorporateClaim() {
                   <td className="px-3 py-3 text-center text-[var(--text-secondary)]">{med.quantity}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{money(med.unitPrice)}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{money(med.quantity * med.unitPrice)}</td>
-                  {isDraft && (
+                  {canEditClaim && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditingMedicine(med)} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
                       <button type="button" onClick={() => removeMedicine(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button>
