@@ -897,7 +897,8 @@ useEffect(() => {
 
   const showRecordQuickSwitch =
     !!selectedAttendanceId &&
-    (currentAttendance?.attendanceType === 'antenatal' || currentAttendance?.attendanceType === 'delivery') &&
+    (currentAttendance?.attendanceType === 'antenatal' ||
+      (currentAttendance?.attendanceType === 'delivery' && !deliveryForCurrentVisit)) &&
     currentAttendance?.status !== 'discharged' &&
     currentAttendance?.status !== 'completed';
 
