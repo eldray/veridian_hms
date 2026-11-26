@@ -730,12 +730,12 @@ export const deleteShift = (shiftId: string) =>
 // LEAVE MANAGEMENT (via User module)
 // ──────────────────────────────────────────────
 
-const getLeavesPage = (filters?: { userId?: string; departmentId?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
+const getLeavesPage = (filters?: { userId?: string; departmentId?: string; status?: string; statuses?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
   api.get('/users/leaves', { params: filters }).then(r => handleResponse<any>(r.data));
 
 // Same 500-row page as the roster: the leave register opened on one page and the approvals
 // queue looked empty for anything older than the first slice.
-export const getLeaves = async (filters?: { userId?: string; departmentId?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) => {
+export const getLeaves = async (filters?: { userId?: string; departmentId?: string; status?: string; statuses?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) => {
   if (filters?.page || !wantsMoreThanOnePage(filters)) return getLeavesPage(filters);
   return fetchAllPages<any>(getLeavesPage, filters, { pageSize: MAX_PAGE_SIZE_500, maxItems: Number(filters!.limit), concurrency: 2 });
 };
