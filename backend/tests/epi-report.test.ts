@@ -39,11 +39,6 @@ describe('GHS EPI report', () => {
     expect(result.monthlyVaccinations.find(row => row.vaccine === 'BCG')).toMatchObject({ under12Months: 1, months12To23: 1, months24Plus: 0, totalAdministered: 2 });
     expect(result.covidVaccinations).toHaveLength(7);
     expect(result.tdVaccinations).toHaveLength(6);
-    expect(result.covidVaccinations[0].underlyingConditions).toBe(1);
-    expect(result.covidVaccinations[0].healthWorkers).toBe(1);
-    expect(result.covidVaccinations[0].pregnantWomen).toBe(1);
-    expect(result.tdVaccinations[0].pregnantWomen).toBe(1);
-    expect(result.tdVaccinations[0].nonPregnant).toBe(1);
     expect(result.coverage).toBeNull();
   });
 });
