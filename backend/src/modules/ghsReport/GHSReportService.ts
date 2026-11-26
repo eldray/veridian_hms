@@ -719,11 +719,13 @@ export class GHSReportService extends BaseService {
     const tdVaccinationLabels = ['Td-1','Td-2','Td-3','Td-4','Td-5'];
     const tdVaccinations = tdVaccinationLabels.map(dose => ({ dose, pregnantWomen: 0, nonPregnant: 0, others: 0 }));
     for (const record of records) {
-      const text = normalize(record.Vaccine.code + ' ' + record.Vaccine.name);
-      const dose = normalize(record.doseNumber);
-      if (text.includes('covid') || text.includes('janssen') || text.includes('astrazeneca') || text.includes('pfizer') || text.includes('moderna')) {
-        const booster = dose.match(/booster([1-4])/);
-        const doseMatch = dose.match(/(?:dose)?([12])/);
+      const vaccineDescriptor = String(record.Vaccine.code + ' ' + record.Vaccine.name);
+      const text = normalize(vaccineDescriptor);
+      const rawDose = String(record.doseNumber || '');
+      const dose = normalize(rawDose);
+      if (/covid|janssen|astrazeneca|pfizer|moderna/i.test(vaccineDescriptor)) {
+        const booster = rawDose.match(/booster\\s*([1-4])/i);
+        const doseMatch = rawDose.match(/(?:dose\\s*)?([12])\\b/i);
         const doseNumber = doseMatch ? Number(doseMatch[1]) : 1;
         const label = text.includes('single') || text.includes('janssen') ? 'COVID-19, Single Dose' : booster ? 'COVID-19, Booster ' + booster[1] : doseNumber === 1 ? 'COVID-19, Dose 1' : 'COVID-19, Dose 2';
         const row = covidVaccinations.find(item => item.dose === label);
