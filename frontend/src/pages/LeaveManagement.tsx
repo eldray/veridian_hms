@@ -25,11 +25,11 @@ import {
 } from '../components/ui';
 
 const LEAVE_TYPES = [
-  { value: 'annual',    label: 'Annual',    barClass: 'bg-blue-100 text-blue-700 border-blue-200' },
-  { value: 'sick',      label: 'Sick',      barClass: 'bg-green-100 text-green-700 border-green-200' },
-  { value: 'maternity', label: 'Maternity', barClass: 'bg-pink-100 text-pink-700 border-pink-200' },
-  { value: 'paternity', label: 'Paternity', barClass: 'bg-purple-100 text-purple-700 border-purple-200' },
-  { value: 'emergency', label: 'Emergency', barClass: 'bg-red-100 text-red-700 border-red-200' },
+  { value: 'annual',    label: 'Annual',    barClass: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--border-color)]' },
+  { value: 'sick',      label: 'Sick',      barClass: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--border-color)]' },
+  { value: 'maternity', label: 'Maternity', barClass: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--border-color)]' },
+  { value: 'paternity', label: 'Paternity', barClass: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--border-color)]' },
+  { value: 'emergency', label: 'Emergency', barClass: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--border-color)]' },
   { value: 'unpaid',    label: 'Unpaid',    barClass: 'bg-slate-100 text-slate-700 border-slate-200' },
 ];
 
@@ -37,10 +37,10 @@ const leaveTypeConfig = (t: string) =>
   LEAVE_TYPES.find((x) => x.value === t) ?? LEAVE_TYPES[LEAVE_TYPES.length - 1];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-  pending:   { label: 'Pending',   color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  approved:  { label: 'Approved',  color: 'bg-green-100 text-green-700',   icon: Check },
-  rejected:  { label: 'Rejected',  color: 'bg-red-100 text-red-700',       icon: Ban   },
-  cancelled: { label: 'Cancelled', color: 'bg-gray-100 text-gray-700',     icon: X     },
+  pending:   { label: 'Pending',   color: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]', icon: Clock },
+  approved:  { label: 'Approved',  color: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',   icon: Check },
+  rejected:  { label: 'Rejected',  color: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',       icon: Ban   },
+  cancelled: { label: 'Cancelled', color: 'bg-[var(--bg-main)] text-[var(--text-secondary)]',     icon: X     },
 };
 
 const formatDate = (iso: string) => {
@@ -108,7 +108,7 @@ const RejectModal: React.FC<{
           </div>
           <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
             <button type="button" onClick={onCancel} className="flex-1 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg text-sm font-medium">Cancel</button>
-            <button type="submit" disabled={saving || !reason.trim()} className="flex-1 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white text-sm font-medium disabled:opacity-50">
+            <button type="submit" disabled={saving || !reason.trim()} className="flex-1 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:opacity-90 text-sm font-medium disabled:opacity-50">
               {saving ? 'Rejecting…' : 'Reject Request'}
             </button>
           </div>
@@ -384,7 +384,7 @@ export default function LeaveManagement() {
               <p className="text-sm text-[var(--text-secondary)]">Loading leaves…</p>
             </div>
           ) : visibleLeaves.length === 0 ? (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center">
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center">
               <FileText className="w-14 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
               <p className="text-sm font-medium text-[var(--text-primary)] mb-1">{view === 'pending' ? 'No pending leave requests' : 'No leave requests found'}</p>
               <p className="text-xs text-[var(--text-secondary)]">{view === 'pending' ? 'All caught up.' : 'Try widening your filters.'}</p>
@@ -419,7 +419,7 @@ export default function LeaveManagement() {
                         <td className={`${TD} whitespace-nowrap`}>{formatDate(leave.startDate)} – {formatDate(leave.endDate)}</td>
                         <td className={TD}>{leave.totalDays} day{leave.totalDays !== 1 ? 's' : ''}</td>
                         <td className={TD}>{statusBadge(leave)}</td>
-                        <td className={TD}><span className="block max-w-[280px] truncate" title={leave.reason}>{leave.reason || '—'}</span>{leave.status === 'approved' && (leave.approver || leave.approvedBy) && (<span className="block text-xs text-green-600 mt-0.5">Approved by {(leave.approver || leave.approvedBy)?.fullName}</span>)}</td>
+                        <td className={TD}><span className="block max-w-[280px] truncate" title={leave.reason}>{leave.reason || '—'}</span>{leave.status === 'approved' && (leave.approver || leave.approvedBy) && (<span className="block text-xs text-[var(--icon-green-text)] mt-0.5">Approved by {(leave.approver || leave.approvedBy)?.fullName}</span>)}</td>
                         <td className={TD}>{rowActions(leave)}</td>
                       </tr>
                     );
@@ -449,7 +449,7 @@ export default function LeaveManagement() {
                       <div className="bg-[var(--bg-main)] rounded-lg p-2 col-span-2"><dt className="text-[var(--text-tertiary)]">Dates</dt><dd className="font-medium text-[var(--text-primary)]">{formatDate(leave.startDate)} – {formatDate(leave.endDate)}</dd></div>
                       {leave.reason && (<div className="bg-[var(--bg-main)] rounded-lg p-2 col-span-2"><dt className="text-[var(--text-tertiary)]">Reason</dt><dd className="font-medium text-[var(--text-primary)] line-clamp-2">{leave.reason}</dd></div>)}
                     </dl>
-                    {leave.status === 'approved' && (leave.approver || leave.approvedBy) && (<p className="mt-2 text-xs text-green-600">Approved by {(leave.approver || leave.approvedBy)?.fullName}</p>)}
+                    {leave.status === 'approved' && (leave.approver || leave.approvedBy) && (<p className="mt-2 text-xs text-[var(--icon-green-text)]">Approved by {(leave.approver || leave.approvedBy)?.fullName}</p>)}
                     <div className="flex items-center gap-2 pt-3 mt-3 border-t border-[var(--border-color)]">{rowActions(leave)}</div>
                   </div>
                 );
