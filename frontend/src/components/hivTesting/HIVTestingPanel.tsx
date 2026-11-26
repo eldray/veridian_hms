@@ -48,7 +48,7 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
     if (form.testingStatus === 'declined' && form.result !== 'pending') { setMessage('A declined test cannot have a test result.'); return; }
     setSaving(true); setMessage('');
     try {
-      await api.post('/hiv-testing', { ...form, patientId, attendanceId });
+      await api.post('/hiv-testing', { ...form, firstTimeTester: form.firstTimeTester === 'yes' ? true : form.firstTimeTester === 'no' ? false : null, patientId, attendanceId });
       setMessage('HTS record saved.');
       setShowForm(false);
       setForm((old: any) => ({ ...old, consentGiven: false, testingConsentGiven: false, result: 'pending', resultConfirmed: false, testingStatus: 'not_started', counsellingPreTest: false, counsellingPostTest: false, notes: '' }));
@@ -89,6 +89,7 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
         {field('Episode status', 'testingStatus', ['not_started','counselling','testing','completed','declined'])}
         {field('Test result', 'result', ['pending','positive','negative','invalid','inconclusive'])}
         {field('Previous testing history', 'previousTesting', ['unknown','never_tested','tested_before','known_positive'])}
+        {field('First-time tester', 'firstTimeTester', ['unknown','yes','no'])}
         {field('Linkage outcome', 'linkageStatus', ['not_assessed','not_applicable','referred','linked','declined','unable_to_contact'])}
         <label className="block"><span className={labelClass}>Test algorithm / sequence</span><input className={inputClass} value={form.testAlgorithm} onChange={e => update('testAlgorithm',e.target.value)} /></label>
         <label className="block"><span className={labelClass}>Test kit(s)</span><input className={inputClass} value={form.testKit} onChange={e => update('testKit',e.target.value)} /></label>
