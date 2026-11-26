@@ -1138,59 +1138,59 @@ export default function AttendanceDetails() {
         </div>
       </div>
 
-      {/* Quick Action Buttons */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+      {/* Compact quick actions: four columns keep the eight shortcuts to two rows on desktop. */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
         {canEnterMedicalEntries && (
           <button
             onClick={handleGoToMedicalEntries}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors text-xs font-medium text-[var(--text-primary)]"
           >
-            <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+            <Stethoscope className="w-3.5 h-3.5 shrink-0 text-[var(--icon-cyan-text)]" />
             Medical Entries
           </button>
         )}
         {canEnterVitals && (
           <button
             onClick={handleGoToVitals}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors text-xs font-medium text-[var(--text-primary)]"
           >
-            <Heart className="w-4 h-4 text-[var(--icon-red-text)]" />
+            <Heart className="w-3.5 h-3.5 shrink-0 text-[var(--icon-red-text)]" />
             Vitals
           </button>
         )}
         {canOpenBilling && (
           <button
             onClick={handleGoToBilling}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors text-xs font-medium text-[var(--text-primary)]"
           >
-            <DollarSign className="w-4 h-4 text-[var(--icon-green-text)]" />
+            <DollarSign className="w-3.5 h-3.5 shrink-0 text-[var(--icon-green-text)]" />
             Billing
           </button>
         )}
         {patient && (
           <button
             onClick={printVisitSummary}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors text-xs font-medium text-[var(--text-primary)]"
           >
-            <Printer className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+            <Printer className="w-3.5 h-3.5 shrink-0 text-[var(--icon-cyan-text)]" />
             Visit summary
           </button>
         )}
         {canWriteReport && patient && (
           <button
             onClick={() => setShowMedicalReport(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors text-xs font-medium text-[var(--text-primary)]"
           >
-            <FileText className="w-4 h-4 text-[var(--icon-purple-text)]" />
+            <FileText className="w-3.5 h-3.5 shrink-0 text-[var(--icon-purple-text)]" />
             Medical report
           </button>
         )}
         {canQuote && (
           <button
             onClick={handleNewEstimate}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors text-xs font-medium text-[var(--text-primary)]"
           >
-            <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+            <FileText className="w-3.5 h-3.5 shrink-0 text-[var(--icon-cyan-text)]" />
             Estimate
           </button>
         )}
@@ -1198,18 +1198,18 @@ export default function AttendanceDetails() {
         {canEnterLaboratory && patient && (
           <button
             onClick={handleGoToLaboratory}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors text-xs font-medium text-[var(--text-primary)]"
           >
-            <Microscope className="w-4 h-4 text-[var(--icon-green-text)]" />
+            <Microscope className="w-3.5 h-3.5 shrink-0 text-[var(--icon-green-text)]" />
             Lab worklist
           </button>
         )}
         {canEnterScans && patient && (
           <button
             onClick={handleGoToScans}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors text-xs font-medium text-[var(--text-primary)]"
           >
-            <Scan className="w-4 h-4 text-[var(--icon-purple-text)]" />
+            <Scan className="w-3.5 h-3.5 shrink-0 text-[var(--icon-purple-text)]" />
             Scan worklist
           </button>
         )}
