@@ -3,6 +3,42 @@ import { PrismaClient, AuditAction } from '@prisma/client';
 import { logger } from '../utils/logger';
 import { appendAuditLog } from '../services/auditChain';
 
+/** Record patient-record reads without copying patient data or search terms into the audit log. */
+export const auditPatientAccess = (req: Request, res: Response, next: NextFunction) => {
+  const user = (req as any).user as { id?: string } | undefined;
+  if (!user?.id || req.method !== 'GET') return next();
+
+  // Never store an NHIS number or free-text search term in the audit record.
+  const entityId = typeof req.params.id === 'string'
+    ? req.params.id
+    : (req.params.nhisNumber ? 'nhis_lookup' : 'patient_collection');
+
+  res.once('finish', () => {
+    void appendAuditLog(prisma, {
+      entityType: 'Patient',
+      entityId,
+      action: 'view',
+      performedById: user.id!,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') || null,
+      metadata: {
+        method: req.method,
+        route: req.route?.path || req.path,
+        statusCode: res.statusCode,
+      },
+    }).catch((error) => {
+      logger.error('Failed to record patient access audit event', {
+        userId: user.id,
+        route: req.route?.path || req.path,
+        statusCode: res.statusCode,
+        error,
+      });
+    });
+  });
+
+  next();
+};
+
 import prisma from '../core/database/prisma.client';
 
 export interface AuditLogOptions {
