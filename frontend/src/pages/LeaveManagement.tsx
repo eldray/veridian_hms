@@ -30,7 +30,7 @@ const LEAVE_TYPES = [
   { value: 'maternity', label: 'Maternity', barClass: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--border-color)]' },
   { value: 'paternity', label: 'Paternity', barClass: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--border-color)]' },
   { value: 'emergency', label: 'Emergency', barClass: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--border-color)]' },
-  { value: 'unpaid',    label: 'Unpaid',    barClass: 'bg-slate-100 text-slate-700 border-slate-200' },
+  { value: 'unpaid',    label: 'Unpaid',    barClass: 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]' },
 ];
 
 const leaveTypeConfig = (t: string) =>
