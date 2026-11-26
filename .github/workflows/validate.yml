@@ -58,6 +58,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Audit root and Electron dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm audit --json > root-npm-audit.json || true
       - name: Audit backend dependencies
         working-directory: backend
         run: |
@@ -73,7 +77,7 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require('node:fs');
-          for (const file of ['backend-npm-audit.json', 'frontend-npm-audit.json']) {
+          for (const file of ['root-npm-audit.json', 'backend-npm-audit.json', 'frontend-npm-audit.json']) {
             if (!fs.existsSync(file)) {
               console.log(`\n${file}: report was not generated`);
               continue;
@@ -206,9 +210,6 @@ jobs:
           fetch-depth: 0
       - name: Run gitleaks
         uses: gitleaks/gitleaks-action@v2
-        # History still contains the previously committed uploads and test.txt.
-        # Remove continue-on-error after the history purge and secret rotation
-        # described in SECURITY.md so this becomes a blocking gate.
-        continue-on-error: true
+        # A detected secret must fail validation and block merging.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
