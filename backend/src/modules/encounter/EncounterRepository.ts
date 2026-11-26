@@ -1765,6 +1765,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
             administeredById: updateData.administeredById,
             site: data.site ?? undefined,
             notes: data.notes ?? undefined,
+            recordedAt: new Date(),
           },
         });
         if (claimedDose.count !== 1) {
