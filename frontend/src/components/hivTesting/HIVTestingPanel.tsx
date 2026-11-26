@@ -84,7 +84,12 @@ export default function HIVTestingPanel({ patientId, attendanceId }: { patientId
   );
   const check = (title: string, key: string) => (
     <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-      <input type="checkbox" checked={!!form[key]} onChange={e => update(key, e.target.checked)} className="h-4 w-4 rounded border-[var(--border-color)] accent-[var(--icon-cyan-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]" /> {title}
+      <input type="checkbox" checked={!!form[key]} onChange={e => {
+        const checked = e.target.checked;
+        update(key, checked);
+        if (key === 'previouslyKnownPositive' && checked) update('newlyIdentifiedPositive', false);
+        if (key === 'newlyIdentifiedPositive' && checked) update('previouslyKnownPositive', false);
+      }} className="h-4 w-4 rounded border-[var(--border-color)] accent-[var(--icon-cyan-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]" /> {title}
     </label>
   );
 
