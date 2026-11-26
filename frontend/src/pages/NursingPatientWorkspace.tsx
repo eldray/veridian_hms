@@ -317,7 +317,7 @@ export default function NursingPatientWorkspace() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm font-semibold text-[var(--text-primary)]">Loading patient workspace…</p>
         </div>
       </div>
@@ -335,7 +335,7 @@ export default function NursingPatientWorkspace() {
           </p>
           <button
             onClick={goBack}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:bg-[var(--icon-cyan-text)] transition-colors text-sm font-medium"
           >
             <ChevronLeft className="w-4 h-4" /> Back to Nursing Station
           </button>
@@ -395,7 +395,7 @@ export default function NursingPatientWorkspace() {
             </button>
             <button
               onClick={() => setShowVitalsModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white hover:bg-[var(--icon-cyan-text)] transition-colors"
             >
               <Activity className="w-3.5 h-3.5" /> Record Vitals
             </button>
@@ -416,7 +416,7 @@ export default function NursingPatientWorkspace() {
               onClick={() => setActiveTab(key as TabKey)}
               className={`flex items-center gap-1.5 py-3 px-3 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
                 activeTab === key
-                  ? 'border-teal-500 text-teal-600'
+                  ? 'border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)]'
                   : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
@@ -485,7 +485,7 @@ export default function NursingPatientWorkspace() {
                       <p className="text-sm text-[var(--text-secondary)] font-medium">No vitals recorded yet</p>
                       <button
                         onClick={() => setShowVitalsModal(true)}
-                        className="mt-3 text-xs text-teal-600 hover:underline font-medium"
+                        className="mt-3 text-xs text-[var(--icon-cyan-text)] hover:underline font-medium"
                       >
                         Record the first vitals
                       </button>
@@ -571,7 +571,7 @@ export default function NursingPatientWorkspace() {
                         </p>
                         <button
                           onClick={() => setActiveTab('vitals')}
-                          className="flex items-center gap-1 text-[11px] font-semibold text-teal-600 hover:underline"
+                          className="flex items-center gap-1 text-[11px] font-semibold text-[var(--icon-cyan-text)] hover:underline"
                         >
                           View full history <ChevronRight className="w-3 h-3" />
                         </button>
@@ -583,7 +583,7 @@ export default function NursingPatientWorkspace() {
                 {/* Meds due — 1 column */}
                 <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden flex flex-col">
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-                    <Pill className="w-4 h-4 text-teal-600" />
+                    <Pill className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                     <span className="text-xs font-semibold text-[var(--text-primary)]">Medications Due</span>
                     {dosesDueNow.length > 0 && (
                       <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]">
@@ -598,7 +598,7 @@ export default function NursingPatientWorkspace() {
                       <p className="text-sm text-[var(--text-secondary)] font-medium">All medications up to date</p>
                       <button
                         onClick={() => setActiveTab('mar')}
-                        className="mt-3 text-xs text-teal-600 hover:underline font-medium"
+                        className="mt-3 text-xs text-[var(--icon-cyan-text)] hover:underline font-medium"
                       >
                         View MAR
                       </button>
@@ -663,7 +663,7 @@ export default function NursingPatientWorkspace() {
                       {dosesDueNow.length > 8 && (
                         <button
                           onClick={() => setActiveTab('mar')}
-                          className="w-full px-4 py-2 text-[10px] font-semibold text-teal-600 hover:bg-[var(--bg-main)] transition-colors"
+                          className="w-full px-4 py-2 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--bg-main)] transition-colors"
                         >
                           +{dosesDueNow.length - 8} more doses →
                         </button>
@@ -694,7 +694,7 @@ export default function NursingPatientWorkspace() {
                       <p className="text-sm text-[var(--text-secondary)] font-medium">No pending tasks</p>
                       <button
                         onClick={() => setActiveTab('tasks')}
-                        className="mt-3 text-xs text-teal-600 hover:underline font-medium"
+                        className="mt-3 text-xs text-[var(--icon-cyan-text)] hover:underline font-medium"
                       >
                         Add a task
                       </button>
@@ -707,11 +707,11 @@ export default function NursingPatientWorkspace() {
                             type="checkbox"
                             checked={false}
                             onChange={() => handleCompleteTask(t.id)}
-                            className="w-4 h-4 rounded border-[var(--border-color)] text-teal-600 focus:ring-teal-500 cursor-pointer flex-shrink-0"
+                            className="w-4 h-4 rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] focus:ring-[var(--icon-cyan-text)] cursor-pointer flex-shrink-0"
                           />
                           <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                            t.priority === 'high' ? 'bg-red-500' :
-                            t.priority === 'medium' ? 'bg-yellow-500' : 'bg-blue-400'
+                            t.priority === 'high' ? 'bg-[var(--icon-red-text)]' :
+                            t.priority === 'medium' ? 'bg-[var(--icon-yellow-text)]' : 'bg-[var(--icon-blue-text)]'
                           }`} />
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-[var(--text-primary)] truncate">{t.title}</p>
@@ -730,7 +730,7 @@ export default function NursingPatientWorkspace() {
                       {todayTasks.length > 8 && (
                         <button
                           onClick={() => setActiveTab('tasks')}
-                          className="w-full px-4 py-2 text-[10px] font-semibold text-teal-600 hover:bg-[var(--bg-main)] transition-colors"
+                          className="w-full px-4 py-2 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--bg-main)] transition-colors"
                         >
                           +{todayTasks.length - 8} more tasks →
                         </button>
@@ -759,7 +759,7 @@ export default function NursingPatientWorkspace() {
                     <button
                       onClick={() => setMarView('list')}
                       className={`p-1.5 rounded-md transition-all ${
-                        marView === 'list' ? 'bg-[var(--bg-card)] text-teal-600 shadow-sm' : 'text-[var(--text-tertiary)]'
+                        marView === 'list' ? 'bg-[var(--bg-card)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-tertiary)]'
                       }`}
                       title="List view"
                     >
@@ -768,7 +768,7 @@ export default function NursingPatientWorkspace() {
                     <button
                       onClick={() => setMarView('grid')}
                       className={`p-1.5 rounded-md transition-all ${
-                        marView === 'grid' ? 'bg-[var(--bg-card)] text-teal-600 shadow-sm' : 'text-[var(--text-tertiary)]'
+                        marView === 'grid' ? 'bg-[var(--bg-card)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-tertiary)]'
                       }`}
                       title="Grid view"
                     >
@@ -794,7 +794,7 @@ export default function NursingPatientWorkspace() {
 
               {dosesLoading ? (
                 <div className="text-center py-10">
-                  <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <div className="w-6 h-6 border-2 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto" />
                 </div>
               ) : marView === 'list' ? (
                 <MarChart
@@ -844,7 +844,7 @@ export default function NursingPatientWorkspace() {
                 </div>
                 <button
                   onClick={() => setShowVitalsModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white hover:bg-[var(--icon-cyan-text)] transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" /> Record Vitals
                 </button>
