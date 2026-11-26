@@ -15,6 +15,7 @@ export interface LabReportSummary {
   byPriority: Record<string, number>;
   averageTurnaroundTime: number;
   hiv: { testsOrdered: number; completed: number; resultsEntered: number; positive: number; negative: number; indeterminate: number; pending: number; positivityRate: number | null };
+  hts: { counsellingEpisodes: number; completedTests: number; confirmedPositive: number; newlyIdentifiedPositive: number; previouslyKnownPositive: number; linkedToCare: number };
 }
 
 export interface LabReportData {
