@@ -86,6 +86,8 @@ function prescriptionTextForMedication(m: any): string {
     m.dosage && 'Dose: ' + m.dosage,
     m.frequency && 'Frequency: ' + m.frequency,
     m.duration && 'Duration: ' + m.duration,
+    m.route && 'Route: ' + m.route,
+    m.instructions && 'Instructions: ' + m.instructions,
   ].filter(Boolean);
   return details.join(' · ');
 }
@@ -857,7 +859,7 @@ export default function EditPrivateClaim() {
               {medicines.map((med, idx) => (
                 <tr key={idx} className="border-t border-[var(--border-color)]">
                   <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-[var(--text-secondary)]">{med.description}</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{med.description}{med.prescriptionText && <div className="mt-0.5 text-[10px] italic text-[var(--text-tertiary)]">Rx: {med.prescriptionText}</div>}</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)] text-xs min-w-[220px]">{med.prescriptionText || <span className="text-[var(--text-tertiary)]">No prescription details recorded</span>}</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)]">{fmtDate(med.date)}</td>
                   <td className="px-3 py-3 text-center text-[var(--text-secondary)]">{med.quantity}</td>
