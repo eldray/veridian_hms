@@ -77,34 +77,52 @@ export class GDRGService extends BaseService {
   }
 
   async lookupByAge(gdrgCode: string, patientId?: string, attendanceDate?: string, ageInYears?: number) {
-    this.logDebug('Looking up GDRG by age', { gdrgCode, patientId, ageInYears });
-    
+    this.logDebug('Looking up GDRG by age', { gdrgCode, patientId, attendanceDate, ageInYears });
+
+    // A historical claim must use the tariff schedule that was valid on the date of service,
+    // not whichever schedule happens to be active on the day someone opens the lookup.
+    const tariffAsOfDate = attendanceDate ? new Date(attendanceDate) : new Date();
+    if (Number.isNaN(tariffAsOfDate.getTime())) {
+      throw new Error('Invalid attendance date for GDRG tariff lookup');
+    }
+
     let ageInDays: number | undefined;
     let patientInfo: any = null;
 
     if (patientId) {
-      // ✅ FIXED: Use this.prisma instead of undefined prisma
       const patient = await this.prisma.patient.findUnique({
         where: { id: patientId },
         select: { dateOfBirth: true, folderNumber: true }
       });
 
       if (patient) {
-        const asOfDate = attendanceDate ? new Date(attendanceDate) : new Date();
-        const diffTime = asOfDate.getTime() - patient.dateOfBirth.getTime();
+        const diffTime = tariffAsOfDate.getTime() - patient.dateOfBirth.getTime();
         ageInDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-        patientInfo = { id: patientId, ageInDays, ageInYears: Math.floor(ageInDays / 365.25), folderNumber: patient.folderNumber };
+        let completedYears = tariffAsOfDate.getUTCFullYear() - patient.dateOfBirth.getUTCFullYear();
+        const birthdayNotReached =
+          tariffAsOfDate.getUTCMonth() < patient.dateOfBirth.getUTCMonth() ||
+          (tariffAsOfDate.getUTCMonth() === patient.dateOfBirth.getUTCMonth() &&
+            tariffAsOfDate.getUTCDate() < patient.dateOfBirth.getUTCDate());
+        if (birthdayNotReached) completedYears -= 1;
+        patientInfo = { id: patientId, ageInDays, ageInYears: completedYears, folderNumber: patient.folderNumber };
       }
-    } else if (ageInYears) {
+    } else if (ageInYears !== undefined && ageInYears !== null) {
       ageInDays = ageInYears * 365;
     }
 
-    const ageInYearsNum = ageInDays ? Math.floor(ageInDays / 365) : null;
-    
+    // Use completed calendar years for patient records; dividing days by 365 can cross
+    // the 12-year tariff boundary before the patient's birthday in a leap-year interval.
+    const ageInYearsNum = patientInfo
+      ? patientInfo.ageInYears
+      : ageInYears !== undefined && ageInYears !== null
+        ? Math.floor(ageInYears)
+        : null;
+
     const where: any = {
-      gdrgCode, isActive: true,
-      effectiveFrom: { lte: new Date() },
-      OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date() } }]
+      gdrgCode,
+      isActive: true,
+      effectiveFrom: { lte: tariffAsOfDate },
+      OR: [{ effectiveTo: null }, { effectiveTo: { gte: tariffAsOfDate } }]
     };
 
     if (ageInYearsNum !== null) {
