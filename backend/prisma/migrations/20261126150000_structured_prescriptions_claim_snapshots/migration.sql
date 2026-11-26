@@ -46,3 +46,20 @@ UPDATE "Medication"
 SET "durationValue" = (regexp_match(LOWER(TRIM("duration")), '^([0-9]+)\s*(week|weeks|wk|wks)$'))[1]::INTEGER,
     "durationUnit" = 'weeks'
 WHERE "duration" ~* '^[0-9]+\s*(week|weeks|wk|wks)$';
+
+UPDATE "Medication"
+SET "doseAmount" = (regexp_match(LOWER(TRIM("dosage")), '^([0-9]+(\.[0-9]+)?)\s*(mcg|μg|ug|mg|g|ml|iu|units?)$'))[1]::DECIMAL(12,4),
+    "doseUnit" = CASE LOWER((regexp_match(LOWER(TRIM("dosage")), '^([0-9]+(\.[0-9]+)?)\s*(mcg|μg|ug|mg|g|ml|iu|units?)$'))[3])
+      WHEN 'μg' THEN 'mcg' WHEN 'ug' THEN 'mcg' ELSE LOWER((regexp_match(LOWER(TRIM("dosage")), '^([0-9]+(\.[0-9]+)?)\s*(mcg|μg|ug|mg|g|ml|iu|units?)$'))[3]) END
+WHERE "dosage" ~* '^[0-9]+(\.[0-9]+)?\s*(mcg|μg|ug|mg|g|ml|iu|units?)$';
+
+UPDATE "Medication"
+SET "frequencyIntervalHours" = (regexp_match(LOWER(TRIM("frequency")), '^(?:q\s*|every\s+)([0-9]+)\s*h(?:ours?)?$'))[1]::INTEGER,
+    "frequencyCode" = 'INTERVAL'
+WHERE "frequency" ~* '^(?:q\s*|every\s+)[0-9]+\s*h(?:ours?)?$';
+
+UPDATE "Medication" AS medication
+SET "quantityUnit" = stock."unitOfMeasure"
+FROM "StockItem" AS stock
+WHERE medication."stockItemId" = stock."id"
+  AND medication."quantityUnit" IS NULL;
