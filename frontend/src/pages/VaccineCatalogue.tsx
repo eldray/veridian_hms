@@ -96,7 +96,7 @@ export default function VaccineCatalogue() {
         ...form, code: form.code.trim().toUpperCase(), name: form.name.trim(),
         diseaseTargets: form.diseaseTargets.split(',').map(x => x.trim()).filter(Boolean),
         recommendedAge: form.recommendedAge.trim() || null,
-        doseSchedule: doseSchedule ?? null,
+        doseSchedule,
         defaultDoseVolume: form.defaultDoseVolume.trim() || null,
         defaultRoute: form.defaultRoute.trim() || null,
         stockItemId: form.stockItemId || null,
