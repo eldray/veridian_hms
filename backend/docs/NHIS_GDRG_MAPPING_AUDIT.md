@@ -157,6 +157,16 @@ A further exact-code check of the official NHIA Tariffs Operation Manual v22, An
 
 The earlier provisional generic respiratory links (MEDI22A / PAED30C) were removed from this diagnosis mapping because J90 is explicitly listed under the thoracostomy groups in Annex C. The mapping is now marked verified and includes only the adult and paediatric tariff codes shown in the manual. This does not mean pleural effusion alone qualifies the claim for a surgical tariff: the principal-G-DRG resolver rejects surgical tariffs sourced only from a diagnosis link and requires the corresponding completed procedure-origin link. Regression coverage checks both age bands and that guard.
 
-This verification reduces the provisional diagnosis mapping queue from 112 to **111**. The remaining provisional mappings and the legacy mappings still require individual Annex C review; catalogue completeness is not clinical validation.
+These follow-up verifications reduce the provisional diagnosis mapping queue from 112 to **110**. The remaining provisional mappings and the legacy mappings still require individual Annex C review; catalogue completeness is not clinical validation.
 
 Source: NHIA Tariffs Operation Manual v22, Annex C, Adult Surgery ASUR03 and Paediatrics Surgery PSUR34 (official PDF: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf).
+
+## Annex C follow-up — K21.9 gastro-oesophageal reflux
+
+The Annex C paediatric surgery table explicitly lists K21.9 (gastro-oesophageal reflux) under **PSUR14C — Thoracotomy and oesophageal surgery**. The provisional generic abdominal links (MEDI26A / PAED34C) were removed from this diagnosis mapping. No adult K21.9 link is added because the checked Annex C rows do not list one.
+
+PSUR14C is a surgical tariff. As with J90, a diagnosis link alone cannot select it: the resolver requires the completed oesophageal procedure-origin link. The regression test verifies the paediatric tariff and this procedure guard.
+
+This verification reduces the remaining provisional diagnosis mapping queue to **110**. The rest of the provisional and legacy mappings remain subject to individual Annex C validation.
+
+Source: NHIA Tariffs Operation Manual v22, Annex C, Paediatrics Surgery PSUR14 (official PDF: https://www.nhis.gov.gh/files/TARIFFS%20OPERATION%20MANUAL%20v22.pdf).
