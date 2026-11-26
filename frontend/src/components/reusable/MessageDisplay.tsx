@@ -15,8 +15,8 @@ export const MessageDisplay: React.FC<MessageDisplayProps> = ({ message }) => {
     <div
       className={`mb-6 p-4 rounded-xl flex items-center gap-3 border ${
         message.type === 'success'
-          ? 'bg-green-50 text-green-800 border-green-200'
-          : 'bg-red-50 text-red-800 border-red-200'
+          ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]'
+          : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]'
       }`}
     >
       {message.type === 'success' ? (
