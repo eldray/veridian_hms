@@ -46,6 +46,21 @@ const DURATION_OPTIONS = [...Array.from({ length: 30 }, (_, index) => index + 1)
   return { value, label: value, days };
 });
 
+// Offer relative dose suggestions from a simple, single-strength catalog value.
+// Compound concentrations (for example, mg/5 mL) are deliberately left to manual entry.
+const getDosageSuggestions = (strength?: string): string[] => {
+  const match = strength?.trim().match(/^(\\d+(?:\\.\\d+)?)\\s*(mcg|μg|ug|mg|g|iu|units?)$/i);
+  if (!match) return [];
+  const base = Number(match[1]);
+  if (!Number.isFinite(base) || base <= 0) return [];
+  const unit = match[2].toLowerCase() === 'μg' ? 'mcg' : match[2].toLowerCase();
+  return [0.5, 1, 1.5, 2, 2.5, 3].map(multiplier => {
+    const amount = base * multiplier;
+    const formatted = Number.isInteger(amount) ? amount.toLocaleString('en-US') : amount.toLocaleString('en-US', { maximumFractionDigits: 2 });
+    return `${formatted} ${unit}`;
+  });
+};
+
 export const MedicationModal: React.FC<MedicationModalProps> = ({
   isOpen, onClose, onSuccess, attendanceId, stockItems, canAdd, allergies, onSwitchToConsumable,
 }) => {
@@ -136,6 +151,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     }
     return ids;
   }, [filteredMeds, allergies]);
+
+  const dosageSuggestions = useMemo(() => getDosageSuggestions(selectedMed?.strength), [selectedMed?.strength]);
 
   const selectedClashes: AllergenClash[] = useMemo(
     () => (selectedMed ? findContraindications(allergies, selectedMed.name) : []),
@@ -426,11 +443,22 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
               <input
                 value={dosage}
                 onChange={e => setDosage(e.target.value)}
-                placeholder="500mg"
+                placeholder="Enter or choose dosage"
                 className={inputCls}
                 disabled={!canEdit}
                 autoComplete="off"
+                list="prescription-dosage-options"
               />
+              {dosageSuggestions.length > 0 && (
+                <>
+                  <datalist id="prescription-dosage-options">
+                    {dosageSuggestions.map(option => <option key={option} value={option} />)}
+                  </datalist>
+                  <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
+                    Suggestions based on {selectedMed?.strength}; you can enter a different dose.
+                  </p>
+                </>
+              )}
             </div>
 
             <div>
