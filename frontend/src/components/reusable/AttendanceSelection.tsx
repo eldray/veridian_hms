@@ -25,48 +25,48 @@ export const AttendanceSelection: React.FC<AttendanceSelectionProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'active': return 'bg-green-100 text-green-800 border-green-200';
-      case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'pending': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-text)]';
+      case 'active': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]';
+      case 'completed': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]';
+      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]';
+      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
     }
   };
 
   const selectedAttendance = patientAttendances.find((a) => getEntityId(a) === selectedAttendanceId);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div className="bg-[var(--bg-card)] rounded-lg shadow-sm border border-[var(--border-color)] p-3">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold flex items-center gap-2 text-gray-900">
-          <Calendar className="w-4 h-4 text-green-600" />
+        <h2 className="text-base font-semibold flex items-center gap-2 text-[var(--text-primary)]">
+          <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
           Select Attendance
         </h2>
         <button
           onClick={onNewAttendance}
-          className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm"
+          className="px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-85 transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
         >
           New Attendance
         </button>
       </div>
       
       {patientAttendances.length === 0 ? (
-        <div className="text-center py-3 text-gray-500">
+        <div className="text-center py-3 text-[var(--text-secondary)]">
           <p className="text-sm mb-2">No attendances found</p>
           <button
             onClick={onNewAttendance}
-            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm"
+            className="px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-85 transition-all text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
           >
             Create New Attendance
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div className="relative">
             <select
               value={selectedAttendanceId}
               onChange={(e) => onAttendanceSelect(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none bg-white text-sm"
+              className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all appearance-none bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
             >
               <option value="">Select an attendance...</option>
               {patientAttendances.map((attendance) => {
@@ -80,7 +80,7 @@ export const AttendanceSelection: React.FC<AttendanceSelectionProps> = ({
               })}
             </select>
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-              <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3 text-[var(--text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
@@ -104,28 +104,28 @@ const AttendanceDetails: React.FC<{
 }> = ({ attendance, onEdit }) => {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'active': return 'bg-green-100 text-green-800 border-green-200';
-      case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'pending': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-text)]';
+      case 'active': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]';
+      case 'completed': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]';
+      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]';
+      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
     }
   };
 
   return (
-    <div className="p-3 border-2 border-blue-500 bg-blue-50 rounded-lg">
+    <div className="p-3 border-2 border-[var(--icon-cyan-text)] bg-[var(--bg-main)] rounded-lg">
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-semibold text-gray-900 text-sm">
+          <div className="font-semibold text-[var(--text-primary)] text-sm">
             {attendance.attendanceNumber}
           </div>
-          <div className="text-xs text-gray-600 mt-1">
+          <div className="text-xs text-[var(--text-secondary)] mt-1">
             {new Date(attendance.dateTime).toLocaleDateString()}
           </div>
-          <div className="text-xs text-gray-600 capitalize">
+          <div className="text-xs text-[var(--text-secondary)] capitalize">
             {attendance.attendanceType?.replace('_', ' ')}
           </div>
-          <div className="text-xs text-gray-600">
+          <div className="text-xs text-[var(--text-secondary)]">
             Payment: <span className="font-semibold capitalize">{attendance.paymentMode}</span>
           </div>
         </div>
@@ -133,10 +133,10 @@ const AttendanceDetails: React.FC<{
         <div className="flex items-center gap-2">
           {attendance.totalBill && attendance.totalBill > 0 && (
             <div className="text-right">
-              <div className="text-xs font-semibold text-gray-900">
+              <div className="text-xs font-semibold text-[var(--text-primary)]">
                 ₵{Number(attendance.totalBill).toFixed(2)}
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-[var(--text-tertiary)]">
                 Bill
               </div>
             </div>
@@ -148,7 +148,7 @@ const AttendanceDetails: React.FC<{
 
           <button
             onClick={() => onEdit(attendance)}
-            className="p-1.5 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition-colors duration-200"
+            className="p-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border border-[var(--icon-yellow-text)] rounded hover:opacity-85 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
             title="Edit Attendance"
           >
             <Edit className="w-3 h-3" />
