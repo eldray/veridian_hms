@@ -22,7 +22,7 @@ export const MessageDisplay: React.FC<MessageDisplayProps> = ({ message }) => {
       {message.type === 'success' ? (
         <CheckCircle2 className="w-4 h-4" />
       ) : (
-        <AlertCircle className="w-5 h-5" />
+        <AlertCircle className="w-4 h-4" />
       )}
       <span className="font-medium text-sm">{message.text}</span>
     </div>
