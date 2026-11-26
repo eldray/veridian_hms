@@ -245,7 +245,7 @@ export default function StockTransactions() {
           ))}
         </div>
       ) : filteredTransactions.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-12 text-center border border-[var(--border-color)]">
+        <div className="bg-[var(--bg-card)] rounded-xl p-8 text-center border border-[var(--border-color)]">
           <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4"><FileText className="w-8 h-8 text-[var(--text-tertiary)]" /></div>
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No Transactions Found</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4">{Object.values(filters).some(f => f) || searchTerm ? 'Try adjusting your search or filter criteria' : 'No stock transactions have been recorded yet'}</p>
