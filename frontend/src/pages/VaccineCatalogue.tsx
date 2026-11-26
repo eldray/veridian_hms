@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
 import { useToast } from '../store/toastStore';
 import { confirmDialog } from '../context/ConfirmDialog';
 import {
-  AlertCircle, CheckCircle, Edit, Plus, RefreshCw, Search, Syringe, X,
+  AlertCircle, CheckCircle, Edit, Plus, RefreshCw, Syringe, X,
   Link2, Package, Power, Save,
 } from 'lucide-react';
 import {
@@ -30,8 +29,7 @@ const inputClass = 'w-full rounded-lg border border-[var(--border-color)] bg-[va
 const labelClass = 'block space-y-1.5 text-xs font-medium text-[var(--text-secondary)]';
 
 export default function VaccineCatalogue() {
-  const navigate = useNavigate();
-  const toast = useToast();
+  const { success: toastSuccess, error: toastError } = useToast();
   const [vaccines, setVaccines] = useState<Vaccine[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,7 +52,7 @@ export default function VaccineCatalogue() {
       setStockItems(Array.isArray(stock.data?.data) ? stock.data.data : []);
     } catch (e: any) {
       const message = e.response?.data?.message || e.message || 'Unable to load vaccine catalogue.';
-      setError(message); toast.error?.('Catalogue load failed', message);
+      setError(message); toastError('Catalogue load failed', message);
     } finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, []);
@@ -105,11 +103,11 @@ export default function VaccineCatalogue() {
       };
       if (editing) await api.put(`/immunization/vaccines/${editing.id}`, payload);
       else await api.post('/immunization/vaccines', payload);
-      toast.success?.(editing ? 'Vaccine updated' : 'Vaccine added', `${payload.name} saved to the catalogue.`);
+      toastSuccess(editing ? 'Vaccine updated' : 'Vaccine added', `${payload.name} saved to the catalogue.`);
       closeForm(); await load();
     } catch (e: any) {
       const message = e.response?.data?.message || e.message || 'Could not save vaccine.';
-      setError(message); toast.error?.('Save failed', message);
+      setError(message); toastError('Save failed', message);
     } finally { setSaving(false); }
   };
 
@@ -126,11 +124,11 @@ export default function VaccineCatalogue() {
     setSaving(true);
     try {
       await api.put(`/immunization/vaccines/${v.id}`, { isActive: nextActive });
-      toast.success?.(nextActive ? 'Vaccine reactivated' : 'Vaccine deactivated', v.name);
+      toastSuccess(nextActive ? 'Vaccine reactivated' : 'Vaccine deactivated', v.name);
       await load();
     } catch (e: any) {
       const message = e.response?.data?.message || e.message || 'Could not update vaccine status.';
-      setError(message); toast.error?.('Update failed', message);
+      setError(message); toastError('Update failed', message);
     } finally { setSaving(false); }
   };
 
