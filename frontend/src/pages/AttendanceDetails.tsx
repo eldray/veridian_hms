@@ -122,16 +122,16 @@ const SectionCard: React.FC<{
 
 // Table Components
 const Table: React.FC<{ heads: string[]; children: React.ReactNode }> = ({ heads, children }) => (
-  <table className="w-full text-xs">
+  <div className="w-full overflow-x-auto"><table className="w-full min-w-[620px] text-sm">
     <thead className="sticky top-0 z-10 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
       <tr>
         {heads.map(h => (
-          <th key={h} className="px-3 py-2 text-left font-semibold text-[var(--text-tertiary)] whitespace-nowrap">{h}</th>
+          <th key={h} className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] whitespace-nowrap">{h}</th>
         ))}
       </tr>
     </thead>
-    <tbody className="divide-y divide-[var(--border-color)]">{children}</tbody>
-  </table>
+    <tbody className="divide-y divide-[var(--border-color)] [&>tr:hover]:bg-[var(--bg-main)] [&>tr]:transition-colors">{children}</tbody>
+  </table></div>
 );
 
 const TdPrimary: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
@@ -941,7 +941,7 @@ export default function AttendanceDetails() {
           <div className="flex gap-3 justify-center">
             <button 
               onClick={handleBack}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-80 transition-all duration-200 font-semibold text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to List
@@ -986,7 +986,7 @@ export default function AttendanceDetails() {
             {canEdit && (
               <button
                 onClick={handleEditAttendance}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors shadow-sm text-sm font-semibold"
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:opacity-80 transition-colors shadow-sm text-sm font-semibold"
               >
                 <Edit className="w-4 h-4" /> Edit Attendance
               </button>
@@ -994,7 +994,7 @@ export default function AttendanceDetails() {
             {canDelete && (
               <button
                 onClick={() => setDeleteConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-colors shadow-sm text-sm font-semibold"
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:opacity-80 transition-colors shadow-sm text-sm font-semibold"
               >
                 <Trash2 className="w-4 h-4" /> Delete
               </button>
@@ -1131,7 +1131,7 @@ export default function AttendanceDetails() {
             <span className="bg-[var(--icon-orange-bg)] px-2 py-1 rounded border border-[var(--border-color)] text-[var(--icon-orange-text)] font-semibold">
               💰 {formatCurrency(currentAttendance.totalBill || 0)}
             </span>
-            <span className="bg-red-100 dark:bg-red-900/50 px-2 py-1 rounded border border-red-200 dark:border-red-700 text-[var(--icon-red-text)]">
+            <span className="bg-[var(--icon-red-bg)] px-2 py-1 rounded border border-red-200 dark:border-red-700 text-[var(--icon-red-text)]">
               ❤️ Vitals: {vitalsList.length}
             </span>
           </div>
@@ -1236,7 +1236,7 @@ export default function AttendanceDetails() {
                   {tab.label}
                   {tab.count !== undefined && tab.count > 0 && (
                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                      activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
+                      activeTab === tab.id ? 'bg-[var(--bg-card)] text-[var(--icon-cyan-text)] border border-[var(--border-color)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
                     }`}>
                       {tab.count}
                     </span>
