@@ -5,6 +5,7 @@ import { Button, INPUT, cn } from '../../components/ui';
 
 type Vaccine = { id: string; code: string; name: string; isActive?: boolean; description?: string | null; defaultDoseVolume?: string | null; defaultRoute?: string | null; diseaseTargets?: string[]; recommendedAge?: string | null; StockItem?: { id: string; name: string; drugCode: string; currentStock: number } | null };
 type VaccineStockItem = { id: string; name: string; drugCode: string; currentStock: number; unitOfMeasure: string };
+type VaccineBatchAvailability = { stockItem: { id: string; name: string; currentStock: number }; batchTracked: boolean; departmentAssigned: boolean; batches: Array<{ id: string; batchNumber: string; expiryDate: string; quantity: number; receivedDate: string }>; usableQuantity: number };
 type RecordRow = { id: string; doseNumber: string; administeredAt: string; doseVolume?: string | null; route?: string | null; administrationSite?: string | null; batchNumber?: string | null; expiryDate?: string | null; nextDoseDue?: string | null; adverseReaction?: string | null; notes?: string | null; stockTransactionId?: string | null; StockTransaction?: { id: string; transactionType: string; quantity: number } | null; Vaccine?: Vaccine; Attendance?: { attendanceNumber?: string; dateTime?: string }; AdministeredBy?: { fullName?: string } };
 type Visit = { id: string; attendanceType?: string; attendanceNumber?: string; dateTime?: string; createdAt?: string; status?: string };
 const localToday = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -15,6 +16,9 @@ export default function ImmunizationPanel({ patientId, attendances, initialAtten
   const [catalogueVaccines, setCatalogueVaccines] = useState<Vaccine[]>([]);
   const [records, setRecords] = useState<RecordRow[]>([]);
   const [vaccineStockItems, setVaccineStockItems] = useState<VaccineStockItem[]>([]);
+  const [batchAvailability, setBatchAvailability] = useState<VaccineBatchAvailability | null>(null);
+  const [batchAvailabilityLoading, setBatchAvailabilityLoading] = useState(false);
+  const [batchAvailabilityError, setBatchAvailabilityError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -34,6 +38,31 @@ export default function ImmunizationPanel({ patientId, attendances, initialAtten
     });
   }, [immunizationVisits, initialAttendanceId]);
   const selectedVaccine = useMemo(() => vaccines.find(v => v.id === form.vaccineId), [vaccines, form.vaccineId]);
+
+  useEffect(() => {
+    const vaccineId = selectedVaccine?.id;
+    if (!selectedVaccine?.StockItem?.id || !vaccineId) {
+      setBatchAvailability(null);
+      setBatchAvailabilityError('');
+      setBatchAvailabilityLoading(false);
+      return;
+    }
+    let active = true;
+    setBatchAvailabilityLoading(true);
+    setBatchAvailabilityError('');
+    api.get('/immunization/vaccines/' + vaccineId + '/stock-batches')
+      .then(response => { if (active) setBatchAvailability(response.data?.data ?? null); })
+      .catch((e: any) => {
+        if (active) {
+          setBatchAvailability(null);
+          setBatchAvailabilityError(e.response?.data?.message || e.message || 'Could not check vaccine batches.');
+        }
+      })
+      .finally(() => { if (active) setBatchAvailabilityLoading(false); });
+    return () => { active = false; };
+  }, [selectedVaccine?.id, selectedVaccine?.StockItem?.id]);
+
+
 
   const load = async () => {
     setLoading(true); setError('');
@@ -140,8 +169,18 @@ export default function ImmunizationPanel({ patientId, attendances, initialAtten
       <label className="text-xs text-[var(--text-secondary)]">Route<input value={form.route} onChange={e => update('route', e.target.value)} placeholder="IM, oral, SC…" className={cn(INPUT, 'mt-1 w-full')} /></label>
       <label className="text-xs text-[var(--text-secondary)]">Site<input value={form.administrationSite} onChange={e => update('administrationSite', e.target.value)} placeholder="Left upper arm, thigh…" className={cn(INPUT, 'mt-1 w-full')} /></label>
       {selectedVaccine?.StockItem ? <div className="md:col-span-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-3 text-xs text-[var(--text-secondary)]">
-        <p className="font-semibold text-[var(--text-primary)]">Stock linked: {selectedVaccine.StockItem.name}</p>
-        <p className="mt-1">On hand: {selectedVaccine.StockItem.currentStock}. When you save this vaccination, one dose will be issued from the selected department using the earliest-expiry usable batch. The actual batch number and expiry will be saved automatically.</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div><p className="font-semibold text-[var(--text-primary)]">Stock linked: {selectedVaccine.StockItem.name}</p><p className="mt-0.5">Hospital on hand: {selectedVaccine.StockItem.currentStock}</p></div>
+          {batchAvailability?.batchTracked && <span className="rounded-full bg-[var(--icon-cyan-bg)] px-2 py-1 font-semibold text-[var(--icon-cyan-text)]">Batch tracked · FEFO issue</span>}
+        </div>
+        {batchAvailabilityLoading ? <p className="mt-2">Checking usable batches in your department…</p> :
+          batchAvailabilityError ? <p role="alert" className="mt-2 text-[var(--icon-red-text)]">{batchAvailabilityError}</p> :
+          !batchAvailability?.departmentAssigned ? <p className="mt-2 text-[var(--icon-yellow-text)]">Your account has no department assigned. Ask an administrator to assign your department before issuing batch-tracked vaccine stock.</p> :
+          batchAvailability.batchTracked ? <>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1"><span>Usable department stock: <strong className="text-[var(--text-primary)]">{batchAvailability.usableQuantity}</strong></span><span>Available lots: <strong className="text-[var(--text-primary)]">{batchAvailability.batches.length}</strong></span></div>
+            {batchAvailability.batches.length ? <div className="mt-2 overflow-x-auto rounded-md border border-[var(--border-color)]"><table className="w-full min-w-[360px] text-left"><thead className="bg-[var(--bg-main)] text-[var(--text-tertiary)]"><tr><th className="px-2 py-1.5">Batch / lot</th><th className="px-2 py-1.5">Expiry</th><th className="px-2 py-1.5 text-right">Qty</th></tr></thead><tbody>{batchAvailability.batches.map(batch => <tr key={batch.id} className="border-t border-[var(--border-color)]"><td className="px-2 py-1.5 font-medium text-[var(--text-primary)]">{batch.batchNumber}</td><td className="px-2 py-1.5">{dateLabel(batch.expiryDate)}</td><td className="px-2 py-1.5 text-right tabular-nums">{batch.quantity}</td></tr>)}</tbody></table></div> : <p className="mt-2 text-[var(--icon-red-text)]">No unexpired batch is available in your department. Vaccination stock will not be deducted until usable stock is received or transferred.</p>}
+            <p className="mt-2">On save, one dose is issued from the earliest-expiry usable batch (FEFO). The actual batch number and expiry are attached to the vaccination record and stock transaction automatically.</p>
+          </> : <p className="mt-2">No batch lots are recorded for this stock item. The existing department stock ledger will be used; batch and expiry must be recorded on receipt before batch-level tracking can apply.</p>}
       </div> : <>
         <label className="text-xs text-[var(--text-secondary)]">Batch / lot number<input value={form.batchNumber} onChange={e => update('batchNumber', e.target.value)} className={cn(INPUT, 'mt-1 w-full')} /></label>
         <label className="text-xs text-[var(--text-secondary)]">Vaccine expiry<input type="date" value={form.expiryDate} onChange={e => update('expiryDate', e.target.value)} className={cn(INPUT, 'mt-1 w-full')} /></label>
