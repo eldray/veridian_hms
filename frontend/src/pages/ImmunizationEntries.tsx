@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import ImmunizationPanel from '../components/patients/ImmunizationPanel';
+import ImmunizationSectionTabs from '../components/immunization/ImmunizationSectionTabs';
 import { useAuthStore } from '../store/authStore';
 import { Syringe, RefreshCw } from 'lucide-react';
 import { Button, Card, PageHeader } from '../components/ui';
