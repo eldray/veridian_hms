@@ -184,7 +184,7 @@ export default function LeaveManagement() {
       });
     }
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [leaves, filterType, filterUser, searchQuery]);
+  }, [leaves, view, filterType, filterUser, searchQuery]);
 
   const pendingCount = leaves.filter((l) => l.status === 'pending').length;
 
