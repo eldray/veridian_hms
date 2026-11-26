@@ -10,13 +10,13 @@ export const PatientsGrid: React.FC<PatientsGridProps> = ({ patients, onAddAtten
   const getPaymentModeColor = (paymentMode: string) => {
     switch (paymentMode) {
       case 'cash':
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
+        return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]';
       case 'nhis':
-        return 'bg-green-100 text-green-800 border border-green-200';
+        return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border border-[var(--border-color)]';
       case 'private_insurance':
-        return 'bg-purple-100 text-purple-800 border border-purple-200';
+        return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--border-color)]';
       default:
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
+        return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]';
     }
   };
 
