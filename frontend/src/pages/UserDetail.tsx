@@ -414,7 +414,7 @@ export default function UserDetail() {
     return <div className="p-8 text-center">Loading…</div>;
   }
   if (!currentFullProfile) {
-    return <div className="p-8 text-center text-red-600">User not found</div>;
+    return <div className="p-8 text-center text-[var(--icon-red-text)]">User not found</div>;
   }
 
   const p = currentFullProfile;
