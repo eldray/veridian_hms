@@ -18,7 +18,7 @@ import type {
   GeneratedBillLinePlan, GeneratedClaim, GeneratedClaimBatch, GeneratedEligibilityCheck, GeneratedPreAuth,
 } from '../bulkGenerator.js';
 import { ENUMS, type Lookups } from './lookups.js';
-import type { EncounterIndex } from './encounters.js';
+import { nhisCCCFor, type EncounterIndex } from './encounters.js';
 import type { PatientRecords } from './patients.js';
 import { resolveEstimateLine } from './finance.js';
 import { chunk, hashOf, money, prisma, toNumber, writeMany, type SeedStats } from './shared.js';
@@ -154,25 +154,38 @@ export const seedEligibilityChecks = async (
   const facilityCode = lookups.facility?.nhisFacilityCode ?? null;
   for (const plan of checks) {
     const patientId = patients.idByFolder.get(plan.folderNumber);
-    if (!patientId) continue;
-    const attendanceId = plan.attendanceKey ? encounters.get(plan.attendanceKey)?.attendanceId ?? null : null;
+    const patientRecord = patients.rowByFolder.get(plan.folderNumber);
+    // The patient row written by this seed is the source of truth for the member number.
+    if (!patientId || !patientRecord?.nhisNumber) continue;
+    const linkedEncounter = plan.attendanceKey ? encounters.get(plan.attendanceKey) ?? null : null;
+    const samePatientNHISVisit = Boolean(
+      linkedEncounter
+      && linkedEncounter.patientId === patientId
+      && linkedEncounter.plan.paymentMode === 'nhis',
+    );
+    const attendanceId = samePatientNHISVisit ? linkedEncounter!.attendanceId : null;
     const active = plan.status === 'active';
+    // CCC is visit-specific. Only copy the CCC from the same NHIS attendance; a standalone
+    // eligibility enquiry or a mismatched visit must never receive a fabricated code.
+    const ccCode = active && samePatientNHISVisit
+      ? nhisCCCFor(linkedEncounter!.plan.attendanceNumber)
+      : null;
     const name = names.get(patientId);
     rows.push({
       patientId,
       attendanceId,
-      membershipId: plan.membershipId,
+      membershipId: patientRecord.nhisNumber,
       checkMethod: ENUMS.eligibilityMethod[plan.checkMethod as keyof typeof ENUMS.eligibilityMethod] ?? ENUMS.eligibilityMethod.manual,
       checkTimestamp: plan.at,
       status: ENUMS.eligibilityStatus[plan.status as keyof typeof ENUMS.eligibilityStatus] ?? ENUMS.eligibilityStatus.not_found,
       memberName: name ? `${name.surname} ${name.otherNames}`.trim() : null,
       // The gateway only names a facility when the membership actually resolves to it.
       registeredFacilityCode: active ? facilityCode : null,
-      ccCode: plan.ccCode,
+      ccCode,
       membershipExpiry: plan.membershipExpiry,
       responseReference: `NHIA-${plan.membershipId.slice(-8)}-${(hashOf(plan.membershipId) % 100000).toString().padStart(5, '0')}`,
       rawResponse: {
-        policyNumber: plan.membershipId,
+        policyNumber: patientRecord.nhisNumber,
         status: plan.status,
         facilityCode: active ? facilityCode : null,
         checkedAt: plan.at.toISOString(),
