@@ -30,6 +30,7 @@ export class HIVTestingController extends BaseController {
     if (['testing', 'completed'].includes(testingStatus) && body.testingConsentGiven !== true) {
       return this.badRequest(res, 'Separate consent for HIV testing is required before testing begins');
     }
+    if (result !== 'pending' && testingStatus !== 'completed') return this.badRequest(res, 'A test result can only be recorded when testing is completed');
     if (testingStatus === 'completed' && result === 'pending') {
       return this.badRequest(res, 'A completed test must have a recorded result');
     }
