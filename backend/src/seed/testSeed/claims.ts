@@ -183,7 +183,7 @@ export const seedEligibilityChecks = async (
       registeredFacilityCode: active ? facilityCode : null,
       ccCode,
       membershipExpiry: plan.membershipExpiry,
-      responseReference: `NHIA-${plan.membershipId.slice(-8)}-${(hashOf(plan.membershipId) % 100000).toString().padStart(5, '0')}`,
+      responseReference: `NHIA-${patientRecord.nhisNumber.slice(-8)}-${(hashOf(patientRecord.nhisNumber) % 100000).toString().padStart(5, '0')}`,
       rawResponse: {
         policyNumber: patientRecord.nhisNumber,
         status: plan.status,
