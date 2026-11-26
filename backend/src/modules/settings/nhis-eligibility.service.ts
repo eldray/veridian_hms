@@ -247,6 +247,8 @@ export const verifyNHISEligibility = async (
       };
     }
 
+    const eligibilityData = result.data;
+
     // Persist the NHIA response as the authoritative verification record. Patient.nhisActive
     // alone is not proof: registration can set it from coverage dates without an NHIA check.
     const patient = await prisma.patient.findFirst({
@@ -254,22 +256,22 @@ export const verifyNHISEligibility = async (
     });
 
     if (patient) {
-      const parsedExpiry = result.data.expiryDate ? new Date(result.data.expiryDate) : null;
+      const parsedExpiry = eligibilityData.expiryDate ? new Date(eligibilityData.expiryDate) : null;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const expiryIsValid = !!parsedExpiry &&
         !Number.isNaN(parsedExpiry.getTime()) &&
         parsedExpiry >= today;
-      const eligible = result.data.isActive === true &&
-        result.data.isEligible === true &&
+      const eligible = eligibilityData.isActive === true &&
+        eligibilityData.isEligible === true &&
         expiryIsValid;
       const status = eligible
         ? 'active'
-        : result.data.isActive !== true
+        : eligibilityData.isActive !== true
           ? 'suspended'
           : !expiryIsValid
             ? 'expired'
-            : String(result.data.reason || '').toLowerCase().includes('facility')
+            : String(eligibilityData.reason || '').toLowerCase().includes('facility')
               ? 'referred_facility_mismatch'
               : 'suspended';
 
@@ -290,12 +292,12 @@ export const verifyNHISEligibility = async (
             membershipId: normalizedPolicyNumber,
             checkMethod: 'nhia_portal',
             status,
-            memberName: result.data.fullName || null,
+            memberName: eligibilityData.fullName || null,
             membershipExpiry: parsedExpiry && !Number.isNaN(parsedExpiry.getTime())
               ? parsedExpiry
               : null,
             responseReference: null,
-            rawResponse: JSON.parse(JSON.stringify(result.data)),
+            rawResponse: JSON.parse(JSON.stringify(eligibilityData)),
             checkedById,
           },
         });
@@ -304,10 +306,10 @@ export const verifyNHISEligibility = async (
 
     return {
       success: true,
-      message: result.data.isEligible
+      message: eligibilityData.isEligible
         ? 'Patient is eligible for NHIS coverage'
         : 'Patient has NHIS but coverage restrictions apply',
-      data: result.data,
+      data: eligibilityData,
     };
   } catch (error: any) {
     console.error(
