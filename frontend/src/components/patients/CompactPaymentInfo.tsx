@@ -9,12 +9,17 @@ interface CompactPaymentInfoProps {
 }
 
 export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient, insuranceProviders, patientId }) => {
-  const getPaymentModeColor = (paymentMode: string) => {
+  const getPaymentModeClasses = (paymentMode: string, active: boolean) => {
+    const base = 'border rounded-lg p-3 transition-all duration-200';
     switch (paymentMode) {
-      case 'cash': return 'border-gray-300 bg-gray-50';
-      case 'nhis': return 'border-green-300 bg-green-50';
-      case 'private_insurance': return 'border-purple-300 bg-purple-50';
-      default: return 'border-gray-200 bg-white';
+      case 'cash':
+        return `${base} border-[var(--border-color)] ${active ? 'bg-[var(--bg-main)] ring-2 ring-[var(--text-tertiary)]' : 'bg-[var(--bg-card)]'}`;
+      case 'nhis':
+        return `${base} border-[var(--icon-green-text)]/40 ${active ? 'bg-[var(--icon-green-bg)] ring-2 ring-[var(--icon-green-text)]' : 'bg-[var(--bg-card)]'}`;
+      case 'private_insurance':
+        return `${base} border-[var(--icon-purple-text)]/40 ${active ? 'bg-[var(--icon-purple-bg)] ring-2 ring-[var(--icon-purple-text)]' : 'bg-[var(--bg-card)]'}`;
+      default:
+        return `${base} border-[var(--border-color)] bg-[var(--bg-card)]`;
     }
   };
 
@@ -34,9 +39,7 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
       {/* Compact Payment Mode Cards */}
       <div className="grid grid-cols-1 gap-3">
         {/* Cash Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeClasses('cash', patient.paymentMode === 'cash')} ${
-          patient.paymentMode === 'cash' ? '' : ''
-        }`}>
+        <div className={getPaymentModeClasses('cash', patient.paymentMode === 'cash')}>
           <div className="flex items-center gap-2 mb-2">
             <div className={`p-2 rounded ${patient.paymentMode === 'cash' ? 'bg-[var(--text-secondary)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
               <DollarSign className="w-4 h-4" />
@@ -56,16 +59,14 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
         </div>
 
         {/* NHIS Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeClasses('nhis', patient.paymentMode === 'nhis')} ${
-          patient.paymentMode === 'nhis' ? '' : ''
-        }`}>
+        <div className={getPaymentModeClasses('nhis', patient.paymentMode === 'nhis')}>
           <div className="flex items-center gap-2 mb-2">
             <div className={`p-2 rounded ${patient.paymentMode === 'nhis' ? 'bg-[var(--icon-green-text)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
               <Shield className="w-4 h-4" />
             </div>
-            <h3 className="font-semibold text-gray-900 text-sm">NHIS</h3>
+            <h3 className="font-semibold text-[var(--text-primary)] text-sm">NHIS</h3>
           </div>
-          <p className="text-xs text-gray-600 mb-3">National Health Insurance Scheme</p>
+          <p className="text-xs text-[var(--text-secondary)] mb-3">National Health Insurance Scheme</p>
           {patient.paymentMode === 'nhis' && patientId && (
             <Link
               to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=nhis`}
@@ -78,16 +79,14 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
         </div>
 
         {/* Private Insurance Card */}
-        <div className={`border rounded-lg p-3 transition-all duration-200 ${getPaymentModeClasses('private_insurance', patient.paymentMode === 'private_insurance')} ${
-          patient.paymentMode === 'private_insurance' ? '' : ''
-        }`}>
+        <div className={getPaymentModeClasses('private_insurance', patient.paymentMode === 'private_insurance')}>
           <div className="flex items-center gap-2 mb-2">
             <div className={`p-2 rounded ${patient.paymentMode === 'private_insurance' ? 'bg-[var(--icon-purple-text)] text-white' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
               <CreditCard className="w-4 h-4" />
             </div>
-            <h3 className="font-semibold text-gray-900 text-sm">Private Insurance</h3>
+            <h3 className="font-semibold text-[var(--text-primary)] text-sm">Private Insurance</h3>
           </div>
-          <p className="text-xs text-gray-600 mb-3">Private insurance coverage</p>
+          <p className="text-xs text-[var(--text-secondary)] mb-3">Private insurance coverage</p>
           {patient.paymentMode === 'private_insurance' && patientId && (
             <Link
               to={`/dashboard/attendance/new?patientId=${patientId}&paymentMode=private_insurance`}
@@ -103,28 +102,28 @@ export const CompactPaymentInfo: React.FC<CompactPaymentInfoProps> = ({ patient,
       {/* Insurance Details */}
       {(patient.paymentMode === 'nhis' || patient.paymentMode === 'private_insurance') && patient.insuranceDetails && (
         <div className="bg-[var(--icon-blue-bg)] rounded-lg p-3 border border-[var(--icon-blue-text)]/30">
-          <h4 className="font-semibold text-gray-900 mb-3 text-sm">Insurance Details</h4>
+          <h4 className="font-semibold text-[var(--text-primary)] mb-3 text-sm">Insurance Details</h4>
           <div className="grid grid-cols-1 gap-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">Insurance Number:</span>
-              <span className="font-medium">{patient.insuranceDetails.insuranceNumber}</span>
+              <span className="text-[var(--text-secondary)]">Insurance Number:</span>
+              <span className="font-medium text-[var(--text-primary)]">{patient.insuranceDetails.insuranceNumber}</span>
             </div>
             {patient.paymentMode === 'private_insurance' && (
               <div className="flex justify-between">
-                <span className="text-gray-600">Provider:</span>
+                <span className="text-[var(--text-secondary)]">Provider:</span>
                 <span className="font-medium">
                   {insuranceProviders.find(p => p.id === patient.insuranceDetails?.insuranceProvider)?.name || 'Not provided'}
                 </span>
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-gray-600">Start Date:</span>
+              <span className="text-[var(--text-secondary)]">Start Date:</span>
               <span className="font-medium">
                 {patient.insuranceDetails.startDate ? new Date(patient.insuranceDetails.startDate).toLocaleDateString() : 'Not provided'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">End Date:</span>
+              <span className="text-[var(--text-secondary)]">End Date:</span>
               <span className="font-medium">
                 {patient.insuranceDetails.endDate ? new Date(patient.insuranceDetails.endDate).toLocaleDateString() : 'Not provided'}
               </span>
