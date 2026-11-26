@@ -45,11 +45,10 @@ describe('NHIS demo attendance identity', () => {
       );
     }
 
-    const dailyDates = new Set(
-      bundle.attendances.slice(0, COUNTS.attendances)
-        .slice(0, 366)
-        .map((attendance) => attendance.dateTime.toDateString()),
-    );
+    const dailyCoverage = bundle.attendances.slice(0, COUNTS.attendances).slice(0, 366);
+    const dailyDates = new Set(dailyCoverage.map((attendance) => attendance.dateTime.toDateString()));
     expect(dailyDates.size).toBe(366);
+    // Every coverage attendance must remain a real visit so its consultation is seeded too.
+    expect(dailyCoverage.every((attendance) => attendance.status !== 'cancelled')).toBe(true);
   }, 30000);
 });
