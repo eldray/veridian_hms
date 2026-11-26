@@ -61,15 +61,15 @@ const AlertBanner: React.FC<{ alerts: Alert[] }> = ({ alerts }) => {
   return (
     <div className="space-y-2">
       {critical.length > 0 && (
-        <div className="bg-red-50 rounded-xl border border-red-300 p-3">
-          <p className="text-xs font-bold text-red-800 flex items-center gap-1.5 mb-2">
+        <div className="bg-[var(--icon-red-bg)] rounded-xl border border-[var(--icon-red-text)] p-3">
+          <p className="text-xs font-bold text-[var(--icon-red-text)] flex items-center gap-1.5 mb-2">
             <AlertTriangle className="w-3.5 h-3.5" />
             {critical.length} Critical Alert{critical.length > 1 ? 's' : ''}
           </p>
           <div className="space-y-1">
             {critical.map((a, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs text-red-700">
-                <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1 flex-shrink-0" />
+              <div key={i} className="flex items-start gap-2 text-xs text-[var(--icon-red-text)]">
+                <div className="w-1.5 h-1.5 rounded-full bg-[var(--icon-red-bg)]0 mt-1 flex-shrink-0" />
                 {a.message}
               </div>
             ))}
@@ -77,15 +77,15 @@ const AlertBanner: React.FC<{ alerts: Alert[] }> = ({ alerts }) => {
         </div>
       )}
       {warnings.length > 0 && (
-        <div className="bg-yellow-50 rounded-xl border border-yellow-300 p-3">
-          <p className="text-xs font-bold text-yellow-800 flex items-center gap-1.5 mb-2">
+        <div className="bg-[var(--icon-yellow-bg)] rounded-xl border border-[var(--icon-yellow-text)] p-3">
+          <p className="text-xs font-bold text-[var(--icon-yellow-text)] flex items-center gap-1.5 mb-2">
             <AlertTriangle className="w-3.5 h-3.5" />
             {warnings.length} Warning{warnings.length > 1 ? 's' : ''}
           </p>
           <div className="space-y-1">
             {warnings.map((a, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs text-yellow-700">
-                <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1 flex-shrink-0" />
+              <div key={i} className="flex items-start gap-2 text-xs text-[var(--icon-yellow-text)]">
+                <div className="w-1.5 h-1.5 rounded-full bg-[var(--icon-yellow-bg)]0 mt-1 flex-shrink-0" />
                 {a.message}
               </div>
             ))}
@@ -99,8 +99,8 @@ const AlertBanner: React.FC<{ alerts: Alert[] }> = ({ alerts }) => {
 const VitalChip: React.FC<{ label: string; value: string; unit?: string; alert?: boolean }> = ({
   label, value, unit, alert
 }) => (
-  <div className={`px-3 py-2 rounded-lg border text-center ${alert ? 'bg-red-50 border-red-200' : 'bg-[var(--bg-main)] border-[var(--border-color)]'}`}>
-    <p className={`text-sm font-bold font-mono ${alert ? 'text-red-700' : 'text-[var(--text-primary)]'}`}>
+  <div className={`px-3 py-2 rounded-lg border text-center ${alert ? 'bg-[var(--icon-red-bg)] border-[var(--icon-red-text)]' : 'bg-[var(--bg-main)] border-[var(--border-color)]'}`}>
+    <p className={`text-sm font-bold font-mono ${alert ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-primary)]'}`}>
       {value}{unit && <span className="text-[10px] ml-0.5">{unit}</span>}
     </p>
     <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{label}</p>
@@ -216,17 +216,17 @@ export const PatientSummarySidebar: React.FC<PatientSummarySidebarProps> = ({
           {/* Medications due */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-              <Pill className="w-4 h-4 text-teal-600" />
+              <Pill className="w-4 h-4 text-[var(--icon-cyan-text)]" />
               <span className="text-xs font-semibold text-[var(--text-primary)]">Medications Due</span>
               {medsDue.length > 0 && (
-                <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
+                <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]">
                   {medsDue.length}
                 </span>
               )}
             </div>
             {medsDue.length === 0 ? (
               <div className="flex items-center gap-2 px-4 py-3 text-xs text-[var(--text-secondary)]">
-                <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)] flex-shrink-0" />
                 All medications up to date
               </div>
             ) : (
@@ -237,15 +237,15 @@ export const PatientSummarySidebar: React.FC<PatientSummarySidebarProps> = ({
                   const freq = getFrequencyInfo(med.frequency);
                   const dosesDone = (med.administeredDoses || []).length;
                   return (
-                    <div key={med.id} className={`flex items-center gap-3 px-4 py-2.5 ${due ? 'bg-yellow-50' : ''}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${due ? 'bg-yellow-500' : 'bg-[var(--text-tertiary)]'}`} />
+                    <div key={med.id} className={`flex items-center gap-3 px-4 py-2.5 ${due ? 'bg-[var(--icon-yellow-bg)]' : ''}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${due ? 'bg-[var(--icon-yellow-bg)]0' : 'bg-[var(--text-tertiary)]'}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-[var(--text-primary)] truncate">{med.name}</p>
                         <p className="text-[10px] text-[var(--text-tertiary)]">
                           {med.dosage} · Dose {dosesDone + 1}/{freq.requiredDoses}
                         </p>
                       </div>
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${due ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-700'}`}>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${due ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]'}`}>
                         {due ? 'Due now' : `~${Math.round(hrs)}h`}
                       </span>
                     </div>
@@ -268,7 +268,7 @@ export const PatientSummarySidebar: React.FC<PatientSummarySidebarProps> = ({
             </div>
             {todayPending.length === 0 ? (
               <div className="flex items-center gap-2 px-4 py-3 text-xs text-[var(--text-secondary)]">
-                <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)] flex-shrink-0" />
                 No pending tasks for today
               </div>
             ) : (
@@ -276,10 +276,10 @@ export const PatientSummarySidebar: React.FC<PatientSummarySidebarProps> = ({
                 {todayPending.slice(0, 4).map(task => {
                   const overdue = task.scheduledTime && new Date(task.scheduledTime) < new Date();
                   return (
-                    <div key={task.id} className={`flex items-center gap-3 px-4 py-2.5 ${overdue ? 'bg-red-50' : ''}`}>
+                    <div key={task.id} className={`flex items-center gap-3 px-4 py-2.5 ${overdue ? 'bg-[var(--icon-red-bg)]' : ''}`}>
                       <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                        task.priority === 'high' ? 'bg-red-500' :
-                        task.priority === 'medium' ? 'bg-yellow-500' : 'bg-blue-400'
+                        task.priority === 'high' ? 'bg-[var(--icon-red-bg)]0' :
+                        task.priority === 'medium' ? 'bg-[var(--icon-yellow-bg)]0' : 'bg-blue-400'
                       }`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium text-[var(--text-primary)] truncate">{task.title}</p>
@@ -306,9 +306,9 @@ export const PatientSummarySidebar: React.FC<PatientSummarySidebarProps> = ({
 
       {/* Antenatal note strip */}
       {isAntenatal && (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-pink-50 border border-pink-200">
-          <Baby className="w-4 h-4 text-pink-600 flex-shrink-0" />
-          <p className="text-xs text-pink-700 font-medium">
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--icon-purple-bg)] border border-[var(--icon-purple-text)]">
+          <Baby className="w-4 h-4 text-[var(--icon-purple-text)] flex-shrink-0" />
+          <p className="text-xs text-[var(--icon-purple-text)] font-medium">
             Antenatal patient — record FHR, fundal height and fetal movements with every vitals entry
           </p>
         </div>
