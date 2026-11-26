@@ -305,7 +305,9 @@ export const seedClaims = async (
   const inpatientStays = await prisma.admission.findMany({
     where: {
       status: { not: 'cancelled' },
-      attendance: { patientId: { in: patientIds }, encounterCategory: 'ipd' },
+      // Mirror InsuranceClaimService.assertOpdNotDatedInsideAnAdmission:
+      // the payer rule applies to every active admission record for the patient.
+      attendance: { patientId: { in: patientIds } },
     },
     select: {
       attendanceId: true,
@@ -356,12 +358,16 @@ export const seedClaims = async (
     // This is a payer rule enforced by the claims service; avoid creating a plan that
     // is guaranteed to be refused instead of weakening that service validation.
     if (plan.typeOfService === 'outpatient') {
-      const serviceDate = encounter.plan.dateTime.getTime();
+      const serviceDate = encounter.plan.dateTime;
+      const serviceDayStart = new Date(Date.UTC(
+        serviceDate.getUTCFullYear(), serviceDate.getUTCMonth(), serviceDate.getUTCDate(),
+      )).getTime();
+      const serviceDayEnd = serviceDayStart + 86_400_000 - 1;
       const overlapsInpatientStay = inpatientStays.some((stay) =>
         stay.attendanceId !== encounter.attendanceId
         && stay.attendance.patientId === patientId
-        && stay.admissionDate.getTime() <= serviceDate
-        && (stay.dischargeDate === null || stay.dischargeDate.getTime() >= serviceDate),
+        && stay.admissionDate.getTime() <= serviceDayEnd
+        && (stay.dischargeDate === null || stay.dischargeDate.getTime() >= serviceDayStart),
       );
       if (overlapsInpatientStay) {
         skippedOverlappingInpatientStay++;
