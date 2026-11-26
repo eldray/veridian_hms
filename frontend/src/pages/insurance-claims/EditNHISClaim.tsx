@@ -985,6 +985,8 @@ export default function EditNHISClaim() {
   const [claimitBusy, setClaimItBusy] = useState(false);
 
   const isDraft = currentClaim?.status === 'draft';
+  const [isEditMode, setIsEditMode] = useState(false);
+  const canEditClaim = isDraft && isEditMode;
 
   const handleRefreshClaim = async () => {
     if (isDraft) {
@@ -1679,7 +1681,7 @@ export default function EditNHISClaim() {
     : [...ATTENDANCE_OPTIONS, { code: typeOfAttendance, label: `Other (${typeOfAttendance})` }];
   const toggleSpecialty = (code: string, on: boolean) =>
     setSpecialties(prev => on ? Array.from(new Set([...prev, code])) : prev.filter(c => c !== code));
-  const locked = !isDraft;
+  const locked = !canEditClaim;
 
   return (
     <>
@@ -1687,9 +1689,12 @@ export default function EditNHISClaim() {
         title="Update Claim"
         subtitle={`${currentClaim?.claimNumber ?? ''} · NHIS`}
         status={
-          <span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'}`}>
-            {isDraft ? 'DRAFT' : 'FINALIZED'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-1 rounded ${isDraft ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'}`}>
+              {isDraft ? 'DRAFT' : 'FINALIZED'}
+            </span>
+            {isDraft && <button type="button" aria-pressed={canEditClaim} onClick={() => setIsEditMode(value => !value)} className="text-xs px-3 py-1.5 rounded border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]">{canEditClaim ? 'Disable editing' : 'Edit claim'}</button>}
+          </div>
         }
         onClose={goBack}
         onRefresh={handleRefreshClaim}
@@ -1819,14 +1824,14 @@ export default function EditNHISClaim() {
           count={procedures.length}
           emptyText={procedures.length === 0 ? 'No procedures added...' : undefined}
           open={tablesOpen}
-          action={isDraft ? (
+          action={canEditClaim ? (
             <button type="button" onClick={() => setActiveModal('procedure')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 normal-case flex items-center gap-1">
               <Plus className="w-3 h-3" /> Add
             </button>
           ) : undefined}
         >
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{canEditClaim && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {procedures.map((pr, idx) => (
                 <tr key={idx} className="border-t border-[var(--border-color)]">
@@ -1835,7 +1840,7 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-[var(--text-primary)]">{pr.description}</td>
                   <td className="px-3 py-3 text-[var(--text-primary)]">{fmtDate(pr.date)}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(pr.lineTotal)}</td>
-                  {isDraft && (
+                  {canEditClaim && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'procedure', index: idx })} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
                       <button type="button" onClick={() => removeProcedure(idx)} className="text-[var(--icon-red-text)] hover:opacity-80">
@@ -1854,14 +1859,14 @@ export default function EditNHISClaim() {
           count={diagnoses.length}
           open={tablesOpen}
           emptyText={diagnoses.length === 0 ? 'No diagnoses added...' : undefined}
-          action={isDraft ? (
+          action={canEditClaim ? (
             <button type="button" onClick={() => setActiveModal('diagnosis')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 normal-case flex items-center gap-1">
               <Plus className="w-3 h-3" /> Add
             </button>
           ) : undefined}
         >
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Diagnosis</TH><TH>ICD10</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Diagnosis</TH><TH>ICD10</TH>{canEditClaim && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {diagnoses.map((d, idx) => (
                 <tr key={idx} className="border-t border-[var(--border-color)]">
@@ -1872,10 +1877,10 @@ export default function EditNHISClaim() {
                     {d.diagnosis}
                     {d.diagnosisType === 'primary'
                       ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] align-middle">PRIMARY</span>
-                      : isDraft && <button type="button" onClick={() => setPrimaryDiagnosis(idx)} className="ml-2 text-[11px] text-[var(--icon-cyan-text)] hover:underline">set primary</button>}
+                      : canEditClaim && <button type="button" onClick={() => setPrimaryDiagnosis(idx)} className="ml-2 text-[11px] text-[var(--icon-cyan-text)] hover:underline">set primary</button>}
                   </td>
                   <td className="px-3 py-3 text-[var(--text-primary)]">{d.icd10}</td>
-                  {isDraft && (
+                  {canEditClaim && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'diagnosis', index: idx })} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
                       <button type="button" onClick={() => removeDiagnosis(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button>
@@ -1892,7 +1897,7 @@ export default function EditNHISClaim() {
           count={investigations.length}
           open={tablesOpen}
           emptyText={investigations.length === 0 ? 'No investigations added...' : undefined}
-          action={isDraft ? (
+          action={canEditClaim ? (
             <span className="flex gap-2 normal-case">
               <button type="button" onClick={() => setActiveModal('lab')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Lab</button>
               <button type="button" onClick={() => setActiveModal('scan')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Scan</button>
@@ -1900,7 +1905,7 @@ export default function EditNHISClaim() {
           ) : undefined}
         >
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{canEditClaim && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {investigations.map((inv, idx) => (
                 <tr key={idx} className="border-t border-[var(--border-color)]">
@@ -1909,7 +1914,7 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-[var(--text-primary)]">{inv.description}</td>
                   <td className="px-3 py-3 text-[var(--text-primary)]">{fmtDate(inv.date)}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(inv.lineTotal)}</td>
-                  {isDraft && (
+                  {canEditClaim && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'investigation', index: idx })} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
                       <button type="button" onClick={() => removeInvestigation(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button>
@@ -1926,14 +1931,14 @@ export default function EditNHISClaim() {
           count={medicines.length}
           open={tablesOpen}
           emptyText={medicines.length === 0 ? 'No medicines added...' : undefined}
-          action={isDraft ? (
+          action={canEditClaim ? (
             <button type="button" onClick={() => setActiveModal('medicine')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-[var(--bg-card)]/10 normal-case flex items-center gap-1">
               <Plus className="w-3 h-3" /> Add
             </button>
           ) : undefined}
         >
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Qty</TH><TH>Date</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Qty</TH><TH>Date</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{canEditClaim && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {medicines.map((m, idx) => (
                 <tr key={idx} className="border-t border-[var(--border-color)] align-top">
@@ -1950,7 +1955,7 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-[var(--text-primary)]">{fmtDate(m.date)}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-primary)]">{moneyCell(m.unitPrice)}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{moneyCell(m.lineTotal)}</td>
-                  {isDraft && (
+                  {canEditClaim && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'medicine', index: idx })} className="text-[var(--icon-cyan-text)] hover:opacity-80 mr-2"><Edit className="w-4 h-4" /></button>
                       <button type="button" onClick={() => removeMedicine(idx)} className="text-[var(--icon-red-text)] hover:opacity-80"><Trash2 className="w-4 h-4" /></button>
