@@ -1362,7 +1362,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     // duration must not leave a prescription behind without its administration plan.
     const prescribedAt = new Date();
     const schedule = this.marService.parseSchedule(data.frequency, data.duration, prescribedAt);
-    const doseMatch = String(data.dosage).trim().match(/^([0-9]+(?:\\.[0-9]+)?)\\s*(mcg|μg|ug|mg|g|ml|mL|iu|units?)$/i);
+    const doseMatch = String(data.dosage).trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*(mcg|μg|ug|mg|g|ml|mL|iu|units?)$/i);
     const doseAmount = doseMatch ? new Prisma.Decimal(doseMatch[1]) : null;
     const doseUnit = doseMatch ? (doseMatch[2].toLowerCase() === 'μg' || doseMatch[2].toLowerCase() === 'ug' ? 'mcg' : doseMatch[2].toLowerCase()) : null;
     const frequencyText = String(data.frequency).trim().toLowerCase();
@@ -1375,10 +1375,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       nocte: 'NOCTE', mane: 'MANE',
     };
     const frequencyCode = frequencyAliases[frequencyText] ??
-      (/^(?:q\\s*\\d+\\s*h|every\\s+\\d+\\s*hours?)$/.test(frequencyText) ? 'INTERVAL' : null);
-    const intervalMatch = frequencyText.match(/^(?:q\\s*|every\\s+)(\\d+)\\s*h(?:ours?)?$/);
+      (/^(?:q\s*\d+\s*h|every\s+\d+\s*hours?)$/.test(frequencyText) ? 'INTERVAL' : null);
+    const intervalMatch = frequencyText.match(/^(?:q\s*|every\s+)(\d+)\s*h(?:ours?)?$/);
     const frequencyIntervalHours = intervalMatch ? Number(intervalMatch[1]) : schedule.intervalHours;
-    const durationMatch = String(data.duration).trim().match(/^([0-9]+)\\s*(hours?|hrs?|h|days?|d|weeks?|wks?)$/i);
+    const durationMatch = String(data.duration).trim().match(/^([0-9]+)\s*(hours?|hrs?|h|days?|d|weeks?|wks?)$/i);
     const durationValue = durationMatch ? Number(durationMatch[1]) : null;
     const durationUnit = durationMatch
       ? (/^h|hour|hr/i.test(durationMatch[2]) ? 'hours' : /^w/i.test(durationMatch[2]) ? 'weeks' : 'days')
