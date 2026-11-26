@@ -635,7 +635,7 @@ export default function UserManagement() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm text-[var(--text-primary)]">
                   <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                     <tr>
                       <th className="px-3 py-3 text-left font-semibold text-[var(--text-secondary)] whitespace-nowrap">Employee</th>
@@ -648,7 +648,7 @@ export default function UserManagement() {
                     {doc.pageItems.map((d: any) => (
                       <tr key={d.id} className="hover:bg-[var(--bg-main)]">
                         <td className="px-3 py-3 font-medium text-[var(--text-primary)]">{d.staff?.user.fullName || '—'}</td>
-                        <td className="px-3 py-3">{d.title || d.type}</td>
+                        <td className="px-3 py-3 text-[var(--text-primary)] font-medium">{d.title || d.type}</td>
                         <td className="px-3 py-3 text-[var(--text-secondary)]">{d.expiryDate ? new Date(d.expiryDate).toLocaleDateString() : '—'}</td>
                         <td className="px-3 py-3 text-center"><span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${d.isVerified ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>{d.isVerified ? 'Verified' : 'Pending'}</span></td>
                       </tr>
