@@ -41,10 +41,9 @@ const FREQUENCIES = [
   { value: 'mane',  label: 'In morning (mane)' },
 ];
 
-const DURATION_OPTIONS = Array.from({ length: 30 }, (_, index) => {
-  const days = index + 1;
+const DURATION_OPTIONS = [...Array.from({ length: 30 }, (_, index) => index + 1), 60, 90].map(days => {
   const value = days === 1 ? '24 hours' : days === 2 ? '48 hours' : `${days} days`;
-  return { value, label: value };
+  return { value, label: value, days };
 });
 
 export const MedicationModal: React.FC<MedicationModalProps> = ({
@@ -56,6 +55,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('');
   const [duration, setDuration] = useState('');
+  const [durationSearch, setDurationSearch] = useState('');
+  const [showDurationOptions, setShowDurationOptions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -76,6 +77,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setDosage('');
     setFrequency('');
     setDuration('');
+    setDurationSearch('');
+    setShowDurationOptions(false);
     setShowDropdown(false);
     hasTriggeredCatalogLoad.current = false;
     const t = setTimeout(() => searchInputRef.current?.focus(), 60);
@@ -153,6 +156,8 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setDosage('');
     setFrequency('');
     setDuration('');
+    setDurationSearch('');
+    setShowDurationOptions(false);
     setRoute('oral');
     setInstructions('');
     searchInputRef.current?.focus();
@@ -443,15 +448,63 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
               <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
                 Days
               </label>
-              <select
-                value={duration}
-                onChange={e => setDuration(e.target.value)}
-                className={inputCls}
-                disabled={!canEdit}
-              >
-                <option value="">Select days…</option>
-                {DURATION_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-              </select>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none" />
+                <input
+                  value={durationSearch}
+                  onChange={e => {
+                    setDurationSearch(e.target.value);
+                    setDuration('');
+                    setShowDurationOptions(true);
+                  }}
+                  onFocus={() => setShowDurationOptions(true)}
+                  placeholder="Search days…"
+                  className={`${inputCls} pl-9`}
+                  disabled={!canEdit}
+                  autoComplete="off"
+                  role="combobox"
+                  aria-expanded={showDurationOptions}
+                  aria-controls="prescription-duration-options"
+                  aria-autocomplete="list"
+                />
+                {showDurationOptions && canEdit && (
+                  <div
+                    id="prescription-duration-options"
+                    role="listbox"
+                    className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] shadow-lg"
+                    style={{ scrollbarWidth: 'thin' }}
+                  >
+                    {DURATION_OPTIONS.filter(option =>
+                      !durationSearch.trim() ||
+                      option.label.toLowerCase().includes(durationSearch.trim().toLowerCase()) ||
+                      String(option.days).includes(durationSearch.trim())
+                    ).map(option => (
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={duration === option.value}
+                        key={option.value}
+                        onClick={() => {
+                          setDuration(option.value);
+                          setDurationSearch(option.label);
+                          setShowDurationOptions(false);
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                    {DURATION_OPTIONS.filter(option =>
+                      !durationSearch.trim() ||
+                      option.label.toLowerCase().includes(durationSearch.trim().toLowerCase()) ||
+                      String(option.days).includes(durationSearch.trim())
+                    ).length === 0 && (
+                      <p className="px-3 py-2 text-xs text-[var(--text-secondary)]">No matching durations</p>
+                    )}
+                  </div>
+                )}
+              </div>
+              <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Search or choose 1–30, 60 or 90 days.</p>
             </div>
           </div>
         </div>
