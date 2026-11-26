@@ -35,10 +35,10 @@ const hasOutstandingProcedureWork = (visit: any): boolean =>
 
 const getStatusBadge = (status: string) => {
   const map: Record<string, string> = {
-    scheduled:   'bg-blue-100 text-blue-700 border-blue-200',
-    in_progress: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    completed:   'bg-green-100 text-green-700 border-green-200',
-    cancelled:   'bg-red-100 text-red-700 border-red-200',
+    scheduled:   'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]/30',
+    in_progress: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-text)]/30',
+    completed:   'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]/30',
+    cancelled:   'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]/30',
   };
   const labels: Record<string, string> = {
     scheduled: 'Scheduled', in_progress: 'In Progress',
@@ -53,12 +53,12 @@ const getStatusBadge = (status: string) => {
 
 const getStatusDot = (status: string) => {
   const map: Record<string, string> = {
-    scheduled: 'bg-blue-500',
-    in_progress: 'bg-yellow-500',
-    completed: 'bg-green-500',
-    cancelled: 'bg-red-500',
+    scheduled: 'bg-[var(--icon-blue-text)]',
+    in_progress: 'bg-[var(--icon-yellow-text)]',
+    completed: 'bg-[var(--icon-green-text)]',
+    cancelled: 'bg-[var(--icon-red-text)]',
   };
-  return <span className={`inline-block w-2 h-2 rounded-full ${map[status] || 'bg-gray-400'}`} />;
+  return <span className={`inline-block w-2 h-2 rounded-full ${map[status] || 'bg-[var(--text-tertiary)]'}`} />;
 };
 
 const countWords = (text: string) =>
@@ -92,7 +92,7 @@ const isTheatreRequiredProcedure = (procedure: any): boolean => {
 const SectionCard: React.FC<{
   icon: React.ReactNode; title: string; count?: number;
   countCls?: string; action?: React.ReactNode; children: React.ReactNode; maxH?: string;
-}> = ({ icon, title, count, countCls = 'bg-purple-100 text-purple-700', action, children, maxH = 'max-h-none' }) => (
+}> = ({ icon, title, count, countCls = 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]', action, children, maxH = 'max-h-none' }) => (
   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col">
     <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
       <div className="flex items-center gap-2">
@@ -867,7 +867,7 @@ export default function TheatreProcedure() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-10 h-10 border-2 border-[var(--icon-purple-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)]">Loading Theatre Data…</p>
         </div>
       </div>
@@ -878,12 +878,12 @@ export default function TheatreProcedure() {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
         <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+          <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3" />
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
           <p className="text-[var(--text-secondary)]">The patient you're looking for doesn't exist.</p>
           <button
             onClick={goBack}
-            className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all"
+            className="mt-4 px-4 py-2 bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 transition-all"
           >
             Back
           </button>
@@ -929,7 +929,7 @@ export default function TheatreProcedure() {
               onClick={() => setShowScheduleModal(true)}
               disabled={!canAddEntries}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                bg-purple-100 text-purple-700 hover:bg-purple-700 hover:text-white transition-all disabled:opacity-50"
+                bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:opacity-90 hover:text-white transition-all disabled:opacity-50"
             >
               <Plus className="w-3.5 h-3.5" /> New Procedure
             </button>
@@ -1011,9 +1011,9 @@ export default function TheatreProcedure() {
 
             {/* ── READ-ONLY WARNING ─────────────────────────────── */}
             {!canUpdateProcedure && (
-              <div className="min-w-0 flex-1 basis-[320px] bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-yellow-800">
+              <div className="min-w-0 flex-1 basis-[320px] bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)]/30 rounded-lg px-3 py-2 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-[var(--icon-yellow-text)] flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-[var(--icon-yellow-text)]">
                 This visit is <strong>{attendance?.status || 'not available'}</strong>. Procedures can be viewed but not modified.
               </p>
                 </div>
@@ -1023,9 +1023,9 @@ export default function TheatreProcedure() {
           {/* ── STATS STRIP ───────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-2">
             {[
-              { count: scheduledProcedures.length, label: 'Scheduled', Icon: Clock, bg: 'bg-blue-100', color: 'text-blue-600' },
-              { count: inProgressProcedures.length, label: 'In Progress', Icon: Activity, bg: 'bg-yellow-100', color: 'text-yellow-600' },
-              { count: completedProcedures.length, label: 'Completed', Icon: CheckCircle, bg: 'bg-green-100', color: 'text-green-600' },
+              { count: scheduledProcedures.length, label: 'Scheduled', Icon: Clock, bg: 'bg-[var(--icon-blue-bg)]', color: 'text-[var(--icon-blue-text)]' },
+              { count: inProgressProcedures.length, label: 'In Progress', Icon: Activity, bg: 'bg-[var(--icon-yellow-bg)]', color: 'text-[var(--icon-yellow-text)]' },
+              { count: completedProcedures.length, label: 'Completed', Icon: CheckCircle, bg: 'bg-[var(--icon-green-bg)]', color: 'text-[var(--icon-green-text)]' },
             ].map(s => {
               const Icon = s.Icon;
               return (
@@ -1082,7 +1082,7 @@ export default function TheatreProcedure() {
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {selectedProcedure.status === 'completed' && canManageProcedures && !isEditingCompletedProcedure && (
-                      <button type="button" onClick={() => setIsEditingCompletedProcedure(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-300 text-purple-700 hover:bg-purple-50 text-xs font-bold transition-all">
+                      <button type="button" onClick={() => setIsEditingCompletedProcedure(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--icon-purple-text)]/40 text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] text-xs font-bold transition-all">
                         <Edit className="w-4 h-4" /> Edit entries
                       </button>
                     )}
@@ -1102,7 +1102,7 @@ export default function TheatreProcedure() {
                       <button
                         type="button"
                         onClick={() => handleRemoveProcedure(selectedProcedure.id)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--icon-red-text)]/30 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] text-xs font-semibold"
                       >
                         <Trash2 className="w-3.5 h-3.5" /> Remove scheduled procedure
                       </button>
@@ -1115,7 +1115,7 @@ export default function TheatreProcedure() {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 p-3">
               <div className="min-w-0">
                         <SectionCard
-            icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
+            icon={<ClipboardList className="w-4 h-4 text-[var(--icon-purple-text)]" />}
             title={`Procedures for this visit (${procedures.length})`}
             action={canAddEntries ? <AddBtn onClick={() => setShowScheduleModal(true)} label="Schedule" /> : undefined}
             maxH="max-h-none"
@@ -1127,7 +1127,7 @@ export default function TheatreProcedure() {
                 action={canAddEntries ? (
                   <button
                     onClick={() => setShowScheduleModal(true)}
-                    className="mt-1 inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-700 hover:text-white transition-all"
+                    className="mt-1 inline-flex items-center gap-1 px-3 py-1.5 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg text-xs font-medium hover:opacity-90 hover:text-white transition-all"
                   >
                     <Plus className="w-3 h-3" /> Schedule first procedure
                   </button>
@@ -1151,8 +1151,8 @@ export default function TheatreProcedure() {
                             onClick={() => { setSelectedProcedureId(procedure.id); setOpenTile(null); setActiveTab('record'); }}
                             className={`text-left rounded-md border p-2 transition-all ${
                               isSelected
-                                ? 'border-purple-500 bg-purple-500/10 ring-1 ring-purple-500'
-                                : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-purple-300 hover:bg-[var(--bg-main)]'
+                                ? 'border-[var(--icon-purple-text)] bg-[var(--icon-purple-text)]/10 ring-1 ring-[var(--icon-purple-text)]'
+                                : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--icon-purple-text)]/40 hover:bg-[var(--bg-main)]'
                             }`}
                           >
                             <div className="flex items-center gap-2 mb-1">
@@ -1160,7 +1160,7 @@ export default function TheatreProcedure() {
                               <span className="font-semibold text-xs text-[var(--text-primary)] truncate flex-1">
                                 {procedure.name}
                               </span>
-                              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${isTheatreRequiredProcedure(procedure) ? 'bg-purple-500/10 text-purple-600' : 'bg-sky-500/10 text-sky-600'}`}>
+                              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${isTheatreRequiredProcedure(procedure) ? 'bg-[var(--icon-purple-text)]/10 text-[var(--icon-purple-text)]' : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'}`}>
                                 {isTheatreRequiredProcedure(procedure) ? 'Major · Theatre' : 'Minor'}
                               </span>
                             </div>
@@ -1171,7 +1171,7 @@ export default function TheatreProcedure() {
                               </p>
                             )}
                             {procedure.performedAt && procedure.status === 'completed' && (
-                              <p className="text-[10px] text-green-600 flex items-center gap-1 mt-0.5">
+                              <p className="text-[10px] text-[var(--icon-green-text)] flex items-center gap-1 mt-0.5">
                                 <CheckCircle className="w-2.5 h-2.5" />
                                 {new Date(procedure.performedAt).toLocaleDateString()}
                               </p>
@@ -1188,7 +1188,7 @@ export default function TheatreProcedure() {
               </div>
               <div className="min-w-0">
                 <SectionCard
-                  icon={<CheckCircle className="w-4 h-4 text-green-600" />}
+                  icon={<CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />}
                   title={`Procedure Results (${completedProcedures.length})`}
                   maxH="max-h-none"
                 >
@@ -1219,12 +1219,12 @@ export default function TheatreProcedure() {
               </div>
 
               {selectedProcedure?.status === 'scheduled' && (
-                <div className="mx-3 mb-3 flex flex-col gap-3 rounded-xl border border-yellow-300 bg-yellow-50 p-4 dark:border-yellow-700 dark:bg-yellow-950/20 sm:flex-row sm:items-center sm:justify-between">
+                <div className="mx-3 mb-3 flex flex-col gap-3 rounded-xl border border-[var(--icon-yellow-text)]/40 bg-[var(--icon-yellow-bg)] p-4 border-[var(--icon-yellow-text)]/40 bg-[var(--icon-yellow-bg)] sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-yellow-900 dark:text-yellow-200">Procedure is scheduled — documentation is not started</p>
-                    <p className="mt-1 text-xs text-yellow-800 dark:text-yellow-300">Confirm the team is ready, then select <strong>Start procedure</strong> above. The clinical documentation will unlock when the status changes to In Progress.</p>
+                    <p className="text-sm font-bold text-[var(--icon-yellow-text)] text-[var(--icon-yellow-text)]">Procedure is scheduled — documentation is not started</p>
+                    <p className="mt-1 text-xs text-[var(--icon-yellow-text)] text-[var(--icon-yellow-text)]">Confirm the team is ready, then select <strong>Start procedure</strong> above. The clinical documentation will unlock when the status changes to In Progress.</p>
                   </div>
-                  <span className="shrink-0 rounded-full border border-yellow-400 px-3 py-1 text-[10px] font-semibold text-yellow-900 dark:text-yellow-200">Step 1 of 3 · Scheduled</span>
+                  <span className="shrink-0 rounded-full border border-[var(--icon-yellow-text)] px-3 py-1 text-[10px] font-semibold text-[var(--icon-yellow-text)] text-[var(--icon-yellow-text)]">Step 1 of 3 · Scheduled</span>
                 </div>
               )}
 
@@ -1242,12 +1242,12 @@ export default function TheatreProcedure() {
                     </div>
                     <div className="p-3 sm:p-4 space-y-4">
                   {/* Allergy reminder inside record */}
-                  <div className={`rounded-lg border p-3 ${Array.isArray(patient.allergies) && patient.allergies.length ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
-                    <p className={`text-xs font-bold ${Array.isArray(patient.allergies) && patient.allergies.length ? 'text-red-800' : 'text-amber-800'}`}>
+                  <div className={`rounded-lg border p-3 ${Array.isArray(patient.allergies) && patient.allergies.length ? 'border-[var(--icon-red-text)]/40 bg-[var(--icon-red-bg)]' : 'border-[var(--icon-yellow-text)]/40 bg-[var(--icon-yellow-bg)]'}`}>
+                    <p className={`text-xs font-bold ${Array.isArray(patient.allergies) && patient.allergies.length ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-yellow-text)]'}`}>
                       Known allergy record — verify directly with the patient
                     </p>
                     {Array.isArray(patient.allergies) && patient.allergies.length > 0 ? (
-                      <ul className="mt-1 list-disc pl-5 text-xs text-red-800">
+                      <ul className="mt-1 list-disc pl-5 text-xs text-[var(--icon-red-text)]">
                         {patient.allergies.map((allergy: any, index: number) => (
                           <li key={allergy.id || index}>
                             {allergy.allergen}
@@ -1257,7 +1257,7 @@ export default function TheatreProcedure() {
                         ))}
                       </ul>
                     ) : (
-                      <p className="mt-1 text-xs text-amber-800">
+                      <p className="mt-1 text-xs text-[var(--icon-yellow-text)]">
                         No allergy entries are available on this patient record. Confirm and document the patient's allergy status rather than assuming there are no allergies.
                       </p>
                     )}
@@ -1266,7 +1266,7 @@ export default function TheatreProcedure() {
                   {/* Pre-operative safety & team */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <SectionCard
-                      icon={<Stethoscope className="w-4 h-4 text-purple-600" />}
+                      icon={<Stethoscope className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                       title="Clinical & operative details"
                     >
                       <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1324,7 +1324,7 @@ export default function TheatreProcedure() {
                     </SectionCard>
 
                     <SectionCard
-                      icon={<User className="w-4 h-4 text-purple-600" />}
+                      icon={<User className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                       title="Theatre team"
                     >
                       <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1359,7 +1359,7 @@ export default function TheatreProcedure() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Safety time-out checks */}
                   <SectionCard
-                    icon={<AlertTriangle className="w-4 h-4 text-purple-600" />}
+                    icon={<AlertTriangle className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                     title="Safety time-out checks"
                   >
                     <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -1393,7 +1393,7 @@ export default function TheatreProcedure() {
 
                   {/* Anaesthesia */}
                   <SectionCard
-                    icon={<Syringe className="w-4 h-4 text-purple-600" />}
+                    icon={<Syringe className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                     title="Anaesthesia"
                   >
                     <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1439,7 +1439,7 @@ export default function TheatreProcedure() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Intra-operative */}
                   <SectionCard
-                    icon={<Scissors className="w-4 h-4 text-purple-600" />}
+                    icon={<Scissors className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                     title="Intra-operative"
                   >
                     <div className="p-4 space-y-3">
@@ -1512,7 +1512,7 @@ export default function TheatreProcedure() {
 
                   {/* Hospital-specific protocol fields */}
                   <SectionCard
-                    icon={<Info className="w-4 h-4 text-purple-600" />}
+                    icon={<Info className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                     title="Hospital-specific theatre protocol"
                     action={
                       <button
@@ -1523,7 +1523,7 @@ export default function TheatreProcedure() {
                             label: '', type: 'note', required: false, value: '',
                           }],
                         })}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-purple-100 text-purple-700 hover:bg-purple-700 hover:text-white transition-all"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:opacity-90 hover:text-white transition-all"
                       >
                         <Plus className="w-3 h-3" /> Add field
                       </button>
@@ -1593,7 +1593,7 @@ export default function TheatreProcedure() {
                                     onClick={() => setCR({
                                       customProtocolFields: clinicalRecord.customProtocolFields.filter((_: any, i: number) => i !== index),
                                     })}
-                                    className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                                    className="p-2 rounded-lg text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)]"
                                   >
                                     <X size={16} />
                                   </button>
@@ -1647,7 +1647,7 @@ export default function TheatreProcedure() {
               {/* ── TAB: MINOR PROCEDURE DOCUMENTATION MODAL ─────── */}
               {procedureDocumentationUnlocked && !isTheatreRequiredProcedure(selectedProcedure) && (
                 <SectionCard
-                  icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
+                  icon={<ClipboardList className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                   title="Minor procedure documentation"
                 >
                   <div className="space-y-4 p-4">
@@ -1691,7 +1691,7 @@ export default function TheatreProcedure() {
                       <span className="text-[11px] text-[var(--text-tertiary)]">
                         {autosaveStatus === 'saving' ? 'Saving draft…' : autosaveStatus === 'saved' ? 'Draft saved automatically' : autosaveStatus === 'error' ? 'Auto-save failed — check connection' : 'Changes save automatically'}
                       </span>
-                      <button type="button" disabled={isSubmitting} onClick={handleSubmitMinorProcedure} className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{isSubmitting ? 'Saving…' : selectedProcedure.status === 'completed' ? 'Save changes' : 'Complete procedure'}</button>
+                      <button type="button" disabled={isSubmitting} onClick={handleSubmitMinorProcedure} className="rounded-lg bg-[var(--icon-purple-text)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{isSubmitting ? 'Saving…' : selectedProcedure.status === 'completed' ? 'Save changes' : 'Complete procedure'}</button>
                     </div>
                 </SectionCard>
               )}
@@ -1701,7 +1701,7 @@ export default function TheatreProcedure() {
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Complications */}
                   <SectionCard
-                    icon={<AlertTriangle className="w-4 h-4 text-red-600" />}
+                    icon={<AlertTriangle className="w-4 h-4 text-[var(--icon-red-text)]" />}
                     title="Complications"
                   >
                     <div className="p-4 space-y-3">
@@ -1717,7 +1717,7 @@ export default function TheatreProcedure() {
                             onChange={(e) => setComplications(e.target.value)}
                             rows={6}
                             placeholder="Describe complications and how they were managed…"
-                            className="w-full px-3 py-2 rounded-lg border border-red-300 bg-[var(--bg-main)] text-sm resize-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--icon-red-text)]/40 bg-[var(--bg-main)] text-sm resize-none focus:ring-2 focus:ring-[var(--icon-red-text)]/30 focus:border-[var(--icon-red-text)]"
                           />
                         </FormField>
                       )}
@@ -1726,7 +1726,7 @@ export default function TheatreProcedure() {
 
                   {/* Post-op notes */}
                   <SectionCard
-                    icon={<Heart className="w-4 h-4 text-purple-600" />}
+                    icon={<Heart className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                     title="Post-operative notes"
                   >
                     <div className="p-4">
@@ -1747,7 +1747,7 @@ export default function TheatreProcedure() {
 
                   {/* Outcome */}
                   <SectionCard
-                    icon={<CheckCircle className="w-4 h-4 text-green-600" />}
+                    icon={<CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />}
                     title="Procedure outcome"
                   >
                     <div className="p-4">
@@ -1772,7 +1772,7 @@ export default function TheatreProcedure() {
               {procedureDocumentationUnlocked && (
                 <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <SectionCard
-                    icon={<Save className="w-4 h-4 text-purple-600" />}
+                    icon={<Save className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                     title="Post-operative handover"
                   >
                     <div className="p-4 space-y-3">
@@ -1796,7 +1796,7 @@ export default function TheatreProcedure() {
                   </SectionCard>
 
                   <SectionCard
-                    icon={<FileText className="w-4 h-4 text-purple-600" />}
+                    icon={<FileText className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                     title="Clinical handover notes"
                   >
                     <div className="p-4">
@@ -1830,7 +1830,7 @@ export default function TheatreProcedure() {
                     </div>
                     <div className="w-24 h-1.5 bg-[var(--bg-card)] rounded-full overflow-hidden border border-[var(--border-color)]">
                       <div
-                        className="h-full bg-purple-500 rounded-full transition-all"
+                        className="h-full bg-[var(--icon-purple-text)] rounded-full transition-all"
                         style={{ width: `${(filledCount / 6) * 100}%` }}
                       />
                     </div>
@@ -1841,7 +1841,7 @@ export default function TheatreProcedure() {
                         {(selectedProcedure.status === 'scheduled' || selectedProcedure.status === 'in_progress') && (
                           <button
                             onClick={() => handleCancelProcedure(selectedProcedure.id)}
-                            className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium transition-all"
+                            className="px-4 py-2 border border-[var(--icon-red-text)]/40 text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] text-sm font-medium transition-all"
                           >
                             Cancel Procedure
                           </button>
@@ -1854,7 +1854,7 @@ export default function TheatreProcedure() {
                             <button
                               onClick={() => handleSubmitTheatreNotes(false)}
                               disabled={isSubmitting}
-                              className="px-4 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 disabled:opacity-50 text-sm font-semibold transition-all"
+                              className="px-4 py-2 border border-[var(--icon-purple-text)]/40 text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-bg)] disabled:opacity-50 text-sm font-semibold transition-all"
                             >
                               {selectedProcedure.status === 'completed' ? 'Save changes' : 'Save now'}
                             </button>
@@ -1862,7 +1862,7 @@ export default function TheatreProcedure() {
                               <button
                                 onClick={() => handleSubmitTheatreNotes(true)}
                                 disabled={isSubmitting}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold transition-all flex items-center gap-2"
+                                className="px-4 py-2 bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-semibold transition-all flex items-center gap-2"
                               >
                                 {isSubmitting ? (
                                   <>
@@ -1911,8 +1911,8 @@ export default function TheatreProcedure() {
             <div className="relative bg-[var(--bg-card)] rounded-2xl shadow-2xl max-w-md w-full border border-[var(--border-color)] overflow-hidden">
               <div className="px-5 py-4 border-b border-[var(--border-color)] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <Scissors className="w-4 h-4 text-purple-600" />
+                  <div className="w-9 h-9 rounded-lg bg-[var(--icon-purple-bg)] flex items-center justify-center">
+                    <Scissors className="w-4 h-4 text-[var(--icon-purple-text)]" />
                   </div>
                   <h2 className="text-base font-bold text-[var(--text-primary)]">Schedule Procedure</h2>
                 </div>
@@ -1927,7 +1927,7 @@ export default function TheatreProcedure() {
               <div className="p-5 space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                    Procedure <span className="text-red-500">*</span>
+                    Procedure <span className="text-[var(--icon-red-text)]">*</span>
                   </label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
@@ -1938,7 +1938,7 @@ export default function TheatreProcedure() {
                       onChange={(e) => { setScheduleSearch(e.target.value); setShowTemplateDropdown(true); }}
                       onFocus={() => setShowTemplateDropdown(true)}
                       placeholder="Search procedures…"
-                      className="w-full pl-9 pr-9 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      className="w-full pl-9 pr-9 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-purple-text)] focus:border-[var(--icon-purple-text)]"
                     />
                     {scheduleSearch && (
                       <button
@@ -1974,13 +1974,13 @@ export default function TheatreProcedure() {
 
                 <div>
                   <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                    Scheduled Date & Time <span className="text-red-500">*</span>
+                    Scheduled Date & Time <span className="text-[var(--icon-red-text)]">*</span>
                   </label>
                   <input
                     type="datetime-local"
                     value={scheduledDate}
                     onChange={(e) => setScheduledDate(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-purple-text)] focus:border-[var(--icon-purple-text)]"
                   />
                 </div>
 
@@ -1993,7 +1993,7 @@ export default function TheatreProcedure() {
                     onChange={(e) => setProcedureNotes(e.target.value)}
                     rows={3}
                     placeholder="Special instructions, equipment needed…"
-                    className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-[var(--icon-purple-text)] focus:border-[var(--icon-purple-text)]"
                   />
                 </div>
               </div>
@@ -2008,7 +2008,7 @@ export default function TheatreProcedure() {
                 <button
                   onClick={handleScheduleProcedure}
                   disabled={isScheduling || !selectedTemplate || !scheduledDate}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold transition-all"
+                  className="px-4 py-2 bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-semibold transition-all"
                 >
                   {isScheduling ? 'Scheduling…' : 'Schedule Procedure'}
                 </button>
