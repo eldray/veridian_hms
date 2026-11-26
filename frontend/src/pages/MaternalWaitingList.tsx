@@ -283,9 +283,9 @@ export default function MaternalWaitingList() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 p-4 sm:p-6">
+      <div className="space-y-4 p-4 sm:p-5">
         {queueHeader}
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-8 text-center">
           <div className="w-12 h-12 border-4 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-[var(--text-secondary)]">Loading Maternal Queue…</p>
         </div>
@@ -294,7 +294,7 @@ export default function MaternalWaitingList() {
   }
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    <div className="space-y-4 p-4 sm:p-5">
       {queueHeader}
 
       {/* ── Stats ── */}
@@ -332,7 +332,7 @@ export default function MaternalWaitingList() {
       {/* ── List ── */}
       {filteredPatients.length === 0 ? (
         <Card padded={false}>
-          <div className="p-12 text-center">
+          <div className="p-8 text-center">
             {activeTab === 'pending' ? (
               <>
                 <div className="w-14 h-14 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center mx-auto mb-3">
