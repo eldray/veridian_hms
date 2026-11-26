@@ -38,7 +38,7 @@ export type PageKey =
   | 'appointments' | 'reports'
   | 'medical_waiting_list' | 'medical_entries' | 'vitals' | 'admissions'
   | 'wards' | 'theatre' | 'nursing' | 'maternal_waiting_list' | 'antenatal'
-  | 'family_planning' | 'service_catalog' | 'referrals'
+  | 'family_planning' | 'immunization_due' | 'service_catalog' | 'referrals'
   | 'laboratory' | 'scans'
   | 'pharmacy' | 'dispense_medication' | 'inventory' | 'stock_management'
   | 'stock_transactions' | 'stock_reports' | 'stock_transfers'
@@ -88,6 +88,7 @@ export const PAGES: PageDef[] = [
   { key: 'antenatal', paths: ['/dashboard/antenatal'], patterns: ['/dashboard/maternal/:attendanceId'], roles: ['doctor', 'midwife'] },
   { key: 'family_planning', paths: ['/dashboard/family-planning'], roles: ['doctor', 'midwife'], label: 'Family Planning', icon: Heart, group: 'Clinical' },
   { key: 'immunization', paths: ['/dashboard/immunization'], patterns: ['/dashboard/immunization/entries/:patientId'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Immunization', icon: Syringe, group: 'Clinical' },
+  { key: 'immunization_due', paths: ['/dashboard/immunization/due'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Dose Follow-up', icon: Calendar, group: 'Clinical' },
   { key: 'admissions', paths: ['/dashboard/admissions'], patterns: ['/dashboard/admissions/:id'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Admissions', icon: BedDouble, group: 'Ward' },
   { key: 'wards', paths: ['/dashboard/wards'], roles: CLINICAL, label: 'Wards', icon: BedDouble, group: 'Ward' },
   { key: 'referrals', paths: ['/dashboard/referrals'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Referrals', icon: Send, group: 'Ward' },
