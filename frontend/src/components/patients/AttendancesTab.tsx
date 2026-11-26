@@ -43,12 +43,12 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'completed': return 'bg-green-100 text-green-800 border border-green-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border border-red-200';
-      case 'admitted': return 'bg-purple-100 text-purple-800 border border-purple-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
-      case 'active': return 'bg-blue-100 text-blue-800 border border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
+      case 'completed': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border border-[var(--icon-green-text)]';
+      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--icon-red-text)]';
+      case 'admitted': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border border-[var(--icon-purple-text)]';
+      case 'pending': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border border-[var(--icon-yellow-text)]';
+      case 'active': return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)]';
+      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]';
     }
   };
 
@@ -109,13 +109,13 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
   if (sortedAttendances.length === 0) {
     return (
       <div className="text-center py-6">
-        <History className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-gray-900 mb-2">No Previous Attendances</h3>
-        <p className="text-gray-600 text-sm mb-4">No attendance records found for this patient</p>
+        <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">No Previous Attendances</h3>
+        <p className="text-[var(--text-secondary)] text-sm mb-4">No attendance records found for this patient</p>
         {onNewAttendance ? (
           <button
             onClick={onNewAttendance}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all duration-200 font-medium text-sm"
           >
             <Plus className="w-4 h-4" />
             Create First Attendance
@@ -123,7 +123,7 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
         ) : (
           <Link
             to={`/dashboard/attendance/new?patientId=${patient.id || patient._id}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium text-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all duration-200 font-medium text-sm"
           >
             <Plus className="w-4 h-4" />
             Create First Attendance
@@ -137,27 +137,27 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
     <div className="space-y-3">
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="text-base font-bold text-gray-900">Attendance History</h3>
-          <p className="text-xs text-gray-600">All visits and consultations for {patient.fullName}</p>
+          <h3 className="text-base font-bold text-[var(--text-primary)]">Attendance History</h3>
+          <p className="text-xs text-[var(--text-secondary)]">All visits and consultations for {patient.fullName}</p>
         </div>
         <div className="flex items-center gap-2">
           {patient.nhisNumber && (
             <button
               onClick={handleGenerateCCC}
               disabled={generatingCCC}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200 font-medium text-xs disabled:opacity-50"
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 transition-all duration-200 font-medium text-xs disabled:opacity-50"
             >
               <CreditCard className={`w-3 h-3 ${generatingCCC ? 'animate-spin' : ''}`} />
               {generatingCCC ? 'Generating...' : 'Generate CCC'}
             </button>
           )}
-          <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full font-medium">
+          <span className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] px-2 py-1 rounded-full font-medium">
             {sortedAttendances.length} visit{sortedAttendances.length !== 1 ? 's' : ''}
           </span>
           {onNewAttendance && (
             <button
               onClick={onNewAttendance}
-              className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-medium text-xs"
+              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[var(--icon-green-text)] text-white rounded-lg hover:opacity-90 transition-all duration-200 font-medium text-xs"
             >
               <Plus className="w-3 h-3" />
               New Visit
@@ -174,16 +174,16 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
         return (
           <div 
             key={attendanceId} 
-            className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-all duration-300 bg-white group"
+            className="border border-[var(--border-color)] rounded-lg p-3 hover:shadow-md transition-all duration-300 bg-[var(--bg-card)] group"
           >
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-start gap-2">
-                <div className="bg-blue-100 text-blue-600 p-1.5 rounded">
+                <div className="bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] p-1.5 rounded">
                   <Stethoscope className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-1 mb-1">
-                    <h4 className="font-bold text-gray-900 text-sm">
+                    <h4 className="font-bold text-[var(--text-primary)] text-sm">
                       {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
                     </h4>
                     <span className={`px-1.5 py-0.5 text-xs font-bold rounded-full ${getStatusColor(attendance.status)}`}>
@@ -193,7 +193,7 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
                       }
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       <span>{formatDate(attendance.dateTime || attendance.createdAt)}</span>
@@ -207,28 +207,28 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
               </div>
               <Link
                 to={`/dashboard/attendance/${attendanceId}`}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-all duration-200 font-medium text-xs opacity-0 group-hover:opacity-100"
+                className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-text)] text-white rounded hover:opacity-90 transition-all duration-200 font-medium text-xs opacity-0 group-hover:opacity-100"
               >
                 <span>View</span>
               </Link>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
-              <div className="bg-gray-50 rounded p-2">
-                <p className="text-xs text-gray-600 font-medium mb-1">Visit Type</p>
-                <p className="font-semibold text-gray-900 text-xs">
+              <div className="bg-[var(--bg-main)] rounded p-2">
+                <p className="text-xs text-[var(--text-secondary)] font-medium mb-1">Visit Type</p>
+                <p className="font-semibold text-[var(--text-primary)] text-xs">
                   {getAttendanceTypeLabel(attendance.attendanceType)}
                 </p>
               </div>
-              <div className="bg-gray-50 rounded p-2">
-                <p className="text-xs text-gray-600 font-medium mb-1">Payment Mode</p>
-                <p className="font-semibold text-gray-900 text-xs capitalize">
+              <div className="bg-[var(--bg-main)] rounded p-2">
+                <p className="text-xs text-[var(--text-secondary)] font-medium mb-1">Payment Mode</p>
+                <p className="font-semibold text-[var(--text-primary)] text-xs capitalize">
                   {attendance.paymentMode || 'Not specified'}
                 </p>
               </div>
-              <div className="bg-gray-50 rounded p-2">
-                <p className="text-xs text-gray-600 font-medium mb-1">Complaints</p>
-                <p className="font-semibold text-gray-900 text-xs">
+              <div className="bg-[var(--bg-main)] rounded p-2">
+                <p className="text-xs text-[var(--text-secondary)] font-medium mb-1">Complaints</p>
+                <p className="font-semibold text-[var(--text-primary)] text-xs">
                   {attendance.complaints || 'No complaints recorded'}
                 </p>
               </div>
@@ -236,21 +236,21 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
 
             {/* Services Summary */}
             <div className="flex items-center gap-2 mb-2 text-xs">
-              <div className="flex items-center gap-1 bg-blue-50 px-1.5 py-0.5 rounded">
-                <Pill className="w-3 h-3 text-blue-600" />
-                <span className="font-medium text-blue-700">
+              <div className="flex items-center gap-1 bg-[var(--icon-cyan-bg)] px-1.5 py-0.5 rounded">
+                <Pill className="w-3 h-3 text-[var(--icon-cyan-text)]" />
+                <span className="font-medium text-[var(--icon-cyan-text)]">
                   {getArrayLength(attendance.medications)} Meds
                 </span>
               </div>
-              <div className="flex items-center gap-1 bg-green-50 px-1.5 py-0.5 rounded">
-                <FlaskConical className="w-3 h-3 text-green-600" />
-                <span className="font-medium text-green-700">
+              <div className="flex items-center gap-1 bg-[var(--icon-green-bg)] px-1.5 py-0.5 rounded">
+                <FlaskConical className="w-3 h-3 text-[var(--icon-green-text)]" />
+                <span className="font-medium text-[var(--icon-green-text)]">
                   {getArrayLength(attendance.labTests)} Tests
                 </span>
               </div>
               {getArrayLength(attendance.procedures) > 0 && (
-                <div className="flex items-center gap-1 bg-purple-50 px-1.5 py-0.5 rounded">
-                  <span className="font-medium text-purple-700">
+                <div className="flex items-center gap-1 bg-[var(--icon-purple-bg)] px-1.5 py-0.5 rounded">
+                  <span className="font-medium text-[var(--icon-purple-text)]">
                     {getArrayLength(attendance.procedures)} Procedures
                   </span>
                 </div>
@@ -259,19 +259,19 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
 
             {/* Billing Information */}
             {(totalBill > 0 || outstandingBalance > 0) && (
-              <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+              <div className="flex items-center justify-between pt-2 border-t border-[var(--border-color)]">
                 <div className="flex items-center gap-2 text-xs">
                   {totalBill > 0 && (
                     <div className="flex items-center gap-1">
-                      <DollarSign className="w-3 h-3 text-green-600" />
-                      <span className="font-semibold text-gray-900">
+                      <DollarSign className="w-3 h-3 text-[var(--icon-green-text)]" />
+                      <span className="font-semibold text-[var(--text-primary)]">
                         Total: {formatCurrency(totalBill)}
                       </span>
                     </div>
                   )}
                   {outstandingBalance > 0 && (
                     <div className="flex items-center gap-1">
-                      <span className="font-semibold text-red-600">
+                      <span className="font-semibold text-[var(--icon-red-text)]">
                         Outstanding: {formatCurrency(outstandingBalance)}
                       </span>
                     </div>
@@ -279,7 +279,7 @@ export const AttendancesTab: React.FC<AttendancesTabProps> = ({
                 </div>
                 <Link
                   to={`/dashboard/attendance/${attendanceId}`}
-                  className="text-blue-600 hover:text-blue-700 text-xs font-medium"
+                  className="text-[var(--icon-cyan-text)] hover:text-[var(--icon-cyan-text)] text-xs font-medium"
                 >
                   View Details →
                 </Link>
