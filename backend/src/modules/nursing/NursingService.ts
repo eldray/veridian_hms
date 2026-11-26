@@ -38,7 +38,10 @@ export class NursingService extends BaseService {
   ): ParsedSchedule {
     const { intervalHours, dosesPerDay } = this.parseFrequency(frequency);
     const days = this.parseDurationDays(duration);
-    const requiredDoses = Math.max(1, dosesPerDay * days);
+    const normalizedFrequency = String(frequency ?? '').trim().toLowerCase();
+    const isSingleDose = ['stat', 'single dose', 'single'].includes(normalizedFrequency);
+    const isPrn = ['prn', 'as needed', 'sos'].includes(normalizedFrequency);
+    const requiredDoses = isPrn ? 0 : isSingleDose ? 1 : Math.max(1, dosesPerDay * days);
     if (requiredDoses > 10000) {
       throw new ValidationError('This prescription would create more than 10,000 scheduled doses; verify the frequency and duration');
     }
@@ -58,7 +61,8 @@ export class NursingService extends BaseService {
     if (!freq) return { intervalHours: 24, dosesPerDay: 1 };
     const f = String(freq).toLowerCase().trim();
 
-    if (['stat', 'once', 'single dose', 'single'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
+    if (['stat', 'single dose', 'single'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
+    if (['prn', 'as needed', 'sos'].includes(f)) return { intervalHours: 24, dosesPerDay: 0 };
 
     let m = f.match(/^(?:every\s+)?(\d+)\s*(?:hours?|h)(?:\s+apart)?$/);
     if (!m) m = f.match(/^q\s*(\d+)\s*h(?:ours?)?$/);
@@ -75,7 +79,6 @@ export class NursingService extends BaseService {
     if (['bd', 'bid', 'twice daily', 'twice a day', 'b.i.d'].includes(f)) return { intervalHours: 12, dosesPerDay: 2 };
     if (['tds', 'tid', 'thrice daily', 'three times a day', 't.i.d'].includes(f)) return { intervalHours: 8, dosesPerDay: 3 };
     if (['qds', 'qid', 'four times daily', 'four times a day', 'q.i.d'].includes(f)) return { intervalHours: 6, dosesPerDay: 4 };
-    if (['prn', 'as needed', 'sos'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
 
     // "five times daily", "5 times a day", "three times per day" ... (e.g. acyclovir 5x daily).
     const timesWords: Record<string, number> = { once: 1, one: 1, twice: 2, two: 2, thrice: 3, three: 3, four: 4, five: 5, six: 6 };
