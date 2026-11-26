@@ -427,7 +427,7 @@ export const generateCCC = async (
         nhisCCCCode: result.data.cccCode,
         nhisCCCGeneratedAt: new Date(),
         nhisCCCValidUntil: result.data.validUntil
-          ? new Date(eligibilityData.validUntil)
+          ? new Date(result.data.validUntil)
           : null,
         updatedAt: new Date(),
       },
