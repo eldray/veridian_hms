@@ -112,7 +112,7 @@ export const AdminNotificationPanel: React.FC = () => {
       {/* User Selection (Bulk) */}
       {notificationType === 'bulk' && (
         <div>
-          <label className="block text-sm font-medium mb-1">Select Users</label>
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Select Users</label>
           <select
             multiple
             value={selectedUserIds}
@@ -135,7 +135,7 @@ export const AdminNotificationPanel: React.FC = () => {
       {/* Role Selection (Role-based) */}
       {notificationType === 'role' && (
         <div>
-          <label className="block text-sm font-medium mb-1">Select Roles</label>
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Select Roles</label>
           <div className="flex flex-wrap gap-2">
             {roles.map(role => (
               <button
@@ -161,7 +161,7 @@ export const AdminNotificationPanel: React.FC = () => {
 
       {/* Notification Details */}
       <div>
-        <label className="block text-sm font-medium mb-1">Title</label>
+        <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Title</label>
         <input
           type="text"
           value={title}
@@ -172,7 +172,7 @@ export const AdminNotificationPanel: React.FC = () => {
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1">Message</label>
+        <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Message</label>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -184,7 +184,7 @@ export const AdminNotificationPanel: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium mb-1">Type</label>
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Type</label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value as any)}
@@ -198,7 +198,7 @@ export const AdminNotificationPanel: React.FC = () => {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Priority</label>
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Priority</label>
           <select
             value={priority}
             onChange={(e) => setPriority(e.target.value as any)}
@@ -213,11 +213,11 @@ export const AdminNotificationPanel: React.FC = () => {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 pt-4 border-t">
+      <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
         <button
           onClick={handleSend}
           disabled={isSending}
-          className="flex-1 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          className="flex-1 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {isSending ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -230,7 +230,7 @@ export const AdminNotificationPanel: React.FC = () => {
 
       {/* System Actions */}
       <div className="border-t border-[var(--border-color)] pt-3">
-        <h4 className="text-sm font-medium mb-3">System Actions</h4>
+        <h4 className="text-sm font-medium text-[var(--text-primary)] mb-3">System Actions</h4>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={handleTriggerLowStock}
