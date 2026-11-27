@@ -12,7 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useEstimatesStore, type EstimateStatus } from '../store/estimatesStore';
 import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
-import { getPatientName } from '../utils/patient';
+import { getPatientName, getPatientFolderNumber } from '../utils/patient';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import {
   Send, CheckCircle, XCircle, FileText, Printer, Receipt, Loader, Briefcase,
@@ -150,7 +150,7 @@ export default function EstimateDetails() {
             <div>
               <p className="text-[11px] tracking-[2px] text-[var(--text-tertiary)]">BILL TO</p>
               <p className="text-base font-semibold mt-1.5">{est.patient ? getPatientName(est.patient) : 'Walk-in client'}</p>
-              <p className="text-[var(--text-secondary)] mt-0.5">Folder: {est.patient?.folderNumber || '—'}</p>
+              <p className="text-[var(--text-secondary)] mt-0.5">Folder: {getPatientFolderNumber(est) || '—'}</p>
               {est.corporateAccount && <p className="text-[var(--text-secondary)] mt-1.5"><span className="font-medium text-[var(--text-primary)]">Corporate:</span> {est.corporateAccount.companyName}</p>}
             </div>
             <div className="text-right shrink-0">
