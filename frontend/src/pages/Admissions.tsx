@@ -1,4 +1,5 @@
 // src/pages/Admissions.tsx — Full rewrite, theme-consistent
+import { getPatientName as getPatientName } from '../utils/patient';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
@@ -42,16 +43,6 @@ type ViewMode = 'table' | 'cards';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null | undefined): string | undefined =>
   entity?._id || entity?.id;
-
-const getPatientName = (patient: any): string => {
-  if (!patient) return 'Unknown Patient';
-  return (
-    patient.name ||
-    patient.fullName ||
-    `${patient.surname || ''} ${patient.otherNames || ''}`.trim() ||
-    'Unknown Patient'
-  );
-};
 
 const calculateAge = (dateOfBirth: string): number => {
   if (!dateOfBirth) return 0;
