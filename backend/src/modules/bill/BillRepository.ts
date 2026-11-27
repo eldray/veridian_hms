@@ -278,7 +278,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
         // A manual collection must not reuse the client attempt key of a MoMo request.
         // Both flows hold the bill row lock, so this cross-channel check is race-safe.
-        if (!paymentData.internalMomoIntentId && idempotencyKey && tx.momoPaymentIntent?.findUnique) {
+        if (idempotencyKey && tx.momoPaymentIntent?.findUnique) {
           const priorMomoIntent = await tx.momoPaymentIntent.findUnique({
             where: { idempotencyKey },
             select: { id: true }
