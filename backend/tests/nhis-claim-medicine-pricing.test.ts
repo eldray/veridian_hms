@@ -28,6 +28,8 @@ describe('NHIS claim medicine pricing', () => {
         Medication: [{
           id: 'med-1',
           name: 'Amoxicillin 500mg capsules',
+          status: 'dispensed',
+          dispensedAt: policyDate,
           quantity: 30,
           serviceCatalogId: 'service-1',
           StockItem: { id: 'stock-1', drugCode: 'NHIS-MED-1', name: 'Amoxicillin 500mg' },
