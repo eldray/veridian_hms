@@ -1,4 +1,5 @@
 // src/pages/Attendance.tsx - with View All + Sort (patient-owned sorts)
+import { getPatientName as getPatientFullName } from '../utils/patient';
 // 2026-11-19 pass: data-loading hardened.
 // - Cold-start skeleton is owned by the PAGE (isInitialLoading + hasLoadedOnce),
 //   not the store's shared isLoading — a failed/hung fetch can no longer freeze
@@ -72,11 +73,7 @@ export default function Attendance() {
     if (attendance.Patient && typeof attendance.Patient === 'object') return attendance.Patient;
     return null;
   };
-  const getPatientFullName = (patient: any) => {
-    if (!patient) return 'Unknown Patient';
-    return patient.fullName || patient.name || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
-  };
-  const isCounterTicket = (attendance: any) => attendance?.attendanceType === 'walk_in' || Boolean(attendance?.counterClient || attendance?.counterClientId);
+    const isCounterTicket = (attendance: any) => attendance?.attendanceType === 'walk_in' || Boolean(attendance?.counterClient || attendance?.counterClientId);
   const getBalance = (a: any) => (a.totalBill || 0) - (a.paidAmount || 0);
 
   // Memoized so live refresh always sees a fresh closure for the current window.

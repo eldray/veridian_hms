@@ -1,4 +1,5 @@
 // src/pages/ProcessPayment.tsx - FIXED VERSION
+import { getPatientName as getPatientName } from '../utils/patient';
 import { useState, FormEvent, useEffect, useRef } from 'react'; 
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { uuid } from '../utils/uuid';
@@ -250,12 +251,7 @@ export default function ProcessPayment() {
     { value: 'cheque', label: 'Cheque', icon: FileText },
   ];
 
-  const getPatientName = (patient: any) => {
-    if (!patient) return 'Unknown Patient';
-    return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
-  };
-
-  // Registered patient wins; otherwise fall back to the counter walk-in name.
+    // Registered patient wins; otherwise fall back to the counter walk-in name.
   const payerName = patient
     ? getPatientName(patient)
     : (counterClient?.name || 'Counter customer');

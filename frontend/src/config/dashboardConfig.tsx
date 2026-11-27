@@ -678,12 +678,7 @@ export const fmtTime = (d?: string) => {
   catch { return '—'; }
 };
 
-export const patientFullName = (src: any): string => {
-  const p = src?.patient ?? src?.Patient ?? src;
-  if (!p) return 'Unknown Patient';
-  return p.name || p.fullName ||
-    `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown Patient';
-};
+export { getPatientName as patientFullName } from '../utils/patient';
 
 export const getStatusStyle = (status: string): { bg: string; color: string } => {
   const styles: Record<string, { bg: string; color: string }> = {

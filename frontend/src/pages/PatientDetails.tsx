@@ -1,4 +1,5 @@
 // src/pages/PatientDetails.tsx - COMPACT REDESIGNED VERSION
+import { getPatientName as resolvePatientName } from '../utils/patient';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../utils/useSmartBack';
@@ -132,7 +133,7 @@ export default function PatientDetails() {
     if (currentPatient.success && currentPatient.data) return currentPatient.data;
     return currentPatient;
   }, [currentPatient]);
-  const getPatientFullName = (p: any) => p?.name || p?.fullName || `${p?.surname || ''} ${p?.otherNames || ''}`.trim();
+  const getPatientFullName = (p: any) => resolvePatientName(p);
   const patientAttendances = useMemo(() => {
     if (!patient || !attendances.length) return [];
     const patientId = patient.id;

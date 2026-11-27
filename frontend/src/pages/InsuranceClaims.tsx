@@ -1,4 +1,5 @@
 // src/pages/InsuranceClaims.tsx - SPLIT COLUMNS + PAGINATION + SORT
+import { getPatientName as resolvePatientName } from '../utils/patient';
 // Fixes: group header colSpan was hard-coded (12/14) and drifted from real columns -> now computed.
 // Table: Claim # | Patient | Folder # | Attendance # | Payer | Status | GDRG (tariff) | Medications (items) | Claim total (billed) | Submitted | Actions
 // TOTALS LABELLING — the bug being fixed:
@@ -47,7 +48,7 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
     try { await getClaimsSummary(activeTab); } catch {}
   };
   useEffect(() => { loadData(); }, [activeTab, startDate, endDate]);
-  const getPatientFullName = (p:any) => !p ? 'Unknown' : p.name || p.fullName || `${p.surname||''} ${p.otherNames||''}`.trim() || 'Unknown';
+  const getPatientFullName = (p:any) => resolvePatientName(p);
   const eligibleAttendances = useMemo(()=> attendances.filter(a=> a.paymentMode===paymentModeForTab && a.status==='completed' && !currentClaims.some(c=>c.attendanceId===a.id)), [attendances, paymentModeForTab, currentClaims]);
   const currentStats = useMemo(()=>({ total: currentClaims.length, draft: currentClaims.filter((c:any)=>c.status==='draft').length, submitted: currentClaims.filter((c:any)=>c.status!=='draft').length, totalAmount: currentClaims.reduce((s:number,c:any)=>s+(c.totalClaimAmount||0),0) }), [currentClaims]);
   const summarize = (claim:any)=>{ const items=Array.isArray(claim?.items)?claim.items:[]; const t=items.reduce((s:any,it:any)=>{ const a=Number(it?.lineTotal??it?.amount??it?.total??0)||0; const cat=String(it?.itemCategory??it?.category??'').toLowerCase(); const code=String(it?.code??'').toLowerCase(); if(cat==='service'||(!cat&&code.includes('service'))) s.services+=a; if(cat==='procedure') s.procedures+=a; if(cat==='investigation'||code.includes('lab')||code.includes('scan')) s.labs+=a; if(cat==='medicine'||cat==='medication'||code.includes('med')) s.medications+=a; if(cat==='gdrg'||code.includes('gdrg')||it?.gdrgTariff||it?.gdrgAmount) s.gdrg+=a||Number(it?.gdrgTariff?.nhiaTariff??it?.gdrgAmount??0); return s; },{services:0,procedures:0,labs:0,medications:0,gdrg:0}); const claimTotal=Number(claim?.totalClaimAmount??0)||(t.services+t.procedures+t.labs+t.medications+t.gdrg); if(activeTab==='nhis'){ const inferred=t.gdrg>0?t.gdrg:(claim?.principalGDRG||claim?.gdrgTariff?.nhiaTariff||claim?.gdrgAmount?Number(typeof claim.principalGDRG==='number'?claim.principalGDRG:claim.gdrgTariff?.nhiaTariff??claim.gdrgAmount??0):claimTotal>0&&t.medications>0?Math.max(claimTotal-t.medications,0):0); return {services:0,procedures:0,labs:0,medications:t.medications,gdrg:inferred,total:claimTotal||inferred+t.medications}; } return {...t,total:claimTotal}; };
