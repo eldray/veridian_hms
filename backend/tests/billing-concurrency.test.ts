@@ -391,8 +391,8 @@ describe('bill financial record integrity', () => {
     const update = vi.spyOn(BillRepository.prototype, 'update').mockResolvedValue({ id: 'bill-1', notes: 'Reviewed' } as any);
     try {
       const service = new BillService({} as any);
-      await service.updateBill('bill-1', { notes: 'Reviewed' }, 'staff-1');
-      expect(update).toHaveBeenCalledWith('bill-1', { notes: 'Reviewed' }, 'staff-1');
+      await service.updateBill('bill-1', { notes: 'Reviewed' });
+      expect(update).toHaveBeenCalledWith('bill-1', { notes: 'Reviewed' });
     } finally {
       findBill.mockRestore();
       update.mockRestore();
