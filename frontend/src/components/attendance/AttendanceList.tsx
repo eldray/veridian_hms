@@ -75,7 +75,7 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({
               </tr>
             ) : attendances.map((attendance) => {
               const patient = findPatient(attendance);
-              const identitySource = patient || attendance;
+              const identitySource = { ...attendance, patient: patient || attendance.patient };
               const attendanceId = attendance._id || attendance.id;
               const totalBill = attendance.totalBill || 0;
 
