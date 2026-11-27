@@ -1,7 +1,7 @@
 // src/components/attendance/AttendanceList.tsx
 import { Link } from 'react-router-dom';
 import { PatientAvatar } from '../patients/PatientAvatar';
-import { getPatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
 import { Eye, Edit } from 'lucide-react';
 import { Badge, Button, humanStatus, statusTone, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR } from '../ui';
 
@@ -75,6 +75,7 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({
               </tr>
             ) : attendances.map((attendance) => {
               const patient = findPatient(attendance);
+              const identitySource = { ...attendance, patient: patient || attendance.patient };
               const attendanceId = attendance._id || attendance.id;
               const totalBill = attendance.totalBill || 0;
 
@@ -82,15 +83,15 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({
                 <tr key={attendanceId} className={TR}>
                   <td className={TD}>
                     <div className="flex min-w-0 items-center gap-3">
-                      <PatientAvatar patient={patient} size="sm" />
+                      <PatientAvatar patient={identitySource} size="sm" />
                       <div className="min-w-0">
                         <p className="font-semibold text-[var(--text-primary)] truncate">
-                          {patient?.fullName || `Patient ${attendance.patientId?.toString().slice(-6) || 'Unknown'}`}
+                          {getPatientName(identitySource)}
                         </p>
                       </div>
                     </div>
                   </td>
-                  <td className={TD_MONO}>{getPatientFolderNumber(attendance) || '—'}</td>
+                  <td className={TD_MONO}>{getPatientFolderNumber(attendance) || getPatientFolderNumber(identitySource) || '—'}</td>
                   <td className={TD_MONO}>{getAttendanceNumber(attendance) || '—'}</td>
                   <td className={TD}>
                     <div className="space-y-0.5">

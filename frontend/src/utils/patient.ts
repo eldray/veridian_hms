@@ -5,9 +5,11 @@ export function getPatientName(source: any): string {
   if (source == null) return 'Unknown Patient';
 
   const candidates = [
-    source.patient, source.Patient, source.patientDetails, source.patientRecord,
+    // A counter-client record may now be linked to a registered patient. Prefer
+    // that registered identity over the walk-in display name when it exists.
     source.counterClient?.Patient, source.counterClient?.patient,
     source.CounterClient?.Patient, source.CounterClient?.patient,
+    source.patient, source.Patient, source.patientDetails, source.patientRecord,
     source.data?.patient, source.data?.Patient, source.data,
     source.patient?.data, source.Patient?.data,
     source.attendance?.patient, source.Attendance?.patient,
@@ -21,11 +23,12 @@ export function getPatientName(source: any): string {
     if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
     if (!candidate || typeof candidate !== 'object') continue;
 
-    const direct = candidate.fullName ?? candidate.name ?? candidate.patientName ?? candidate.displayName;
+    const direct = candidate.fullName ?? candidate.FullName ?? candidate.name ?? candidate.Name
+      ?? candidate.patientName ?? candidate.displayName;
     if (typeof direct === 'string' && direct.trim()) return direct.trim();
 
-    const first = candidate.firstName ?? candidate.otherNames ?? candidate.givenName ?? '';
-    const last = candidate.lastName ?? candidate.surname ?? candidate.familyName ?? '';
+    const first = candidate.firstName ?? candidate.FirstName ?? candidate.otherNames ?? candidate.OtherNames ?? candidate.givenName ?? '';
+    const last = candidate.lastName ?? candidate.LastName ?? candidate.surname ?? candidate.Surname ?? candidate.familyName ?? '';
     const combined = [first, last].filter((part: any) => typeof part === 'string' && part.trim()).join(' ').trim();
     if (combined) return combined;
   }
@@ -40,9 +43,9 @@ export function getPatientFolderNumber(source: any): string {
   if (source == null) return '';
   const candidates = [
     source,
-    source.patient, source.Patient, source.patientDetails, source.patientRecord,
     source.counterClient?.Patient, source.counterClient?.patient,
     source.CounterClient?.Patient, source.CounterClient?.patient,
+    source.patient, source.Patient, source.patientDetails, source.patientRecord,
     source.data, source.data?.patient, source.data?.Patient,
     source.patient?.data, source.Patient?.data,
     source.attendance?.patient, source.attendance?.Patient,
@@ -50,10 +53,16 @@ export function getPatientFolderNumber(source: any): string {
     source.attendance?.data?.patient, source.Attendance?.data?.Patient,
     source.data?.attendance?.patient, source.data?.attendance?.Patient,
     source.data?.Attendance?.patient, source.data?.Attendance?.Patient,
+    source.encounter?.patient, source.encounter?.Patient,
+    source.Encounter?.patient, source.Encounter?.Patient,
+    source.visit?.patient, source.visit?.Patient,
+    source.Visit?.patient, source.Visit?.Patient,
   ];
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object') continue;
-    const value = candidate.folderNumber ?? candidate.patientFolderNumber ?? candidate.folderNo;
+    const value = candidate.folderNumber ?? candidate.FolderNumber
+      ?? candidate.patientFolderNumber ?? candidate.PatientFolderNumber
+      ?? candidate.folderNo ?? candidate.FolderNo;
     if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
   }
   return '';
@@ -69,11 +78,15 @@ export function getAttendanceNumber(source: any): string {
     source.visit, source.data,
     source.data?.attendance, source.data?.Attendance,
     source.data?.encounter, source.data?.Encounter,
+    source.visit?.attendance, source.visit?.Attendance,
+    source.Visit?.attendance, source.Visit?.Attendance,
   ];
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object') continue;
     const value = candidate.attendanceNumber ?? candidate.attendanceNo
-      ?? candidate.visitNumber ?? candidate.encounterNumber;
+      ?? candidate.visitNumber ?? candidate.VisitNumber
+      ?? candidate.encounterNumber ?? candidate.EncounterNumber
+      ?? candidate.AttendanceNumber ?? candidate.AttendanceNo;
     if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
   }
   return '';
