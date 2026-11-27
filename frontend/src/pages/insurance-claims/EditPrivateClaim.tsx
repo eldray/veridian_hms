@@ -13,6 +13,7 @@ import { ClaimFrame, ClaimCard, UField, ListSection, TH, ClaimFooter, Hint, fmtD
 import { payerUnitPrice, priceLabel, medicationCatalogByStockItemId } from '../../utils/pricing';
 import { EMPTY_PRESCRIPTION, PrescriptionFields, formatPrescriptionDetails, parsePrescriptionDetails, type PrescriptionDetails } from '../../components/claims/ClaimPrescriptionFields';
 import { Download, Printer, XCircle, Plus, Search, Edit, Trash2 as TrashIcon } from 'lucide-react';
+import { reprintPremierClaimPatientPaymentReceipt } from '../../api';
 
 interface DiagnosisItem {
   id?: string;
@@ -460,6 +461,7 @@ export default function EditPrivateClaim() {
   const [tablesOpen, setTablesOpen] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCollecting, setIsCollecting] = useState(false);
+  const [printingReceiptPaymentId, setPrintingReceiptPaymentId] = useState<string | null>(null);
   const [collectionAmount, setCollectionAmount] = useState('');
   const [collectionMethod, setCollectionMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'cheque'>('cash');
   const [collectionReference, setCollectionReference] = useState('');
@@ -830,6 +832,27 @@ export default function EditPrivateClaim() {
           const collected = payments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
           const outstanding = Math.max(0, due - collected);
           const deferred = Math.max(0, Number(premierCalculation?.deferredPatientBalance || 0));
+          const reprintCollectionReceipt = async (paymentId: string) => {
+            if (!id || printingReceiptPaymentId) return;
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+              toastError('Print blocked', 'Allow pop-ups for this site, then try reprinting the receipt again.');
+              return;
+            }
+            printWindow.opener = null;
+            setPrintingReceiptPaymentId(paymentId);
+            try {
+              const result = await reprintPremierClaimPatientPaymentReceipt(id, paymentId);
+              const filePath = result?.data?.filePath || result?.filePath;
+              if (!filePath) throw new Error('Receipt file is not available.');
+              printWindow.location.href = filePath;
+            } catch (error: any) {
+              printWindow.close();
+              toastError('Receipt unavailable', error?.response?.data?.message || error?.message || 'Could not reprint this payment receipt.');
+            } finally {
+              setPrintingReceiptPaymentId(null);
+            }
+          };
           const submitCollection = async (event: any) => {
             event.preventDefault();
             const amount = Math.round(Number(collectionAmount) * 100) / 100;
@@ -868,7 +891,7 @@ export default function EditPrivateClaim() {
                     <button type="submit" disabled={isCollecting || !collectionAmount} className="rounded-lg bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] px-4 py-2 text-sm font-semibold disabled:opacity-50">{isCollecting ? 'Recording…' : 'Collect & issue receipt'}</button>
                   </form>
                 ) : deferred > 0 ? <p className="text-sm text-[var(--text-secondary)]">No payment is due on this first attendance. GHS {money(deferred)} is deferred to the next Premier OPD attendance.</p> : <p className="text-sm text-[var(--icon-green-text)]">The Premier patient balance for this claim is fully settled.</p>}
-                {payments.length > 0 && <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr><TH>Receipt</TH><TH>Date</TH><TH>Method</TH><TH className="text-right">Amount</TH><TH>Received by</TH></tr></thead><tbody>{payments.map((payment: any) => <tr key={payment.id} className="border-t border-[var(--border-color)]"><td className="px-3 py-2 font-medium">{payment.receiptNumber}</td><td className="px-3 py-2">{new Date(payment.transactionDate).toLocaleString()}</td><td className="px-3 py-2 capitalize">{String(payment.paymentMethod).replace('_', ' ')}</td><td className="px-3 py-2 text-right">{money(Number(payment.amount))}</td><td className="px-3 py-2">{payment.receivedBy?.fullName || payment.receivedBy?.username || '—'}</td></tr>)}</tbody></table></div>}
+                {payments.length > 0 && <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr><TH>Receipt</TH><TH>Date</TH><TH>Method</TH><TH className="text-right">Amount</TH><TH>Received by</TH><TH className="text-right">Action</TH></tr></thead><tbody>{payments.map((payment: any) => <tr key={payment.id} className="border-t border-[var(--border-color)]"><td className="px-3 py-2 font-medium">{payment.receiptNumber}</td><td className="px-3 py-2">{new Date(payment.transactionDate).toLocaleString()}</td><td className="px-3 py-2 capitalize">{String(payment.paymentMethod).replace('_', ' ')}</td><td className="px-3 py-2 text-right">{money(Number(payment.amount))}</td><td className="px-3 py-2">{payment.receivedBy?.fullName || payment.receivedBy?.username || '—'}</td><td className="px-3 py-2 text-right"><button type="button" onClick={() => reprintCollectionReceipt(payment.id)} disabled={printingReceiptPaymentId !== null} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--border-color)] disabled:opacity-50"><Printer className="h-3.5 w-3.5" />{printingReceiptPaymentId === payment.id ? 'Opening…' : 'Reprint'}</button></td></tr>)}</tbody></table></div>}
               </div>
             </ClaimCard>
           );
