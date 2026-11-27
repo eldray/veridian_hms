@@ -15,7 +15,7 @@ export const AttendanceDetailsHeader: React.FC<AttendanceDetailsHeaderProps> = (
   canEdit,
   onBack
 }) => {
-  const identitySource = patient || currentAttendance;
+  const identitySource = { ...currentAttendance, patient: patient || currentAttendance.patient };
 
   return (
     <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-3 sm:p-4 text-[var(--text-primary)] shadow-sm">
