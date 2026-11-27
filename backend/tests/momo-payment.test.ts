@@ -66,8 +66,10 @@ describe('MomoPaymentService', () => {
           status: 'pending',
         }),
       },
+      payment: { findUnique: vi.fn().mockResolvedValue(null) },
       momoPaymentIntent: {
         findUnique: vi.fn().mockResolvedValue(intent),
+        create: vi.fn(),
         update: vi.fn(async ({ data }: any) => ({ ...intent, ...data })),
       },
     } as any;
@@ -128,6 +130,22 @@ describe('MomoPaymentService', () => {
 
     expect(result.reused).toBe(true);
     expect(result.intent.id).toBe(baseIntent.id);
+  });
+
+  it('rejects a MoMo attempt when its key already belongs to a recorded manual payment', async () => {
+    const { service, prisma } = setup();
+    prisma.momoPaymentIntent.findUnique.mockResolvedValueOnce(null);
+    prisma.payment.findUnique.mockResolvedValueOnce({ id: 'cash-payment-1', billId: 'bill-1' });
+
+    await expect(service.initiate({
+      billId: 'bill-1',
+      amount: 25,
+      payerPhone: '0241234567',
+      idempotencyKey: 'request-key-1',
+      userId: 'cashier-1',
+    })).rejects.toMatchObject({ statusCode: 409 });
+
+    expect(prisma.momoPaymentIntent.create).not.toHaveBeenCalled();
   });
 
   it('keeps a 5xx initiation outcome reconcilable instead of marking it failed', async () => {
