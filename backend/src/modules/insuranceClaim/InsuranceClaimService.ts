@@ -24,6 +24,7 @@ import {
 } from './helpers/NHISPrincipalGdrgResolver';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 import { calculateNHISMedicineAllocation, isPayerCovered, resolveMedicationUnitPrice, resolveUnitPrice } from '../../utils/pricing';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
@@ -2053,10 +2054,12 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     totalClaimAmount = Math.round((gdrgAmount + medicinesTotal) * 100) / 100;
   }
 
+  if (!userId || !String(userId).trim()) throw new ValidationError('An authenticated user is required to edit claim items');
+
   await this.prisma.$transaction(async (tx) => {
-    await tx.insuranceClaimItem.deleteMany({ where: { claimId } });
+    const replaced = await tx.insuranceClaimItem.deleteMany({ where: { claimId } });
     if (rows.length) await tx.insuranceClaimItem.createMany({ data: rows });
-    await tx.insuranceClaim.update({
+    const updatedClaim = await tx.insuranceClaim.update({
       where: { id: claimId },
       data: {
         updatedById: userId,
@@ -2074,6 +2077,30 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           : {}),
       },
     });
+
+    const categoryCounts = rows.reduce((counts: Record<string, number>, row: any) => {
+      const category = String(row.itemCategory || 'other');
+      counts[category] = (counts[category] || 0) + 1;
+      return counts;
+    }, {});
+    await appendAuditLogWithinTransaction(tx, {
+      entityType: 'InsuranceClaim',
+      entityId: claimId,
+      action: 'update',
+      performedById: userId,
+      previousState: { itemCount: replaced.count },
+      newState: {
+        itemCount: rows.length,
+        ...(totalClaimAmount !== undefined ? { totalClaimAmount } : {}),
+      },
+      metadata: {
+        workflow: 'draft_claim_items_replaced',
+        payerType: claim.InsuranceProvider?.type ?? 'unknown',
+        itemCategoryCounts: categoryCounts,
+        clinicalAndPrescriptionContentOmitted: true,
+      },
+    });
+    return updatedClaim;
   });
 
   return this.getInsuranceClaim(claimId);
