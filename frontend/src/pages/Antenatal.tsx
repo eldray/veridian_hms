@@ -1382,12 +1382,7 @@ useEffect(() => {
         <tbody className="divide-y divide-[var(--border-color)]">
           {prescribedMeds.map((m: any) => (
             <tr key={m.id} className="hover:bg-[var(--bg-main)] transition-colors">
-              <TDp>
-                {m.name}
-                {m.instructions && (
-                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{m.instructions}</p>
-                )}
-              </TDp>
+              <TDp>{m.name}</TDp>
               <TD>{m.dosage || '—'}</TD>
               <TD>{m.frequency || '—'}</TD>
               <TD>{m.duration || '—'}</TD>
