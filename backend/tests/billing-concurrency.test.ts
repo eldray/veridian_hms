@@ -391,8 +391,8 @@ describe('bill financial record integrity', () => {
     const update = vi.spyOn(BillRepository.prototype, 'update').mockResolvedValue({ id: 'bill-1', notes: 'Reviewed' } as any);
     try {
       const service = new BillService({} as any);
-      await service.updateBill('bill-1', { notes: 'Reviewed' });
-      expect(update).toHaveBeenCalledWith('bill-1', { notes: 'Reviewed' });
+      await service.updateBill('bill-1', { notes: 'Reviewed' }, 'staff-1');
+      expect(update).toHaveBeenCalledWith('bill-1', { notes: 'Reviewed' }, 'staff-1');
     } finally {
       findBill.mockRestore();
       update.mockRestore();
@@ -618,7 +618,7 @@ describe('bill lifecycle financial reconciliation', () => {
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
     const repository = new BillRepository(prisma);
 
-    await repository.delete('bill-delete');
+    await repository.delete('bill-delete', 'staff-1');
 
     expect(corporateUpdate).toHaveBeenCalledWith({
       where: { id: 'corporate-1' },
