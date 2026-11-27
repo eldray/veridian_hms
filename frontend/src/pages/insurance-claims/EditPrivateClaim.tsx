@@ -827,6 +827,7 @@ export default function EditPrivateClaim() {
               setCollectionAmount('');
               setCollectionReference('');
               if (result?.receipt?.filePath) window.open(result.receipt.filePath, '_blank', 'noopener,noreferrer');
+              else toastError('Receipt unavailable', 'The payment was saved, but receipt generation failed. Ask Accounts to reprint it.');
             } catch (error: any) {
               toastError('Collection failed', error?.response?.data?.message || error?.message || 'Could not record patient payment.');
             } finally { setIsCollecting(false); }
