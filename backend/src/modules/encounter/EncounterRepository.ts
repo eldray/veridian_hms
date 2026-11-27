@@ -2237,7 +2237,15 @@ async addScan(encounterId: string, data: any, userId: string) {
     }
 
     const updateData: any = {}
-    for (const field of ['result', 'findings', 'impression', 'notes', 'priority']) if (data[field] !== undefined) updateData[field] = data[field];
+    for (const field of ['result', 'findings', 'impression', 'notes', 'priority']) {
+      if (data[field] === undefined) continue;
+      // Scan.result is a nullable String column. Template-driven forms send a
+      // structured { templateId, values } object, so persist it as JSON text and
+      // let the UI decode it when reopening the report.
+      updateData[field] = field === 'result' && data.result !== null && typeof data.result === 'object'
+        ? JSON.stringify(data.result)
+        : data[field];
+    }
     if (data.imageUrls !== undefined) {
       if (!Array.isArray(data.imageUrls) || data.imageUrls.some((url: unknown) => typeof url !== 'string' || !url.trim())) throw new ValidationError('Scan image URLs must be a list of non-empty strings');
       updateData.imageUrls = data.imageUrls;
