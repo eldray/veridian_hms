@@ -171,7 +171,7 @@ export class PatientController extends BaseController {
     fs.writeFileSync(path.join(dir, filename), buffer);
 
     const imageUrl = `/uploads/patients/${filename}`;
-    await this.service.updatePatient(id, { imageUrl } as any);
+    await this.service.updatePatient(id, { imageUrl } as any, req.user!.id);
     return this.ok(res, { imageUrl }, 'Patient image uploaded');
   });
 
