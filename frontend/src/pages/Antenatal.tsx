@@ -14,6 +14,7 @@ import { useAuthStore } from '../store/authStore';
 import { useToast, useToastStore } from '../store/toastStore';
 import { useWardStore } from '../store/wardStore';
 import { useAdmissionStore } from '../store/admissionStore';
+import { getPatientName } from '../utils/patient';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { VitalsDisplay } from '../components/medical-entries/VitalsDisplay';
 import { ANCBookingModal } from '../components/antenatal/ANCBookingModal';
@@ -1806,7 +1807,7 @@ useEffect(() => {
       {noteModal && (
         <ModalShell
           title={noteModal.section === 'clinical' ? (noteModal.index === null ? 'Add Clinical Note' : 'Edit Clinical Note') : (noteModal.index === null ? 'Add Treatment Plan' : 'Edit Treatment Plan')}
-          subtitle={`${selectedPatient?.surname || ''} ${selectedPatient?.otherNames || ''} · ${currentAttendance?.attendanceNumber || 'Current attendance'}`}
+          subtitle={`${getPatientName(selectedPatient)} · ${currentAttendance?.attendanceNumber || 'Current attendance'}`}
           onClose={() => !savingNote && setNoteModal(null)}
           maxW="max-w-xl"
           footer={<div className="flex justify-end gap-2"><button onClick={() => setNoteModal(null)} disabled={savingNote} className="px-3 py-2 rounded-lg border border-[var(--border-color)] text-xs text-[var(--text-secondary)]">Cancel</button><button onClick={handleSaveSectionNote} disabled={savingNote || !noteModal.text.trim()} className="px-4 py-2 rounded-lg bg-[var(--icon-cyan-text)] text-white text-xs font-semibold disabled:opacity-50">{savingNote ? 'Saving…' : noteModal.index === null ? 'Add note' : 'Save changes'}</button></div>}
