@@ -2356,3 +2356,4 @@ async recordPremierPatientPayment(claimId: string, input: {
     return { ...payment, patientAmountDue: due, totalCollected: collected + amount, outstandingBalance: outstanding - amount };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
+}
