@@ -50,6 +50,20 @@ export function createAuditChainCursor(): AuditChainCursor {
 
 const CHAIN_KEY = '_chain';
 const GENESIS_HASH = '0'.repeat(64);
+
+/**
+ * Audit callers historically use both uppercase event names and Prisma's
+ * lowercase enum values. Normalize once at the persistence boundary so the
+ * stored action and the value included in the hash are always identical.
+ */
+export function normalizeAuditAction(action: AuditAction | string): AuditAction {
+  const normalized = String(action).trim().toLowerCase();
+  const supported = Object.values(AuditAction).find((value) => value === normalized);
+  if (!supported) {
+    throw new Error(`Unsupported audit action "${String(action)}". Expected one of: ${Object.values(AuditAction).join(', ')}`);
+  }
+  return supported;
+}
 // Serialises chain appends across processes. Desktop installs run one backend,
 // but a second instance or an admin script must not fork the chain.
 // The lock function returns PostgreSQL `void`, which Prisma cannot deserialize.
@@ -144,12 +158,13 @@ export async function appendAuditLogWithinTransaction(
   const previous = recent.map((row) => readChain(row.metadata)).find((chain) => chain !== null) ?? null;
 
   const timestamp = entry.timestamp ?? new Date();
+  const action = normalizeAuditAction(entry.action);
   const metadata = stripChain(entry.metadata ?? null);
   const prevHash = previous?.hash ?? null;
   const hash = computeAuditHash(prevHash, {
     entityType: entry.entityType,
     entityId: entry.entityId,
-    action: entry.action,
+    action,
     performedById: entry.performedById,
     ipAddress: entry.ipAddress ?? null,
     userAgent: entry.userAgent ?? null,
@@ -168,7 +183,7 @@ export async function appendAuditLogWithinTransaction(
     data: {
       entityType: entry.entityType,
       entityId: entry.entityId,
-      action: entry.action as AuditAction,
+      action,
       performedById: entry.performedById,
       ipAddress: entry.ipAddress ?? null,
       userAgent: entry.userAgent ?? null,
