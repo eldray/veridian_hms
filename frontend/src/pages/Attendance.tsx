@@ -63,14 +63,24 @@ export default function Attendance() {
 
   const findPatient = (attendance: any) => {
     if (!attendance) return null;
+
+    // A counter client may have been registered after earlier walk-in visits.
+    // In that case always display the linked Patient identity and folder number,
+    // not the older counter-bench name.
+    const registeredCounterPatient =
+      attendance.counterClient?.Patient || attendance.counterClient?.patient
+      || attendance.CounterClient?.Patient || attendance.CounterClient?.patient;
+    if (registeredCounterPatient && typeof registeredCounterPatient === 'object') return registeredCounterPatient;
+
     if (attendance.patient && typeof attendance.patient === 'object') return attendance.patient;
-    if (attendance.counterClient && typeof attendance.counterClient === 'object') return attendance.counterClient;
+    if (attendance.Patient && typeof attendance.Patient === 'object') return attendance.Patient;
     if (attendance.patientId && typeof attendance.patientId === 'object') return attendance.patientId;
     if (attendance.patientId && typeof attendance.patientId === 'string') {
       const found = patientById.get(attendance.patientId);
       if (found) return found;
     }
-    if (attendance.Patient && typeof attendance.Patient === 'object') return attendance.Patient;
+    if (attendance.counterClient && typeof attendance.counterClient === 'object') return attendance.counterClient;
+    if (attendance.CounterClient && typeof attendance.CounterClient === 'object') return attendance.CounterClient;
     return null;
   };
     const isCounterTicket = (attendance: any) => attendance?.attendanceType === 'walk_in' || Boolean(attendance?.counterClient || attendance?.counterClientId);
