@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEstimatesStore, type EstimateStatus } from '../store/estimatesStore';
 import { useToast } from '../store/toastStore';
-import { getPatientName } from '../utils/patient';
+import { getPatientName, getPatientFolderNumber } from '../utils/patient';
 import {
   FileText, RefreshCw, Eye, Briefcase, DollarSign, Calendar,
 } from 'lucide-react';
@@ -87,7 +87,7 @@ export default function Estimates() {
         e.referenceNumber?.toLowerCase().includes(q) ||
         clientName(e.patient).toLowerCase().includes(q) ||
         e.corporateAccount?.companyName?.toLowerCase().includes(q) ||
-        e.patient?.folderNumber?.toLowerCase().includes(q)
+        getPatientFolderNumber(e).toLowerCase().includes(q)
       );
     });
   }, [estimates, search, statusFilter]);
@@ -188,7 +188,7 @@ export default function Estimates() {
                   <td className={TD}>
                     <div className="font-medium text-[var(--text-primary)]">{clientName(e.patient)}</div>
                   </td>
-                  <td className={cn(TD_MONO, 'text-xs')}>{e.patient?.folderNumber || '—'}</td>
+                  <td className={cn(TD_MONO, 'text-xs')}>{getPatientFolderNumber(e) || '—'}</td>
                   <td className={TD}>
                     {e.corporateAccount ? (
                       <span className="text-xs text-[var(--icon-cyan-text)] flex items-center gap-1">
