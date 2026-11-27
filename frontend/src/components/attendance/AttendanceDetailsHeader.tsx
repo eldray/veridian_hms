@@ -1,5 +1,6 @@
 // src/components/attendance/AttendanceDetailsHeader.tsx
 import { ArrowLeft, Edit } from 'lucide-react';
+import { getPatientName, getAttendanceNumber } from '../../utils/patient';
 
 interface AttendanceDetailsHeaderProps {
   currentAttendance: any;
@@ -14,6 +15,8 @@ export const AttendanceDetailsHeader: React.FC<AttendanceDetailsHeaderProps> = (
   canEdit,
   onBack
 }) => {
+  const identitySource = patient || currentAttendance;
+
   return (
     <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-3 sm:p-4 text-[var(--text-primary)] shadow-sm">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -27,10 +30,10 @@ export const AttendanceDetailsHeader: React.FC<AttendanceDetailsHeaderProps> = (
           </button>
           <div>
             <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)]">
-              {currentAttendance.attendanceNumber || `ATT-${currentAttendance._id?.slice(-8)}`}
+              {getAttendanceNumber(currentAttendance) || `ATT-${currentAttendance._id?.slice(-8) || currentAttendance.id?.slice(-8)}`}
             </h1>
             <p className="text-[var(--text-secondary)] text-xs sm:text-sm mt-0.5">
-              {patient?.fullName || `Patient ${currentAttendance.patientId?.toString().slice(-6) || 'Unknown'}`} • {new Date(currentAttendance.dateTime).toLocaleDateString()}
+              {getPatientName(identitySource)} • {new Date(currentAttendance.dateTime || currentAttendance.createdAt).toLocaleDateString()}
             </p>
           </div>
         </div>
