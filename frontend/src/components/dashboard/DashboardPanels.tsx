@@ -550,7 +550,7 @@ export function NurseSummary() {
               <div className="space-y-1.5">
                 {admitted.slice(0, 6).map((a) => {
                   const p = a.patient || a.Patient || {};
-                  const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
+            const name = patientFullName(a);
                   const bed = a.Bed?.bedNumber || a.bed?.bedNumber || '—';
                   const ward = a.Ward?.wardName || a.ward?.wardName || '';
                   return (
@@ -1818,7 +1818,7 @@ export function RecentPaymentsPanel() {
         <div className="space-y-1.5">
           {toArray(items).map((b: any) => {
             const p = b.patient || b.Patient || {};
-            const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
+            const name = patientFullName(b);
             return (
               <Link
                 key={b.id}
