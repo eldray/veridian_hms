@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { NursingController } from './NursingController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 import { validateBody } from '../../middleware/validate';
 import {
   AdministerDoseSchema,
@@ -19,6 +20,7 @@ export function createNursingRoutes(prisma: PrismaClient): Router {
   const controller = new NursingController(prisma);
 
   router.use(protect);
+  router.use(auditSensitiveAccess('Nursing'));
 
   // Read access — the clinical team plus pharmacy, which checks the MAR before dispensing.
   const READERS: UserRole[] = [
