@@ -44,7 +44,7 @@ import prisma from '../core/database/prisma.client';
 /** Audit reads and explicit exports from sensitive clinical and financial routers. */
 export const auditSensitiveAccess = (entityType: string) => (req: Request, res: Response, next: NextFunction) => {
   const user = (req as any).user as { id?: string } | undefined;
-  const isExportPath = /(?:^|\\/)(?:export|download|print|xml)(?:\\/|$)/i.test(req.path);
+  const isExportPath = /(?:^|\/)(?:export|download|print|xml)(?:\/|$)/i.test(req.path);
   const isExport = isExportPath && (req.method === 'GET' || req.method === 'POST');
   if (!user?.id || (req.method !== 'GET' && !isExport)) return next();
 
