@@ -8,9 +8,8 @@
 // Same props as before (open, referral, onClose, onPrint). var(--*) tokens only.
 import { useEffect, useMemo } from 'react';
 import {
-  X, Printer, User, Hash, Calendar, Building,
-  Clock, CheckCircle, Check, XCircle, ArrowUpRight, ArrowDownLeft,
-  FileText, MessageSquare, ClipboardList, BadgeCheck, Activity, ChevronRight,
+  X, Printer, User, Building, Check, FileText, MessageSquare,
+  ClipboardList, BadgeCheck, Activity, ChevronRight,
 } from 'lucide-react';
 import { ReferralPartReadOnly } from './ReferralStructuredParts';
 import ReferralContextHeader from './ReferralContextHeader';
@@ -34,7 +33,6 @@ const ageFromDob = (dob: any) => {
   if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) y -= 1;
   return y >= 0 && y <= 125 ? `${y} yrs` : '';
 };
-const initials = (n: string) => n.split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? '').join('') || '?';
 const titleCase = (s: any) =>
   String(s ?? '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()).trim();
 const humanize = (s: any) =>
@@ -49,18 +47,6 @@ const withoutKeys = (sections: FieldSection[], skipKeys: string[], skipSections:
     .filter((s) => !skipSections.includes(s.title))
     .map((s) => ({ ...s, fields: s.fields.filter((f) => !skipKeys.includes(f.key)) }))
     .filter((s) => s.fields.length > 0);
-
-const STATUS: Record<string, { label: string; cls: string; Icon: any }> = {
-  pending: { label: 'Pending', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]', Icon: Clock },
-  accepted: { label: 'Accepted', cls: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]', Icon: Check },
-  completed: { label: 'Completed', cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]', Icon: CheckCircle },
-  cancelled: { label: 'Cancelled', cls: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]', Icon: XCircle },
-};
-const URGENCY: Record<string, { label: string; cls: string; dot: string }> = {
-  routine: { label: 'Routine', cls: 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]', dot: 'bg-[var(--text-tertiary)]' },
-  urgent: { label: 'Urgent', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border border-[var(--icon-yellow-text)]/30', dot: 'bg-[var(--icon-yellow-text)]' },
-  stat: { label: 'STAT', cls: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--icon-red-text)]/30', dot: 'bg-[var(--icon-red-text)]' },
-};
 
 function Field({ label, value, mono = false }: { label: string; value: any; mono?: boolean }) {
   if (isEmpty(value)) return null;
@@ -117,9 +103,6 @@ export default function ReferralDetailModal({ open, referral, onClose, onPrint }
   const p = r.patient || {};
   const patientName = nameOf(p);
   const outgoing = r.referralType !== 'incoming';
-  const status = STATUS[r.status] || STATUS.pending;
-  const urgency = URGENCY[r.urgency] || URGENCY.routine;
-  const StatusIcon = status.Icon;
   const facility = outgoing ? r.referredToFacility : r.referredFromFacility;
   const doctor = outgoing ? r.referredToDoctor : r.referredFromDoctor;
 
