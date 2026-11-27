@@ -976,33 +976,44 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async deleteDeliveryRecord(id: string): Promise<void> {
-    const existing = await this.prisma.deliveryRecord.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        antenatalBookingId: true,
-        antenatalBooking: { select: { id: true } },
-        postnatalRecords: { select: { id: true }, take: 1 },
-        Newborn: { select: { id: true }, take: 1 },
-      },
+  async deleteDeliveryRecord(id: string, actorId: string): Promise<void> {
+    if (!actorId?.trim()) throw new ValidationError('Authenticated staff identity is required for delivery record audit');
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.deliveryRecord.findUnique({
+        where: { id },
+        select: {
+          id: true, attendanceId: true, deliveryDate: true, deliveryType: true, deliveryOutcome: true,
+          antenatalBookingId: true,
+          antenatalBooking: { select: { id: true } },
+          postnatalRecords: { select: { id: true }, take: 1 },
+          Newborn: { select: { id: true }, take: 1 },
+        },
+      });
+      if (!existing) throw new NotFoundError('Delivery record', id);
+
+      // Delivery records with downstream maternal/newborn documentation must be corrected
+      // through the clinical correction workflow, not physically deleted.
+      if (
+        existing.antenatalBookingId ||
+        existing.antenatalBooking ||
+        existing.postnatalRecords.length > 0 ||
+        existing.Newborn.length > 0
+      ) {
+        throw new ConflictError(
+          'A delivery record linked to antenatal, postnatal, or newborn records cannot be deleted; use the approved clinical correction workflow'
+        );
+      }
+
+      await tx.deliveryRecord.delete({ where: { id } });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'DeliveryRecord', entityId: id, action: 'DELETE', performedById: actorId,
+        previousState: {
+          attendanceId: existing.attendanceId, deliveryDate: existing.deliveryDate,
+          deliveryType: existing.deliveryType, deliveryOutcome: existing.deliveryOutcome,
+        },
+        metadata: { source: 'antenatal.delivery.delete', linkedClinicalRecords: false },
+      });
     });
-    if (!existing) throw new NotFoundError('Delivery record', id);
-
-    // Delivery records with downstream maternal/newborn documentation must be corrected
-    // through the clinical correction workflow, not physically deleted.
-    if (
-      existing.antenatalBookingId ||
-      existing.antenatalBooking ||
-      existing.postnatalRecords.length > 0 ||
-      existing.Newborn.length > 0
-    ) {
-      throw new ConflictError(
-        'A delivery record linked to antenatal, postnatal, or newborn records cannot be deleted; use the approved clinical correction workflow'
-      );
-    }
-
-    await this.prisma.deliveryRecord.delete({ where: { id } });
   }
 
   // ===================== POSTNATAL RECORDS =====================
