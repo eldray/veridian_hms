@@ -5,14 +5,15 @@ export function getPatientName(source: any): string {
   if (source == null) return 'Unknown Patient';
 
   const candidates = [
-    source.patient, source.Patient, source.patientDetails, source.patientRecord,\n    source.counterClient?.Patient, source.counterClient?.patient,
+    source.patient, source.Patient, source.patientDetails, source.patientRecord,
+    source.counterClient?.Patient, source.counterClient?.patient,
     source.CounterClient?.Patient, source.CounterClient?.patient,
     source.data?.patient, source.data?.Patient, source.data,
     source.patient?.data, source.Patient?.data,
     source.attendance?.patient, source.Attendance?.patient,
     source.data?.attendance?.patient, source.data?.Attendance?.Patient,
     source.visit?.patient,
-    source.counterClient?.Patient, source.counterClient?.patient,\n    source.CounterClient?.Patient, source.CounterClient?.patient,\n    source.counterClient, source.CounterClient, source.patientName,
+    source.counterClient, source.CounterClient, source.patientName,
     source.patientFullName, source.fullName, source.name, source,
   ];
 
@@ -40,6 +41,8 @@ export function getPatientFolderNumber(source: any): string {
   const candidates = [
     source,
     source.patient, source.Patient, source.patientDetails, source.patientRecord,
+    source.counterClient?.Patient, source.counterClient?.patient,
+    source.CounterClient?.Patient, source.CounterClient?.patient,
     source.data, source.data?.patient, source.data?.Patient,
     source.patient?.data, source.Patient?.data,
     source.attendance?.patient, source.attendance?.Patient,
