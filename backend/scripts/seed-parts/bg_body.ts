@@ -146,6 +146,7 @@ export const generateDepartments = (): GeneratedDepartment[] => [
   { name: 'Administration',           description: 'Hospital administration',       color: '#6B7280', icon: 'shield',        isStore: false },
   { name: 'Human Resources',          description: 'HR and staff management',       color: '#8B5CF6', icon: 'users',         isStore: false },
   { name: 'Medical',                  description: 'General medical / OPD',         color: '#3B82F6', icon: 'stethoscope',   isStore: false },
+  { name: 'Nursing',                   description: 'Nursing department',             color: '#0D9488', icon: 'nurse',         isStore: false },
   { name: 'Surgery',                  description: 'Surgical department',           color: '#EF4444', icon: 'scissors',      isStore: false },
   { name: 'Obstetrics & Gynecology',  description: 'Maternity and gynaecology',     color: '#EC4899', icon: 'baby',          isStore: false },
   { name: 'Pediatrics',               description: 'Child health',                  color: '#F59E0B', icon: 'baby',          isStore: false },
@@ -181,7 +182,7 @@ const ROLE_DISTRIBUTION: Array<{ role: GeneratedUser['role']; count: number; dep
   { role: 'admin',       count: 2,  dept: 'Administration' },
   { role: 'hr_officer',  count: 2,  dept: 'Human Resources' },
   { role: 'doctor',      count: 15, dept: 'Medical' },
-  { role: 'nurse',       count: 35, dept: 'Medical' },
+  { role: 'nurse',       count: 35, dept: 'Nursing' },
   { role: 'midwife',     count: 10, dept: 'Obstetrics & Gynecology' },
   { role: 'lab_tech',    count: 5,  dept: 'Laboratory' },
   { role: 'sonographer', count: 3,  dept: 'Radiology' },
@@ -240,7 +241,7 @@ export const generateUsers = (): GeneratedUser[] => {
   const expand = [...ROLE_DISTRIBUTION];
   const totalSpecified = ROLE_DISTRIBUTION.reduce((a, r) => a + r.count, 0);
   const remainder = COUNTS.users - totalSpecified;
-  if (remainder > 0) expand.push({ role: 'nurse', count: remainder, dept: 'Medical' });
+  if (remainder > 0) expand.push({ role: 'nurse', count: remainder, dept: 'Nursing' });
 
   for (const spec of expand) {
     for (let i = 0; i < spec.count; i++) {
