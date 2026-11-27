@@ -666,7 +666,7 @@ export default function EditPrivateClaim() {
         serviceDate: m.date || null,
         serviceCatalogId: m.serviceCatalogId ?? null,
         billLineItemId: m.billLineItemId ?? null,
-        prescriptionText: m.prescriptionText ?? (formatPrescriptionDetails({ dosage: m.dosage || '', frequency: m.frequency || '', duration: m.duration || '', route: m.route || 'oral', instructions: m.instructions || '' }) || null),
+        prescriptionText: m.prescriptionText ?? (formatPrescriptionDetails({ dosage: m.dosage || '', frequency: m.frequency || '', duration: m.duration || '', route: m.route || 'oral', instructions: m.instructions || '', quantityUnit: m.quantityUnit || '' }) || null),
       });
     }
     return out;
