@@ -342,7 +342,7 @@ export class NursingService extends BaseService {
     if (dto.shift !== undefined) data.shift = dto.shift;
     if (dto.isFlagged !== undefined) data.isFlagged = dto.isFlagged;
 
-    return this.repository.updateNote(id, data);
+    return this.repository.updateNote(id, data, actor.userId);
   }
 
   async deleteNote(id: string, actor: { userId: string; role: string }) {
@@ -354,7 +354,7 @@ export class NursingService extends BaseService {
       throw new ForbiddenError('Only the author or an admin can delete this note');
     }
 
-    await this.repository.deleteNote(id);
+    await this.repository.deleteNote(id, actor.userId);
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -477,7 +477,7 @@ export class NursingService extends BaseService {
       }
     }
 
-    return this.repository.updateTask(id, data);
+    return this.repository.updateTask(id, data, userId);
   }
 
   async deleteTask(id: string, actor: { userId: string; role: string }) {
@@ -487,7 +487,7 @@ export class NursingService extends BaseService {
     if (existing.createdById !== actor.userId && !isAdminLike) {
       throw new ValidationError('Only the task creator or an admin can delete this task');
     }
-    await this.repository.deleteTask(id);
+    await this.repository.deleteTask(id, actor.userId);
   }
 }
 
