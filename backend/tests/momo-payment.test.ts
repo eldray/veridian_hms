@@ -231,6 +231,7 @@ describe('MomoPaymentService', () => {
     }), 'cashier-1', baseIntent.id);
     expect(result.status).toBe('successful');
     expect(result.paymentId).toBe('payment-1');
+    expect(result.paymentReference).toBe('MTN-MOMO:provider-reference-1');
     expect(result.providerTransactionId).toBe('mtn-txn-123');
     expect(prisma.momoPaymentIntent.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: baseIntent.id },

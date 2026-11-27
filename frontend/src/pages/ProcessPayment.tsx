@@ -191,7 +191,7 @@ export default function ProcessPayment() {
         if (!finalStatus.paymentId) {
           throw new Error('MoMo confirmed success, but the HMS payment reference is not available yet. Do not collect payment again; ask accounts to verify the transaction.');
         }
-        paymentResult = { payment: { id: finalStatus.paymentId } };
+        paymentResult = { payment: { id: finalStatus.paymentId, reference: finalStatus.paymentReference } };
       } else {
         paymentResult = await addPaymentToBill(bill.id, {
           amount,
@@ -223,7 +223,7 @@ export default function ProcessPayment() {
           id: recordedPayment?.id,
           amount,
           paymentMethod,
-          reference: reference || undefined,
+          reference: recordedPayment?.reference || reference || undefined,
           transactionDate: new Date().toISOString(),
           User: { fullName: user?.fullName },
         }, true);
