@@ -76,6 +76,7 @@ interface MedicineItem {
   stockItemId?: string;
   medicationId?: string;
   serviceCatalogId?: string;
+  sourceStatus?: string;
   /** The NHIS-covered amount per unit, set by the payer rule when the claim saves. */
   unitPrice?: number | null;
   lineTotal?: number | null;
