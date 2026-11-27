@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
 interface AuthRequest extends Request { user?: { id?: string; role?: string } }
 
@@ -23,6 +24,7 @@ export class HIVTestingController extends BaseController {
   create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const body = req.body || {};
     if (!req.user?.id) return this.unauthorized(res, 'Authenticated counsellor information is required');
+    const counsellorId = req.user.id;
     if (!body.patientId || !body.entryPoint) return this.badRequest(res, 'Patient and entry point are required');
     if (body.consentGiven !== true) return this.badRequest(res, 'Consent for HTS counselling must be documented');
     const testingStatus = body.testingStatus || 'not_started';
@@ -54,37 +56,54 @@ export class HIVTestingController extends BaseController {
       });
       if (!attendance) return this.badRequest(res, 'Attendance does not belong to this patient');
     }
-    const record = await this.prisma.hIVTestingRecord.create({
-      data: {
-        patientId: body.patientId,
-        attendanceId: body.attendanceId || null,
-        testedAt: body.testedAt ? new Date(body.testedAt) : new Date(),
-        entryPoint: String(body.entryPoint),
-        testingApproach: body.testingApproach || null,
-        consentGiven: true,
-        testingConsentGiven: body.testingConsentGiven === true,
-        consentRecordedAt: body.consentRecordedAt ? new Date(body.consentRecordedAt) : new Date(),
-        counsellingPreTest: Boolean(body.counsellingPreTest),
-        counsellingPostTest: Boolean(body.counsellingPostTest),
-        testingStatus,
-        result,
-        resultConfirmed: Boolean(body.resultConfirmed),
-        testAlgorithm: body.testAlgorithm || null,
-        testKit: body.testKit || null,
-        firstTimeTester: typeof body.firstTimeTester === 'boolean' ? body.firstTimeTester : null,
-        previousTesting: body.previousTesting || null,
-        previouslyKnownPositive: Boolean(body.previouslyKnownPositive),
-        newlyIdentifiedPositive: Boolean(body.newlyIdentifiedPositive),
-        indexTesting: Boolean(body.indexTesting),
-        stiRelated: Boolean(body.stiRelated),
-        keyPopulationCategory: body.keyPopulationCategory || null,
-        linkageStatus: body.linkageStatus || 'not_assessed',
-        linkedToCareAt: body.linkedToCareAt ? new Date(body.linkedToCareAt) : null,
-        referralFacility: body.referralFacility || null,
-        referralOutcome: body.referralOutcome || null,
-        notes: body.notes || null,
-        counsellorId: req.user.id,
-      },
+    const record = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.hIVTestingRecord.create({
+        data: {
+          Patient: { connect: { id: body.patientId } },
+          ...(body.attendanceId ? { Attendance: { connect: { id: body.attendanceId } } } : {}),
+          testedAt: body.testedAt ? new Date(body.testedAt) : new Date(),
+          entryPoint: String(body.entryPoint),
+          testingApproach: body.testingApproach || null,
+          consentGiven: true,
+          testingConsentGiven: body.testingConsentGiven === true,
+          consentRecordedAt: body.consentRecordedAt ? new Date(body.consentRecordedAt) : new Date(),
+          counsellingPreTest: Boolean(body.counsellingPreTest),
+          counsellingPostTest: Boolean(body.counsellingPostTest),
+          testingStatus,
+          result,
+          resultConfirmed: Boolean(body.resultConfirmed),
+          testAlgorithm: body.testAlgorithm || null,
+          testKit: body.testKit || null,
+          firstTimeTester: typeof body.firstTimeTester === 'boolean' ? body.firstTimeTester : null,
+          previousTesting: body.previousTesting || null,
+          previouslyKnownPositive: Boolean(body.previouslyKnownPositive),
+          newlyIdentifiedPositive: Boolean(body.newlyIdentifiedPositive),
+          indexTesting: Boolean(body.indexTesting),
+          stiRelated: Boolean(body.stiRelated),
+          keyPopulationCategory: body.keyPopulationCategory || null,
+          linkageStatus: body.linkageStatus || 'not_assessed',
+          linkedToCareAt: body.linkedToCareAt ? new Date(body.linkedToCareAt) : null,
+          referralFacility: body.referralFacility || null,
+          referralOutcome: body.referralOutcome || null,
+          notes: body.notes || null,
+          Counsellor: { connect: { id: counsellorId } },
+        },
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'HIVTestingRecord',
+        entityId: created.id,
+        action: 'CREATE',
+        performedById: counsellorId,
+        metadata: {
+          source: 'hiv_testing.record.create',
+          restrictedClinicalRecord: true,
+          patientAndAttendanceReferencesOmitted: true,
+          testResultAndStatusOmitted: true,
+          counsellingAndReferralDetailsOmitted: true,
+          freeTextNotesOmitted: true,
+        },
+      });
+      return created;
     });
     return this.created(res, record, 'HIV testing record saved');
   });
