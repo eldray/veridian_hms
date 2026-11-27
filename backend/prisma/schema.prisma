@@ -13,6 +13,7 @@ generator client {
 
 model AuditLog {
   id            String      @id @default(cuid())
+  chainSequence Int         @unique @default(autoincrement())
   entityType    String
   entityId      String
   action        AuditAction
