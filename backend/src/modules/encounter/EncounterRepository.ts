@@ -2747,7 +2747,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeService(encounterId: string, serviceRenderedId: string, userId?: string) {
-    const actorId = await this.requireActorId(userId);
+    const actorId = await this.requireActorId(userId || '');
     return this.prisma.$transaction(async (tx) => {
       await this.requireOpenEncounter(encounterId, tx);
       const current = await tx.serviceRendered.findFirst({
