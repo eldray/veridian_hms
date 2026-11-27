@@ -8,7 +8,7 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
-import { getBills, getVitalsForEncounters } from '../api';
+import { getBills, getBillingInvoice, getVitalsForEncounters } from '../api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { CompactAdditionalInfo } from '../components/patients/CompactAdditionalInfo';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
@@ -29,6 +29,8 @@ import {
 } from '../components/ui';
 import type { Attendance, LabTest, Medication, Procedure, Scan, Vitals } from '../types';
 import { useDocumentStore } from '../store/documentStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { generatePDF } from '../utils/pdfGenerator';
 import type { GeneratedDocument } from '../types/documents';
 import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import ImmunizationPanel from '../components/patients/ImmunizationPanel';
@@ -108,6 +110,7 @@ export default function PatientDetails() {
   const { currentPatient, fetchPatient, deletePatient } = usePatientStore();
   const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
+  const { hospital, getHospitalDetails } = useSettingsStore();
   const { getInsuranceProviders } = useInsuranceStore();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'profile' | 'documents' | 'attendances' | 'medical-records' | 'overview' | 'diagnoses' | 'medications' | 'lab-tests' | 'procedures' | 'vitals' | 'billing' | 'immunizations'>(searchParams.get('tab') === 'immunizations' ? 'immunizations' : 'overview');
@@ -124,6 +127,7 @@ export default function PatientDetails() {
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [patientBills, setPatientBills] = useState<any[]>([]);
   const [billsLoading, setBillsLoading] = useState(false);
+  const [receiptPrinting, setReceiptPrinting] = useState<string | null>(null);
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const { getDocumentsByEntity, downloadDocument } = useDocumentStore();
@@ -208,6 +212,8 @@ export default function PatientDetails() {
     } catch { /* noop */ }
     return false;
   }, [latestVitals]);
+  useEffect(() => { if (!hospital) void getHospitalDetails().catch(() => undefined); }, [hospital, getHospitalDetails]);
+
   const loadData = async () => {
     if (!id) { toastError('Error', 'No patient ID provided'); setIsLoading(false); return; }
     setIsLoading(true); setRefreshing(true);
@@ -280,6 +286,49 @@ export default function PatientDetails() {
       window.URL.revokeObjectURL(url);
       success('Download started', 'Document is being downloaded');
     } catch { toastError('Download Failed', 'Could not download document'); }
+  };
+  const handlePrintPaymentReceipt = async (billId: string, paymentId: string) => {
+    // Open synchronously from the click; otherwise browsers may block the preview
+    // after the invoice request has completed.
+    const printWindow = window.open('', '_blank', 'width=440,height=760');
+    if (!printWindow) {
+      toastError('Print preview blocked', 'Allow pop-ups for Veridian HMS to preview and print receipts.');
+      return;
+    }
+    setReceiptPrinting(paymentId);
+    try {
+      const response: any = await getBillingInvoice(billId);
+      const fullBill = response?.data ?? response;
+      if (!fullBill) throw new Error('Bill details could not be loaded.');
+      const payments = (fullBill.Payment || fullBill.Payments || fullBill.payment || fullBill.payments || fullBill.paymentHistory || [])
+        .filter((item: any) => !item?.isVoided);
+      const payment = payments.find((item: any) => item.id === paymentId);
+      if (!payment) throw new Error('This payment is no longer available or has been voided.');
+      const receiptPayment = {
+        amount: payment.amount ?? 0,
+        paymentMethod: payment.paymentMethod || payment.paymentMode || 'cash',
+        reference: payment.reference || undefined,
+        receiptNumber: payment.receiptNumber || (payment.id ? `RCP-${String(payment.id).slice(-8).toUpperCase()}` : undefined),
+        paymentDate: payment.transactionDate || payment.paymentDate || new Date().toISOString(),
+        receivedBy: payment.User?.fullName || payment.receivedBy || 'System',
+      };
+      const html = generatePDF('thermalReceipt', {
+        bill: { ...fullBill, BillLineItem: fullBill.BillLineItem || fullBill.items || fullBill.lineItems || [] },
+        patient: fullBill.Patient || fullBill.patient || patient,
+        payment: receiptPayment,
+        paperWidth: 80,
+      }, hospital || { name: 'Health Facility' });
+      printWindow.document.write(html);
+      printWindow.document.title = `Receipt-${fullBill.billNumber || fullBill.id}`;
+      printWindow.document.close();
+      printWindow.focus();
+      success('Print preview ready', 'This receipt is for the selected payment record.');
+    } catch (err: any) {
+      printWindow.close();
+      toastError('Receipt unavailable', err?.response?.data?.message || err?.message || 'Could not prepare this payment receipt.');
+    } finally {
+      setReceiptPrinting(null);
+    }
   };
   const handlePrintDocument = async (doc: GeneratedDocument) => {
     const printWindow = window.open('', '_blank');
@@ -732,6 +781,20 @@ export default function PatientDetails() {
                                   <span>Bill paid: {formatCurrency(bill.paidAmount)}</span><span>Balance: {formatCurrency(bill.balance)}</span>
                                   {payments.length > 0 && <span>{payments.filter((p: any) => !p.isVoided).length} payment record(s)</span>}
                                 </div>
+                                {payments.filter((p: any) => !p?.isVoided).length > 0 && (
+                                  <div className="mt-2 space-y-1.5">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Payment receipts</p>
+                                    {payments.filter((p: any) => !p?.isVoided).map((payment: any) => (
+                                      <div key={payment.id || `${bill.id}-${payment.transactionDate}-${payment.amount}`} className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)]/40 px-2.5 py-2">
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-[11px] font-semibold text-[var(--text-primary)]">{formatCurrency(payment.amount)} · {String(payment.paymentMethod || payment.paymentMode || 'Payment').replace(/_/g, ' ')}</p>
+                                          <p className="text-[10px] text-[var(--text-tertiary)]">{formatDateTime(payment.transactionDate || payment.paymentDate)}{payment.reference ? ` · Ref: ${payment.reference}` : ''}</p>
+                                        </div>
+                                        <Button size="xs" variant="soft" accent="cyan" icon={Printer} loading={receiptPrinting === payment.id} disabled={!payment.id || !!receiptPrinting} onClick={() => handlePrintPaymentReceipt(bill.id, payment.id)}>Receipt</Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
