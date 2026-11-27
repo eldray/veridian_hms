@@ -2673,7 +2673,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (!service.isActive) throw new ValidationError('Inactive services cannot be added to an encounter');
     return this.prisma.$transaction(async (tx) => {
       await this.requireOpenEncounter(encounterId, tx);
-      return tx.serviceRendered.create({
+      const created = await tx.serviceRendered.create({
         data: {
           attendanceId: encounterId,
           serviceItemId: data.serviceCatalogId,
@@ -2683,6 +2683,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           notes: data.notes,
         },
       });
+      await appendClinicalRecordAudit(tx, actorId, 'ServiceRendered', created.id, 'create', undefined, {
+        id: created.id, attendanceId: encounterId, serviceItemId: created.serviceItemId,
+        quantity: created.quantity, performedById: actorId,
+      }, { workflow: 'encounter_service_added' });
+      return created;
     });
   }
 
@@ -2730,29 +2735,40 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
     const created = await this.prisma.$transaction(async (tx) => {
       await this.requireOpenEncounter(encounterId, tx);
-      return tx.serviceRendered.createMany({ data: rows });
+      const result = await tx.serviceRendered.createMany({ data: rows });
+      await appendClinicalRecordAudit(tx, actorId, 'Attendance', encounterId, 'update', undefined, undefined, {
+        workflow: 'encounter_services_bulk_added',
+        serviceCount: result.count,
+        distinctCatalogueEntries: catalogIds.length,
+      });
+      return result;
     });
     return { added: created.count };
   }
 
   async removeService(encounterId: string, serviceRenderedId: string, userId?: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       await this.requireOpenEncounter(encounterId, tx);
       const current = await tx.serviceRendered.findFirst({
         where: { id: serviceRenderedId, attendanceId: encounterId },
-        select: { id: true },
+        select: { id: true, serviceItemId: true, quantity: true, performedById: true },
       });
       if (!current) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
       // Preserve the bill trail: a linked unpaid line may be voided atomically,
       // but a paid line requires an explicit refund/credit adjustment first.
       await this.removeLinkedClinicalBillLine(
-        tx, encounterId, `service-rendered:${serviceRenderedId}`, userId,
+        tx, encounterId, `service-rendered:${serviceRenderedId}`, actorId,
         'Rendered service removed from Medical Entries',
       );
       const result = await tx.serviceRendered.deleteMany({
         where: { id: serviceRenderedId, attendanceId: encounterId },
       });
       if (result.count !== 1) throw new ConflictError('Rendered service changed; refresh and try again');
+      await appendClinicalRecordAudit(tx, actorId, 'ServiceRendered', serviceRenderedId, 'delete', {
+        id: current.id, serviceItemId: current.serviceItemId, quantity: current.quantity,
+        performedById: current.performedById,
+      }, undefined, { workflow: 'encounter_service_removed' });
       return { id: serviceRenderedId, removed: true };
     });
   }
