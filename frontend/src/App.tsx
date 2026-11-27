@@ -80,6 +80,7 @@ const PatientBillingItems = lazy(() => import('./pages/PatientBillingItems'));
 const TaxSummary = lazy(() => import('./pages/TaxSummary'));
 const NursingPatientWorkspace = lazy(() => import('./pages/NursingPatientWorkspace'));
 const Referrals = lazy(() => import('./pages/Referrals'));
+const ReferralDetailPage = lazy(() => import('./pages/ReferralDetailPage'));
 const Estimates = lazy(() => import('./pages/Estimates'));
 const EstimateDetails = lazy(() => import('./pages/EstimateDetails'));
 const EstimateForm = lazy(() => import('./pages/EstimateForm'));
@@ -298,6 +299,7 @@ function App() {
           <Route path="corporate-accounts"           element={<Navigate to="/dashboard/insurance/corporate/accounts" replace />} />
           <Route path="corporate-accounts/:id"       element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
           <Route path="reports"                     element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+          <Route path="referrals/:id"                element={<ProtectedRoute><ReferralDetailPage /></ProtectedRoute>} />
           <Route path="referrals"                   element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
 
           {/* Counter: dashboard, entry page, and one ticket worked end to end */}
