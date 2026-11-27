@@ -1,4 +1,4 @@
-import { loginLimiter } from '../../middleware/apiLimits';
+import { loginLimiter, passwordResetRequestLimiter, refreshTokenLimiter } from '../../middleware/apiLimits';
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthService } from './AuthService';
@@ -21,8 +21,8 @@ export class AuthController {
   private registerRoutes(): void {
     // ── Public ─────────────────────────────────────────────
     this.router.post('/login', loginLimiter, this.login.bind(this));
-    this.router.post('/refresh-token', this.refreshToken.bind(this));
-    this.router.post('/forgot-password', this.forgotPassword.bind(this));
+    this.router.post('/refresh-token', refreshTokenLimiter, this.refreshToken.bind(this));
+    this.router.post('/forgot-password', passwordResetRequestLimiter, this.forgotPassword.bind(this));
     this.router.post('/complete-password-reset', loginLimiter, this.completePasswordReset.bind(this));
 
     // Logout is intentionally not access-token protected: an expired access token
