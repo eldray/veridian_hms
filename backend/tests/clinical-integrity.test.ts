@@ -848,8 +848,9 @@ describe('clinical encounter ownership', () => {
     };
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('doctor-1');
 
-    await expect(repository.removeService('encounter-a', 'service-from-encounter-b'))
+    await expect(repository.removeService('encounter-a', 'service-from-encounter-b', 'doctor-1'))
       .rejects.toThrow(/not found/i);
 
     expect(findFirst).toHaveBeenCalledWith({
@@ -869,8 +870,9 @@ describe('clinical encounter ownership', () => {
     };
     prisma.$transaction = vi.fn(async (callback: any) => callback(prisma));
     const repository = new EncounterRepository(prisma);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('doctor-1');
 
-    await expect(repository.removeService('encounter-a', 'service-a'))
+    await expect(repository.removeService('encounter-a', 'service-a', 'doctor-1'))
       .rejects.toThrow(/closed|open|completed/i);
     expect(deleteMany).not.toHaveBeenCalled();
   });
@@ -3068,6 +3070,7 @@ describe('rendered service writes and encounter closure', () => {
     };
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
     const repository = new EncounterRepository(prisma);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('doctor-1');
 
     await expect(repository.removeService('enc-1', 'service-rendered-1', 'doctor-1'))
       .rejects.toThrow(/payment history/i);
@@ -3085,8 +3088,9 @@ describe('rendered service writes and encounter closure', () => {
     const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('doctor-1');
 
-    await expect(repository.removeService('enc-1', 'service-rendered-1'))
+    await expect(repository.removeService('enc-1', 'service-rendered-1', 'doctor-1'))
       .rejects.toThrow(/closed encounter/i);
     expect(tx.$queryRaw).toHaveBeenCalled();
     expect(tx.$queryRaw.mock.calls[0][0].join('')).toMatch(/SELECT "id" FROM "Attendance".*FOR UPDATE/);
@@ -3107,8 +3111,9 @@ describe('rendered service writes and encounter closure', () => {
     const repository = new EncounterRepository({
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('doctor-1');
 
-    await expect(repository.removeService('enc-1', 'service-rendered-1'))
+    await expect(repository.removeService('enc-1', 'service-rendered-1', 'doctor-1'))
       .rejects.toThrow(/finalized/i);
     expect(tx.$queryRaw).toHaveBeenCalled();
     expect(findFirst).not.toHaveBeenCalled();
