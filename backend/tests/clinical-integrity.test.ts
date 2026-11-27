@@ -2345,56 +2345,56 @@ describe('postnatal referral partial-update integrity', () => {
 });
 
 describe('delivery record deletion integrity', () => {
+  const transactionClient = (delivery: any) => {
+    const tx: any = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([{ locked: 1 }]),
+      auditLog: {
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
+      },
+      deliveryRecord: {
+        findUnique: vi.fn().mockResolvedValue(delivery),
+        delete: vi.fn().mockResolvedValue({ id: delivery.id }),
+      },
+    };
+    return tx;
+  };
+
   it('rejects deleting a delivery record linked to maternal or newborn clinical records', async () => {
-    const deleteRecord = vi.fn();
-    const findUnique = vi.fn().mockResolvedValue({
-      id: 'delivery-1',
-      antenatalBookingId: 'booking-1',
-      antenatalBooking: { id: 'booking-1' },
-      postnatalRecords: [],
-      Newborn: [],
+    const tx = transactionClient({
+      id: 'delivery-1', attendanceId: 'attendance-1', deliveryDate: new Date('2026-11-01'),
+      deliveryType: 'spontaneous_vertex', deliveryOutcome: 'live_birth',
+      antenatalBookingId: 'booking-1', antenatalBooking: { id: 'booking-1' },
+      postnatalRecords: [], Newborn: [],
     });
     const repository = new AntenatalRepository({
-      deliveryRecord: { findUnique, delete: deleteRecord },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
     } as any);
 
-    await expect(repository.deleteDeliveryRecord('delivery-1'))
+    await expect(repository.deleteDeliveryRecord('delivery-1', 'admin-1'))
       .rejects.toThrow(/approved clinical correction workflow/i);
-
-    expect(findUnique).toHaveBeenCalledWith({
-      where: { id: 'delivery-1' },
-      select: {
-        id: true,
-        antenatalBookingId: true,
-        antenatalBooking: { select: { id: true } },
-        postnatalRecords: { select: { id: true }, take: 1 },
-        Newborn: { select: { id: true }, take: 1 },
-      },
-    });
-    expect(deleteRecord).not.toHaveBeenCalled();
+    expect(tx.deliveryRecord.delete).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 
-  it('deletes an unlinked delivery record', async () => {
-    const deleteRecord = vi.fn().mockResolvedValue({ id: 'delivery-2' });
-    const repository = new AntenatalRepository({
-      deliveryRecord: {
-        findUnique: vi.fn().mockResolvedValue({
-          id: 'delivery-2',
-          antenatalBookingId: null,
-          antenatalBooking: null,
-          postnatalRecords: [],
-          Newborn: [],
-        }),
-        delete: deleteRecord,
-      },
-    } as any);
+  it('deletes an unlinked delivery record and writes its audit entry in the same transaction', async () => {
+    const tx = transactionClient({
+      id: 'delivery-2', attendanceId: 'attendance-2', deliveryDate: new Date('2026-11-02'),
+      deliveryType: 'spontaneous_vertex', deliveryOutcome: 'live_birth',
+      antenatalBookingId: null, antenatalBooking: null, postnatalRecords: [], Newborn: [],
+    });
+    const transaction = vi.fn(async (callback: any) => callback(tx));
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
 
-    await expect(repository.deleteDeliveryRecord('delivery-2')).resolves.toBeUndefined();
-    expect(deleteRecord).toHaveBeenCalledWith({ where: { id: 'delivery-2' } });
+    await expect(repository.deleteDeliveryRecord('delivery-2', 'admin-1')).resolves.toBeUndefined();
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(tx.deliveryRecord.delete).toHaveBeenCalledWith({ where: { id: 'delivery-2' } });
+    expect(tx.auditLog.create).toHaveBeenCalled();
+    expect(tx.auditLog.create.mock.calls[0][0].data).toMatchObject({
+      entityType: 'DeliveryRecord', entityId: 'delivery-2', action: 'DELETE', performedById: 'admin-1',
+    });
   });
 });
-
-
 
 describe('newborn update validation consistency', () => {
   it('rejects unsupported newborn gender values before database access', () => {
