@@ -118,7 +118,7 @@ export default function Appointments() {
     switch (sortKey) {
       case 'dateDesc': return [...filtered].sort((a, b) => -byDate(a, b));
       case 'patientName': return [...filtered].sort((a, b) => getPatientName(findPatient(a)).localeCompare(getPatientName(findPatient(b))));
-      case 'folder': return [...filtered].sort((a, b) => String(getPatientFolderNumber(findPatient(a)) || '').localeCompare(String(findPatient(b)?.folderNumber || '')));
+      case 'folder': return [...filtered].sort((a, b) => String(getPatientFolderNumber(findPatient(a)) || '').localeCompare(String(getPatientFolderNumber(findPatient(b)) || '')));
       case 'clinician': return [...filtered].sort((a, b) => String(a.clinician?.fullName || '').localeCompare(String(b.clinician?.fullName || '')));
       case 'department': return [...filtered].sort((a, b) => String(a.department?.name || '').localeCompare(String(b.department?.name || '')));
       case 'type': return [...filtered].sort((a, b) => String(a.type || '').localeCompare(String(b.type || '')));
