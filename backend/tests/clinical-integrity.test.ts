@@ -2393,7 +2393,7 @@ describe('delivery record deletion integrity', () => {
     expect(tx.deliveryRecord.delete).toHaveBeenCalledWith({ where: { id: 'delivery-2' } });
     expect(tx.auditLog.create).toHaveBeenCalled();
     expect(tx.auditLog.create.mock.calls[0][0].data).toMatchObject({
-      entityType: 'DeliveryRecord', entityId: 'delivery-2', action: 'DELETE', performedById: 'admin-1',
+      entityType: 'DeliveryRecord', entityId: 'delivery-2', action: 'delete', performedById: 'admin-1',
     });
   });
 });
