@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
 interface AuthRequest extends Request { user?: { id?: string; role?: string } }
 
@@ -54,37 +55,54 @@ export class HIVTestingController extends BaseController {
       });
       if (!attendance) return this.badRequest(res, 'Attendance does not belong to this patient');
     }
-    const record = await this.prisma.hIVTestingRecord.create({
-      data: {
-        patientId: body.patientId,
-        attendanceId: body.attendanceId || null,
-        testedAt: body.testedAt ? new Date(body.testedAt) : new Date(),
-        entryPoint: String(body.entryPoint),
-        testingApproach: body.testingApproach || null,
-        consentGiven: true,
-        testingConsentGiven: body.testingConsentGiven === true,
-        consentRecordedAt: body.consentRecordedAt ? new Date(body.consentRecordedAt) : new Date(),
-        counsellingPreTest: Boolean(body.counsellingPreTest),
-        counsellingPostTest: Boolean(body.counsellingPostTest),
-        testingStatus,
-        result,
-        resultConfirmed: Boolean(body.resultConfirmed),
-        testAlgorithm: body.testAlgorithm || null,
-        testKit: body.testKit || null,
-        firstTimeTester: typeof body.firstTimeTester === 'boolean' ? body.firstTimeTester : null,
-        previousTesting: body.previousTesting || null,
-        previouslyKnownPositive: Boolean(body.previouslyKnownPositive),
-        newlyIdentifiedPositive: Boolean(body.newlyIdentifiedPositive),
-        indexTesting: Boolean(body.indexTesting),
-        stiRelated: Boolean(body.stiRelated),
-        keyPopulationCategory: body.keyPopulationCategory || null,
-        linkageStatus: body.linkageStatus || 'not_assessed',
-        linkedToCareAt: body.linkedToCareAt ? new Date(body.linkedToCareAt) : null,
-        referralFacility: body.referralFacility || null,
-        referralOutcome: body.referralOutcome || null,
-        notes: body.notes || null,
-        counsellorId: req.user.id,
-      },
+    const record = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.hIVTestingRecord.create({
+        data: {
+          patientId: body.patientId,
+          attendanceId: body.attendanceId || null,
+          testedAt: body.testedAt ? new Date(body.testedAt) : new Date(),
+          entryPoint: String(body.entryPoint),
+          testingApproach: body.testingApproach || null,
+          consentGiven: true,
+          testingConsentGiven: body.testingConsentGiven === true,
+          consentRecordedAt: body.consentRecordedAt ? new Date(body.consentRecordedAt) : new Date(),
+          counsellingPreTest: Boolean(body.counsellingPreTest),
+          counsellingPostTest: Boolean(body.counsellingPostTest),
+          testingStatus,
+          result,
+          resultConfirmed: Boolean(body.resultConfirmed),
+          testAlgorithm: body.testAlgorithm || null,
+          testKit: body.testKit || null,
+          firstTimeTester: typeof body.firstTimeTester === 'boolean' ? body.firstTimeTester : null,
+          previousTesting: body.previousTesting || null,
+          previouslyKnownPositive: Boolean(body.previouslyKnownPositive),
+          newlyIdentifiedPositive: Boolean(body.newlyIdentifiedPositive),
+          indexTesting: Boolean(body.indexTesting),
+          stiRelated: Boolean(body.stiRelated),
+          keyPopulationCategory: body.keyPopulationCategory || null,
+          linkageStatus: body.linkageStatus || 'not_assessed',
+          linkedToCareAt: body.linkedToCareAt ? new Date(body.linkedToCareAt) : null,
+          referralFacility: body.referralFacility || null,
+          referralOutcome: body.referralOutcome || null,
+          notes: body.notes || null,
+          counsellorId: req.user!.id,
+        },
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'HIVTestingRecord',
+        entityId: created.id,
+        action: 'CREATE',
+        performedById: req.user!.id,
+        metadata: {
+          source: 'hiv_testing.record.create',
+          restrictedClinicalRecord: true,
+          patientAndAttendanceReferencesOmitted: true,
+          testResultAndStatusOmitted: true,
+          counsellingAndReferralDetailsOmitted: true,
+          freeTextNotesOmitted: true,
+        },
+      });
+      return created;
     });
     return this.created(res, record, 'HIV testing record saved');
   });
