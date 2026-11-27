@@ -114,8 +114,7 @@ export class BillController extends BaseController {
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
       try {
-        if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
-        const bill = await billService.updateBill(req.params.id, req.body, req.user.id);
+        const bill = await billService.updateBill(req.params.id, req.body);
         return this.ok(res, bill, 'Bill updated successfully');
       } catch (error: any) {
         if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
