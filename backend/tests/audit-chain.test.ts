@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   canonicalJson,
+  normalizeAuditAction,
   computeAuditHash,
   readChain,
   stripChain,
@@ -39,6 +40,17 @@ function buildChain(count: number, startPrev: string | null = null): StoredAudit
 }
 
 describe('audit chain', () => {
+  it('normalizes legacy uppercase audit actions to Prisma enum values', () => {
+    expect(normalizeAuditAction('UPDATE')).toBe('update');
+    expect(normalizeAuditAction('CREATE')).toBe('create');
+    expect(normalizeAuditAction('DELETE')).toBe('delete');
+    expect(normalizeAuditAction('update')).toBe('update');
+  });
+
+  it('rejects unknown audit actions instead of writing invalid enum values', () => {
+    expect(() => normalizeAuditAction('READ')).toThrow(/Unsupported audit action/);
+  });
+
   it('canonicalizes JSON regardless of key order and drops undefined values', () => {
     expect(canonicalJson({ b: 1, a: { d: undefined, c: [2, { f: 3, e: 4 }] } }))
       .toBe('{"a":{"c":[2,{"e":4,"f":3}]},"b":1}');
