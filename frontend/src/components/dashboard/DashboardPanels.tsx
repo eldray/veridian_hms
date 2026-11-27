@@ -19,6 +19,7 @@ import {
   getLeaves, getShifts, getAllUsers, getBills, getBeds,
 } from '../../api';
 import { getMarDoses, type MarDose } from '../../api/nursing';
+import { getPatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
 import {
   WORKLIST_META, type WorklistKind, type DashboardStats,
   fmtTime, patientFullName, getStatusStyle,
@@ -299,7 +300,6 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
       ) : (
         <div className="space-y-2">
           {toArray(items).map((att) => {
-            const patient = att.patient ?? att.Patient ?? {};
             const ss = getStatusStyle(att.status || 'pending');
             const status = att.status || 'pending';
             return (
@@ -326,10 +326,10 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
                       className="font-mono text-[10px] px-1.5 py-0.5 rounded"
                       style={{ background: 'var(--bg-card)', color: 'var(--text-tertiary)' }}
                     >
-                      {patient.folderNumber || '—'}
+                      {getPatientFolderNumber(att) || '—'}
                     </span>
                     <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                      {att.attendanceNumber || '—'}
+                      {getAttendanceNumber(att) || '—'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
