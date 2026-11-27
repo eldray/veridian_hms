@@ -164,6 +164,11 @@ describe('claim draft item replacement reconciliation', () => {
         createMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       insuranceClaim: { update: vi.fn().mockResolvedValue(updated) },
+      auditLog: {
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
+      },
+      $queryRawUnsafe: vi.fn().mockResolvedValue([{ locked: 1 }]),
     };
     const prisma: any = {
       insuranceClaim: { findUnique: vi.fn().mockResolvedValueOnce(claim).mockResolvedValueOnce(updated) },
@@ -194,6 +199,22 @@ describe('claim draft item replacement reconciliation', () => {
     });
     expect(tx.insuranceClaimItem.createMany.mock.calls[0][0].data[0].billLineItemId).toBe('bill-line-1');
     expect(tx.insuranceClaim.update.mock.calls[0][0].data.totalClaimAmount).toBe(80);
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(1);
+    expect(tx.auditLog.create.mock.calls[0][0].data).toMatchObject({
+      entityType: 'InsuranceClaim',
+      entityId: 'claim-1',
+      action: 'update',
+      performedById: 'user-1',
+      previousState: { itemCount: 0 },
+      newState: { itemCount: 1, totalClaimAmount: 80 },
+      metadata: {
+        workflow: 'draft_claim_items_replaced',
+        payerType: 'private',
+        itemCategoryCounts: { service: 1 },
+        clinicalAndPrescriptionContentOmitted: true,
+      },
+    });
+    expect(JSON.stringify(tx.auditLog.create.mock.calls[0][0].data)).not.toContain('Consultation');
   });
 
   it('applies a corporate discount to saved lines and the claim header total', async () => {
