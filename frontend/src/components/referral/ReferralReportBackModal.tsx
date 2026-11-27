@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { CheckCircle, ClipboardList, Loader2, X } from 'lucide-react';
 import { ReferralPartFields } from './ReferralStructuredParts';
+import ReferralContextHeader from './ReferralContextHeader';
 import { PART_II_SECTIONS, missingRequired } from './referralForm';
 
 interface ReportBackModalProps {
@@ -43,23 +44,15 @@ export default function ReferralReportBackModal({
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={submitting ? undefined : onClose} />
       <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
         <div className="relative bg-[var(--bg-card)] rounded-2xl w-full max-w-2xl max-h-[94vh] flex flex-col overflow-hidden border border-[var(--border-color)] shadow-2xl">
-          <div className="bg-[var(--icon-green-bg)]/60 border-b border-[var(--border-color)] px-6 py-4 text-[var(--text-primary)] flex-shrink-0">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wider text-[var(--icon-green-text)] font-semibold flex items-center gap-1.5">
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  Part II — Report back
-                </p>
-                <h2 className="text-base font-bold truncate mt-0.5">Accept referral {referral.referralNumber}</h2>
-                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                  {[referral.patient?.surname, referral.patient?.otherNames].filter(Boolean).join(' ')} ·
-                  raised {referral.referralDate ? new Date(referral.referralDate).toLocaleDateString() : 'unknown'}
-                </p>
-              </div>
-              <button onClick={onClose} disabled={submitting} className="p-1.5 hover:bg-[var(--bg-main)] rounded-lg text-[var(--text-secondary)] disabled:opacity-50" aria-label="Close">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+          <div className="relative shrink-0">
+            <ReferralContextHeader
+              referral={referral}
+              eyebrow="Part II · Report back"
+              subtitle="Complete the receiving facility's clinical response"
+            />
+            <button onClick={onClose} disabled={submitting} className="absolute right-3 top-3 z-10 rounded-lg p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] disabled:opacity-50" aria-label="Close">
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4" style={{ scrollbarWidth: 'thin' }}>
