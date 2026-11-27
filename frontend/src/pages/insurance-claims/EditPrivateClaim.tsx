@@ -44,6 +44,8 @@ interface MedicineItem {
   total: number;
   date: string;
   stockItemId?: string;
+  drugCode?: string;
+  medicationId?: string;
   serviceCatalogId?: string;
   prescriptionText?: string;
   dosage?: string;
@@ -346,7 +348,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: any) {
     if (!selected) return;
     const catalog = catalogsByStock.get(selected.id);
     const unitPrice = editing?.unitPrice ?? payerUnitPrice(catalog, 'private_insurance');
-    onAdd({ id: editing?.id, billLineItemId: editing?.billLineItemId, description: selected.name, date: medicineDate, stockItemId: selected.id, serviceCatalogId: catalog?.id || editing?.serviceCatalogId, quantity, unitPrice, total: quantity * unitPrice, ...prescription, prescriptionText: formatPrescriptionDetails(prescription) || editing?.prescriptionText || '' });
+    onAdd({ id: editing?.id, billLineItemId: editing?.billLineItemId, medicationId: editing?.medicationId, description: selected.name, date: medicineDate, stockItemId: selected.id, drugCode: selected.drugCode || selected.code || editing?.drugCode, serviceCatalogId: catalog?.id || editing?.serviceCatalogId, quantity, unitPrice, total: quantity * unitPrice, ...prescription, prescriptionText: formatPrescriptionDetails(prescription) || editing?.prescriptionText || '' });
     setSelectedMedicine(null); setSearchTerm(''); setQuantity(1); setPrescription({ ...EMPTY_PRESCRIPTION }); onClose();
   };
   if (!isOpen) return null;
@@ -578,18 +580,33 @@ export default function EditPrivateClaim() {
     }
 
     if (medServer.length) {
-      setMedicines(medServer.map((m: any) => ({
-        id: m.id,
-        billLineItemId: m.billLineItemId ?? null,
-        description: m.description,
-        quantity: m.quantity,
-        unitPrice: toNum(premierProvider ? (m.grossUnitPrice ?? m.unitPrice) : m.unitPrice),
-        total: toNum(premierProvider ? (m.grossLineTotal ?? m.lineTotal) : m.lineTotal),
-        date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
-        stockItemId: m.serviceCatalog?.stockItemId,
-        serviceCatalogId: m.serviceCatalogId,
-        prescriptionText: m.prescriptionText || findAttendancePrescription(attendance, m.serviceCatalog?.stockItemId, m.serviceCatalogId, m.description),
-      })));
+      const attendanceMedicines = attendance?.medication ?? attendance?.Medication ?? [];
+      setMedicines(medServer.map((m: any) => {
+        const linkedMedication = attendanceMedicines.find((row: any) => row.id === m.medicationId);
+        const snapshot = m.prescriptionSnapshot ?? {};
+        const prescriptionText = m.prescriptionText
+          || prescriptionTextForMedication(linkedMedication)
+          || [snapshot.dosageText && 'Dose: ' + snapshot.dosageText, snapshot.frequencyText && 'Frequency: ' + snapshot.frequencyText, snapshot.durationText && 'Duration: ' + snapshot.durationText].filter(Boolean).join(' · ');
+        return {
+          id: m.id,
+          billLineItemId: m.billLineItemId ?? null,
+          medicationId: m.medicationId ?? linkedMedication?.id,
+          description: m.description,
+          quantity: m.quantity,
+          unitPrice: toNum(premierProvider ? (m.grossUnitPrice ?? m.unitPrice) : m.unitPrice),
+          total: toNum(premierProvider ? (m.grossLineTotal ?? m.lineTotal) : m.lineTotal),
+          date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
+          stockItemId: linkedMedication?.stockItemId ?? snapshot.stockItemId ?? m.serviceCatalog?.stockItemId,
+          drugCode: m.code || linkedMedication?.StockItem?.drugCode || '',
+          serviceCatalogId: m.serviceCatalogId,
+          dosage: snapshot.dosageText ?? linkedMedication?.dosage,
+          frequency: snapshot.frequencyText ?? linkedMedication?.frequency,
+          duration: snapshot.durationText ?? linkedMedication?.duration,
+          route: snapshot.route ?? linkedMedication?.route,
+          instructions: snapshot.instructions ?? linkedMedication?.instructions,
+          prescriptionText,
+        };
+      }));
     } else if (meta.medicines?.length) {
       setMedicines(meta.medicines);
     } else {
@@ -638,7 +655,8 @@ export default function EditPrivateClaim() {
     for (const m of medicines) {
       out.push({
         itemCategory: 'medicine',
-        code: m.stockItemId || m.description,
+        medicationId: m.medicationId ?? null,
+        code: m.drugCode || m.description,
         description: m.description,
         quantity: m.quantity,
         unitPrice: m.unitPrice,
