@@ -627,23 +627,35 @@ export default function PatientBillingItems() {
   }, [selectedBill, getBill, patient, hospital, user?.fullName, toastError]);
 
   const handleViewReceipt = useCallback(
-    async (billId: string) => {
+    async (billId: string, paymentId?: string) => {
       setIsLoadingItems(true);
       try {
         await getBill(billId);
         const billToReceipt: any = useBillingStore.getState().currentBill;
-        if (!billToReceipt) { toastError('Error', 'Could not load bill details'); return; }
+        if (!billToReceipt || billToReceipt.id !== billId) {
+          toastError('Error', 'Could not load the selected bill details');
+          return;
+        }
 
-        const latestPayment = latestRecordedPayment(billToReceipt);
-        if (!latestPayment) {
-          toastError('No payment recorded', 'A receipt can only be issued for a recorded, non-voided payment.');
+        const billPayments: any[] = billToReceipt.Payment ?? billToReceipt.payments ?? [];
+        const paymentToPrint = paymentId
+          ? billPayments.find((payment) => payment.id === paymentId && !payment.isVoided)
+          : latestRecordedPayment(billToReceipt);
+
+        if (!paymentToPrint) {
+          toastError(
+            paymentId ? 'Payment unavailable' : 'No payment recorded',
+            paymentId
+              ? 'This payment could not be found on the selected bill or has been voided.'
+              : 'A receipt can only be issued for a recorded, non-voided payment.'
+          );
           return;
         }
 
         printThermalReceipt({
           bill: billToReceipt,
           patient: billToReceipt.Patient || patient,
-          payment: latestPayment,
+          payment: paymentToPrint,
           hospital,
           receivedBy: user?.fullName,
         });
@@ -1383,6 +1395,7 @@ export default function PatientBillingItems() {
                                     <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Paid</th>
                                     <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Refunded</th>
                                     <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Refundable</th>
+                                    <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Receipt</th>
                                     {canRefund && <th className="px-3 py-2 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Action</th>}
                                   </tr>
                                 </thead>
@@ -1401,6 +1414,17 @@ export default function PatientBillingItems() {
                                         </td>
                                         <td className={cn('px-3 py-2 text-right tabular-nums', refundable > 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]')}>
                                           {formatCurrency(refundable)}
+                                        </td>
+                                        <td className="px-3 py-2 text-right">
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            icon={Printer}
+                                            disabled={isLoadingItems}
+                                            onClick={() => handleViewReceipt(selectedBill.id, payment.id)}
+                                          >
+                                            Print
+                                          </Button>
                                         </td>
                                         {canRefund && (
                                           <td className="px-3 py-2 text-right">
