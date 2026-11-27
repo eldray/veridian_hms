@@ -58,6 +58,15 @@ describe('audit chain', () => {
     expect(result).toEqual({ ok: true, checked: 4 });
   });
 
+  it('verifies append order independently of CUID lexical order', () => {
+    const rows = buildChain(3).map((row, index) => ({
+      ...row,
+      // Deliberately make IDs sort in the opposite order to the append sequence.
+      id: ['z-last', 'm-middle', 'a-first'][index],
+    }));
+    expect(verifyAuditChain(rows)).toEqual({ ok: true, checked: 3 });
+  });
+
   it('skips legacy rows written before chaining existed', () => {
     const legacy: StoredAuditRow[] = [
       { ...entry(0), id: 'legacy-1', metadata: { method: 'POST' } },

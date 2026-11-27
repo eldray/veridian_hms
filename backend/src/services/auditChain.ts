@@ -137,7 +137,7 @@ export async function appendAuditLogWithinTransaction(
 
   // Newest rows first; skip any legacy rows written before chaining existed.
   const recent = await tx.auditLog.findMany({
-    orderBy: { id: 'desc' },
+    orderBy: { chainSequence: 'desc' },
     take: 50,
     select: { id: true, metadata: true },
   });
