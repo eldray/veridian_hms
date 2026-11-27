@@ -233,7 +233,8 @@ export class AntenatalController extends BaseController {
   ];
 
   deleteDeliveryRecord = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    await this.service.deleteDeliveryRecord(req.params.id);
+    await this.service.deleteDeliveryRecord(req.params.id, req.user!.id);
+    (req as any).auditHandled = true;
     return this.ok(res, null, 'Delivery record deleted successfully');
   });
 
