@@ -63,6 +63,74 @@ describe('private and corporate direct claim generation', () => {
     expect(tx.insuranceClaim.aggregate).toHaveBeenCalled();
   });
 
+  it.each(['private', 'corporate'] as const)('stores the linked medication and immutable prescription snapshot on a %s claim', async (payer) => {
+    const { service, tx, created } = setup(payer);
+    const attendance = await tx.attendance.findUnique();
+    attendance.ServiceRendered = [];
+    attendance.Medication = [{
+      id: 'medication-1',
+      name: 'Amoxicillin',
+      status: 'dispensed',
+      quantity: 10,
+      stockItemId: 'stock-amoxicillin',
+      dosage: '500 mg',
+      frequency: 'BD',
+      duration: '5 days',
+      doseAmount: 500,
+      doseUnit: 'mg',
+      frequencyCode: 'BID',
+      frequencyIntervalHours: 12,
+      durationValue: 5,
+      durationUnit: 'day',
+      route: 'oral',
+      instructions: 'Take after meals',
+      prnIndication: null,
+      prnMaxDosesPerDay: null,
+      prnMinimumIntervalHours: null,
+      quantityUnit: 'capsule',
+      dispensedQuantity: 10,
+      prescribedAt: new Date('2026-10-24T09:00:00.000Z'),
+      dispensedAt: new Date('2026-10-24T10:00:00.000Z'),
+      prescribedById: 'doctor-1',
+      prescriptionVersion: 3,
+      StockItem: { id: 'stock-amoxicillin', drugCode: 'DRUG-AMOX-500', name: 'Amoxicillin', strength: '500 mg', unitOfMeasure: 'capsule' },
+      ServiceCatalog: { id: 'medicine-service', name: 'Amoxicillin', code: 'MED-AMOX', serviceType: 'medication', isPrivateInsuranceExempted: false },
+    }];
+
+    if (payer === 'private') await service.generatePrivateInsuranceClaim('attendance-1', 'user-1');
+    else await service.generateCorporateClaim('attendance-1', 'user-1');
+
+    const medicine = created[0].items.create.find((item: any) => item.itemCategory === 'medicine');
+    expect(medicine).toMatchObject({
+      medicationId: 'medication-1',
+      code: 'DRUG-AMOX-500',
+      prescriptionText: '500 mg · BD · 5 days',
+      prescriptionSnapshotVersion: 3,
+      prescriptionSnapshot: {
+        medicationId: 'medication-1',
+        stockItemId: 'stock-amoxicillin',
+        medicineStrength: '500 mg',
+        doseAmount: '500',
+        doseUnit: 'mg',
+        dosageText: '500 mg',
+        frequencyCode: 'BID',
+        frequencyText: 'BD',
+        frequencyIntervalHours: 12,
+        durationValue: 5,
+        durationUnit: 'day',
+        durationText: '5 days',
+        route: 'oral',
+        instructions: 'Take after meals',
+        prescribedQuantity: 10,
+        quantityUnit: 'capsule',
+        dispensedQuantity: 10,
+        prescribedById: 'doctor-1',
+        prescriptionVersion: 3,
+      },
+    });
+    expect(medicine.prescriptionSnapshotAt).toBeInstanceOf(Date);
+  });
+
   it('uses NHIS investigation and procedure tariff codes in direct payer claim items and code arrays', async () => {
     const { service, tx, created } = setup('private');
     const attendance = await tx.attendance.findUnique();
