@@ -114,7 +114,8 @@ export class BillController extends BaseController {
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
       try {
-        const bill = await billService.updateBill(req.params.id, req.body);
+        if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+        const bill = await billService.updateBill(req.params.id, req.body, req.user.id);
         return this.ok(res, bill, 'Bill updated successfully');
       } catch (error: any) {
         if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
@@ -126,7 +127,8 @@ export class BillController extends BaseController {
 
   deleteBill = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      await billService.deleteBill(req.params.id);
+      if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+      await billService.deleteBill(req.params.id, req.user.id);
       return this.ok(res, null, 'Bill deleted successfully');
     } catch (error: any) {
       if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
