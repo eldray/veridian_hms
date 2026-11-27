@@ -294,7 +294,7 @@ const FamilyPlanningServiceModal: React.FC<{
                   </h2>
                   {patient && (
                     <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">
-                      {patient.surname} {patient.otherNames} · <span className="font-mono">{patient.folderNumber}</span>
+                      {getPatientName(patient)} · <span className="font-mono">{getPatientFolderNumber(patient) || '—'}</span>
                     </p>
                   )}
                 </div>
