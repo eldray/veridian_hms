@@ -3,6 +3,7 @@
 // A counter ticket is an Attendance whose identity is a CounterClient instead of a
 // Patient, so the same projections and status wording are read by three pages now.
 import { formatCurrency } from './currency';
+import { getPatientName } from './patient';
 import { humanStatus, statusTone, type Accent, type BadgeTone } from '../components/ui';
 
 export const unwrap = (response: any): any[] => {
@@ -55,7 +56,7 @@ export const identityOf = (ticket: any) => {
   const patient = ticket?.patient || ticket?.Patient || null;
   if (client) return { label: client.name, detail: client.ageYears != null ? `${client.ageYears} years` : 'age not given', phone: client.phone || 'no phone', kind: 'walk_in' as const, client, patient };
   if (patient) {
-    const name = `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Registered patient';
+    const name = getPatientName(patient);
     return { label: name, detail: `Folder ${patient.folderNumber || '—'}`, phone: patient.contact || 'no phone', kind: 'patient' as const, client, patient };
   }
   return { label: 'Unnamed customer', detail: '—', phone: '—', kind: 'walk_in' as const, client, patient };
