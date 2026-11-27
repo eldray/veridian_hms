@@ -188,8 +188,9 @@ export class InsuranceClaimController extends BaseController {
   recordPremierPatientPayment = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const payment = await this.service.recordPremierPatientPayment(req.params.claimId, req.body, req.user!.id);
     const receipt = await this.documents.generatePremierClaimReceipt(req.params.claimId, payment.id, req.user!.id);
-    if (!receipt.success) return res.status(500).json({ success: false, message: receipt.error || 'Payment recorded, but receipt generation failed.', data: { payment } });
-    return this.created(res, { payment, receipt }, 'Premier patient payment recorded and receipt generated');
+    return this.created(res, { payment, receipt }, receipt.success
+      ? 'Premier patient payment recorded and receipt generated'
+      : 'Payment recorded, but the receipt could not be generated. The collection is saved; ask Accounts to reprint the receipt.');
   });
 
   listTrackingClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {
