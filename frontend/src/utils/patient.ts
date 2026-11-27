@@ -26,3 +26,39 @@ export function getPatientName(source: any): string {
   const folder = source.patient?.folderNumber ?? source.Patient?.folderNumber ?? source.folderNumber;
   return folder ? `Patient ${folder}` : 'Unknown Patient';
 }
+
+
+/** Resolve the patient folder number from a Patient or a related visit record. */
+export function getPatientFolderNumber(source: any): string {
+  if (source == null) return '';
+  const candidates = [
+    source,
+    source.patient, source.Patient, source.patientDetails, source.patientRecord,
+    source.attendance?.patient, source.attendance?.Patient,
+    source.Attendance?.patient, source.Attendance?.Patient,
+  ];
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    const value = candidate.folderNumber ?? candidate.patientFolderNumber ?? candidate.folderNo;
+    if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
+  }
+  return '';
+}
+
+/** Resolve the visit number from an Attendance/Encounter or a wrapper around one. */
+export function getAttendanceNumber(source: any): string {
+  if (source == null) return '';
+  const candidates = [
+    source,
+    source.attendance, source.Attendance,
+    source.encounter, source.Encounter,
+    source.visit,
+  ];
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    const value = candidate.attendanceNumber ?? candidate.attendanceNo
+      ?? candidate.visitNumber ?? candidate.encounterNumber;
+    if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
+  }
+  return '';
+}
