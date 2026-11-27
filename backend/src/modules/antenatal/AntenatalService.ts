@@ -49,7 +49,7 @@ export class AntenatalService extends BaseService {
   async getDeliveryRecordById(id: string) { return this.repo.getDeliveryRecordById(id); }
   async createDeliveryRecord(data: CreateDeliveryRecordInput) { return this.repo.createDeliveryRecord(data); }
   async updateDeliveryRecord(id: string, data: any, actorId?: string) { return this.repo.updateDeliveryRecord(id, data, actorId); }
-  async deleteDeliveryRecord(id: string) { return this.repo.deleteDeliveryRecord(id); }
+  async deleteDeliveryRecord(id: string, actorId: string) { return this.repo.deleteDeliveryRecord(id, actorId); }
 
   // Postnatals
   async getPostnatalRecords(filters: PostnatalRecordFilters) { return this.repo.getPostnatalRecords(filters); }
