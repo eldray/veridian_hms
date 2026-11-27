@@ -193,6 +193,12 @@ export class InsuranceClaimController extends BaseController {
       : 'Payment recorded, but the receipt could not be generated. The collection is saved; ask Accounts to reprint the receipt.');
   });
 
+  reprintPremierPatientPaymentReceipt = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const receipt = await this.documents.generatePremierClaimReceipt(req.params.claimId, req.params.paymentId, req.user!.id);
+    if (!receipt.success || !receipt.filePath) return this.badRequest(res, receipt.error || 'Could not generate the payment receipt.');
+    return this.ok(res, receipt, 'Premier patient payment receipt is ready');
+  });
+
   listTrackingClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
