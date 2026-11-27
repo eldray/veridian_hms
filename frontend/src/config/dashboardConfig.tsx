@@ -679,10 +679,24 @@ export const fmtTime = (d?: string) => {
 };
 
 export const patientFullName = (src: any): string => {
-  const p = src?.patient ?? src?.Patient ?? src;
-  if (!p) return 'Unknown Patient';
-  return p.name || p.fullName ||
-    `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown Patient';
+  // Encounter reads can expose either Prisma's relation casing or the API's
+  // normalized camelCase alias. Some operational/counter visits are linked to
+  // a CounterClient rather than a registered Patient.
+  const patient = src?.patient ?? src?.Patient ?? src?.patientDetails ?? src?.patientRecord;
+  const counterClient = src?.counterClient ?? src?.CounterClient;
+  const candidates = [patient, counterClient, src?.patientName, src?.patientFullName, src?.fullName, src?.name];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    if (!candidate || typeof candidate !== 'object') continue;
+    const direct = candidate.fullName ?? candidate.name ?? candidate.patientName ?? candidate.displayName;
+    if (typeof direct === 'string' && direct.trim()) return direct.trim();
+    const first = candidate.firstName ?? candidate.otherNames ?? candidate.givenName ?? '';
+    const last = candidate.lastName ?? candidate.surname ?? candidate.familyName ?? '';
+    const combined = `${first} ${last}`.trim();
+    if (combined) return combined;
+  }
+  const folder = patient?.folderNumber ?? src?.folderNumber;
+  return folder ? `Patient ${folder}` : 'Unknown Patient';
 };
 
 export const getStatusStyle = (status: string): { bg: string; color: string } => {
