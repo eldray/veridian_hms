@@ -7,6 +7,7 @@ import { PatientService } from './PatientService';
 import { CreatePatientDTO, PatientFilters, CreateAllergyDTO, CreateMedicalHistoryDTO } from './PatientTypes';
 import { matchesDeclaredMime } from '../../utils/fileSignature';
 import { parsePageSize } from '../../shared/pagination';
+import { AuthRequest } from '../../middleware/authMiddleware';
 
 import prisma from '../../core/database/prisma.client';
 
@@ -88,18 +89,19 @@ export class PatientController extends BaseController {
     return this.ok(res, { ...patient, age, fullName }, 'Patient retrieved successfully');
   });
 
-  createPatient = this.asyncHandler(async (req: Request, res: Response) => {
+  createPatient = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const data: CreatePatientDTO = req.body;
     // Age fields may be sent by older clients but are derived from dateOfBirth,
     // so never forward them as Prisma Patient create fields.
     const cleanData = { ...data } as CreatePatientDTO & { age?: unknown; ageInMonths?: unknown };
     delete cleanData.age;
     delete cleanData.ageInMonths;
-    const patient = await this.service.createPatient(cleanData);
+    if (!req.user?.id) return this.unauthorized(res, 'Authenticated staff identity is required');
+    const patient = await this.service.createPatient(cleanData, req.user.id);
     return this.created(res, patient, 'Patient created successfully');
   });
 
-  generateCCC = this.asyncHandler(async (req: Request, res: Response) => {
+  generateCCC = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { patientId, nhisNumber } = req.body;
     
     if (!nhisNumber) {
@@ -112,7 +114,7 @@ export class PatientController extends BaseController {
       const cccId = await nhisApiService.generateCCC(nhisNumber, { patientId });
       
       if (patientId) {
-        await this.service.updatePatient(patientId, { cccId });
+        await this.service.updatePatient(patientId, { cccId }, req.user!.id);
       }
       
       return res.json({ success: true, cccId, message: 'CCC generated successfully' });
@@ -130,19 +132,19 @@ export class PatientController extends BaseController {
   };
 
   /** POST /patients/:id/upload-image  (multipart, field "image") */
-  uploadImage = this.asyncHandler(async (req: Request, res: Response) => {
+  uploadImage = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const file = (req as any).file as Express.Multer.File | undefined;
     if (!file) return res.status(400).json({ success: false, message: 'No image file received (field name must be "image")' });
 
     await this.service.getPatientById(id); // 404 if the patient does not exist
     const imageUrl = `/uploads/patients/${file.filename}`;
-    await this.service.updatePatient(id, { imageUrl } as any);
+    await this.service.updatePatient(id, { imageUrl } as any, req.user!.id);
     return this.ok(res, { imageUrl }, 'Patient image uploaded');
   });
 
   /** POST /patients/:id/upload-image-base64  ({ image: "data:image/jpeg;base64,..." }) */
-  uploadImageBase64 = this.asyncHandler(async (req: Request, res: Response) => {
+  uploadImageBase64 = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const raw: string | undefined = req.body?.image;
     if (!raw || typeof raw !== 'string') {
@@ -169,19 +171,21 @@ export class PatientController extends BaseController {
     fs.writeFileSync(path.join(dir, filename), buffer);
 
     const imageUrl = `/uploads/patients/${filename}`;
-    await this.service.updatePatient(id, { imageUrl } as any);
+    await this.service.updatePatient(id, { imageUrl } as any, req.user!.id);
     return this.ok(res, { imageUrl }, 'Patient image uploaded');
   });
 
-  updatePatient = this.asyncHandler(async (req: Request, res: Response) => {
+  updatePatient = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const patient = await this.service.updatePatient(id, req.body);
+    if (!req.user?.id) return this.unauthorized(res, 'Authenticated staff identity is required');
+    const patient = await this.service.updatePatient(id, req.body, req.user.id);
     return this.ok(res, patient, 'Patient updated successfully');
   });
 
-  deletePatient = this.asyncHandler(async (req: Request, res: Response) => {
+  deletePatient = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    await this.service.deletePatient(id);
+    if (!req.user?.id) return this.unauthorized(res, 'Authenticated staff identity is required');
+    await this.service.deletePatient(id, req.user.id);
     return this.ok(res, null, 'Patient deleted successfully');
   });
 
@@ -214,9 +218,10 @@ export class PatientController extends BaseController {
   // NEW: EMR (Allergies & Histories) Endpoints
   // ==========================================
 
-  addAllergy = this.asyncHandler(async (req: Request, res: Response) => {
+  addAllergy = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const allergy = await this.service.addAllergy(id, req.body);
+    if (!req.user?.id) return this.unauthorized(res, 'Authenticated staff identity is required');
+    const allergy = await this.service.addAllergy(id, req.body, req.user.id);
     return this.created(res, allergy, 'Allergy added successfully');
   });
 
@@ -226,9 +231,10 @@ export class PatientController extends BaseController {
     return this.ok(res, allergies, 'Allergies retrieved successfully');
   });
 
-  addMedicalHistory = this.asyncHandler(async (req: Request, res: Response) => {
+  addMedicalHistory = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const history = await this.service.addMedicalHistory(id, req.body);
+    if (!req.user?.id) return this.unauthorized(res, 'Authenticated staff identity is required');
+    const history = await this.service.addMedicalHistory(id, req.body, req.user.id);
     return this.created(res, history, 'Medical history added successfully');
   });
 

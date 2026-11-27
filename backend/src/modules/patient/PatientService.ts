@@ -3,7 +3,8 @@ import { BaseService } from '../../shared/base/BaseService';
 import { PatientRepository } from './PatientRepository';
 import { CreatePatientDTO, UpdatePatientDTO, PatientFilters, PatientSummary, CreateAllergyDTO, CreateMedicalHistoryDTO } from './PatientTypes';
 import { NotFoundError, ValidationError } from '../../utils/errors';
-import { getCounterService } from '../../services/CounterService'; 
+import { getCounterService } from '../../services/CounterService';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain'; 
 
 // Only patient-facing fields may be written from registration/edit requests.
 // Identity, registration timestamps and database-managed fields are always server-owned.
@@ -215,7 +216,8 @@ export class PatientService extends BaseService {
     if (errors.length > 0) throw new ValidationError('Invalid clinical history', errors);
   }
 
-  async createPatient(data: CreatePatientDTO) {
+  async createPatient(data: CreatePatientDTO, actorId: string) {
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for patient audit');
     this.logInfo('Creating new patient', { nhisNumber: data.nhisNumber, paymentMode: data.paymentMode });
     this.validateCreateData(data);
     this.validateNhisNumber(data);
@@ -268,16 +270,27 @@ export class PatientService extends BaseService {
         : undefined,
     };
 
-    const patient = await this.prisma.patient.create({
-      data: patientData,
-      // Return the clinical information submitted with registration so the UI and
-      // downstream workflows can immediately confirm what was saved.
-      include: {
-        allergies: true,
-        medicalHistories: true,
-        surgicalHistories: true,
-        familyHistories: true,
-      },
+    const patient = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.patient.create({
+        data: patientData,
+        // Return the clinical information submitted with registration so the UI and
+        // downstream workflows can immediately confirm what was saved.
+        include: {
+          allergies: true,
+          medicalHistories: true,
+          surgicalHistories: true,
+          familyHistories: true,
+        },
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Patient',
+        entityId: created.id,
+        action: 'CREATE',
+        performedById: actorId,
+        newState: { created: true },
+        metadata: { source: 'patient.create', changedFields: Object.keys(persistedData).sort(), historiesIncluded: ['allergies', 'medicalHistories', 'surgicalHistories', 'familyHistories'].filter((key) => (data as any)[key] !== undefined) },
+      });
+      return created;
     });
     this.logInfo('Patient created successfully', { patientId: patient.id, folderNumber: patient.folderNumber });
     return patient;
@@ -306,7 +319,8 @@ export class PatientService extends BaseService {
     };
   }
 
-  async updatePatient(id: string, data: UpdatePatientDTO): Promise<Patient> {
+  async updatePatient(id: string, data: UpdatePatientDTO, actorId: string): Promise<Patient> {
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for patient audit');
     this.logInfo('Updating patient', { id });
     this.validateNhisNumber(data);
     this.validateClinicalHistory(data);
@@ -369,28 +383,51 @@ export class PatientService extends BaseService {
           : { disconnect: true },
       })
     };
-    const patient = await this.prisma.patient.update({
-      where: { id },
-      data: updateData,
-      include: {
-        allergies: true,
-        medicalHistories: true,
-        surgicalHistories: true,
-        familyHistories: true,
-      },
+    const patient = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.patient.update({
+        where: { id },
+        data: updateData,
+        include: {
+          allergies: true,
+          medicalHistories: true,
+          surgicalHistories: true,
+          familyHistories: true,
+        },
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Patient',
+        entityId: id,
+        action: 'UPDATE',
+        performedById: actorId,
+        metadata: { source: 'patient.update', changedFields: Object.keys(updateData).sort() },
+      });
+      return updated;
     });
     this.logInfo('Patient updated successfully', { id });
     return patient;
   }
 
-  async deletePatient(id: string): Promise<void> {
+  async deletePatient(id: string, actorId: string): Promise<void> {
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for patient audit');
     this.logInfo('Deleting patient', { id });
     await this.getPatientById(id);
     const hasRelatedRecords = await this.repository.hasRelatedRecords(id);
     if (hasRelatedRecords) {
       throw new ValidationError('Cannot delete patient with existing records', [{ field: 'id', message: 'Patient has associated records. Consider deactivating instead.', code: 'HAS_RELATIONS' }]);
     }
-    await this.repository.delete(id);
+    await this.prisma.$transaction(async (tx) => {
+      const current = await tx.patient.findUnique({ where: { id }, select: { id: true } });
+      if (!current) throw new NotFoundError('Patient', id);
+      await tx.patient.delete({ where: { id } });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Patient',
+        entityId: id,
+        action: 'DELETE',
+        performedById: actorId,
+        previousState: { exists: true },
+        metadata: { source: 'patient.delete' },
+      });
+    });
     this.logInfo('Patient deleted successfully', { id });
   }
 
@@ -446,10 +483,18 @@ export class PatientService extends BaseService {
   // NEW: EMR (Allergies & Histories) Methods
   // ==========================================
 
-  async addAllergy(patientId: string, data: CreateAllergyDTO) {
+  async addAllergy(patientId: string, data: CreateAllergyDTO, actorId: string) {
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for patient audit');
     await this.getPatientById(patientId); // Ensure patient exists
     this.logInfo('Adding allergy to patient', { patientId, allergen: data.allergen });
-    return this.repository.createAllergy(patientId, data);
+    return this.prisma.$transaction(async (tx) => {
+      const allergy = await tx.patientAllergy.create({ data: { ...data, patientId } });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Patient', entityId: patientId, action: 'UPDATE', performedById: actorId,
+        metadata: { source: 'patient.allergy.create', changedFields: ['allergies'] },
+      });
+      return allergy;
+    });
   }
 
   async getAllergies(patientId: string) {
@@ -457,10 +502,20 @@ export class PatientService extends BaseService {
     return this.repository.findAllergies(patientId);
   }
 
-  async addMedicalHistory(patientId: string, data: CreateMedicalHistoryDTO) {
+  async addMedicalHistory(patientId: string, data: CreateMedicalHistoryDTO, actorId: string) {
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for patient audit');
     await this.getPatientById(patientId);
     this.logInfo('Adding medical history to patient', { patientId, condition: data.condition });
-    return this.repository.createMedicalHistory(patientId, data);
+    return this.prisma.$transaction(async (tx) => {
+      const history = await tx.patientMedicalHistory.create({
+        data: { ...data, patientId, diagnosedAt: data.diagnosedAt ? new Date(data.diagnosedAt) : undefined },
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Patient', entityId: patientId, action: 'UPDATE', performedById: actorId,
+        metadata: { source: 'patient.medical_history.create', changedFields: ['medicalHistories'] },
+      });
+      return history;
+    });
   }
 
   async getMedicalHistories(patientId: string) {
