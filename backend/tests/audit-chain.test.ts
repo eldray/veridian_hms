@@ -53,6 +53,12 @@ describe('audit chain', () => {
     expect(computeAuditHash('a'.repeat(64), entry(1))).not.toBe(first);
   });
 
+  it('accepts append order even when CUID-like IDs sort in the opposite order', () => {
+    const rows = buildChain(3).map((row, index) => ({ ...row, id: `reverse-${2-index}` }));
+    expect(rows.map((row) => row.id)).toEqual(['reverse-2', 'reverse-1', 'reverse-0']);
+    expect(verifyAuditChain(rows)).toEqual({ ok: true, checked: 3 });
+  });
+
   it('accepts an intact chain', () => {
     const result = verifyAuditChain(buildChain(4));
     expect(result).toEqual({ ok: true, checked: 4 });
