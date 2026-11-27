@@ -1,4 +1,5 @@
 // src/components/NewAttendanceModal.tsx - FIXED VERSION
+import { getPatientName } from '../utils/patient';
 import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -67,11 +68,7 @@ export default function NewAttendanceModal({
   // ✅ HELPER: Resolve patient from state OR attendanceData fallback
   const resolvedPatient = patient || (isEditMode ? attendanceData : null);
 
-  const getPatientFullName = (p: any) => {
-    if (!p) return 'Unknown Patient';
-    return p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim();
-  };
-
+  const getPatientFullName = getPatientName;
   useEffect(() => { if (initialAttendanceType) setAttendanceType(initialAttendanceType); }, [initialAttendanceType]);
 
   // Load insurance providers
