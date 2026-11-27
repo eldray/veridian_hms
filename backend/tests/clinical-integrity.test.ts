@@ -855,7 +855,7 @@ describe('clinical encounter ownership', () => {
 
     expect(findFirst).toHaveBeenCalledWith({
       where: { id: 'service-from-encounter-b', attendanceId: 'encounter-a' },
-      select: { id: true },
+      select: { id: true, serviceItemId: true, quantity: true, performedById: true },
     });
     expect(deleteMany).not.toHaveBeenCalled();
   });
