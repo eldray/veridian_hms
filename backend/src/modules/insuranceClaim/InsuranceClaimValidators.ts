@@ -56,3 +56,10 @@ export const GenerateBatchSchema = z.object({
   corporateAccountId: z.string().min(1).optional(),
   description: z.string().max(500).optional(),
 });
+export const PremierPatientPaymentSchema = z.object({
+  amount: z.number().positive().max(10000000),
+  paymentMethod: z.enum(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']),
+  reference: z.string().max(120).optional(),
+  idempotencyKey: z.string().min(8).max(120),
+  notes: z.string().max(1000).optional(),
+});

@@ -2311,4 +2311,48 @@ async getCorporateClaims(
     pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
   };
 }
+/** Record a Premier patient share directly against the claim, without creating a Bill. */
+async recordPremierPatientPayment(claimId: string, input: {
+  amount: number; paymentMethod: 'cash' | 'mobile_money' | 'card' | 'bank_transfer' | 'cheque';
+  reference?: string; idempotencyKey: string; notes?: string;
+}, userId: string) {
+  const amount = Math.round(Number(input.amount) * 100) / 100;
+  if (!Number.isFinite(amount) || amount <= 0) throw new ValidationError('Enter a payment amount greater than zero.');
+  if (!input.idempotencyKey || input.idempotencyKey.length < 8 || input.idempotencyKey.length > 120) throw new ValidationError('A valid payment idempotency key is required.');
+  if (input.paymentMethod === 'mobile_money') throw new ValidationError('Mobile Money payments must be confirmed through the MTN MoMo workflow. Select another confirmed payment method.');
+  return this.prisma.$transaction(async (tx) => {
+    const prior = await tx.insuranceClaimPatientPayment.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+    if (prior) {
+      if (prior.claimId !== claimId) throw new ValidationError('This payment key has already been used for another claim.');
+      return prior;
+    }
+    const claim = await tx.insuranceClaim.findUnique({
+      where: { id: claimId },
+      include: { InsuranceProvider: { select: { name: true, type: true, benefitPolicy: true } },
+        patientPayments: { orderBy: { transactionDate: 'asc' } } },
+    });
+    if (!claim) throw new NotFoundError('Claim', claimId);
+    if (claim.InsuranceProvider?.type !== 'private' || claim.InsuranceProvider?.benefitPolicy?.scheme !== 'premier_health') throw new ValidationError('Patient-side collection is available only for Premier Health claims.');
+    if (claim.status !== 'finalized') throw new ValidationError('Finalize the Premier claim before collecting the patient balance.');
+    const calculation = (claim.metadata as any)?.benefitCalculation;
+    if (calculation?.scheme !== 'premier_health') throw new ValidationError('This claim has no saved Premier benefit calculation.');
+    const due = Math.round(Math.max(0, Number(calculation.patientPayableNow || 0)) * 100) / 100;
+    const collected = Math.round(claim.patientPayments.reduce((sum: number, row: any) => sum + Number(row.amount), 0) * 100) / 100;
+    const outstanding = Math.round(Math.max(0, due - collected) * 100) / 100;
+    if (outstanding <= 0) throw new ValidationError('There is no outstanding patient balance on this claim.');
+    if (amount > outstanding) throw new ValidationError('Payment exceeds the outstanding patient balance of GHS ' + outstanding.toFixed(2) + '.');
+    const receiptNumber = 'PRC-' + getCounterService().nextReceiptNumber().replace(/^RCP-/, '');
+    const payment = await tx.insuranceClaimPatientPayment.create({
+      data: { receiptNumber, claimId, patientId: claim.patientId, amount, paymentMethod: input.paymentMethod as any,
+        reference: input.reference?.trim() || null, idempotencyKey: input.idempotencyKey,
+        receivedById: userId, notes: input.notes?.trim() || null },
+      include: { receivedBy: { select: { id: true, fullName: true, username: true } } },
+    });
+    await appendAuditLogWithinTransaction(tx, {
+      entityType: 'InsuranceClaimPatientPayment', entityId: payment.id, action: 'create', performedById: userId,
+      newState: { claimId, receiptNumber, amount, paymentMethod: input.paymentMethod },
+      metadata: { workflow: 'premier_claim_patient_collection', patientId: claim.patientId, claimNumber: claim.claimNumber },
+    });
+    return { ...payment, patientAmountDue: due, totalCollected: collected + amount, outstandingBalance: outstanding - amount };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }

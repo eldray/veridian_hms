@@ -8,6 +8,7 @@ import { NHISClaimXMLBuilder } from './xml/NHISClaimXMLBuilder';
 import { ClaimItSubmissionService, claimItClient } from './claimit/ClaimItSubmissionService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import prisma from '../../core/database/prisma.client';
+import { DocumentService } from '../document/DocumentService';
 
 export class InsuranceClaimController extends BaseController {
   private service: InsuranceClaimService;
@@ -15,6 +16,7 @@ export class InsuranceClaimController extends BaseController {
   private xmlBuilder: NHISClaimXMLBuilder;
   private printService: ClaimPrintService;
   private claimit: ClaimItSubmissionService;
+  private documents: DocumentService;
 
   constructor() {
     super();
@@ -23,6 +25,7 @@ export class InsuranceClaimController extends BaseController {
     this.xmlBuilder = new NHISClaimXMLBuilder();
     this.printService = new ClaimPrintService(prisma);
     this.claimit = new ClaimItSubmissionService(prisma);
+    this.documents = new DocumentService();
   }
 
   listClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -180,6 +183,13 @@ export class InsuranceClaimController extends BaseController {
     const html = await this.printService.renderClaimHtml(req.params.claimId);
     res.set('Content-Type', 'text/html; charset=utf-8');
     return res.send(html);
+  });
+
+  recordPremierPatientPayment = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const payment = await this.service.recordPremierPatientPayment(req.params.claimId, req.body, req.user!.id);
+    const receipt = await this.documents.generatePremierClaimReceipt(req.params.claimId, payment.id, req.user!.id);
+    if (!receipt.success) return res.status(500).json({ success: false, message: receipt.error || 'Payment recorded, but receipt generation failed.', data: { payment } });
+    return this.created(res, { payment, receipt }, 'Premier patient payment recorded and receipt generated');
   });
 
   listTrackingClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {

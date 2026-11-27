@@ -9,6 +9,7 @@ import {
   GenerateClaimSchema,
   UpdateClaimDraftSchema,
   ReplaceClaimItemsSchema,
+  PremierPatientPaymentSchema,
 } from './InsuranceClaimValidators';
 
 export const createInsuranceClaimRoutes = () => {
@@ -49,6 +50,7 @@ export const createInsuranceClaimRoutes = () => {
 
   router.get('/:claimId/xml', insuranceClaimController.downloadClaimXml);
   router.get('/:claimId/print', insuranceClaimController.printClaim);
+  router.post('/:claimId/patient-payments', requireRole(['admin', 'accounts', 'records']), validateBody(PremierPatientPaymentSchema), insuranceClaimController.recordPremierPatientPayment);
   router.patch('/:claimId/draft', requireRole(['admin', 'accounts']), validateBody(UpdateClaimDraftSchema), insuranceClaimController.updateDraft);
   router.delete('/:claimId', requireRole(['admin', 'accounts']), insuranceClaimController.deleteDraft);
   router.put('/:claimId/items', requireRole(['admin', 'accounts']), validateBody(ReplaceClaimItemsSchema), insuranceClaimController.replaceItems);
