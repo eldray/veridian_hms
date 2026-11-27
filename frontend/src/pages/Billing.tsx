@@ -1,5 +1,5 @@
 // src/pages/Billing.tsx - COMPLETE CORRECTED VERSION
-import { getPatientName as getPatientName } from '../utils/patient';
+import { getPatientName as resolvePatientName } from '../utils/patient';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
@@ -277,7 +277,7 @@ export default function Billing() {
   }, [searchQuery, dateFilter, statusFilter, activeTab]);
 
   // Helper to get patient name from bill
-  , []);
+  const getPatientName = useCallback((patient: any) => resolvePatientName(patient), []);
 
   // Indexed register: the bill filter calls this for every loaded bill, and scanning the
   // patient list linearly from there froze the screen on a long billing queue.
