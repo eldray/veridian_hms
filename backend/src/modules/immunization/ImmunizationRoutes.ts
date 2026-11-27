@@ -4,6 +4,7 @@ import { protect, requireRole, AuthRequest } from '../../middleware/authMiddlewa
 import { auditSensitiveAccess } from '../../middleware/audit';
 import { StockTransactionRepository } from '../stockTransaction/StockTransactionRepository';
 import { ConflictError, ValidationError } from '../../utils/errors';
+import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
 export function createImmunizationRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -289,7 +290,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
         });
         const allocations = Array.isArray(movement.batchAllocations) ? movement.batchAllocations as Array<{ batchNumber: string; expiryDate: Date | string }> : [];
         const actualBatch = allocations[0];
-        return tx.immunizationRecord.update({
+        const result = await tx.immunizationRecord.update({
           where: { id: created.id },
           data: {
             stockTransactionId: movement.id,
@@ -297,12 +298,33 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
           },
           include: { Vaccine: { include: { StockItem: true } }, StockTransaction: true, AdministeredBy: { select: { id: true, fullName: true } } }
         });
+        await appendAuditLogWithinTransaction(tx, {
+          entityType: 'ImmunizationRecord', entityId: created.id, action: 'CREATE', performedById: recordedBy,
+          newState: {
+            attendanceId, vaccineId, doseNumber: created.doseNumber, administeredAt: created.administeredAt,
+            stockTransactionId: movement.id,
+          },
+          metadata: {
+            source: 'immunization.record.create', stockConsumed: true,
+            clinicalNarrativeOmitted: true, administrationDetailsOmitted: true,
+          },
+        });
+        return result;
       }
 
-      return tx.immunizationRecord.findUniqueOrThrow({
+      const result = await tx.immunizationRecord.findUniqueOrThrow({
         where: { id: created.id },
         include: { Vaccine: { include: { StockItem: true } }, AdministeredBy: { select: { id: true, fullName: true } } }
       });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'ImmunizationRecord', entityId: created.id, action: 'CREATE', performedById: recordedBy,
+        newState: { attendanceId, vaccineId, doseNumber: created.doseNumber, administeredAt: created.administeredAt },
+        metadata: {
+          source: 'immunization.record.create', stockConsumed: false,
+          clinicalNarrativeOmitted: true, administrationDetailsOmitted: true,
+        },
+      });
+      return result;
     });
     return res.status(201).json({ success: true, data: record });
   });
