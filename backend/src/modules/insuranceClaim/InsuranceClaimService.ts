@@ -420,10 +420,10 @@ ${claimsXml}
             insuranceProviderId: true,
             Admission: { select: { admissionDate: true } },
             Medication: {
-              orderBy: { dispensedAt: 'asc' },
+              orderBy: { prescribedAt: 'asc' },
               select: {
                 id: true, name: true, status: true, quantity: true, dosage: true, frequency: true, duration: true,
-                dispensedAt: true, stockItemId: true, serviceCatalogId: true,
+                prescribedAt: true, dispensedAt: true, stockItemId: true, serviceCatalogId: true,
                 StockItem: { select: { id: true, drugCode: true, isNHISCovered: true, name: true, unitOfMeasure: true } },
               },
             },
@@ -474,10 +474,9 @@ ${claimsXml}
     for (const med of medicines) {
       const stockItem = med.StockItem;
       const label = med.name || stockItem?.name || 'this medicine';
-      // Include medicines recorded as dispensed OR administered. Inpatient medication workflows
-      // may advance the status to administered after pharmacy supply; that must not erase the
-      // auditable evidence that the medicine was supplied for this attendance. Prescribed-only
-      // rows remain excluded because there is no recorded supply or administration.
+      // The claim quote/generation path includes only medicines actually supplied
+      // or administered. Prescribed-only medicines remain available in the edit picker,
+      // where an authorised user may add them explicitly to a draft.
       if (!['dispensed', 'administered'].includes(med.status)) {
         unclaimable.push({
           code: stockItem?.drugCode,
@@ -556,6 +555,7 @@ ${claimsXml}
         description: label,
         unitOfMeasure: stockItem.unitOfMeasure,
         quantity,
+        sourceStatus: med.status,
         date: isoDay(med.dispensedAt ?? policyDate),
         prescription: `${med.dosage ?? ''} ${med.frequency ?? ''} x ${med.duration ?? ''}`.trim() || 'As prescribed',
         unitPrice: roundedUnit,
@@ -1704,7 +1704,7 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { StockItem: { select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { include: { StockItem: { select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
 
@@ -1983,7 +1983,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" has no valid NHIS tariff. Configure the payer-rule tariff or active NHIS price before claiming it.`);
       }
       // Prefer the canonical stock-item identity. A matching drug/service code is
-      // only a safe fallback when the dispensed record has no stock-item relation;
+      // only a safe fallback when the prescription record has no stock-item relation;
       // otherwise a reused code must never pull quantities from a different item.
       const matchesDispensedStockItem = (med: any) => {
         if (med.StockItem?.id) return med.StockItem.id === catalog.StockItem?.id;
@@ -1992,17 +1992,19 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           med.ServiceCatalog?.code === row.code
         );
       };
-      const matchingSuppliedMedicines = suppliedMedicines.filter(matchesDispensedStockItem);
+      const matchingSuppliedMedicines = suppliedMedicines.filter((med: any) =>
+        ['prescribed', 'dispensed', 'administered'].includes(String(med.status)) && matchesDispensedStockItem(med)
+      );
       if (!matchingSuppliedMedicines.length) {
-        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine supplied or administered for this attendance. Select a valid supplied medicine before saving the claim.`);
+        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match an active prescription for this attendance. Select a medicine prescribed for this attendance before saving the claim.`);
       }
-      // Claim edits must not increase the quantity beyond what was actually dispensed.
-      // Track totals across rows too, so duplicating a line cannot inflate the claim.
+      // Quantity is editable, but cannot exceed the quantity prescribed on this attendance.
+      // Track totals across rows too, so duplicate lines cannot inflate the claim.
       const suppliedQuantity = matchingSuppliedMedicines.reduce((sum: number, med: any) => sum + Number(med.quantity ?? 0), 0);
       const rowQuantity = Number(row.quantity);
       const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem?.id ?? '') ?? 0;
-      if (!Number.isFinite(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > suppliedQuantity) {
-        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity supplied or administered for this attendance (${suppliedQuantity - alreadyClaimedQuantity} remaining).`);
+      if (!Number.isInteger(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > suppliedQuantity) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the prescribed quantity for this attendance (${suppliedQuantity - alreadyClaimedQuantity} remaining).`);
       }
       claimedQuantityByStockItem.set(catalog.StockItem?.id ?? '', alreadyClaimedQuantity + rowQuantity);
       // A null authorizationRequired is the imported NHIS list not stating the flag, so only an
