@@ -11,7 +11,7 @@ import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { useNursingStore } from '../store/nursingStore';
 import { ShiftHandoverModal } from '../components/nursing/ShiftHandoverModal';
-import { getPatientName } from '../utils/patient';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { describeApiError } from '../utils/apiError';
 import { getLatestVitals } from '../api';
@@ -331,8 +331,8 @@ export default function Nursing() {
       const bedNumber = (beds.find((b: any) => b.id === a.bedId)?.bedNumber || '').toLowerCase();
       return (
         name.includes(q) ||
-        (a.attendanceNumber || '').toLowerCase().includes(q) ||
-        (p?.folderNumber || '').toLowerCase().includes(q) ||
+        getAttendanceNumber(a).toLowerCase().includes(q) ||
+        getPatientFolderNumber(a).toLowerCase().includes(q) ||
         bedNumber.includes(q)
       );
     });
@@ -657,9 +657,9 @@ export default function Nursing() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-[var(--text-primary)] truncate">{name}</p>
                     <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)] mt-0.5 flex-wrap">
-                      <span className="font-mono">#{patient?.folderNumber || '—'}</span>
+                      <span className="font-mono">#{getPatientFolderNumber(att) || '—'}</span>
                       <span className="opacity-40">·</span>
-                      <span className="font-mono">{att.attendanceNumber || '—'}</span>
+                      <span className="font-mono">{getAttendanceNumber(att) || '—'}</span>
                       {bedNumber && (
                         <>
                           <span className="opacity-40">·</span>
@@ -825,8 +825,8 @@ export default function Nursing() {
                           <span className="font-semibold text-[var(--text-primary)] whitespace-nowrap">{name}</span>
                         </div>
                       </td>
-                      <td className={TD_MONO}>#{patient?.folderNumber || '—'}</td>
-                      <td className={TD_MONO}>{att.attendanceNumber || '—'}</td>
+                      <td className={TD_MONO}>#{getPatientFolderNumber(att) || '—'}</td>
+                      <td className={TD_MONO}>{getAttendanceNumber(att) || '—'}</td>
                       <td className={cn(TD, 'text-center')}>
                         {patient?.gender === 'male' ? 'M' : patient?.gender === 'female' ? 'F' : '—'}
                       </td>
