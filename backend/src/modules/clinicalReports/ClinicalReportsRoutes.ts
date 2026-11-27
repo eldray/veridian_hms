@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 import { ClinicalReportsController } from './ClinicalReportsController';
 
 export function createClinicalReportsRoutes(prisma: PrismaClient): Router {
@@ -8,6 +9,7 @@ export function createClinicalReportsRoutes(prisma: PrismaClient): Router {
   const controller = new ClinicalReportsController(prisma);
 
   router.use(protect);
+  router.use(auditSensitiveAccess('ClinicalReport'));
 
   // These aggregate service reports follow the same role matrix as the Reports UI.
   // They contain department workload and result-derived aggregates, not patient rows.
