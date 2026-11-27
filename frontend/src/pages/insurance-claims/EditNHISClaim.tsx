@@ -63,6 +63,7 @@ interface InvestigationItem {
 
 interface MedicineItem {
   id?: string;
+  medicationId?: string;
   code: string;
   description: string;
   quantity: number;
@@ -74,6 +75,7 @@ interface MedicineItem {
   route?: string;
   instructions?: string;
   stockItemId?: string;
+  medicationId?: string;
   serviceCatalogId?: string;
   /** The NHIS-covered amount per unit, set by the payer rule when the claim saves. */
   unitPrice?: number | null;
@@ -103,6 +105,7 @@ interface NhisMedicineQuote {
   lineTotal: number;
   cashPrice?: number;
   authorizationRequired?: boolean;
+  sourceStatus?: string;
 }
 
 /** A medicine the patient was given that the scheme will not pay, and why. */
@@ -659,7 +662,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
 
   // Current selection: what the user picked, else the row being edited
   const selectedItem = pickedItem ?? (editing
-    ? (options.find(o => (editing.stockItemId && o.stockItemId === editing.stockItemId) || (o.code && o.code === editing.code)) ?? null)
+    ? (options.find(o => (editing.medicationId && o.medicationId === editing.medicationId) || (editing.stockItemId && o.stockItemId === editing.stockItemId) || (o.code && o.code === editing.code)) ?? null)
     : null);
   const setSelectedItem = setPickedItem;
 
@@ -672,10 +675,12 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
     (item.code || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const quantityIsValid = Number.isInteger(Number(quantity)) && Number(quantity) > 0 && Number(quantity) <= maxQuantity;
+
   const handleAdd = () => {
-    if (!selectedItem) return;
+    if (!selectedItem || !quantityIsValid) return;
     const prescriptionText = formatPrescriptionDetails(prescription) || editing?.prescription || 'As prescribed';
-    const claimed = Math.max(1, Math.min(Number(quantity) || 1, maxQuantity || Number(quantity) || 1));
+    const claimed = Number(quantity);
     onAdd({
       id: editing?.id,
       code: selectedItem.code,
@@ -686,6 +691,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
       prescription: prescriptionText,
       ...prescription,
       stockItemId: selectedItem.stockItemId,
+      medicationId: selectedItem.medicationId,
       serviceCatalogId: selectedItem.serviceCatalogId ?? editing?.serviceCatalogId,
       unitPrice,
       lineTotal: Math.round(unitPrice * claimed * 100) / 100,
@@ -721,8 +727,8 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity{maxQuantity ? ` (max ${maxQuantity} dispensed)` : ''}</label>
-              <input type="number" min="1" max={maxQuantity || undefined} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity{maxQuantity ? ` (up to ${maxQuantity} prescribed)` : ''}</label>
+              <input type="number" min="1" max={maxQuantity || undefined} step="1" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 0)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
             </div>
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
@@ -734,7 +740,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
             <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
             {filtered.length === 0 && (
               <p className="text-xs text-[var(--text-secondary)] py-2">
-                No dispensed medicine on this visit is on the NHIS list, so there is nothing to claim here.
+                No prescribed medicine on this visit is eligible for NHIS billing.
               </p>
             )}
             {capPickerRows(filtered).map((item) => (
@@ -751,19 +757,22 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
                   <span className="font-medium text-sm">{item.description}</span>
                   <span className="text-xs font-semibold">GHS {Number(item.unitPrice).toFixed(2)}</span>
                 </div>
-                <div className="text-xs text-[var(--text-secondary)]">Code: {item.code} · {item.quantity} dispensed</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {item.code} · {item.quantity} prescribed · {item.sourceStatus || 'recorded'}</div>
               </button>
             ))}
           </div>
           {selectedItem && (
-            <p className="text-xs text-[var(--text-secondary)]">
-              NHIS pays GHS {Number(selectedItem.unitPrice).toFixed(2)} per unit, so this line is GHS{' '}
-              {Math.round(unitPrice * Math.max(1, Math.min(Number(quantity) || 1, selectedItem.quantity)) * 100 / 100).toFixed(2)}.
-            </p>
+            <div className="space-y-1">
+              <p className="text-xs text-[var(--text-secondary)]">
+                NHIS pays GHS {Number(selectedItem.unitPrice).toFixed(2)} per unit. Estimated line: GHS{' '}
+                {(Math.max(0, Number(quantity) || 0) * unitPrice).toFixed(2)}.
+              </p>
+              {!quantityIsValid && <p className="text-xs text-red-500">Enter a whole-number quantity from 1 to {maxQuantity} (the prescribed quantity).</p>}
+            </div>
           )}
         </div>
         <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button onClick={handleAdd} disabled={!selectedItem} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium">
+          <button onClick={handleAdd} disabled={!selectedItem || !quantityIsValid} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium">
             {editing ? 'Save Changes' : 'Add Medicine'}
           </button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
@@ -1042,6 +1051,7 @@ export default function EditNHISClaim() {
           fillMedicinesFromQuote.current = false;
           setMedicines(quotes.map(q => ({
             code: q.code,
+            medicationId: q.medicationId,
             description: q.description,
             quantity: q.quantity,
             date: q.date,
@@ -1236,11 +1246,15 @@ export default function EditNHISClaim() {
         code: attendanceMedications.find((a: any) => a.id === m.medicationId)?.StockItem?.drugCode
           || attendanceMedications.find((a: any) => a.id === m.medicationId)?.stockItem?.drugCode
           || m.code,
+        medicationId: m.medicationId,
         description: m.description,
         quantity: m.quantity,
         date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
         prescription: m.prescriptionText || 'As prescribed',
-        stockItemId: m.medicationId,
+        stockItemId: attendanceMedications.find((a: any) => a.id === m.medicationId)?.stockItemId
+          || attendanceMedications.find((a: any) => a.id === m.medicationId)?.StockItem?.id
+          || attendanceMedications.find((a: any) => a.id === m.medicationId)?.stockItem?.id,
+        medicationId: m.medicationId,
         unitPrice: m.unitPrice,
         lineTotal: m.lineTotal,
       })));
