@@ -323,6 +323,10 @@ export class MomoPaymentService {
       status: intent.status,
       providerStatus: intent.providerStatus,
       paymentId: intent.paymentId,
+      // Safe, formatted reconciliation reference for receipts; never expose the raw provider key.
+      paymentReference: intent.status === 'successful' && intent.providerReference
+        ? `MTN-MOMO:${intent.providerReference}`
+        : undefined,
       providerTransactionId: intent.providerTransactionId,
       failureReason: intent.failureReason,
       createdAt: intent.createdAt,
