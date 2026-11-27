@@ -477,15 +477,27 @@ export default function EditPrivateClaim() {
   };
   const isFinalized = currentClaim?.status === 'finalized';
 
+  const isPremier = /\bpremier\s+health\b/i.test(String(insuranceProvider?.name || currentClaim?.InsuranceProvider?.name || currentClaim?.insuranceProvider?.name || ''));
+  const premierCalculation = (currentClaim?.metadata as any)?.benefitCalculation || null;
+
   useEffect(() => {
     const serviceTotal = services.reduce((s, x) => s + (x.total || x.quantity * x.unitPrice), 0);
     const medicineTotal = medicines.reduce((s, x) => s + (x.total || x.quantity * x.unitPrice), 0);
     const newSubtotal = serviceTotal + medicineTotal;
     setSubtotal(newSubtotal);
-    const covered = newSubtotal * (coveragePercentage / 100);
-    setInsuranceCoverage(covered);
-    setPatientPayable(newSubtotal - covered);
-  }, [services, medicines, coveragePercentage]);
+    if (isPremier && premierCalculation?.scheme === 'premier_health') {
+      const covered = Math.min(newSubtotal, Number(premierCalculation.cap || 0));
+      const excess = Math.max(0, newSubtotal - covered);
+      const isAdmission = premierCalculation.encounterCategory === 'ipd' || premierCalculation.encounterCategory === 'daycase';
+      const patientDue = isAdmission ? excess : Number(premierCalculation.visitOrdinal) === 1 ? 0 : Number(premierCalculation.priorDeferred || 0) + excess;
+      setInsuranceCoverage(covered);
+      setPatientPayable(patientDue);
+    } else {
+      const covered = newSubtotal * (coveragePercentage / 100);
+      setInsuranceCoverage(covered);
+      setPatientPayable(newSubtotal - covered);
+    }
+  }, [services, medicines, coveragePercentage, isPremier, premierCalculation]);
 
   useEffect(() => {
     if (id) {
@@ -503,6 +515,7 @@ export default function EditPrivateClaim() {
     const patient = p(currentClaim);
     const attendance = a(currentClaim);
     const provider = currentClaim.InsuranceProvider ?? currentClaim.insuranceProvider ?? null;
+    const premierProvider = /\bpremier\s+health\b/i.test(String(provider?.name || ''));
     const meta = (currentClaim.metadata || {}) as any;
 
     setInsuranceProvider(provider);
@@ -550,8 +563,8 @@ export default function EditPrivateClaim() {
         date: s.serviceDate ? String(s.serviceDate).split('T')[0] : '',
         serviceCatalogId: s.serviceCatalogId,
         quantity: s.quantity,
-        unitPrice: toNum(s.unitPrice),
-        total: toNum(s.lineTotal),
+        unitPrice: toNum(premierProvider ? (s.grossUnitPrice ?? s.unitPrice) : s.unitPrice),
+        total: toNum(premierProvider ? (s.grossLineTotal ?? s.lineTotal) : s.lineTotal),
       })));
     } else if (meta.services?.length) {
       setServices(meta.services.map((item: any) => ({ ...item, itemCategory: item.itemCategory || 'service' })));
@@ -565,8 +578,8 @@ export default function EditPrivateClaim() {
         billLineItemId: m.billLineItemId ?? null,
         description: m.description,
         quantity: m.quantity,
-        unitPrice: toNum(m.unitPrice),
-        total: toNum(m.lineTotal),
+        unitPrice: toNum(premierProvider ? (m.grossUnitPrice ?? m.unitPrice) : m.unitPrice),
+        total: toNum(premierProvider ? (m.grossLineTotal ?? m.lineTotal) : m.lineTotal),
         date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
         stockItemId: m.serviceCatalog?.stockItemId,
         serviceCatalogId: m.serviceCatalogId,
@@ -762,17 +775,26 @@ export default function EditPrivateClaim() {
 
         <ClaimCard title="Coverage">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            <div>
-              <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">Insurance coverage</label>
-              <div className="flex items-center gap-3">
-                <input type="range" min={0} max={100} value={coveragePercentage} onChange={e => setCoveragePercentage(parseInt(e.target.value))} disabled={locked} className="flex-1" />
-                <span className="w-14 text-right text-[15px] text-[var(--text-secondary)] font-medium">{coveragePercentage}%</span>
+            {isPremier ? (
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Premier benefit cap</p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">The selected cap applies to the combined value of all entries — consultations, ward charges, procedures, medicines, laboratory tests and scans. OPD is GHS 350 per attendance (two visits monthly); IPD is GHS 1,200 per admission; a surgical admission uses the selected GHS 2,000 or GHS 2,200 total cap.</p>
               </div>
-            </div>
+            ) : (
+              <div>
+                <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">Insurance coverage</label>
+                <div className="flex items-center gap-3">
+                  <input type="range" min={0} max={100} value={coveragePercentage} onChange={e => setCoveragePercentage(parseInt(e.target.value))} disabled={locked} className="flex-1" />
+                  <span className="w-14 text-right text-[15px] text-[var(--text-secondary)] font-medium">{coveragePercentage}%</span>
+                </div>
+              </div>
+            )}
             <div className="text-[15px] text-[var(--text-secondary)] space-y-1">
-              <div className="flex justify-between"><span>Subtotal</span><span>{money(subtotal)}</span></div>
-              <div className="flex justify-between"><span>Insurance pays ({coveragePercentage}%)</span><span>{money(insuranceCoverage)}</span></div>
-              <div className="flex justify-between font-semibold border-t pt-1"><span>Patient pays</span><span>{money(patientPayable)}</span></div>
+              <div className="flex justify-between"><span>Gross claim total</span><span>{money(subtotal)}</span></div>
+              <div className="flex justify-between"><span>{isPremier ? 'Premier pays (within cap)' : 'Insurance pays (' + coveragePercentage + '%)'}</span><span>{money(insuranceCoverage)}</span></div>
+              <div className="flex justify-between font-semibold border-t pt-1"><span>{isPremier ? 'Patient payable now' : 'Patient pays'}</span><span>{money(patientPayable)}</span></div>
+              {isPremier && Number(premierCalculation?.deferredPatientBalance || 0) > 0 && <p className="pt-1 text-xs text-[var(--text-secondary)]">First-visit excess deferred to the next Premier OPD attendance: {money(Number(premierCalculation.deferredPatientBalance))}</p>}
+              {isPremier && Number(premierCalculation?.priorDeferred || 0) > 0 && <p className="pt-1 text-xs text-[var(--text-secondary)]">Includes deferred excess from the previous OPD attendance: {money(Number(premierCalculation.priorDeferred))}</p>}
             </div>
           </div>
         </ClaimCard>

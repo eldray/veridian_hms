@@ -43,7 +43,8 @@ export function createInsuranceProviderRoutes(prisma: PrismaClient): Router { //
         }
         return true;
       }),
-      body('contactInfo').optional().isObject()
+      body('contactInfo').optional().isObject(),
+      body('benefitPolicy').optional({ nullable: true }).isObject()
     ], 
     controller.createInsuranceProvider
   );
@@ -54,7 +55,8 @@ export function createInsuranceProviderRoutes(prisma: PrismaClient): Router { //
     [
       body('name').optional().notEmpty().trim().isLength({ min: 2 }),
       body('type').optional().isIn(Object.values(InsuranceType)),
-      body('coveragePercentage').optional().isFloat({ min: 0, max: 100 })
+      body('coveragePercentage').optional().isFloat({ min: 0, max: 100 }),
+      body('benefitPolicy').optional({ nullable: true }).isObject()
     ], 
     controller.updateInsuranceProvider
   );

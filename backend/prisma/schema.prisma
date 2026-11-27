@@ -465,6 +465,8 @@ model InsuranceProvider {
   claimSubmissionMethod ClaimSubmissionMethod @default(portal)
   portalUrl             String?
   contactInfo           Json?
+  // Insurer-specific benefit caps and exceptions; interpreted by the private-insurance benefit engine.
+  benefitPolicy         Json?
   isActive              Boolean               @default(true)
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
@@ -1507,6 +1509,9 @@ model InsuranceClaimItem {
   noOfDays     Int?
   unitPrice    Decimal           @db.Decimal(15, 2)
   lineTotal    Decimal           @db.Decimal(15, 2)
+  // Original charge before insurer benefit caps; lineTotal remains the payer's share.
+  grossUnitPrice Decimal?          @db.Decimal(15, 2)
+  grossLineTotal Decimal?          @db.Decimal(15, 2)
   serviceDate  DateTime?
 
   authNo           String?

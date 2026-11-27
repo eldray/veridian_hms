@@ -765,6 +765,7 @@ export interface InsuranceProvider {
   claimSubmissionMethod: ClaimSubmissionMethod;
   portalUrl?: string;
   contactInfo?: any;
+  benefitPolicy?: Record<string, any> | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

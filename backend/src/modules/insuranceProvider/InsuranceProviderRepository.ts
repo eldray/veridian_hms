@@ -17,14 +17,14 @@ export class InsuranceProviderRepository extends BaseRepository<any, any, any> {
     return this.getModel().findMany({
       where, orderBy: { name: 'asc' },
       select: {
-        id: true, name: true, type: true, coveragePercentage: true, contactInfo: true, isActive: true, createdAt: true, updatedAt: true,
+        id: true, name: true, type: true, coveragePercentage: true, contactInfo: true, benefitPolicy: true, isActive: true, createdAt: true, updatedAt: true,
         _count: { select: { Patient: true, Attendance: true, Bill: true, InsuranceClaim: true } }
       }
     });
   }
 
   async findTypeById(id: string) {
-    return this.getModel().findUnique({ where: { id }, select: { type: true } });
+    return this.getModel().findUnique({ where: { id }, select: { type: true, name: true, benefitPolicy: true } });
   }
 
   async findById(id: string) {

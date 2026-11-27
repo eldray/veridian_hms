@@ -16,6 +16,7 @@ export interface CreateInsuranceProviderDTO {
   portalUrl?: string;
   contactInfo?: ContactInfo | null;
   isActive?: boolean;
+  benefitPolicy?: Record<string, any> | null;
 }
 
 export interface UpdateInsuranceProviderDTO extends Partial<CreateInsuranceProviderDTO> {}
