@@ -19,7 +19,7 @@ import {
   getLeaves, getShifts, getAllUsers, getBills, getBeds,
 } from '../../api';
 import { getMarDoses, type MarDose } from '../../api/nursing';
-import { getPatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
 import {
   WORKLIST_META, type WorklistKind, type DashboardStats,
   fmtTime, patientFullName, getStatusStyle,
@@ -904,7 +904,7 @@ export function RecordsSummary() {
               </p>
               <div className="space-y-1.5">
                 {recentPats.map((p, i) => {
-                  const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
+                  const name = getPatientName(p);
                   return (
                     <Link
                       key={p.id || i}
@@ -1159,7 +1159,7 @@ export function CriticalResultsPanel() {
                 </span>
               </div>
               <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                {t.patient?.name || patientFullName(t)} · {t.resultSummary || t.flag || 'Flagged'}
+                {getPatientName(t)} · {t.resultSummary || t.flag || 'Flagged'}
               </p>
             </Link>
           ))}
@@ -1221,9 +1221,7 @@ export function HighRiskANCPanel() {
               </p>
               <div className="space-y-1.5">
                 {list.slice(0, 5).map((r: any, i: number) => {
-                  const p = r.patient || r.Patient || {};
-                  const name = p.name || p.fullName ||
-                    `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
+                  const name = getPatientName(r);
                   return (
                     <Link
                       key={r.id || i}
@@ -1698,8 +1696,7 @@ export function RecentAdmissionsPanel() {
       ) : (
         <div className="space-y-1.5">
           {toArray(items).map((a: any) => {
-            const p = a.patient || a.Patient || {};
-            const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
+            const name = getPatientName(a);
             const ward = a.Ward?.wardName || a.ward?.wardName || '—';
             const bed = a.Bed?.bedNumber || a.bed?.bedNumber || '—';
             return (
