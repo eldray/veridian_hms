@@ -113,15 +113,23 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
       const item = await prisma.stockItem.findUnique({ where: { id: stockItemId }, select: { id: true, category: true } });
       if (!item || item.category.toLowerCase() !== 'vaccine') return res.status(400).json({ success: false, message: 'Select a medicine item in the Vaccine category.' });
     }
-    const vaccine = await prisma.vaccine.create({ data: {
-      code: String(code).trim().toUpperCase(), name: String(name).trim(), stockItemId,
-      description: req.body.description || null,
-      diseaseTargets: Array.isArray(req.body.diseaseTargets) ? req.body.diseaseTargets : [],
-      recommendedAge: req.body.recommendedAge || null,
-      doseSchedule: req.body.doseSchedule ?? undefined,
-      defaultDoseVolume: req.body.defaultDoseVolume || null,
-      defaultRoute: req.body.defaultRoute || null
-    }});
+    const vaccine = await prisma.$transaction(async (tx) => {
+      const created = await tx.vaccine.create({ data: {
+        code: String(code).trim().toUpperCase(), name: String(name).trim(), stockItemId,
+        description: req.body.description || null,
+        diseaseTargets: Array.isArray(req.body.diseaseTargets) ? req.body.diseaseTargets : [],
+        recommendedAge: req.body.recommendedAge || null,
+        doseSchedule: req.body.doseSchedule ?? undefined,
+        defaultDoseVolume: req.body.defaultDoseVolume || null,
+        defaultRoute: req.body.defaultRoute || null
+      }});
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Vaccine', entityId: created.id, action: 'CREATE', performedById: req.user!.id,
+        newState: { code: created.code, name: created.name, stockItemId: created.stockItemId },
+        metadata: { source: 'immunization.vaccine.create', configurationDetailsOmitted: true }
+      });
+      return created;
+    });
     return res.status(201).json({ success: true, data: vaccine });
   });
 
@@ -133,18 +141,35 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
       const item = await prisma.stockItem.findUnique({ where: { id: req.body.stockItemId }, select: { id: true, category: true } });
       if (!item || item.category.toLowerCase() !== 'vaccine') return res.status(400).json({ success: false, message: 'Select a medicine item in the Vaccine category.' });
     }
-    const vaccine = await prisma.vaccine.update({ where: { id: req.params.id }, data: {
-      ...(code !== undefined ? { code: String(code).trim().toUpperCase() } : {}),
-      ...(name !== undefined ? { name: String(name).trim() } : {}),
-      ...(req.body.description !== undefined ? { description: req.body.description || null } : {}),
-      ...(req.body.diseaseTargets !== undefined ? { diseaseTargets: Array.isArray(req.body.diseaseTargets) ? req.body.diseaseTargets : [] } : {}),
-      ...(req.body.recommendedAge !== undefined ? { recommendedAge: req.body.recommendedAge || null } : {}),
-      ...(req.body.doseSchedule !== undefined ? { doseSchedule: req.body.doseSchedule } : {}),
-      ...(req.body.defaultDoseVolume !== undefined ? { defaultDoseVolume: req.body.defaultDoseVolume || null } : {}),
-      ...(req.body.defaultRoute !== undefined ? { defaultRoute: req.body.defaultRoute || null } : {}),
-      ...(req.body.stockItemId !== undefined ? { stockItemId: req.body.stockItemId || null } : {}),
-      ...(req.body.isActive !== undefined ? { isActive: Boolean(req.body.isActive) } : {})
-    }});
+    const vaccine = await prisma.$transaction(async (tx) => {
+      const before = await tx.vaccine.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, code: true, name: true, stockItemId: true, isActive: true }
+      });
+      const updated = await tx.vaccine.update({ where: { id: req.params.id }, data: {
+        ...(code !== undefined ? { code: String(code).trim().toUpperCase() } : {}),
+        ...(name !== undefined ? { name: String(name).trim() } : {}),
+        ...(req.body.description !== undefined ? { description: req.body.description || null } : {}),
+        ...(req.body.diseaseTargets !== undefined ? { diseaseTargets: Array.isArray(req.body.diseaseTargets) ? req.body.diseaseTargets : [] } : {}),
+        ...(req.body.recommendedAge !== undefined ? { recommendedAge: req.body.recommendedAge || null } : {}),
+        ...(req.body.doseSchedule !== undefined ? { doseSchedule: req.body.doseSchedule } : {}),
+        ...(req.body.defaultDoseVolume !== undefined ? { defaultDoseVolume: req.body.defaultDoseVolume || null } : {}),
+        ...(req.body.defaultRoute !== undefined ? { defaultRoute: req.body.defaultRoute || null } : {}),
+        ...(req.body.stockItemId !== undefined ? { stockItemId: req.body.stockItemId || null } : {}),
+        ...(req.body.isActive !== undefined ? { isActive: Boolean(req.body.isActive) } : {})
+      }});
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Vaccine', entityId: updated.id, action: 'UPDATE', performedById: req.user!.id,
+        previousState: before ? { code: before.code, name: before.name, stockItemId: before.stockItemId, isActive: before.isActive } : null,
+        newState: { code: updated.code, name: updated.name, stockItemId: updated.stockItemId, isActive: updated.isActive },
+        metadata: {
+          source: 'immunization.vaccine.update',
+          changedFields: Object.keys(req.body ?? {}).filter((field) => ['code', 'name', 'description', 'diseaseTargets', 'recommendedAge', 'doseSchedule', 'defaultDoseVolume', 'defaultRoute', 'stockItemId', 'isActive'].includes(field)),
+          configurationDetailsOmitted: true
+        }
+      });
+      return updated;
+    });
     return res.json({ success: true, data: vaccine });
   });
 
@@ -467,6 +492,10 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
     const uniqueKeys = new Set(cleanLines.map((line: any) => line.section + ':' + line.itemKey));
     if (uniqueKeys.size !== cleanLines.length) return res.status(400).json({ success: false, message: 'Duplicate items are not allowed in the same monthly return.' });
     const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.ePIMonthlyReturn.findUnique({
+        where: { periodStart_periodEnd: { periodStart: start, periodEnd: end } },
+        select: { id: true }
+      });
       const header = await tx.ePIMonthlyReturn.upsert({
         where: { periodStart_periodEnd: { periodStart: start, periodEnd: end } },
         create: { periodStart: start, periodEnd: end, facility: req.body.facility || null, notes: req.body.notes || null, createdById: req.user!.id },
@@ -474,6 +503,19 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
       });
       await tx.ePIMonthlyReturnLine.deleteMany({ where: { monthlyReturnId: header.id } });
       if (cleanLines.length) await tx.ePIMonthlyReturnLine.createMany({ data: cleanLines.map((line: any) => ({ ...line, monthlyReturnId: header.id })) });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'EPIMonthlyReturn',
+        entityId: header.id,
+        action: existing ? 'UPDATE' : 'CREATE',
+        performedById: req.user!.id,
+        previousState: existing ? { periodStart: start, periodEnd: end } : null,
+        newState: {
+          periodStart: start, periodEnd: end, lineCount: cleanLines.length,
+          vaccineStockLineCount: cleanLines.filter((line: any) => line.section === 'vaccine_stock').length,
+          otherCommodityLineCount: cleanLines.filter((line: any) => line.section === 'other_commodity').length
+        },
+        metadata: { source: 'immunization.epi_monthly_return.save', freeTextNotesOmitted: true }
+      });
       return tx.ePIMonthlyReturn.findUnique({ where: { id: header.id }, include: { lines: true } });
     });
     return res.json({ success: true, data: result });
