@@ -77,7 +77,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/handlebars": "^4.1.0",
-    "@types/json5": "^0.0.30",
+    "@types/json5": "^2.2.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.3.0",
