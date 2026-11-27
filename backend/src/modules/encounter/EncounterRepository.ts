@@ -3495,6 +3495,13 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       notes.push(note);
 
       const updated = await tx.admission.update({ where: { id: admissionId }, data: { dailyNotes: notes } });
+      await appendClinicalRecordAudit(tx, userId, 'AdmissionDailyNote', note.id, 'create', undefined, {
+        admissionId,
+        attendanceId: admission.attendance?.id ?? null,
+        dailyNoteCount: notes.length,
+        recordedAt: note.recordedAt.toISOString(),
+        contentRecorded: true,
+      }, { workflow: 'inpatient_daily_note_created', clinicalNarrativeOmitted: true });
       return { note, admission: updated };
     }, { isolationLevel: 'Serializable' });
   }
