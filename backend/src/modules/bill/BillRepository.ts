@@ -188,23 +188,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async update(id: string, data: UpdateBillInput, actorId: string) {
-    if (!actorId) throw new ValidationError('Authenticated staff identity is required for bill audit');
-    return this.prisma.$transaction(async (tx) => {
-      const previous = await tx.bill.findUnique({ where: { id } });
-      if (!previous) throw new Error('Bill not found');
-      const updated = await tx.bill.update({
-        where: { id }, data,
-        include: { BillLineItem: true, Patient: true, CounterClient: true },
-      });
-      await appendStructuredFinancialAudit(
-        tx, actorId, 'Bill', id, 'update',
-        { notesChanged: previous.notes !== updated.notes, status: previous.status, balance: toNumber(previous.balance) },
-        { notesChanged: previous.notes !== updated.notes, status: updated.status, balance: toNumber(updated.balance) },
-        { source: 'bill_notes_update' },
-      );
-      return updated;
-    });
+  async update(id: string, data: UpdateBillInput) {
+    return this.getModel().update({ where: { id }, data, include: { BillLineItem: true, Patient: true, CounterClient: true } });
   }
 
   async delete(id: string, actorId: string) {
