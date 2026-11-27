@@ -2174,13 +2174,18 @@ describe('nursing task encounter lifecycle integrity', () => {
 
   it('creates a nursing task for an active encounter', async () => {
     const create = vi.fn().mockResolvedValue({ id: 'task-1', title: 'Check vital signs' });
+    const tx: any = {
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
+      auditLog: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit-1' }) },
+      nursingTask: { create },
+    };
     const prisma: any = {
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
       attendance: {
         findUnique: vi.fn()
           .mockResolvedValueOnce({ id: 'attendance-1', patientId: 'patient-1' })
           .mockResolvedValueOnce({ id: 'attendance-1', status: 'admitted' }),
       },
-      nursingTask: { create },
     };
     const service = new NursingService(prisma);
 
