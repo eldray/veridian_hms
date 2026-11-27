@@ -809,6 +809,7 @@ export default function EditPrivateClaim() {
           const due = Math.max(0, Number(premierCalculation?.patientPayableNow || 0));
           const collected = payments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
           const outstanding = Math.max(0, due - collected);
+          const deferred = Math.max(0, Number(premierCalculation?.deferredPatientBalance || 0));
           const submitCollection = async (event: any) => {
             event.preventDefault();
             const amount = Math.round(Number(collectionAmount) * 100) / 100;
@@ -845,7 +846,7 @@ export default function EditPrivateClaim() {
                     <div><label className="block text-xs text-[var(--text-secondary)] mb-1">Reference (optional)</label><input value={collectionReference} onChange={e => setCollectionReference(e.target.value)} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm" placeholder="Transaction / cheque ref" /></div>
                     <button type="submit" disabled={isCollecting || !collectionAmount} className="rounded-lg bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] px-4 py-2 text-sm font-semibold disabled:opacity-50">{isCollecting ? 'Recording…' : 'Collect & issue receipt'}</button>
                   </form>
-                ) : <p className="text-sm text-[var(--icon-green-text)]">The Premier patient balance for this claim is fully settled.</p>}
+                ) : deferred > 0 ? <p className="text-sm text-[var(--text-secondary)]">No payment is due on this first attendance. GHS {money(deferred)} is deferred to the next Premier OPD attendance.</p> : <p className="text-sm text-[var(--icon-green-text)]">The Premier patient balance for this claim is fully settled.</p>}
                 {payments.length > 0 && <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr><TH>Receipt</TH><TH>Date</TH><TH>Method</TH><TH className="text-right">Amount</TH><TH>Received by</TH></tr></thead><tbody>{payments.map((payment: any) => <tr key={payment.id} className="border-t border-[var(--border-color)]"><td className="px-3 py-2 font-medium">{payment.receiptNumber}</td><td className="px-3 py-2">{new Date(payment.transactionDate).toLocaleString()}</td><td className="px-3 py-2 capitalize">{String(payment.paymentMethod).replace('_', ' ')}</td><td className="px-3 py-2 text-right">{money(Number(payment.amount))}</td><td className="px-3 py-2">{payment.receivedBy?.fullName || payment.receivedBy?.username || '—'}</td></tr>)}</tbody></table></div>}
               </div>
             </ClaimCard>
