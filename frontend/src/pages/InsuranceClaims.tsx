@@ -34,7 +34,7 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
   const [searchTerm, setSearchTerm] = useState(''); const [filterStatus, setFilterStatus] = useState('all');
   const activeTab: InsuranceFamily = family; const [showPendingAttendances, setShowPendingAttendances] = useState(false);
   const [processingClaims, setProcessingClaims] = useState<Set<string>>(new Set()); const [startDate, setStartDate] = useState(currentMonthStart); const [endDate, setEndDate] = useState(currentLocalDate);
-  const [currentPage, setCurrentPage] = useState(1); const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1); const [itemsPerPage, setItemsPerPage] = useState(50);
   const [sortKey, setSortKey] = useState<'total'|'submitted'>('submitted'); const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc');
   const isLoading = claimsLoading || attendanceLoading;
   const currentClaims = activeTab === 'nhis' ? nhisClaims : activeTab === 'private' ? privateClaims : corporateClaims;
