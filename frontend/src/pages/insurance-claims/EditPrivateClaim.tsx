@@ -904,7 +904,7 @@ export default function EditPrivateClaim() {
                   <td className="px-3 py-3 text-[var(--text-secondary)]">{med.description}</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)] text-xs min-w-[220px]">{med.prescriptionText || <span className="text-[var(--text-tertiary)]">No prescription details recorded</span>}</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)]">{fmtDate(med.date)}</td>
-                  <td className="px-3 py-3 text-center text-[var(--text-secondary)]">{med.quantity}</td>
+                  <td className="px-3 py-3 text-center text-[var(--text-secondary)]">{med.quantity}{med.quantityUnit ? ` ${med.quantityUnit}` : ''}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{money(med.unitPrice)}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{money(med.quantity * med.unitPrice)}</td>
                   {canEditClaim && (
