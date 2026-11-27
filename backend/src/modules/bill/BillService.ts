@@ -61,7 +61,7 @@ export class BillService extends BaseService {
     }, createdBy);
   }
 
-  async updateBill(id: string, data: UpdateBillInput, actorId: string) {
+  async updateBill(id: string, data: UpdateBillInput) {
     this.logInfo('Updating bill', { id });
     const existing = await this.billRepository.findById(id);
     if (!existing) throw new Error('Bill not found');
@@ -72,8 +72,7 @@ export class BillService extends BaseService {
     if (attemptedFinancialEdit) {
       throw new Error(`Cannot directly edit bill financial field "${attemptedFinancialEdit}". Use the appropriate billing workflow.`);
     }
-    if (!actorId) throw new ValidationError('Authenticated staff identity is required for bill audit');
-    return this.billRepository.update(id, { notes: data.notes }, actorId);
+    return this.billRepository.update(id, { notes: data.notes });
   }
 
   async deleteBill(id: string, actorId: string) {
