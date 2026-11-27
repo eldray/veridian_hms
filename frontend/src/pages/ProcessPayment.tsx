@@ -443,6 +443,14 @@ export default function ProcessPayment() {
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-lg font-bold text-[var(--icon-green-text)] tabular-nums">{formatCurrency(payment.amount)}</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={Printer}
+                          onClick={() => printReceipt(payment, false)}
+                        >
+                          Receipt
+                        </Button>
                         {canRefund && (
                           <Button
                             variant="ghost"
