@@ -63,7 +63,6 @@ interface InvestigationItem {
 
 interface MedicineItem {
   id?: string;
-  medicationId?: string;
   code: string;
   description: string;
   quantity: number;
@@ -745,10 +744,10 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = []
             )}
             {capPickerRows(filtered).map((item) => (
               <button
-                key={item.stockItemId}
+                key={item.medicationId || item.stockItemId}
                 onClick={() => { setSelectedItem(item); setQuantity(prev => Math.min(prev || 1, item.quantity) || 1); }}
                 className={`w-full text-left p-2 rounded-lg transition-colors ${
-                  selectedItem?.stockItemId === item.stockItemId
+                  (selectedItem?.medicationId && selectedItem.medicationId === item.medicationId) || (!selectedItem?.medicationId && selectedItem?.stockItemId === item.stockItemId)
                     ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
                     : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'
                 }`}
@@ -1060,6 +1059,7 @@ export default function EditNHISClaim() {
             serviceCatalogId: q.serviceCatalogId ?? undefined,
             unitPrice: q.unitPrice,
             lineTotal: q.lineTotal,
+            sourceStatus: q.sourceStatus,
           })));
           return;
         }
