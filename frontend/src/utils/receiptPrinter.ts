@@ -39,6 +39,7 @@ export const printThermalReceipt = ({
   const receiptPayment = {
     amount: payment?.amount ?? 0,
     paymentMethod: payment?.paymentMethod || payment?.paymentMode || 'cash',
+    reference: payment?.reference || undefined,
     // The receipt number identifies this HMS receipt; an external bank/card/MoMo
     // reference is a separate reconciliation value and must remain in the Ref field.
     receiptNumber: payment?.receiptNumber || (payment?.id ? `RCP-${String(payment.id).slice(-8).toUpperCase()}` : undefined),
