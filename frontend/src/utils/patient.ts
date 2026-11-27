@@ -8,6 +8,9 @@ export function getPatientName(source: any): string {
     source.patient, source.Patient, source.patientDetails, source.patientRecord,
     source.data?.patient, source.data?.Patient, source.data,
     source.patient?.data, source.Patient?.data,
+    source.attendance?.patient, source.Attendance?.patient,
+    source.data?.attendance?.patient, source.data?.Attendance?.Patient,
+    source.visit?.patient,
     source.counterClient, source.CounterClient, source.patientName,
     source.patientFullName, source.fullName, source.name, source,
   ];
@@ -41,6 +44,8 @@ export function getPatientFolderNumber(source: any): string {
     source.attendance?.patient, source.attendance?.Patient,
     source.Attendance?.patient, source.Attendance?.Patient,
     source.attendance?.data?.patient, source.Attendance?.data?.Patient,
+    source.data?.attendance?.patient, source.data?.attendance?.Patient,
+    source.data?.Attendance?.patient, source.data?.Attendance?.Patient,
   ];
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object') continue;
