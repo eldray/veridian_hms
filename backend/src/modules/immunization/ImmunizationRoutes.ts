@@ -170,22 +170,43 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
   });
 
   router.patch('/attendances/:id/complete', requireRole(writeRoles), async (req: AuthRequest, res: Response) => {
-    const attendance = await prisma.attendance.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, attendanceType: true, status: true }
-    });
-    if (!attendance || attendance.attendanceType !== 'immunization') {
-      return res.status(404).json({ success: false, message: 'Immunization visit not found.' });
-    }
-    if (attendance.status !== 'completed') {
-      const updated = await prisma.attendance.update({
+    const actorId = req.user!.id;
+    const result = await prisma.$transaction(async (tx) => {
+      // Use the same row lock as vaccination creation so finalization and a
+      // concurrent vaccine write cannot pass each other's state checks.
+      await tx.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${req.params.id} FOR UPDATE`;
+      const attendance = await tx.attendance.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, attendanceType: true, status: true, finalizedAt: true, finalizedById: true }
+      });
+      if (!attendance || attendance.attendanceType !== 'immunization') return { kind: 'not_found' as const };
+      if (attendance.status === 'completed') {
+        return {
+          kind: 'unchanged' as const,
+          data: { id: attendance.id, status: attendance.status, finalizedAt: attendance.finalizedAt, finalizedById: attendance.finalizedById }
+        };
+      }
+      const finalizedAt = new Date();
+      const updated = await tx.attendance.update({
         where: { id: attendance.id },
-        data: { status: 'completed', finalizedAt: new Date(), finalizedById: req.user?.id || null },
+        data: { status: 'completed', finalizedAt, finalizedById: actorId },
         select: { id: true, status: true, finalizedAt: true, finalizedById: true }
       });
-      return res.json({ success: true, data: updated });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'Attendance',
+        entityId: attendance.id,
+        action: 'UPDATE',
+        performedById: actorId,
+        previousState: { status: attendance.status, finalizedAt: attendance.finalizedAt, finalizedById: attendance.finalizedById },
+        newState: { status: updated.status, finalizedAt: updated.finalizedAt, finalizedById: updated.finalizedById },
+        metadata: { source: 'immunization.attendance.complete', attendanceType: 'immunization' }
+      });
+      return { kind: 'updated' as const, data: updated };
+    });
+    if (result.kind === 'not_found') {
+      return res.status(404).json({ success: false, message: 'Immunization visit not found.' });
     }
-    return res.json({ success: true, data: attendance });
+    return res.json({ success: true, data: result.data });
   });
 
   router.get('/patients/:patientId/context', requireRole(readRoles), async (req: Request, res: Response) => {
