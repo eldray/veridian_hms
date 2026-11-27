@@ -248,7 +248,7 @@ export default function TheatreProcedure() {
       setQueueRows(rows.map((row) => ({
         attendanceId: row.attendanceId,
         patientId: row.patientId,
-        name: row.patient?.name || 'Unknown patient',
+        name: getPatientName(row),
         imageUrl: row.patient?.imageUrl,
         folderNumber: row.patient?.folderNumber,
         age: row.patient?.age,
