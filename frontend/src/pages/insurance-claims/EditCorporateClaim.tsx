@@ -49,6 +49,7 @@ interface MedicineItem {
   duration?: string;
   route?: string;
   instructions?: string;
+  quantityUnit?: string;
 }
 
 const p = (claim: any): any => claim?.patient ?? claim?.Patient ?? {};
@@ -260,7 +261,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: any) {
     setSearchTerm(''); setSelectedMedicine(null); setQuantity(editing?.quantity || 1);
     setMedicineDate(editing?.date || new Date().toISOString().split('T')[0]);
     const parsed = parsePrescriptionDetails(editing?.prescriptionText);
-    setPrescription(editing ? { ...parsed, dosage: editing.dosage || parsed.dosage, frequency: editing.frequency || parsed.frequency, duration: editing.duration || parsed.duration, route: editing.route || parsed.route || 'oral', instructions: editing.instructions || parsed.instructions } : { ...EMPTY_PRESCRIPTION });
+    setPrescription(editing ? { ...parsed, dosage: editing.dosage || parsed.dosage, frequency: editing.frequency || parsed.frequency, duration: editing.duration || parsed.duration, route: editing.route || parsed.route || 'oral', instructions: editing.instructions || parsed.instructions, quantityUnit: editing.quantityUnit || parsed.quantityUnit } : { ...EMPTY_PRESCRIPTION });
   }, [isOpen, editing]);
   const catalogsByStock = medicationCatalogByStockItemId(serviceCatalog);
   const filtered = (stockItems || []).filter(m => m.name?.toLowerCase().includes(searchTerm.toLowerCase()) || (m.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase()) || (m.strength || '').toLowerCase().includes(searchTerm.toLowerCase()));
@@ -269,7 +270,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: any) {
     if (!selected) return;
     const catalog = catalogsByStock.get(selected.id);
     const unitPrice = editing?.unitPrice ?? payerUnitPrice(catalog, 'corporate');
-    onAdd({ id: editing?.id, billLineItemId: editing?.billLineItemId, medicationId: selected.id === editing?.stockItemId ? editing?.medicationId : undefined, description: selected.name, date: medicineDate, stockItemId: selected.id, drugCode: selected.drugCode || selected.code || editing?.drugCode, serviceCatalogId: catalog?.id || editing?.serviceCatalogId, quantity, unitPrice, total: quantity * unitPrice, ...prescription, prescriptionText: formatPrescriptionDetails(prescription) || editing?.prescriptionText || '' });
+    onAdd({ id: editing?.id, billLineItemId: editing?.billLineItemId, medicationId: selected.id === editing?.stockItemId ? editing?.medicationId : undefined, description: selected.name, date: medicineDate, stockItemId: selected.id, drugCode: selected.drugCode || selected.code || editing?.drugCode, serviceCatalogId: catalog?.id || editing?.serviceCatalogId, quantity, unitPrice, total: quantity * unitPrice, ...prescription, quantityUnit: selected.unitOfMeasure || editing?.quantityUnit || prescription.quantityUnit, prescriptionText: formatPrescriptionDetails({ ...prescription, quantityUnit: selected.unitOfMeasure || editing?.quantityUnit || prescription.quantityUnit }) || editing?.prescriptionText || '' });
     setSelectedMedicine(null); setSearchTerm(''); setQuantity(1); setPrescription({ ...EMPTY_PRESCRIPTION }); onClose();
   };
   if (!isOpen) return null;
@@ -280,7 +281,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: any) {
         <div className="relative"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" /><input type="text" placeholder="Search medication by name, code or strength…" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedMedicine(null); }} className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></div>
         {searchTerm.trim() && <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--border-color)]"><PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />{capPickerRows(filtered).map(m => <button type="button" key={m.id} onClick={() => setSelectedMedicine(m)} className={'w-full text-left p-2 border-b border-[var(--border-color)] last:border-0 ' + (selected?.id === m.id ? 'bg-[var(--icon-green-bg)]' : 'hover:bg-[var(--bg-main)]')}><div className="text-sm font-medium text-[var(--text-primary)]">{m.name} {m.strength || ''}</div><div className="text-xs text-[var(--text-secondary)]">Code: {m.drugCode} · {priceLabel(payerUnitPrice(catalogsByStock.get(m.id), 'corporate'))}</div></button>)}{!filtered.length && <p className="p-3 text-xs text-[var(--text-tertiary)]">No matching medication found.</p>}</div>}
         {selected && <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3"><div className="text-sm font-semibold text-[var(--text-primary)]">{selected.name} {selected.strength || ''}</div><div className="text-xs text-[var(--text-secondary)]">{selected.drugCode || selected.code} · {priceLabel(payerUnitPrice(catalogsByStock.get(selected.id), 'corporate'))}</div></div>}
-        <div className="grid grid-cols-2 gap-3"><label className="text-xs font-medium text-[var(--text-secondary)]">Quantity<input type="number" min="1" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></label><label className="text-xs font-medium text-[var(--text-secondary)]">Date<input type="date" value={medicineDate} onChange={e => setMedicineDate(e.target.value)} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></label></div>
+        <div className="grid grid-cols-2 gap-3"><label className="text-xs font-medium text-[var(--text-secondary)]">Quantity{selected?.unitOfMeasure ? ` (${selected.unitOfMeasure})` : editing?.quantityUnit ? ` (${editing.quantityUnit})` : ''}<input type="number" min="1" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></label><label className="text-xs font-medium text-[var(--text-secondary)]">Date<input type="date" value={medicineDate} onChange={e => setMedicineDate(e.target.value)} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></label></div>
         <PrescriptionFields value={prescription} onChange={setPrescription} strength={selected?.strength} />
       </div>
       <div className="p-4 border-t border-[var(--border-color)] flex gap-2"><button type="button" onClick={handleAdd} disabled={!selected} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg disabled:opacity-50 text-sm font-medium">{editing ? 'Save Prescription' : 'Add Prescription'}</button><button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">Cancel</button></div>
@@ -519,6 +520,7 @@ export default function EditCorporateClaim() {
           duration: snapshot.durationText ?? linkedMedication?.duration,
           route: snapshot.route ?? linkedMedication?.route,
           instructions: snapshot.instructions ?? linkedMedication?.instructions,
+          quantityUnit: snapshot.quantityUnit ?? linkedMedication?.quantityUnit ?? linkedMedication?.StockItem?.unitOfMeasure ?? '',
           prescriptionText,
         };
       }));
