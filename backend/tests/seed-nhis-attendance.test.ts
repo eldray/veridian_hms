@@ -45,6 +45,11 @@ describe('NHIS demo attendance identity', () => {
       );
     }
 
+    // Seeded bill payments use the ordinary/manual billing path. Mobile Money must
+    // only be recorded after a provider-backed MTN MoMo intent is confirmed.
+    expect(bundle.bills.every((bill) => ['cash', 'card', 'bank_transfer', 'cheque'].includes(bill.paymentMethod))).toBe(true);
+    expect(bundle.bills.some((bill) => String(bill.paymentMethod) === 'mobile_money')).toBe(false);
+
     const dailyCoverage = bundle.attendances.slice(0, COUNTS.attendances).slice(0, 366);
     const dailyDates = new Set(dailyCoverage.map((attendance) => attendance.dateTime.toDateString()));
     expect(dailyDates.size).toBe(366);
