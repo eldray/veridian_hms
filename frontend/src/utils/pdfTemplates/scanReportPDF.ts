@@ -27,6 +27,18 @@ const resolveResultTemplate = (scan: any): TemplateField[] => {
 
 const blank = (v: unknown) => v === undefined || v === null || String(v).trim() === '';
 
+/** Only embed scan files served by this HMS instance; never print arbitrary remote URLs. */
+const printableScanImageUrl = (value: unknown): string | null => {
+  if (!value || typeof window === 'undefined') return null;
+  try {
+    const url = new URL(String(value), window.location.origin);
+    if (url.origin !== window.location.origin || !(url.pathname.startsWith('/uploads/scans/') || url.pathname.startsWith('/api/uploads/scans/'))) return null;
+    return url.href;
+  } catch {
+    return null;
+  }
+};
+
 /** Findings as label/value rows: from the template when structured, else from the saved text. */
 const findingsRows = (scan: any): { rows: string[][]; text: string } => {
   const tpl = resolveResultTemplate(scan);
@@ -93,6 +105,10 @@ export const generateScanReportHTML = (
       const when = s?.completedAt || s?.performedAt || s?.updatedAt;
       const impression = String(s?.impression || s?.conclusion || '').trim();
       const images: string[] = Array.isArray(s?.imageUrls) ? s.imageUrls : [];
+      const printableImages = images.map(printableScanImageUrl).filter((url): url is string => Boolean(url));
+      const imageGallery = printableImages.length
+        ? `<div class="scan-image-gallery"><div class="scan-image-heading">Attached scan images</div>${printableImages.map((url, index) => `<figure class="scan-image-card"><img src="${esc(url)}" alt="Attached scan image ${index + 1}" /><figcaption>Image ${index + 1} of ${printableImages.length}</figcaption></figure>`).join('')}</div>`
+        : '';
       const { rows, text } = findingsRows(s);
 
       const findings = rows.length
@@ -120,7 +136,7 @@ export const generateScanReportHTML = (
         <div class="kv-k" style="margin-bottom:2px">Findings</div>
         ${findings}
         ${impression ? `<div class="note" style="margin-top:8px"><b>Impression:</b> ${multiline(impression)}</div>` : '<div class="note warn"><b>Impression:</b> not recorded.</div>'}
-        ${images.length ? `<div class="muted" style="font-size:8.5pt;margin-top:4px">${images.length} image${images.length === 1 ? '' : 's'} stored with this study.</div>` : ''}`,
+        ${imageGallery}`,
       );
     })
     .join('');
@@ -128,6 +144,14 @@ export const generateScanReportHTML = (
   const performers = Array.from(new Set(list.map(performerOf).filter(Boolean)));
 
   const body = `
+    <style>
+      .scan-image-gallery { margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .scan-image-heading { grid-column: 1 / -1; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #374151; }
+      .scan-image-card { margin: 0; padding: 5px; border: 1px solid #d1d5db; break-inside: avoid; page-break-inside: avoid; }
+      .scan-image-card img { display: block; width: 100%; height: auto; max-height: 105mm; object-fit: contain; }
+      .scan-image-card figcaption { margin-top: 3px; text-align: center; font-size: 7pt; color: #6b7280; }
+      @media print { .scan-image-card img { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+    </style>
     ${docTitle('Imaging report', { ref: reportNo, refLabel: 'Report no.', date: reportedAt, dateLabel: 'Reported' })}
     ${patientBanner(
       patient,
