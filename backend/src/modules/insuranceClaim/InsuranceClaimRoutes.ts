@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { insuranceClaimController } from './InsuranceClaimController';
 import { createClaimBatchRoutes } from './ClaimBatchRouter';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 import { validateBody } from '../../middleware/validate';
 import {
   GenerateClaimSchema,
@@ -13,6 +14,7 @@ import {
 export const createInsuranceClaimRoutes = () => {
   const router = Router();
   router.use(protect);
+  router.use(auditSensitiveAccess('InsuranceClaim'));
   // Match the application access policy: Accounts manage claims and Doctors may
   // review them; other authenticated staff must not gain claim-wide access by
   // calling the API directly instead of using the role-gated frontend.

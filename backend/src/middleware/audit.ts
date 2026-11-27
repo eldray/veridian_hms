@@ -41,6 +41,32 @@ export const auditPatientAccess = (req: Request, res: Response, next: NextFuncti
 
 import prisma from '../core/database/prisma.client';
 
+/** Audit reads and explicit exports from sensitive clinical and financial routers. */
+export const auditSensitiveAccess = (entityType: string) => (req: Request, res: Response, next: NextFunction) => {
+  const user = (req as any).user as { id?: string } | undefined;
+  const isExportPath = /(?:^|\/)(?:export|download|print|xml)(?:\/|$)/i.test(req.path);
+  const isExport = isExportPath && (req.method === 'GET' || req.method === 'POST');
+  if (!user?.id || (req.method !== 'GET' && !isExport)) return next();
+
+  res.once('finish', () => {
+    const params = req.params || {};
+    const entityId = params.id || params.patientId || params.attendanceId || params.claimId || params.admissionId || 'collection';
+    const route = req.route?.path || req.path;
+    void appendAuditLog(prisma, {
+      entityType,
+      entityId: String(entityId),
+      action: isExport ? 'export' : 'view',
+      performedById: user.id!,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') || null,
+      metadata: { method: req.method, route, statusCode: res.statusCode },
+    }).catch((error) => {
+      logger.error('Failed to record sensitive access audit event', { userId: user.id, entityType, route, statusCode: res.statusCode, error });
+    });
+  });
+  next();
+};
+
 export interface AuditLogOptions {
   entityType: string;
   action: AuditAction;

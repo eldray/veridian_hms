@@ -3,12 +3,14 @@ import { PrismaClient, UserRole } from '@prisma/client'; // ✅ Import UserRole
 import { ProcedureController } from './ProcedureController';
 import { body } from 'express-validator';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 
 export function createProcedureRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const controller = new ProcedureController(prisma);
 
   router.use(protect);
+  router.use(auditSensitiveAccess('Procedure'));
 
   // ✅ FIXED: Explicitly type the arrays to prevent TypeScript underlines
   const readRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'];

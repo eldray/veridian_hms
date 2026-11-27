@@ -7,6 +7,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { BillingController } from './BillingController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 
 export function createBillingRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -14,6 +15,7 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
 
   // All routes require authentication
   router.use(protect);
+  router.use(auditSensitiveAccess('Billing'));
 
   // Patient-linked invoice/payment details are limited to staff who handle care,
   // registration/receipts or billing. Pharmacy may read line items for dispensing,

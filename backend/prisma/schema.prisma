@@ -3684,6 +3684,7 @@ enum AuditAction {
   submit
   print
   view
+  export
   login
   logout
 }

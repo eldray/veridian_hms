@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { billController } from './BillController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 
 export const createBillRoutes = () => {
   const router = Router();
 
   // All routes require authentication
   router.use(protect);
+  router.use(auditSensitiveAccess('Bill'));
 
   // Patient-linked bill details are limited to staff who legitimately handle care,
   // registration/receipts or billing. Diagnostics, pharmacy and HR do not need the

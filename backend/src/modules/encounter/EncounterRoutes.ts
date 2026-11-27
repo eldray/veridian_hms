@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { EncounterController } from './EncounterController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 import { uploadScanImages, handleUploadError } from '../../middleware/uploadMiddleware';
 import prismaClient from '../../core/database/prisma.client';
 import { WardChargeService } from '../../cron/wardChargeCron';
@@ -14,6 +15,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
 
   // Global authentication
   router.use(protect);
+  router.use(auditSensitiveAccess('Encounter'));
 
   // ============================================
   // SPECIFIC ROUTES FIRST (BEFORE dynamic :id routes)

@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { protect, requireRole, AuthRequest } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 import { StockTransactionRepository } from '../stockTransaction/StockTransactionRepository';
 import { ConflictError, ValidationError } from '../../utils/errors';
 
@@ -8,6 +9,7 @@ export function createImmunizationRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const stockTransactions = new StockTransactionRepository(prisma);
   router.use(protect);
+  router.use(auditSensitiveAccess('Immunization'));
 
   // Guard against an outdated generated Prisma client missing new model delegates.
   router.use((_req: Request, res: Response, next) => {

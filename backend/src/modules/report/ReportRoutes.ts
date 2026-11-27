@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 import { ReportController } from './ReportController';
 
 export function createReportRoutes(prisma: PrismaClient): Router {
@@ -9,6 +10,7 @@ export function createReportRoutes(prisma: PrismaClient): Router {
   const controller = new ReportController(prisma);
 
   router.use(protect);
+  router.use(auditSensitiveAccess('Report'));
 
   router.get('/financial', requireRole(['admin', 'accounts']), (req, res) => controller.getFinancialReport(req, res));
   router.get('/clinical', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer']), (req, res) => controller.getClinicalReport(req, res));
