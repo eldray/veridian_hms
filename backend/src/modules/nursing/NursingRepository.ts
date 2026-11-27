@@ -405,22 +405,58 @@ async findNotes(filters: NursingNoteFilters) {
   }
 
   async createNote(data: any) {
-    return this.prisma.nursingNote.create({
-      data,
-      include: this.noteInclude(),
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.nursingNote.create({ data, include: this.noteInclude() });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'NursingNote', entityId: created.id, action: 'create', performedById: data.createdById,
+        newState: {
+          attendanceId: created.attendanceId, admissionId: created.admissionId,
+          noteType: created.noteType, shift: created.shift, isFlagged: created.isFlagged,
+          contentRecorded: Boolean(created.content),
+        },
+        metadata: { workflow: 'nursing_note_created', clinicalNarrativeOmitted: true },
+      });
+      return created;
     });
   }
 
-  async updateNote(id: string, data: any) {
-    return this.prisma.nursingNote.update({
-      where: { id },
-      data: { ...data, editedAt: new Date() },
-      include: this.noteInclude(),
+  async updateNote(id: string, data: any, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.nursingNote.findUnique({ where: { id } });
+      if (!current) throw new NotFoundError('Nursing note', id);
+      const updated = await tx.nursingNote.update({
+        where: { id }, data: { ...data, editedAt: new Date() }, include: this.noteInclude(),
+      });
+      const state = (note: any) => ({
+        attendanceId: note.attendanceId, admissionId: note.admissionId,
+        noteType: note.noteType, shift: note.shift, isFlagged: note.isFlagged,
+        contentRecorded: Boolean(note.content),
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'NursingNote', entityId: id, action: 'update', performedById: userId,
+        previousState: state(current), newState: state(updated),
+        metadata: { workflow: 'nursing_note_edited', clinicalNarrativeOmitted: true, editedFields: Object.keys(data) },
+      });
+      return updated;
     });
   }
 
-  async deleteNote(id: string) {
-    return this.prisma.nursingNote.delete({ where: { id } });
+  async deleteNote(id: string, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.nursingNote.findUnique({ where: { id } });
+      if (!current) throw new NotFoundError('Nursing note', id);
+      const deleted = await tx.nursingNote.delete({ where: { id } });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'NursingNote', entityId: id, action: 'delete', performedById: userId,
+        previousState: {
+          attendanceId: current.attendanceId, admissionId: current.admissionId,
+          noteType: current.noteType, shift: current.shift, isFlagged: current.isFlagged,
+          contentRecorded: Boolean(current.content),
+        },
+        metadata: { workflow: 'nursing_note_deleted', clinicalNarrativeOmitted: true },
+      });
+      return deleted;
+    });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -480,21 +516,57 @@ async findTasks(filters: NursingTaskFilters) {
   }
 
   async createTask(data: any) {
-    return this.prisma.nursingTask.create({
-      data,
-      include: this.taskInclude(),
+    return this.prisma.$transaction(async (tx) => {
+      const created = await tx.nursingTask.create({ data, include: this.taskInclude() });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'NursingTask', entityId: created.id, action: 'create', performedById: data.createdById,
+        newState: {
+          attendanceId: created.attendanceId, admissionId: created.admissionId,
+          taskType: created.taskType, priority: created.priority, status: created.status,
+          scheduledAt: created.scheduledAt, descriptionRecorded: Boolean(created.description),
+        },
+        metadata: { workflow: 'nursing_task_created', clinicalNarrativeOmitted: true },
+      });
+      return created;
     });
   }
 
-  async updateTask(id: string, data: any) {
-    return this.prisma.nursingTask.update({
-      where: { id },
-      data,
-      include: this.taskInclude(),
+  async updateTask(id: string, data: any, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.nursingTask.findUnique({ where: { id } });
+      if (!current) throw new NotFoundError('Nursing task', id);
+      const updated = await tx.nursingTask.update({ where: { id }, data, include: this.taskInclude() });
+      const state = (task: any) => ({
+        attendanceId: task.attendanceId, admissionId: task.admissionId,
+        taskType: task.taskType, priority: task.priority, status: task.status,
+        scheduledAt: task.scheduledAt, completedAt: task.completedAt,
+        completedById: task.completedById, descriptionRecorded: Boolean(task.description),
+      });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'NursingTask', entityId: id, action: 'update', performedById: userId,
+        previousState: state(current), newState: state(updated),
+        metadata: { workflow: 'nursing_task_updated', clinicalNarrativeOmitted: true, changedFields: Object.keys(data) },
+      });
+      return updated;
     });
   }
 
-  async deleteTask(id: string) {
-    return this.prisma.nursingTask.delete({ where: { id } });
+  async deleteTask(id: string, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.nursingTask.findUnique({ where: { id } });
+      if (!current) throw new NotFoundError('Nursing task', id);
+      const deleted = await tx.nursingTask.delete({ where: { id } });
+      await appendAuditLogWithinTransaction(tx, {
+        entityType: 'NursingTask', entityId: id, action: 'delete', performedById: userId,
+        previousState: {
+          attendanceId: current.attendanceId, admissionId: current.admissionId,
+          taskType: current.taskType, priority: current.priority, status: current.status,
+          scheduledAt: current.scheduledAt, completedAt: current.completedAt,
+          completedById: current.completedById, descriptionRecorded: Boolean(current.description),
+        },
+        metadata: { workflow: 'nursing_task_deleted', clinicalNarrativeOmitted: true },
+      });
+      return deleted;
+    });
   }
 }
