@@ -1,3 +1,4 @@
+import { getPatientName } from '../../utils/patient';
 import {
   ArrowDownLeft, ArrowUpRight, CalendarDays, CheckCircle2, Clock3,
   FileHeart, Hash, XCircle,
@@ -25,9 +26,8 @@ function formatDate(value: any) {
 }
 
 function patientName(referral: any) {
-  const patient = referral?.patient || {};
-  return [patient.surname, patient.otherNames].filter(Boolean).join(' ').trim()
-    || patient.fullName || patient.name || 'Patient not linked';
+  const name = getPatientName(referral);
+  return name === 'Unknown Patient' ? 'Patient not linked' : name;
 }
 
 function initials(name: string) {
