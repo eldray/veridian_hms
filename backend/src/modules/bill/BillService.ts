@@ -61,7 +61,8 @@ export class BillService extends BaseService {
     }, createdBy);
   }
 
-  async updateBill(id: string, data: UpdateBillInput) {
+  async updateBill(id: string, data: UpdateBillInput, actorId: string) {
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for bill audit');
     this.logInfo('Updating bill', { id });
     const existing = await this.billRepository.findById(id);
     if (!existing) throw new Error('Bill not found');
@@ -72,17 +73,18 @@ export class BillService extends BaseService {
     if (attemptedFinancialEdit) {
       throw new Error(`Cannot directly edit bill financial field "${attemptedFinancialEdit}". Use the appropriate billing workflow.`);
     }
-    return this.billRepository.update(id, { notes: data.notes });
+    return this.billRepository.update(id, { notes: data.notes }, actorId);
   }
 
-  async deleteBill(id: string) {
+  async deleteBill(id: string, actorId: string) {
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for bill audit');
     this.logInfo('Deleting bill', { id });
     const existing = await this.billRepository.findById(id);
     if (!existing) throw new Error('Bill not found');
     if ((existing.Payment?.length ?? 0) > 0 || ['paid', 'partial'].includes(existing.status)) {
       throw new Error('A bill with payment history cannot be deleted. Preserve the audit trail and use the approved cancellation or adjustment workflow.');
     }
-    return this.billRepository.delete(id);
+    return this.billRepository.delete(id, actorId);
   }
 
   async addPayment(billId: string, paymentData: AddPaymentInput, receivedById: string) {
