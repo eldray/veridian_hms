@@ -266,7 +266,7 @@ export const seedBills = async (
         stats['payments'] = (stats['payments'] ?? 0) + 1;
         generated = await prisma.bill.findUnique({ where: { id: generated.id } });
       } catch (error: any) {
-        const reason = `payment rejected: ${String(error?.message).replace(/\\s+/g, ' ').slice(0, 100)}`;
+        const reason = `payment rejected: ${String(error?.message).replace(/\s+/g, ' ').slice(0, 100)}`;
         note(reason);
         console.warn(`   ⚠️ ${reason} (bill ${generated.billNumber}; attempted ${payAmount.toFixed(2)}; balance before payment ${targetBalance.toFixed(2)})`);
       }
