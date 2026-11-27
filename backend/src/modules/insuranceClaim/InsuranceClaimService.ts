@@ -103,6 +103,102 @@ export class InsuranceClaimService extends BaseService {
     if (m < 0 || (m === 0 && asOf.getDate() < dob.getDate())) age--;
     return Math.max(0, age);
   }
+  
+  /** Prevents edits/deletions to an earlier OPD claim after a later claim has consumed its monthly allowance. */
+  private async assertNoLaterPremierClaims(db: any, context: any) {
+    if (context?.InsuranceProvider?.benefitPolicy?.scheme !== 'premier_health' || context.encounterCategory !== 'opd') return;
+    const serviceDate = new Date(context.dateTime);
+    const nextMonth = new Date(serviceDate.getFullYear(), serviceDate.getMonth() + 1, 1);
+    const laterAttendances = await db.attendance.findMany({
+      where: { patientId: context.patientId, insuranceProviderId: context.insuranceProviderId, encounterCategory: 'opd', status: 'completed', dateTime: { gt: serviceDate, lt: nextMonth } },
+      select: { id: true },
+    });
+    if (!laterAttendances.length) return;
+    const laterClaim = await db.insuranceClaim.findFirst({
+      where: { attendanceId: { in: laterAttendances.map((visit: any) => visit.id) }, insuranceProviderId: context.insuranceProviderId, status: { in: ['draft', 'finalized'] } },
+      select: { claimNumber: true },
+    });
+    if (laterClaim) {
+      throw new ValidationError('This earlier Premier OPD claim cannot be edited or deleted while a later attendance claim (' + laterClaim.claimNumber + ') exists. Remove later draft claims first so the monthly benefit and deferred patient amount can be recalculated safely.');
+    }
+  }
+
+  /** Applies Premier's single aggregate cap to every priced line in an attendance/admission. */
+  private async applyPremierBenefitAllocation(db: any, context: any, rows: any[]) {
+    const policy = context?.InsuranceProvider?.benefitPolicy;
+    if (!policy || policy.scheme !== 'premier_health') return null;
+    const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+    const grossAmount = money(rows.reduce((sum, row) => sum + Number(row.grossLineTotal ?? row.lineTotal ?? 0), 0));
+    const serviceDate = new Date(context.dateTime);
+    if (!Number.isFinite(serviceDate.getTime())) throw new ValidationError('Premier claim has an invalid service date.');
+
+    let cap = 0;
+    let visitOrdinal: number | null = null;
+    let priorInsurerUsed = 0;
+    let priorDeferred = 0;
+    let surgeryCase = false;
+    let benefitPeriod = '';
+
+    if (context.encounterCategory === 'ipd' || context.encounterCategory === 'daycase') {
+      if (!context.Admission?.id) throw new ValidationError('Premier inpatient/day-case claim must be linked to an admission before benefits can be calculated.');
+      surgeryCase = rows.some(row => row.itemCategory === 'procedure');
+      cap = surgeryCase ? Number(policy.surgery?.cap) : Number(policy.ipd?.perAdmissionCap);
+      benefitPeriod = 'admission:' + context.Admission.id;
+    } else {
+      const monthStart = new Date(serviceDate.getFullYear(), serviceDate.getMonth(), 1);
+      const priorAttendances = await db.attendance.findMany({
+        where: { patientId: context.patientId, insuranceProviderId: context.insuranceProviderId, encounterCategory: 'opd', status: 'completed', dateTime: { gte: monthStart, lt: serviceDate }, id: { not: context.id } },
+        select: { id: true, dateTime: true }, orderBy: { dateTime: 'asc' },
+      });
+      visitOrdinal = priorAttendances.length + 1;
+      const priorIds = priorAttendances.map((visit: any) => visit.id);
+      const priorClaims = priorIds.length ? await db.insuranceClaim.findMany({
+        where: { attendanceId: { in: priorIds }, insuranceProviderId: context.insuranceProviderId, status: { in: ['draft', 'finalized'] } },
+        select: { attendanceId: true, metadata: true, totalClaimAmount: true },
+      }) : [];
+      const claimsByAttendance = new Set(priorClaims.map((claim: any) => claim.attendanceId));
+      const earlierUnclaimed = priorAttendances.find((visit: any) => !claimsByAttendance.has(visit.id));
+      if (earlierUnclaimed) {
+        throw new ValidationError('Generate Premier OPD claims in attendance-date order. Earlier completed attendance ' + earlierUnclaimed.id + ' must be claimed first so the monthly benefit and deferred patient amount are calculated correctly.');
+      }
+      for (const priorClaim of priorClaims) {
+        const calc = (priorClaim.metadata as any)?.benefitCalculation;
+        priorInsurerUsed += Number(calc?.scheme === 'premier_health' ? calc.insurerCovered || 0 : priorClaim.totalClaimAmount || 0);
+        if (calc?.scheme === 'premier_health') priorDeferred += Number(calc.deferredPatientBalance || 0);
+      }
+      cap = visitOrdinal !== null && visitOrdinal <= 2 ? Math.max(0, Math.min(Number(policy.opd?.perVisitCap), Number(policy.opd?.perVisitCap) * 2 - priorInsurerUsed)) : 0;
+      benefitPeriod = serviceDate.getFullYear() + '-' + String(serviceDate.getMonth() + 1).padStart(2, '0');
+    }
+
+    if (!Number.isFinite(cap) || cap < 0) throw new ValidationError('Premier benefit cap is not configured correctly.');
+    const insurerTarget = money(Math.min(grossAmount, cap));
+    const allocationFactor = grossAmount > 0 ? insurerTarget / grossAmount : 0;
+    let allocated = 0;
+    rows.forEach((row, index) => {
+      const quantity = Math.max(1, Number(row.quantity) || 1);
+      const grossLineTotal = money(Number(row.grossLineTotal ?? row.lineTotal ?? 0));
+      const grossUnitPrice = money(Number(row.grossUnitPrice ?? (grossLineTotal / quantity)));
+      const insurerLineTotal = index === rows.length - 1
+        ? money(Math.min(grossLineTotal, Math.max(0, insurerTarget - allocated)))
+        : money(Math.min(grossLineTotal, grossLineTotal * allocationFactor));
+      allocated = money(allocated + insurerLineTotal);
+      row.grossUnitPrice = grossUnitPrice;
+      row.grossLineTotal = grossLineTotal;
+      row.lineTotal = insurerLineTotal;
+      row.unitPrice = money(insurerLineTotal / quantity);
+    });
+    const insurerCovered = money(rows.reduce((sum, row) => sum + Number(row.lineTotal || 0), 0));
+    const patientExcess = money(Math.max(0, grossAmount - insurerCovered));
+    const patientPayableNow = context.encounterCategory !== 'opd' ? patientExcess : visitOrdinal === 1 ? 0 : money(priorDeferred + patientExcess);
+    const deferredPatientBalance = context.encounterCategory !== 'opd' ? 0 : visitOrdinal === 1 ? patientExcess : 0;
+    return {
+      scheme: 'premier_health', benefitPeriod, encounterCategory: context.encounterCategory,
+      visitOrdinal, cap, grossAmount, insurerCovered, patientExcess,
+      priorInsurerUsed: money(priorInsurerUsed), priorDeferred: money(priorDeferred),
+      patientPayableNow, deferredPatientBalance, surgeryCase,
+      note: surgeryCase ? 'Surgical admission cap applies to all claim entries, including ward charges, consultations, medicines, procedures, labs and scans.' : 'The applicable cap applies to the combined value of all claim entries.',
+    };
+  }
 
 
     // ==========================================
@@ -420,7 +516,7 @@ ${claimsXml}
             insuranceProviderId: true,
             Admission: { select: { admissionDate: true } },
             Medication: {
-              orderBy: { prescribedAt: 'asc' },
+              orderBy: { prescribedAt: 'asc' }
               select: {
                 id: true, name: true, status: true, quantity: true, dosage: true, frequency: true, duration: true,
                 prescribedAt: true, dispensedAt: true, stockItemId: true, serviceCatalogId: true,
@@ -572,14 +668,17 @@ ${claimsXml}
   async updateClaimDraft(claimId: string, data: any, userId: string) {
     const existing = await this.prisma.insuranceClaim.findUnique({
       where: { id: claimId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, metadata: true },
     });
     if (!existing) throw new NotFoundError('Claim', claimId);
     if (existing.status !== 'draft') throw new ValidationError('Only draft claims can be edited.');
 
-    const fields = ['diagnosisCodes', 'procedureCodes', 'labTestCodes', 'scanCodes', 'serviceCodes', 'medicationCodes', 'totalClaimAmount', 'notes', 'preAuthNumber', 'principalGDRG', 'typeOfService', 'serviceOutcome', 'typeOfAttendance', 'mdcCode', 'datesOfService', 'metadata'];
+    const fields = ['diagnosisCodes', 'procedureCodes', 'labTestCodes', 'scanCodes', 'serviceCodes', 'medicationCodes', 'totalClaimAmount', 'notes', 'preAuthNumber', 'principalGDRG', 'typeOfService', 'serviceOutcome', 'typeOfAttendance', 'mdcCode', 'datesOfService'];
     const toUpdate: any = { updatedById: userId, updatedAt: new Date() };
     fields.forEach(f => { if (data[f] !== undefined) toUpdate[f] = data[f]; });
+    if (data.metadata !== undefined) {
+      toUpdate.metadata = { ...((existing.metadata as any) || {}), ...(data.metadata || {}) };
+    }
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
   }
 
@@ -591,17 +690,20 @@ ${claimsXml}
   async deleteDraftClaim(claimId: string) {
     const claim = await this.prisma.insuranceClaim.findUnique({
       where: { id: claimId },
-      select: {
-        id: true,
-        claimNumber: true,
-        status: true,
-        batchId: true,
+      include: {
+        InsuranceProvider: { select: { benefitPolicy: true } },
+        Attendance: { select: { id: true, dateTime: true, encounterCategory: true } },
         trackingEvents: { select: { id: true }, take: 1 },
         claimitSubmissions: { select: { id: true }, take: 1 },
       },
     });
     if (!claim) throw new NotFoundError('Claim', claimId);
     if (claim.status !== 'draft') throw new ValidationError('Only draft claims can be deleted. Finalized claim history must be retained.');
+    await this.assertNoLaterPremierClaims(this.prisma, {
+      patientId: claim.patientId, insuranceProviderId: claim.insuranceProviderId,
+      dateTime: claim.Attendance?.dateTime, encounterCategory: claim.Attendance?.encounterCategory,
+      InsuranceProvider: claim.InsuranceProvider,
+    });
     if (claim.batchId) throw new ValidationError('This claim belongs to a claim batch and cannot be deleted.');
     if (claim.trackingEvents.length || claim.claimitSubmissions.length) {
       throw new ValidationError('This claim has submission or tracking history and cannot be deleted. Keep it for audit.');
@@ -1436,6 +1538,7 @@ ${claimsXml}
     payer: 'private_insurance' | 'corporate',
     coveragePercentage = 100,
     corporateDiscountPercentage = 0,
+    includePrivateExemptions = false,
   ) {
     const serviceDate = new Date(att.dateTime);
     const lines: any[] = [];
@@ -1460,7 +1563,7 @@ ${claimsXml}
       }
       const gross = money(unit * qty);
       const covered = payer === 'private_insurance'
-        ? (isPayerCovered(priceRow, 'private_insurance', { isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted })
+        ? ((includePrivateExemptions || isPayerCovered(priceRow, 'private_insurance', { isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted }))
             ? money(gross * Math.min(100, Math.max(0, coveragePercentage)) / 100)
             : 0)
         : gross;
@@ -1493,6 +1596,8 @@ ${claimsXml}
         quantity: qty,
         unitPrice: money(covered / qty),
         lineTotal: covered,
+        grossUnitPrice: money(unit),
+        grossLineTotal: gross,
         serviceDate: record.completedAt || record.performedAt || record.date || record.dispensedAt || serviceDate,
         serviceCatalogId: catalog.id,
         ...(source === 'medication' ? { medicationId: id } : {}),
@@ -1522,18 +1627,34 @@ ${claimsXml}
         ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true, LabTestTemplate: true } },
         Medication: { include: { ServiceCatalog: true, StockItem: true } }, Procedure: { include: { ServiceCatalog: true, ProcedureTemplate: true } },
         Scan: { include: { ServiceCatalog: true, ScanTemplate: true } },
+        Admission: true,
+        WardChargeRecord: { where: { isBilled: false }, include: { ward: { select: { wardName: true } } } },
       }});
       if (!att) throw new NotFoundError('Attendance', attendanceId);
       if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'private') throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit. Select a private insurance provider on the attendance first.`);
-      const coverage = Math.min(100, Math.max(0, Number(att.InsuranceProvider.coveragePercentage) || 0));
-      const items = await this.buildDirectPayerClaimItems(tx, att, 'private_insurance', coverage);
+      const providerBenefitPolicy = att.InsuranceProvider.benefitPolicy as { scheme?: string } | null;
+      const isPremier = providerBenefitPolicy?.scheme === 'premier_health';
+      const coverage = isPremier ? 100 : Math.min(100, Math.max(0, Number(att.InsuranceProvider.coveragePercentage) || 0));
+      const items = await this.buildDirectPayerClaimItems(tx, att, 'private_insurance', coverage, 0, isPremier);
+      for (const wardCharge of att.WardChargeRecord || []) {
+        const wardAmount = Number(wardCharge.insurancePrice || wardCharge.cashPrice || 0);
+        if (wardAmount <= 0) continue;
+        items.push({ itemCategory: 'service', itemType: 'ward', code: 'WARD-' + wardCharge.wardId, description: 'Ward accommodation - ' + (wardCharge.ward?.wardName || 'Ward'), quantity: 1, unitPrice: wardAmount, lineTotal: wardAmount, grossUnitPrice: wardAmount, grossLineTotal: wardAmount, serviceDate: wardCharge.chargeDate });
+      }
+      items.forEach((item: any, index: number) => { item.itemNumber = index + 1; });
+      const benefitCalculation = isPremier ? await this.applyPremierBenefitAllocation(tx, att, items) : null;
       const total = Math.round(items.reduce((sum: number, item: any) => sum + toNumber(item.lineTotal), 0) * 100) / 100;
-      if (!Number.isFinite(total) || total <= 0) throw new ValidationError('The private-insurance claim amount must be greater than zero.');
+      if (!Number.isFinite(total) || total <= 0) {
+        if (isPremier && benefitCalculation?.encounterCategory === 'opd' && Number(benefitCalculation.visitOrdinal) > 2) {
+          throw new ValidationError('Premier covers a maximum of two OPD attendances per calendar month. This attendance has no remaining OPD benefit; collect the full amount from the patient instead of submitting an insurer claim.');
+        }
+        throw new ValidationError('The private-insurance claim amount must be greater than zero.');
+      }
       const claim = await tx.insuranceClaim.create({ data: {
         claimNumber: getCounterService().nextPrivateClaimNumber(), billId: null, patientId: att.patientId, attendanceId: att.id,
         insuranceProviderId: att.insuranceProviderId!, totalClaimAmount: total, status: 'draft', createdById: userId,
-        metadata: { source: 'attendance_direct', coveragePercentage: coverage },
+        metadata: { source: 'attendance_direct', coveragePercentage: coverage, ...(benefitCalculation ? { benefitCalculation } : {}) },
         diagnosisCodes: safeMap(att.AttendanceDiagnosis, (d: any) => d.Diagnosis?.icdCode),
         procedureCodes: safeMap(att.Procedure, (p: any) => p.ProcedureTemplate?.procedureCode ?? p.ServiceCatalog?.nhisServiceCode),
         labTestCodes: safeMap(att.LabTest, (l: any) => l.status === 'completed' ? (l.LabTestTemplate?.investigationCode ?? l.ServiceCatalog?.nhisServiceCode) : null),
@@ -1704,9 +1825,14 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { include: { StockItem: { select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, name: true, type: true, benefitPolicy: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, encounterCategory: true, Admission: { select: { id: true, admissionDate: true } }, Medication: { include: { StockItem: { select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
+  await this.assertNoLaterPremierClaims(this.prisma, {
+    patientId: claim.patientId, insuranceProviderId: claim.insuranceProviderId,
+    dateTime: claim.Attendance?.dateTime, encounterCategory: claim.Attendance?.encounterCategory,
+    InsuranceProvider: claim.InsuranceProvider,
+  });
 
   // The forms may send ids that are not valid foreign keys (e.g. a lab/scan *template* id in
   // `serviceCatalogId`). Keep only ids that exist, otherwise the whole save fails on the FK.
@@ -1788,6 +1914,8 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       noOfDays: it.noOfDays ?? null,
       unitPrice,
       lineTotal: it.lineTotal ?? quantity * unitPrice,
+      grossUnitPrice: it.grossUnitPrice ?? unitPrice,
+      grossLineTotal: it.grossLineTotal ?? it.lineTotal ?? quantity * unitPrice,
       serviceDate: serviceDate && !isNaN(serviceDate.getTime()) ? serviceDate : null,
       clinician: it.clinician ?? null,
       prescriberNo: it.prescriberNo ?? null,
@@ -1810,6 +1938,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   });
 
   let totalClaimAmount: number | undefined;
+  let benefitCalculation: any = null;
   // Non-NHIS claim totals must reconcile to the edited line items. Corporate discounts
   // are applied to the lines as well as the header so a saved claim never has mismatched totals.
   const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -1830,6 +1959,16 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
             : 0;
         }
       }
+    } else if ((claim.InsuranceProvider?.benefitPolicy as { scheme?: string } | null)?.scheme === 'premier_health') {
+      benefitCalculation = await this.applyPremierBenefitAllocation(this.prisma, {
+        id: claim.Attendance?.id,
+        patientId: claim.patientId,
+        insuranceProviderId: claim.insuranceProviderId,
+        dateTime: claim.Attendance?.dateTime,
+        encounterCategory: claim.Attendance?.encounterCategory,
+        Admission: claim.Attendance?.Admission,
+        InsuranceProvider: claim.InsuranceProvider,
+      }, rows);
     }
     totalClaimAmount = money(rows.reduce((sum, row) => sum + Number(row.lineTotal || 0), 0));
   }
@@ -1878,6 +2017,8 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         noOfDays: null,
         unitPrice: gdrgAmount,
         lineTotal: gdrgAmount,
+        grossUnitPrice: gdrgAmount,
+        grossLineTotal: gdrgAmount,
         serviceDate: policyDate,
         clinician: null,
         prescriberNo: null,
@@ -2066,6 +2207,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       data: {
         updatedById: userId,
         updatedAt: new Date(),
+        ...(benefitCalculation ? { metadata: { ...((claim.metadata as any) || {}), benefitCalculation } } : {}),
         ...(totalClaimAmount !== undefined
           ? {
               totalClaimAmount,

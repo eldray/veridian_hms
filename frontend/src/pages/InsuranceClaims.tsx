@@ -58,7 +58,7 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
   const mark=(id:string)=>setProcessingClaims(p=>new Set(p).add(id)); const unmark=(id:string)=>setProcessingClaims(p=>{const n=new Set(p); n.delete(id); return n;});
   const handleGenerateClaim=async(id:string)=>{ try{ mark(id); if(activeTab==='nhis'){ await generateNHISClaim(id); success('NHIS Claim Generated','Claim draft created successfully'); } else if(activeTab==='private'){ await generatePrivateInsuranceClaim(id); success('Private Insurance Claim Generated','Claim draft created successfully'); } else { await generateCorporateClaim(id); success('Corporate Claim Generated','Claim created successfully'); } await loadData(); setShowPendingAttendances(false); } catch(e:any){ toastError('Generation failed', e?.response?.data?.message||e?.message||'Could not generate claim'); } finally{ unmark(id); } };
   const handleGenerateAllClaims = async () => {
-    const eligible = [...eligibleAttendances];
+    const eligible = [...eligibleAttendances].sort((a: any, b: any) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
     if (!eligible.length) return;
     const confirmed = await confirmDialog({
       title: `Generate all ${eligible.length} ${familyMeta.label} claims?`,
@@ -94,7 +94,10 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
     };
 
     try {
-      await Promise.all(Array.from({ length: Math.min(5, eligible.length) }, () => worker()));
+      // Premier OPD benefits carry deferred amounts forward, so private claims must be
+      // generated in attendance-date order rather than concurrently.
+      const workerCount = activeTab === 'private' ? 1 : Math.min(5, eligible.length);
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
       if (generated) success('Bulk claim generation complete', `${generated} ${familyMeta.label} draft claim${generated === 1 ? '' : 's'} created${failures.length ? `; ${failures.length} failed` : ''}.`);
       if (failures.length) {
         const preview = failures.slice(0, 3).map((item) => `${item.attendance.attendanceNumber || item.attendance.id}: ${item.message}`).join(' | ');
