@@ -328,7 +328,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           surgicalHistories: { select: { id: true, procedure: true, surgeryDate: true, notes: true } },
           familyHistories: { select: { id: true, relation: true, condition: true, notes: true } },
         } },
-        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true, registeredPatientId: true } },
+        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true, registeredPatientId: true, Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } } } },
         AttendanceDiagnosis: { include: { Diagnosis: true, User: { select: { fullName: true } } }, orderBy: { date: 'desc' } },
         Vitals: { include: { User: { select: { fullName: true } } }, orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } }, User_Medication_prescribedByIdToUser: { select: { fullName: true } }, User_Medication_dispensedByIdToUser: { select: { fullName: true } } } },
@@ -386,7 +386,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       where, page, limit: Math.min(limit, 1000), orderBy: { dateTime: 'desc' },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, dateOfBirth: true, gender: true, contact: true } },
-        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
+        CounterClient: {
+          select: { id: true, name: true, ageYears: true, phone: true, registeredPatientId: true, Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } } },
+          include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } } },
+        },
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
         Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true } } } },
