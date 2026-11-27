@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
+import { createHash } from 'crypto';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
 import prisma from '../core/database/prisma.client';
 import { canAccessUpload } from '../services/uploadAccess';
+import { appendAuditLog } from '../services/auditChain';
+import { logger } from '../utils/logger';
 import {
   FILE_ACCESS_COOKIE,
   FILE_ACCESS_TTL_SECONDS,
@@ -36,6 +39,23 @@ function authenticatedUser(req: Request): { userId: string; version: number } | 
   }
 
   return null;
+}
+
+function recordUploadAccess(req: Request, userId: string, category: string, filename: string, statusCode: number, outcome: 'served' | 'denied' | 'failed') {
+  // Hash the stored filename so the audit trail can correlate repeat access without
+  // exposing a patient identifier or the original file name in audit metadata.
+  const fileRef = createHash('sha256').update(`${category}/${filename}`).digest('hex');
+  void appendAuditLog(prisma, {
+    entityType: 'Upload',
+    entityId: fileRef,
+    action: outcome === 'denied' ? 'view' : 'export',
+    performedById: userId,
+    ipAddress: req.ip,
+    userAgent: req.get('user-agent') || null,
+    metadata: { category, method: 'GET', statusCode, outcome },
+  }).catch((error) => {
+    logger.error('Failed to record protected upload access', { userId, category, statusCode, outcome, error });
+  });
 }
 
 export async function serveUploadFile(req: Request, res: Response): Promise<void> {
@@ -83,9 +103,15 @@ export async function serveUploadFile(req: Request, res: Response): Promise<void
   }
 
   if (!allowed) {
+    recordUploadAccess(req, userId, category, filename, 403, 'denied');
     res.status(403).json({ success: false, message: 'Not authorized to view this file' });
     return;
   }
+
+  res.once('finish', () => {
+    const statusCode = res.statusCode;
+    recordUploadAccess(req, userId, category, filename, statusCode, statusCode < 400 ? 'served' : 'failed');
+  });
 
   res.setHeader('Cache-Control', 'private, max-age=60');
   res.setHeader('X-Content-Type-Options', 'nosniff');
