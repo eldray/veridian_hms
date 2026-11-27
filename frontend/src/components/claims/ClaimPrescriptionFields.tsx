@@ -6,12 +6,14 @@ export interface PrescriptionDetails {
   duration: string;
   route: string;
   instructions: string;
+  quantityUnit: string;
 }
 
 const FREQUENCIES = [
   ['once', 'Once daily'], ['bd', 'Twice daily (BD)'], ['tds', 'Three times daily (TDS)'],
   ['qid', 'Four times daily (QID)'], ['stat', 'STAT (immediately)'], ['prn', 'As needed (PRN)'],
   ['nocte', 'At night (nocte)'], ['mane', 'In morning (mane)'],
+  ['6hrly', 'Every 6 hours'], ['8hrly', 'Every 8 hours'], ['12hrly', 'Every 12 hours'], ['24hrly', 'Every 24 hours'], ['other', 'Other'],
 ];
 
 const ROUTES = [
@@ -22,7 +24,7 @@ const ROUTES = [
 ];
 
 export const EMPTY_PRESCRIPTION: PrescriptionDetails = {
-  dosage: '', frequency: '', duration: '', route: 'oral', instructions: '',
+  dosage: '', frequency: '', duration: '', route: 'oral', instructions: '', quantityUnit: '',
 };
 
 export function formatPrescriptionDetails(value: PrescriptionDetails): string {
@@ -30,7 +32,9 @@ export function formatPrescriptionDetails(value: PrescriptionDetails): string {
     value.dosage && `Dose: ${value.dosage}`,
     value.frequency && `Frequency: ${value.frequency}`,
     value.duration && `Duration: ${value.duration}`,
-
+    value.route && `Route: ${value.route}`,
+    value.instructions && `Instructions: ${value.instructions}`,
+    value.quantityUnit && `Quantity unit: ${value.quantityUnit}`,
   ].filter(Boolean).join(' · ');
 }
 
@@ -51,6 +55,7 @@ export function parsePrescriptionDetails(text?: string | null): PrescriptionDeta
     if (key === 'duration') result.duration = val;
     if (key === 'route') result.route = ROUTES.find(([, label]) => label.toLowerCase() === val.toLowerCase())?.[0] || val.toLowerCase();
     if (key === 'instructions') result.instructions = val;
+    if (key === 'quantity unit') result.quantityUnit = val;
   }
   return result;
 }
@@ -85,9 +90,12 @@ export function PrescriptionFields({ value, onChange, strength }: {
   const [durationSearch, setDurationSearch] = useState(value.duration || '');
   const [showDurations, setShowDurations] = useState(false);
   useEffect(() => setDurationSearch(value.duration || ''), [value.duration]);
-  const durations = useMemo(() => [...Array.from({ length: 30 }, (_, i) => i + 1), 60, 90]
-    .map(days => days === 1 ? '24 hours' : days === 2 ? '48 hours' : `${days} days`)
-    .filter(option => option.toLowerCase().includes(durationSearch.toLowerCase())), [durationSearch]);
+  const durations = useMemo(() => [
+    ...Array.from({ length: 30 }, (_, i) => `${i + 1} days`),
+    ...[1, 2, 3, 4, 6, 8, 12].map(weeks => `${weeks} weeks`),
+    ...[1, 2, 3].map(months => `${months} months`),
+    '24 hours', '48 hours',
+  ].filter(option => option.toLowerCase().includes(durationSearch.toLowerCase())), [durationSearch]);
   const suggestions = useMemo(() => dosageSuggestions(strength), [strength]);
   const set = (patch: Partial<PrescriptionDetails>) => onChange({ ...value, ...patch });
 
@@ -108,12 +116,22 @@ export function PrescriptionFields({ value, onChange, strength }: {
           </select>
         </div>
         <div className="relative">
-          <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Duration / Days</label>
-          <input className={inputClass} value={durationSearch} onFocus={() => setShowDurations(true)} onChange={e => { setDurationSearch(e.target.value); setShowDurations(true); set({ duration: e.target.value }); }} placeholder="Search or enter days" />
+          <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Duration</label>
+          <input className={inputClass} value={durationSearch} onFocus={() => setShowDurations(true)} onChange={e => { setDurationSearch(e.target.value); setShowDurations(true); set({ duration: e.target.value }); }} placeholder="Search or enter duration" />
           {showDurations && <div className="absolute z-20 mt-1 max-h-40 w-full overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] shadow-lg">
             {durations.map(option => <button type="button" key={option} onClick={() => { set({ duration: option }); setDurationSearch(option); setShowDurations(false); }} className="block w-full px-3 py-2 text-left text-xs text-[var(--text-primary)] hover:bg-[var(--bg-main)]">{option}</button>)}
             {durations.length === 0 && <div className="px-3 py-2 text-xs text-[var(--text-tertiary)]">Custom duration will be used</div>}
           </div>}
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Route</label>
+          <select className={inputClass} value={value.route} onChange={e => set({ route: e.target.value })}>
+            {ROUTES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-[var(--text-secondary)]">Instructions</label>
+          <input className={inputClass} value={value.instructions} onChange={e => set({ instructions: e.target.value })} placeholder="Special instructions for the patient" />
         </div>
       </div>
     </div>
