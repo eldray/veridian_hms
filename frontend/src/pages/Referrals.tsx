@@ -27,7 +27,6 @@ import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanc
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
 import SendDocumentModal from '../components/SendDocumentModal';
-import ReferralDetailModal from '../components/referral/ReferralDetailModal';
 import ReferralReportBackModal from '../components/referral/ReferralReportBackModal';
 import { ReferralPartFields } from '../components/referral/ReferralStructuredParts';
 import {
@@ -213,7 +212,6 @@ export default function Referrals() {
   const [formErrors, setFormErrors] = useState<string[]>([]);
   const [referralWizardStep, setReferralWizardStep] = useState(0);
   const [referralSectionPage, setReferralSectionPage] = useState(0);
-  const [detailReferral, setDetailReferral] = useState<Referral | null>(null);
   const [acceptTarget, setAcceptTarget] = useState<Referral | null>(null);
   const [acceptPartII, setAcceptPartII] = useState<Record<string, string>>(() => emptyPartII());
   const [accepting, setAccepting] = useState(false);
@@ -577,7 +575,7 @@ export default function Referrals() {
 
   const rowActions = (ref: Referral) => (
     <div className="flex items-center gap-0.5">
-      <Button variant="soft" accent="cyan" size="sm" iconOnly icon={Eye} aria-label="Open referral form" onClick={() => setDetailReferral(ref)} />
+      <Button variant="soft" accent="cyan" size="sm" iconOnly icon={Eye} aria-label="Open referral form" onClick={() => navigate(`/dashboard/referrals/${ref.id}`)} />
       <Button variant="soft" accent="cyan" size="sm" iconOnly icon={Printer} aria-label="Print referral form" disabled={printingId === ref.id} onClick={() => handlePrintLetter(ref)} />
       <Button variant="soft" accent="green" size="sm" iconOnly icon={MessageSquare} aria-label="Send referral" onClick={() => { setSendReferral(ref); setShowSendModal(true); }} />
       {ref.status === 'pending' && (
@@ -613,11 +611,6 @@ export default function Referrals() {
           entityId={sendReferral.id}
         />
       )}
-      <ReferralDetailModal
-        open={!!detailReferral} referral={detailReferral}
-        onClose={() => setDetailReferral(null)}
-        onPrint={detailReferral ? () => handlePrintLetter(detailReferral) : undefined}
-      />
       <ReferralReportBackModal
         open={!!acceptTarget} referral={acceptTarget} submitting={accepting}
         values={acceptPartII} onValuesChange={setAcceptPartII}
