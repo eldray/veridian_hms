@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { LabTestController } from './LabTestController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 
 export function createLabTestRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const controller = new LabTestController(prisma);
 
   router.use(protect);
+  router.use(auditSensitiveAccess('LabTest'));
 
   const readRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'records', 'accounts'];
   const writeRoles: UserRole[] = ['admin', 'lab_tech', 'accounts'];
