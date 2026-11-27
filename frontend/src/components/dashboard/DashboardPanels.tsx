@@ -255,7 +255,7 @@ export function WorklistPanel({ kind }: { kind: WorklistKind }) {
                         className="font-mono text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
                         style={{ background: 'var(--bg-card)', color: 'var(--text-tertiary)' }}
                       >
-                        {it.patient?.folderNumber || '—'}
+                        {getPatientFolderNumber(it) || '—'}
                       </span>
                       {loc && (
                         <span className="text-[10px] truncate" style={{ color: 'var(--text-tertiary)' }}>{loc}</span>
@@ -563,7 +563,7 @@ export function NurseSummary() {
                       <div className="min-w-0">
                         <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
                         <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                          {p.folderNumber || '—'}{ward ? ` · ${ward}` : ''}
+                          {getPatientFolderNumber(p) || '—'}{ward ? ` · ${ward}` : ''}
                         </p>
                       </div>
                       <span
@@ -914,7 +914,7 @@ export function RecordsSummary() {
                     >
                       <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
                       <span className="font-mono text-[10px] flex-shrink-0 ml-2" style={{ color: 'var(--text-tertiary)' }}>
-                        {p.folderNumber}
+                        {getPatientFolderNumber(p) || '—'}
                       </span>
                     </Link>
                   );
@@ -1234,7 +1234,7 @@ export function HighRiskANCPanel() {
                       <div className="min-w-0">
                         <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
                         <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                          {p.folderNumber || '—'} · G{r.gravida ?? '?'} P{r.para ?? '?'}
+                          {getPatientFolderNumber(p) || '—'} · G{r.gravida ?? '?'} P{r.para ?? '?'}
                         </p>
                       </div>
                       <span
@@ -1719,7 +1719,7 @@ export function RecentAdmissionsPanel() {
                   </span>
                 </div>
                 <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  {p.folderNumber || '—'} · {ward}
+                  {getPatientFolderNumber(p) || '—'} · {ward}
                 </p>
               </Link>
             );
