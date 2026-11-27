@@ -4,6 +4,7 @@ import { PrismaClient, UserRole } from '@prisma/client';
 import { AntenatalController } from './AntenatalController';
 import { AntenatalService } from './AntenatalService';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 
 export function createAntenatalRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -12,6 +13,7 @@ export function createAntenatalRoutes(prisma: PrismaClient): Router {
 
   // ✅ Global Auth
   router.use(protect);
+  router.use(auditSensitiveAccess('Antenatal'));
 
   // ✅ 2. Explicitly type the arrays as UserRole[]
   // Read access for clinical and records staff
