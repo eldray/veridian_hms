@@ -60,7 +60,9 @@ export function getPatientFolderNumber(source: any): string {
   ];
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object') continue;
-    const value = candidate.folderNumber ?? candidate.patientFolderNumber ?? candidate.folderNo;
+    const value = candidate.folderNumber ?? candidate.FolderNumber
+      ?? candidate.patientFolderNumber ?? candidate.PatientFolderNumber
+      ?? candidate.folderNo ?? candidate.FolderNo;
     if (value !== null && value !== undefined && String(value).trim()) return String(value).trim();
   }
   return '';
