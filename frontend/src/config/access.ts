@@ -92,7 +92,7 @@ export const PAGES: PageDef[] = [
   { key: 'vaccine_catalogue', paths: ['/dashboard/vaccine-catalogue'], roles: [] },
   { key: 'admissions', paths: ['/dashboard/admissions'], patterns: ['/dashboard/admissions/:id'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Admissions', icon: BedDouble, group: 'Ward' },
   { key: 'wards', paths: ['/dashboard/wards'], roles: CLINICAL, label: 'Wards', icon: BedDouble, group: 'Ward' },
-  { key: 'referrals', paths: ['/dashboard/referrals'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Referrals', icon: Send, group: 'Ward' },
+  { key: 'referrals', paths: ['/dashboard/referrals'], patterns: ['/dashboard/referrals/:id'], roles: ['doctor', 'nurse', 'midwife', 'records'], label: 'Referrals', icon: Send, group: 'Ward' },
 
   // ── Diagnostics ────────────────────────────────────────────────────────────
   { key: 'laboratory', paths: ['/dashboard/laboratory'], patterns: ['/dashboard/laboratory/:id'], roles: ['lab_tech', ...CLINICAL], navRoles: ['lab_tech'], label: 'Laboratory', icon: Microscope, group: 'Diagnostics' },

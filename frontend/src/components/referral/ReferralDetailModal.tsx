@@ -75,8 +75,8 @@ function Section({ icon: Icon, title, subtitle, children, tone = 'cyan' }: any) 
   );
 }
 
-export default function ReferralDetailModal({ open, referral, onClose, onPrint }: {
-  open: boolean; referral: Referral | null; onClose: () => void; onPrint?: () => void;
+export default function ReferralDetailModal({ open, referral, onClose, onPrint, fullPage = false }: {
+  open: boolean; referral: Referral | null; onClose: () => void; onPrint?: () => void; fullPage?: boolean;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -118,9 +118,9 @@ export default function ReferralDetailModal({ open, referral, onClose, onPrint }
     : PART_II_SECTIONS;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" role="dialog" aria-modal="true" aria-label="Referral details">
-      <button aria-label="Close details" onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
-      <div className="relative w-full max-w-3xl max-h-[92vh] flex flex-col bg-[var(--bg-main)] rounded-t-3xl sm:rounded-3xl border border-[var(--border-color)] shadow-2xl overflow-hidden">
+    <div className={fullPage ? "relative z-0 flex w-full min-h-[calc(100vh-5rem)] items-start justify-center p-0" : "fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6"} role="dialog" aria-modal="true" aria-label="Referral details">
+      {!fullPage && <button aria-label="Close details" onClick={onClose} className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />}
+      <div className={fullPage ? "relative w-full max-w-5xl min-h-[calc(100vh-5rem)] flex flex-col bg-[var(--bg-main)] border border-[var(--border-color)] shadow-sm overflow-hidden rounded-xl" : "relative w-full max-w-3xl max-h-[92vh] flex flex-col bg-[var(--bg-main)] rounded-t-3xl sm:rounded-3xl border border-[var(--border-color)] shadow-2xl overflow-hidden"}>
 
         <div className="relative shrink-0">
           <ReferralContextHeader referral={r} />
