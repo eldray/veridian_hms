@@ -754,7 +754,7 @@ export default function PatientDetails() {
                 <div className="space-y-3">
                   {Array.from(documents.reduce((map, doc) => { const key = doc.entityId; if (!map.has(key)) map.set(key, []); map.get(key)!.push(doc); return map; }, new Map<string, GeneratedDocument[]>()).entries()).map(([entityId, docs]) => {
                     const att = patientAttendances.find(a => a.id === entityId);
-                    const displayName = att ? `${att.attendanceNumber || 'Visit'} - ${formatDate(att.dateTime || att.createdAt)}` : `Group ${entityId.slice(-8)}`;
+                    const displayName = att ? `${getAttendanceNumber(att) || 'Visit'} - ${formatDate(att.dateTime || att.createdAt)}` : `Group ${entityId.slice(-8)}`;
                     return (
                       <div key={entityId} className="border border-[var(--border-color)] rounded-lg overflow-hidden">
                         <div className="bg-[var(--bg-main)] px-3 py-2 border-b border-[var(--border-color)] flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" /><span className="text-xs font-semibold text-[var(--text-primary)]">{displayName}</span>{att && (<span className="text-[10px] text-[var(--text-tertiary)] ml-auto">{formatDateTime(att.dateTime || att.createdAt)}</span>)}</div>
