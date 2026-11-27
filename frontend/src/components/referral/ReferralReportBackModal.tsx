@@ -2,7 +2,7 @@
 // Colours: var(--*) tokens only — no hard-coded Tailwind palette colours.
 // Logic, validation and props unchanged.
 import { useState } from 'react';
-import { CheckCircle, ClipboardList, Loader2, X } from 'lucide-react';
+import { CheckCircle, Loader2, X } from 'lucide-react';
 import { ReferralPartFields } from './ReferralStructuredParts';
 import ReferralContextHeader from './ReferralContextHeader';
 import { PART_II_SECTIONS, missingRequired } from './referralForm';
