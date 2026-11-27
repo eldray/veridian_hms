@@ -1,4 +1,5 @@
 // src/pages/Patients.tsx - REDESIGNED: every detail in its own column + responsive viewports
+import { getPatientName as getPatientFullName } from '../utils/patient';
 import { getPatients } from '../api';
 import { useState, useEffect, useMemo } from 'react';
 import { usePatientStore } from '../store/patientStore';
@@ -77,7 +78,7 @@ export default function Patients() {
   }, [searchQuery]);
 
   // ---------- helpers: one value per column ----------
-  const getPatientFullName = (p: any) => p?.fullName || p?.name || `${p?.surname || ''} ${p?.otherNames || ''}`.trim();
+   ${p?.otherNames || ''}`.trim();
   const getPatientId = (p: any) => p.id;
   const getAgeLabel = (p: any) => {
     if (p?.ageDisplay) return String(p.ageDisplay).replace(/years?/i, 'y').replace(/months?/i, 'm').trim();
