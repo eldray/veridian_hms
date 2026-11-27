@@ -423,7 +423,7 @@ ${claimsXml}
               orderBy: { prescribedAt: 'asc' },
               select: {
                 id: true, name: true, status: true, quantity: true, dosage: true, frequency: true, duration: true,
-                dispensedAt: true, stockItemId: true, serviceCatalogId: true,
+                prescribedAt: true, dispensedAt: true, stockItemId: true, serviceCatalogId: true,
                 StockItem: { select: { id: true, drugCode: true, isNHISCovered: true, name: true, unitOfMeasure: true } },
               },
             },
