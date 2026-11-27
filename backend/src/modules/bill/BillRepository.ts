@@ -161,6 +161,29 @@ export class BillRepository extends BaseRepository<any, any, any> {
         include: { BillLineItem: true, Patient: true, CounterClient: true }
       });
       await this.syncAttendanceFinancials(tx, attendanceId, updatedBill);
+
+      // Keep the bill creation record in the same transaction as the bill and its
+      // line items. If audit persistence fails, the bill creation rolls back too.
+      await appendStructuredFinancialAudit(
+        tx,
+        createdBy,
+        'Bill',
+        updatedBill.id,
+        'create',
+        undefined,
+        {
+          billNumber: updatedBill.billNumber,
+          attendanceId,
+          paymentMode,
+          status: updatedBill.status,
+          totalAmount: toNumber(updatedBill.totalAmount),
+          patientPayable: toNumber(updatedBill.patientPayable),
+          balance: toNumber(updatedBill.balance),
+          lineItemCount: updatedBill.BillLineItem?.length ?? items.length,
+        },
+        { source: 'bill_repository_create' },
+      );
+
       return updatedBill;
     });
   }
