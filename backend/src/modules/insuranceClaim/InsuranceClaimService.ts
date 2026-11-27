@@ -540,7 +540,7 @@ ${claimsXml}
       }
       const quantity = Number(med.quantity ?? 1);
       if (!Number.isFinite(quantity) || quantity <= 0) {
-        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has no dispensed quantity to claim' });
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has no valid prescribed quantity to claim' });
         continue;
       }
       const roundedUnit = Math.round(unitPrice * 100) / 100;
@@ -1701,7 +1701,7 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { StockItem: { select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { include: { StockItem: { select: { id: true, drugCode: true, name: true, strength: true, unitOfMeasure: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
 
@@ -1980,7 +1980,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" has no valid NHIS tariff. Configure the payer-rule tariff or active NHIS price before claiming it.`);
       }
       // Prefer the canonical stock-item identity. A matching drug/service code is
-      // only a safe fallback when the dispensed record has no stock-item relation;
+      // only a safe fallback when the prescription record has no stock-item relation;
       // otherwise a reused code must never pull quantities from a different item.
       const matchesDispensedStockItem = (med: any) => {
         if (med.StockItem?.id) return med.StockItem.id === catalog.StockItem?.id;
