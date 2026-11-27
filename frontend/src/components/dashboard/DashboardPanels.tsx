@@ -1232,7 +1232,7 @@ export function HighRiskANCPanel() {
                       <div className="min-w-0">
                         <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
                         <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                          {getPatientFolderNumber(p) || '—'} · G{r.gravida ?? '?'} P{r.para ?? '?'}
+                          {getPatientFolderNumber(r) || '—'} · G{r.gravida ?? '?'} P{r.para ?? '?'}
                         </p>
                       </div>
                       <span
@@ -1716,7 +1716,7 @@ export function RecentAdmissionsPanel() {
                   </span>
                 </div>
                 <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                  {getPatientFolderNumber(p) || '—'} · {ward}
+                  {getPatientFolderNumber(a) || '—'} · {ward}
                 </p>
               </Link>
             );
