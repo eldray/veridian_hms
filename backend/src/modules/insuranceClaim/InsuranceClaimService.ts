@@ -2332,7 +2332,8 @@ async recordPremierPatientPayment(claimId: string, input: {
         patientPayments: { orderBy: { transactionDate: 'asc' } } },
     });
     if (!claim) throw new NotFoundError('Claim', claimId);
-    if (claim.InsuranceProvider?.type !== 'private' || claim.InsuranceProvider?.benefitPolicy?.scheme !== 'premier_health') throw new ValidationError('Patient-side collection is available only for Premier Health claims.');
+    const providerPolicy = claim.InsuranceProvider?.benefitPolicy as any;
+    if (claim.InsuranceProvider?.type !== 'private' || providerPolicy?.scheme !== 'premier_health') throw new ValidationError('Patient-side collection is available only for Premier Health claims.');
     if (claim.status !== 'finalized') throw new ValidationError('Finalize the Premier claim before collecting the patient balance.');
     const calculation = (claim.metadata as any)?.benefitCalculation;
     if (calculation?.scheme !== 'premier_health') throw new ValidationError('This claim has no saved Premier benefit calculation.');
