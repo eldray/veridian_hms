@@ -65,6 +65,12 @@ describe('private and corporate direct claim generation', () => {
 
   it.each(['private', 'corporate'] as const)('stores the linked medication and immutable prescription snapshot on a %s claim', async (payer) => {
     const { service, tx, created } = setup(payer);
+    if (payer === 'corporate') {
+      tx.corporateAccount.findUnique.mockResolvedValue({
+        id: 'corp-1', companyName: 'Acme Ltd', isActive: true,
+        insuranceProviderId: 'corporate-provider', creditLimit: 5000, discountPercentage: 10,
+      });
+    }
     const attendance = await tx.attendance.findUnique();
     attendance.ServiceRendered = [];
     attendance.Medication = [{
