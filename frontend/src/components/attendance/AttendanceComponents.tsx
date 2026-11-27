@@ -29,7 +29,7 @@ export const AttendanceCard: React.FC<AttendanceCardProps> = ({
   formattedDate,
   onEditAttendance
 }) => {
-  const identitySource = patient || attendance;
+  const identitySource = { ...attendance, patient: patient || attendance.patient };
 
   return (
     <div className="bg-[var(--bg-card)] rounded-lg p-3 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all duration-200">
@@ -86,7 +86,7 @@ export const AttendanceCard: React.FC<AttendanceCardProps> = ({
         {totalBill > 0 && (
           <span className="flex items-center gap-0.5 ml-auto font-medium">
             <DollarSign className="w-3 h-3" />
-            ₵{totalBill.toFixed(2)}
+            ${totalBill.toFixed(2)}
           </span>
         )}
       </div>
