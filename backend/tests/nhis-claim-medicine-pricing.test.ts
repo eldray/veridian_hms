@@ -79,6 +79,11 @@ describe('NHIS claim medicine pricing', () => {
     const tx: any = {
       insuranceClaimItem: prisma.insuranceClaimItem,
       insuranceClaim: { update: prisma.insuranceClaim.update },
+      auditLog: {
+        findMany: vi.fn().mockResolvedValue([]),
+        create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
+      },
+      $queryRawUnsafe: vi.fn().mockResolvedValue([{ locked: 1 }]),
     };
     prisma.$transaction = vi.fn(async (callback: any) => callback(tx));
     return { service: new InsuranceClaimService(prisma), prisma, tx };
