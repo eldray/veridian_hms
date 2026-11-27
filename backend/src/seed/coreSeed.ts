@@ -701,6 +701,7 @@ export const seedCoreData = async (force: boolean = false, options: SeedCoreOpti
     const departmentsData = readJSON('departments.json');
     const defaultDepartments = [
       { name: 'Medical', description: 'Internal Medicine Department', color: '#3B82F6', icon: 'stethoscope' },
+      { name: 'Nursing', description: 'Nursing Department', color: '#0D9488', icon: 'nurse' },
       { name: 'Surgery', description: 'Surgical Department', color: '#EF4444', icon: 'scissors' },
       { name: 'Pediatrics', description: "Children's Health", color: '#10B981', icon: 'baby' },
       { name: 'Obstetrics & Gynecology', description: "Women's Health", color: '#EC4899', icon: 'heart' },

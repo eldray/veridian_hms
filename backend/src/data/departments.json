@@ -7,6 +7,13 @@
     "isActive": true
   },
   {
+    "name": "Nursing",
+    "description": "Nursing Department",
+    "color": "#0D9488",
+    "icon": "nurse",
+    "isActive": true
+  },
+  {
     "name": "Medical",
     "description": "Medical Department",
     "color": "#10B981",
