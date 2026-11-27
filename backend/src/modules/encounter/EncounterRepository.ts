@@ -32,6 +32,12 @@ export const resolvePatientClassification = (
   return provided;
 };
 
+/** Prisma stores Scan.result as text; template-based clients may send a JSON object. */
+export const serializeScanResultForStorage = (value: unknown): string | null | undefined => {
+  if (value === undefined || value === null) return value;
+  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+};
+
 export const LIVE_PENDING_DAYS = 14;
 export const LIVE_RECENT_HOURS = 72;
 
@@ -2237,7 +2243,15 @@ async addScan(encounterId: string, data: any, userId: string) {
     }
 
     const updateData: any = {}
-    for (const field of ['result', 'findings', 'impression', 'notes', 'priority']) if (data[field] !== undefined) updateData[field] = data[field];
+    for (const field of ['result', 'findings', 'impression', 'notes', 'priority']) {
+      if (data[field] === undefined) continue;
+      // Scan.result is a nullable String column. Template-driven forms send a
+      // structured { templateId, values } object, so persist it as JSON text and
+      // let the UI decode it when reopening the report.
+      updateData[field] = field === 'result'
+        ? serializeScanResultForStorage(data.result)
+        : data[field];
+    }
     if (data.imageUrls !== undefined) {
       if (!Array.isArray(data.imageUrls) || data.imageUrls.some((url: unknown) => typeof url !== 'string' || !url.trim())) throw new ValidationError('Scan image URLs must be a list of non-empty strings');
       updateData.imageUrls = data.imageUrls;

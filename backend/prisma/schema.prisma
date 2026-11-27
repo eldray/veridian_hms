@@ -741,6 +741,7 @@ model Scan {
   result            String?
   findings          String?
   impression        String?
+  notes             String?
   performedById     String?
   verifiedById      String?
   imageUrls         String[]

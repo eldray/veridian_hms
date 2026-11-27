@@ -46,7 +46,17 @@ const resolveResultTemplate = (scan: any): TemplateField[] => {
 
 // ── Load previously-saved values for this scan ──────────────────────────────
 const resolveSavedValues = (scan: any): Record<string, any> => {
-  const r = scan?.result;
+  let r = scan?.result;
+  // Structured template results are stored as JSON text because Scan.result
+  // is a nullable Prisma String column. Keep legacy plain-text results intact.
+  if (typeof r === 'string' && r.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(r);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) r = parsed;
+    } catch {
+      // A normal free-text report may begin with "{". Treat invalid JSON as text.
+    }
+  }
   if (r && typeof r === 'object' && r.values && typeof r.values === 'object') {
     return r.values;
   }
@@ -90,9 +100,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
 
   const [values, setValues] = useState<Record<string, any>>(() => resolveSavedValues(scan));
   const [impression, setImpression] = useState<string>(scan?.impression || '');
-  const [notes, setNotes] = useState<string>(
-    scan?.result && typeof scan.result === 'string' ? scan.result : ''
-  );
+  const [notes, setNotes] = useState<string>(scan?.notes || '');
   const [findingsText, setFindingsText] = useState<string>(
     typeof scan?.findings === 'string' ? scan.findings : ''
   );
