@@ -1,5 +1,5 @@
 // src/pages/Appointments.tsx - FIXED with NewAttendanceModal + View All + Sort
-import { getPatientName as getPatientName } from '../utils/patient';
+import { getPatientName as resolvePatientName } from '../utils/patient';
 import { useEffect, useState, useMemo } from 'react';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { confirmDialog } from '../context/ConfirmDialog';
@@ -102,7 +102,7 @@ export default function Appointments() {
 
   useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter, typeFilter, dateFilter, customStartDate, customEndDate, sortKey]);
 
-   ${p.otherNames || ''}`.trim() || 'Unknown Patient';
+  const getPatientName = (p: any) => resolvePatientName(p);
   const patientById = useMemo(() => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])), [patients]);
   const findPatient = (apt: any) => { if (!apt) return null; const id = apt.patientId || apt.patient?.id; return id ? patientById.get(id) : null; };
 
