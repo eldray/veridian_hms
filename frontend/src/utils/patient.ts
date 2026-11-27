@@ -6,6 +6,8 @@ export function getPatientName(source: any): string {
 
   const candidates = [
     source.patient, source.Patient, source.patientDetails, source.patientRecord,
+    source.data?.patient, source.data?.Patient, source.data,
+    source.patient?.data, source.Patient?.data,
     source.counterClient, source.CounterClient, source.patientName,
     source.patientFullName, source.fullName, source.name, source,
   ];
@@ -23,7 +25,7 @@ export function getPatientName(source: any): string {
     if (combined) return combined;
   }
 
-  const folder = source.patient?.folderNumber ?? source.Patient?.folderNumber ?? source.folderNumber;
+  const folder = getPatientFolderNumber(source);
   return folder ? `Patient ${folder}` : 'Unknown Patient';
 }
 
@@ -34,8 +36,11 @@ export function getPatientFolderNumber(source: any): string {
   const candidates = [
     source,
     source.patient, source.Patient, source.patientDetails, source.patientRecord,
+    source.data, source.data?.patient, source.data?.Patient,
+    source.patient?.data, source.Patient?.data,
     source.attendance?.patient, source.attendance?.Patient,
     source.Attendance?.patient, source.Attendance?.Patient,
+    source.attendance?.data?.patient, source.Attendance?.data?.Patient,
   ];
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object') continue;
@@ -52,7 +57,9 @@ export function getAttendanceNumber(source: any): string {
     source,
     source.attendance, source.Attendance,
     source.encounter, source.Encounter,
-    source.visit,
+    source.visit, source.data,
+    source.data?.attendance, source.data?.Attendance,
+    source.data?.encounter, source.data?.Encounter,
   ];
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object') continue;
