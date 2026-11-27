@@ -834,13 +834,20 @@ export default function EditPrivateClaim() {
           const deferred = Math.max(0, Number(premierCalculation?.deferredPatientBalance || 0));
           const reprintCollectionReceipt = async (paymentId: string) => {
             if (!id || printingReceiptPaymentId) return;
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+              toastError('Print blocked', 'Allow pop-ups for this site, then try reprinting the receipt again.');
+              return;
+            }
+            printWindow.opener = null;
             setPrintingReceiptPaymentId(paymentId);
             try {
               const result = await reprintPremierClaimPatientPaymentReceipt(id, paymentId);
               const filePath = result?.data?.filePath || result?.filePath;
               if (!filePath) throw new Error('Receipt file is not available.');
-              window.open(filePath, '_blank', 'noopener,noreferrer');
+              printWindow.location.href = filePath;
             } catch (error: any) {
+              printWindow.close();
               toastError('Receipt unavailable', error?.response?.data?.message || error?.message || 'Could not reprint this payment receipt.');
             } finally {
               setPrintingReceiptPaymentId(null);
