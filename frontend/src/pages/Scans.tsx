@@ -1,6 +1,7 @@
 // src/pages/Scans.tsx — Scans queue on the shared UI primitives
 import { useEffect, useMemo, useState } from 'react';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import { useNavigate } from 'react-router-dom';
 import { useLiveRefresh } from '../api/realtime';
 import { useWorklistStore } from '../store/worklistStore';
@@ -112,9 +113,9 @@ export default function ScansWaitingList() {
     if (!searchQuery) return worklistItems;
     const lower = searchQuery.toLowerCase();
     return worklistItems.filter((item: any) =>
-      item.patient?.name?.toLowerCase().includes(lower) ||
-      item.patient?.folderNumber?.toLowerCase().includes(lower) ||
-      (item.attendanceNumber || '').toLowerCase().includes(lower) ||
+      getPatientName(item).toLowerCase().includes(lower) ||
+      getPatientFolderNumber(item).toLowerCase().includes(lower) ||
+      getAttendanceNumber(item).toLowerCase().includes(lower) ||
       (item.scans || []).some((scan: any) => scanName(scan).toLowerCase().includes(lower)),
     );
   }, [worklistItems, searchQuery]);
@@ -153,8 +154,8 @@ export default function ScansWaitingList() {
       state: {
         patient: {
           id: item.patientId,
-          name: item.patient?.name,
-          folderNumber: item.patient?.folderNumber,
+          name: getPatientName(item),
+          folderNumber: getPatientFolderNumber(item),
           age: item.patient?.age,
           gender: item.patient?.gender,
         },
@@ -313,15 +314,15 @@ export default function ScansWaitingList() {
                         <div className="flex items-center gap-3">
                           <PatientAvatar patient={item.patient} size="sm" />
                           <div>
-                            <p className="font-medium text-[var(--text-primary)] text-sm">{item.patient?.name}</p>
+                            <p className="font-medium text-[var(--text-primary)] text-sm">{getPatientName(item)}</p>
                             <p className="text-xs text-[var(--text-secondary)]">
                               {item.patient?.age} years • {item.patient?.gender}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className={TD_MONO}>{item.patient?.folderNumber || '—'}</td>
-                      <td className={TD_MONO}>{item.attendanceNumber || '—'}</td>
+                      <td className={TD_MONO}>{getPatientFolderNumber(item) || '—'}</td>
+                      <td className={TD_MONO}>{getAttendanceNumber(item) || '—'}</td>
                       <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
                         {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleString() : '—'}
                       </td>

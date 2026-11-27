@@ -1,5 +1,5 @@
 // src/pages/Admissions.tsx — Full rewrite, theme-consistent
-import { getPatientName as getPatientName } from '../utils/patient';
+import { getPatientName as getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
@@ -239,7 +239,7 @@ export default function Admissions() {
     null;
   const rowPatientName = (a: any) =>
     rowPatient(a) ? getPatientName(rowPatient(a)) : (a?.patientName || 'Unknown Patient');
-  const rowFolderNumber = (a: any) => rowPatient(a)?.folderNumber || a?.folderNumber || '—';
+  const rowFolderNumber = (a: any) => getPatientFolderNumber(a) || '—';
   const rowWardName = (a: any) =>
     a?.attendance?.Ward?.wardName || a?.attendance?.ward?.wardName || a?.ward?.wardName || a?.wardName || '—';
   const rowBedNumber = (a: any) =>
@@ -466,9 +466,9 @@ export default function Admissions() {
         const lower = searchQuery.toLowerCase();
         return (
           admission.admissionNumber?.toLowerCase().includes(lower) ||
-          admission.attendanceNumber?.toLowerCase().includes(lower) ||
+          getAttendanceNumber(admission).toLowerCase().includes(lower) ||
           fullName.toLowerCase().includes(lower) ||
-          (patient?.folderNumber || (admission as any).folderNumber || '')?.toLowerCase().includes(lower) ||
+          getPatientFolderNumber(admission).toLowerCase().includes(lower) ||
           admission.attendance?.complaints?.toLowerCase().includes(lower)
         );
       }
@@ -790,7 +790,7 @@ export default function Admissions() {
                           {rowFolderNumber(admission)}
                         </td>
                         <td className={TD_MONO}>
-                          {admission.attendanceNumber || admission.attendance?.attendanceNumber || '—'}
+                          {getAttendanceNumber(admission) || '—'}
                         </td>
                         <td className={TD}>
                           <AdmissionTypeBadge type={admission.displayType} />
@@ -991,7 +991,7 @@ export default function Admissions() {
                   {/* Body */}
                   <div className="p-4 space-y-2.5 flex-1 text-xs">
                     {[
-                      { icon: Hash,     label: 'Attendance #',   value: admission.attendanceNumber || admission.attendance?.attendanceNumber || '—', mono: true },
+                      { icon: Hash,     label: 'Attendance #',   value: getAttendanceNumber(admission) || '—', mono: true },
                       { icon: Hash,     label: 'Admission #',    value: admission.admissionNumber, mono: true },
                       { icon: Calendar, label: 'Admitted',       value: formatDate(admission.admissionDate) },
                       {

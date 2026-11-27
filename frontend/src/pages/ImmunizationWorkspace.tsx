@@ -4,6 +4,7 @@ import { useLiveRefresh } from '../api/realtime';
 import { useToast } from '../store/toastStore';
 import api from '../api/api';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import ImmunizationSectionTabs from '../components/immunization/ImmunizationSectionTabs';
 import {
   AlertCircle, ArrowRight, CheckCircle, Clock, RefreshCw, Syringe, Users, UserCheck,
@@ -33,8 +34,7 @@ type Visit = {
   Patient?: Patient;
 };
 
-const patientName = (patient?: Patient) =>
-  [patient?.otherNames, patient?.surname].filter(Boolean).join(' ') || 'Patient';
+const patientName = (patient?: Patient) => getPatientName(patient);
 const patientAge = (patient?: Patient) => {
   if (patient?.age != null) return patient.age;
   if (!patient?.dateOfBirth) return undefined;
@@ -87,7 +87,7 @@ export default function ImmunizationWorkspace() {
     const term = search.trim().toLowerCase();
     return visits.filter(visit => !term || [
       visit.Patient?.otherNames, visit.Patient?.surname, patientName(visit.Patient),
-      visit.Patient?.folderNumber, visit.Patient?.phoneNumber, visit.attendanceNumber,
+      getPatientFolderNumber(visit), visit.Patient?.phoneNumber, getAttendanceNumber(visit),
     ].some(value => String(value ?? '').toLowerCase().includes(term)));
   }, [visits, search]);
 
@@ -242,8 +242,8 @@ export default function ImmunizationWorkspace() {
                           </div>
                         </div>
                       </td>
-                      <td className={TD_MONO}>{patient?.folderNumber || '—'}</td>
-                      <td className={TD_MONO}>{visit.attendanceNumber || '—'}</td>
+                      <td className={TD_MONO}>{getPatientFolderNumber(visit) || '—'}</td>
+                      <td className={TD_MONO}>{getAttendanceNumber(visit) || '—'}</td>
                       <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
                         {visit.dateTime ? new Date(visit.dateTime).toLocaleString() : '—'}
                       </td>

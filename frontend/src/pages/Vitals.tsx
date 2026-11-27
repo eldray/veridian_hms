@@ -21,6 +21,7 @@
 //  9. FIX: waitTime guarded — undefined waitTime rendered "NaNh NaNm".
 import { useState, useEffect, useMemo } from 'react';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
@@ -156,9 +157,9 @@ export default function VitalsWaitingList() {
       : source.filter(p => {
         const lower = searchQuery.toLowerCase();
         return (
-          p.patient?.name?.toLowerCase().includes(lower) ||
-          p.patient?.folderNumber?.toLowerCase().includes(lower) ||
-          (p.attendanceNumber || '').toLowerCase().includes(lower)
+          getPatientName(p).toLowerCase().includes(lower) ||
+          getPatientFolderNumber(p).toLowerCase().includes(lower) ||
+          getAttendanceNumber(p).toLowerCase().includes(lower)
         );
       });
     return [...searched].sort((a: any, b: any) => {
@@ -203,8 +204,8 @@ export default function VitalsWaitingList() {
       state: {
         patient: {
           id: patient.patientId,
-          name: patient.patient?.name,
-          folderNumber: patient.patient?.folderNumber,
+          name: getPatientName(patient),
+          folderNumber: getPatientFolderNumber(patient),
           age: patient.patient?.age,
           gender: patient.patient?.gender
         },
@@ -449,8 +450,8 @@ export default function VitalsWaitingList() {
                     <td className={TD}>
                       <div className="flex items-center gap-3">
                         <PatientAvatar patient={patient.patient} size="sm" />
-                        <span className="font-medium text-[var(--text-primary)] text-sm truncate" title={patient.patient?.name}>
-                          {patient.patient?.name}
+                        <span className="font-medium text-[var(--text-primary)] text-sm truncate" title={getPatientName(patient)}>
+                          {getPatientName(patient)}
                         </span>
                       </div>
                     </td>
@@ -461,10 +462,10 @@ export default function VitalsWaitingList() {
                       {formatGender(patient.patient?.gender)}
                     </td>
                     <td className={TD_MONO}>
-                      {patient.patient?.folderNumber}
+                      {getPatientFolderNumber(patient) || '—'}
                     </td>
                     <td className={TD_MONO}>
-                      {patient.attendanceNumber || '—'}
+                      {getAttendanceNumber(patient) || '—'}
                     </td>
                     <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
                       {formatVisitDate(patient.attendanceDateTime)}

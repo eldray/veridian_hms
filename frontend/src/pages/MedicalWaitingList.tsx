@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import { useNavigate } from 'react-router-dom';
 import { useLiveRefresh } from '../api/realtime';
 import { useWorklistStore } from '../store/worklistStore';
@@ -119,9 +120,9 @@ export default function MedicalWaitingList() {
     if (!searchQuery) return source;
     const lower = searchQuery.toLowerCase();
     return source.filter(patient =>
-      patient.patient?.name?.toLowerCase().includes(lower) ||
-      patient.patient?.folderNumber?.toLowerCase().includes(lower) ||
-      (patient.attendanceNumber || '').toLowerCase().includes(lower) ||
+      getPatientName(patient).toLowerCase().includes(lower) ||
+      getPatientFolderNumber(patient).toLowerCase().includes(lower) ||
+      getAttendanceNumber(patient).toLowerCase().includes(lower) ||
       patient.complaints?.toLowerCase().includes(lower)
     );
   }, [pendingPatients, recentPatients, worklistItems, searchQuery, activeTab, view]);
@@ -151,8 +152,8 @@ export default function MedicalWaitingList() {
       state: {
         patient: {
           id: patient.patientId,
-          name: patient.patient?.name,
-          folderNumber: patient.patient?.folderNumber,
+          name: getPatientName(patient),
+          folderNumber: getPatientFolderNumber(patient),
           age: patient.patient?.age,
           gender: patient.patient?.gender
         },
@@ -320,7 +321,7 @@ export default function MedicalWaitingList() {
                         <PatientAvatar patient={patient.patient} size="sm" />
                         <div>
                           <p className="font-medium text-[var(--text-primary)] text-sm">
-                            {patient.patient?.name}
+                            {getPatientName(patient)}
                           </p>
                           <p className="text-xs text-[var(--text-secondary)]">
                             {patient.patient?.age} years • {patient.patient?.gender}
@@ -328,8 +329,8 @@ export default function MedicalWaitingList() {
                         </div>
                       </div>
                     </td>
-                    <td className={TD_MONO}>{patient.patient?.folderNumber}</td>
-                    <td className={TD_MONO}>{patient.attendanceNumber || '—'}</td>
+                    <td className={TD_MONO}>{getPatientFolderNumber(patient) || '—'}</td>
+                    <td className={TD_MONO}>{getAttendanceNumber(patient) || '—'}</td>
                     <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
                       {patient.attendanceDateTime ? new Date(patient.attendanceDateTime).toLocaleString() : '—'}
                     </td>

@@ -1,4 +1,5 @@
 import { useSmartBack } from '../utils/useSmartBack';
+import { getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 // src/pages/Reports.tsx
 // Consistency fixes vs pasted version:
 //  - Consulting Room Register: all returned rows stay inside a fixed-height scroll viewport.
@@ -428,7 +429,7 @@ export default function Reports() {
       { key: 'isNHIS', label: 'IsNHIS', width: 'min-w-[75px]', render: (e: any) => e.isNHIS ? 'Y' : 'N' },
       { key: 'drugsPrescribed', label: 'DrugPresc', width: 'min-w-[280px]', render: (e: any) => e.drugsPrescribed || '—' },
       { key: 'drugsGiven', label: 'DrugGiven', width: 'min-w-[280px]', render: (e: any) => e.drugsGiven || '—' },
-      { key: 'attendanceNumber', label: 'Attendance No.', width: 'min-w-[140px]', render: (e: any) => e.attendanceNumber || '—' },
+      { key: 'attendanceNumber', label: 'Attendance No.', width: 'min-w-[140px]', render: (e: any) => getAttendanceNumber(e) || '—' },
     ];
 
     return (
@@ -515,7 +516,7 @@ export default function Reports() {
     const time = (value: any) => value ? new Date(value).toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit', hour12: true }) : '—';
     const cellValue = (value: any) => value === null || value === undefined || value === '' ? '—' : value;
     const columns = [
-      { label: 'Attendance No.', width: 'w-[125px]', value: (row: any) => row.attendanceNumber, align: 'left' },
+      { label: 'Attendance No.', width: 'w-[125px]', value: (row: any) => getAttendanceNumber(row), align: 'left' },
       { label: 'Begin date', width: 'w-[115px]', value: (row: any) => date(row.beginDate), align: 'left' },
       { label: 'Begin time', width: 'w-[105px]', value: (row: any) => time(row.beginTime), align: 'left' },
       { label: 'End / discharge date', width: 'w-[130px]', value: (row: any) => date(row.endDate), align: 'left' },
@@ -999,7 +1000,7 @@ export default function Reports() {
                 {paginatedDeliveries.map((d: any, index: number) => (
                   <tr key={d.id || index} className="hover:bg-[var(--bg-main)]">
                     <td className={TEXT_TD}>{d.deliveryDate ? new Date(d.deliveryDate).toLocaleDateString() : "—"}</td>
-                    <td className={TEXT_TD}>{d.patient?.folderNumber || "—"}</td>
+                    <td className={TEXT_TD}>{getPatientFolderNumber(d) || '—'}</td>
                     <td className={TEXT_TD}>{humanizeKey(d.deliveryType || "—")}</td>
                     <td className={TEXT_TD}>{humanizeKey(d.deliveryOutcome || "—")}</td>
                     <td className={NUM_TD}>{d.birthWeight != null ? Number(d.birthWeight).toLocaleString() : "—"}</td>

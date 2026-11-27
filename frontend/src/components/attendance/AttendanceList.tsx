@@ -1,6 +1,7 @@
 // src/components/attendance/AttendanceList.tsx
 import { Link } from 'react-router-dom';
 import { PatientAvatar } from '../patients/PatientAvatar';
+import { getPatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
 import { Eye, Edit } from 'lucide-react';
 import { Badge, Button, humanStatus, statusTone, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR } from '../ui';
 
@@ -89,8 +90,8 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({
                       </div>
                     </div>
                   </td>
-                  <td className={TD_MONO}>{patient?.folderNumber || '—'}</td>
-                  <td className={TD_MONO}>{attendance.attendanceNumber || '—'}</td>
+                  <td className={TD_MONO}>{getPatientFolderNumber(attendance) || '—'}</td>
+                  <td className={TD_MONO}>{getAttendanceNumber(attendance) || '—'}</td>
                   <td className={TD}>
                     <div className="space-y-0.5">
                       <p className="font-medium text-[var(--text-primary)]">

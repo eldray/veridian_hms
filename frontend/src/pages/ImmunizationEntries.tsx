@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api from '../api/api';
+import { getPatientName, getPatientFolderNumber } from '../utils/patient';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import ImmunizationPanel from '../components/patients/ImmunizationPanel';
 import ImmunizationSectionTabs from '../components/immunization/ImmunizationSectionTabs';
@@ -39,7 +40,7 @@ export default function ImmunizationEntries() {
   };
 
   useEffect(() => { void loadPatientWorkspace(); }, [patientId]);
-  const name = [patient?.otherNames, patient?.surname].filter(Boolean).join(' ') || 'Patient';
+  const name = getPatientName(patient);
 
   if (loading) return <main className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-secondary)]">Loading patient immunization entries…</main>;
   if (error || !patient) return <main className="space-y-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6">
@@ -64,7 +65,7 @@ export default function ImmunizationEntries() {
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[var(--text-primary)]">{name}</h2>
           <p className="text-sm text-[var(--text-secondary)]">
-            Folder {patient.folderNumber || '—'}
+            Folder {getPatientFolderNumber(patient) || '—'}
             {patient.dateOfBirth ? ' · DOB ' + new Date(patient.dateOfBirth).toLocaleDateString() : ''}
             {patient.gender ? ' · ' + patient.gender : ''}
           </p>

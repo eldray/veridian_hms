@@ -1,5 +1,5 @@
 // src/pages/Billing.tsx - COMPLETE CORRECTED VERSION
-import { getPatientName as resolvePatientName } from '../utils/patient';
+import { getPatientName as resolvePatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
@@ -308,7 +308,7 @@ export default function Billing() {
         return (
           bill.billNumber?.toLowerCase().includes(lower) ||
           patientName.toLowerCase().includes(lower) ||
-          patient?.folderNumber?.toLowerCase().includes(lower)
+          getPatientFolderNumber(bill).toLowerCase().includes(lower)
         );
       });
     }
@@ -820,8 +820,8 @@ const handlePrintStatement = async (billId: string) => {
                             </div>
                           </div>
                         </td>
-                        <td className={TD_MONO}>{patient?.folderNumber || '—'}</td>
-                        <td className={TD_MONO}>{bill.attendance?.attendanceNumber || '—'}</td>
+                        <td className={TD_MONO}>{getPatientFolderNumber(bill) || '—'}</td>
+                        <td className={TD_MONO}>{getAttendanceNumber(bill) || '—'}</td>
                         <td className={TD}>{formatDate(bill.billDate || bill.createdAt)}</td>
                         <td className={cn(TD, 'text-right font-bold')}>{formatCurrency(bill.totalAmount)}</td>
                         <td className={cn(TD, 'text-right font-medium text-[var(--icon-green-text)]')}>{formatCurrency(bill.paidAmount)}</td>
@@ -951,11 +951,11 @@ const handlePrintStatement = async (billId: string) => {
                       <td className={cn(TD, 'font-semibold')}>
                         <div className="flex items-center gap-2 min-w-0">
                           <PatientAvatar patient={waiver.patient} size="sm" className="rounded-full" />
-                          <span className="truncate">{waiver.patient?.surname} {waiver.patient?.otherNames}</span>
+                          <span className="truncate">{resolvePatientName(waiver)}</span>
                         </div>
                       </td>
-                      <td className={TD_MONO}>{waiver.patient?.folderNumber || '—'}</td>
-                      <td className={TD_MONO}>{waiver.bill?.attendance?.attendanceNumber || '—'}</td>
+                      <td className={TD_MONO}>{getPatientFolderNumber(waiver) || '—'}</td>
+                      <td className={TD_MONO}>{getAttendanceNumber(waiver.bill) || '—'}</td>
                       <td className={TD}>
                         <Badge tone="cyan" size="sm">{getWaiverTypeLabel(waiver.waiverType)}</Badge>
                       </td>

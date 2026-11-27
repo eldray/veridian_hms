@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
+import { getPatientName, getPatientFolderNumber } from '../utils/patient';
 import { useToast } from '../store/toastStore';
 import ImmunizationSectionTabs from '../components/immunization/ImmunizationSectionTabs';
 import { AlertCircle, ArrowRight, CalendarClock, CheckCircle, Clock, RefreshCw, Syringe } from 'lucide-react';
@@ -8,7 +9,7 @@ import { Badge, Button, Card, PageHeader, SearchInput, StatCard, TABLE_SHELL, TD
 
 type Patient = { id: string; surname?: string; otherNames?: string; folderNumber?: string; phoneNumber?: string; gender?: string };
 type DueRecord = { id: string; patientId: string; vaccineId: string; doseNumber: string; administeredAt: string; nextDoseDue: string; Patient?: Patient; Vaccine?: { id: string; code: string; name: string } };
-const patientName = (patient?: Patient) => [patient?.otherNames, patient?.surname].filter(Boolean).join(' ') || 'Patient';
+const patientName = (patient?: Patient) => getPatientName(patient);
 
 export default function ImmunizationDueWorklist() {
   const navigate = useNavigate();
@@ -38,7 +39,7 @@ export default function ImmunizationDueWorklist() {
   today.setHours(0, 0, 0, 0);
   const term = search.trim().toLowerCase();
   const filtered = useMemo(() => records.filter(record => !term || [
-    patientName(record.Patient), record.Patient?.folderNumber, record.Patient?.phoneNumber,
+    patientName(record.Patient), getPatientFolderNumber(record), record.Patient?.phoneNumber,
     record.Vaccine?.name, record.Vaccine?.code, record.doseNumber,
   ].some(value => String(value || '').toLowerCase().includes(term))), [records, term]);
   const overdue = filtered.filter(record => new Date(record.nextDoseDue) < today);
@@ -66,7 +67,7 @@ export default function ImmunizationDueWorklist() {
               const isOverdue = new Date(record.nextDoseDue) < today;
               return <tr key={record.id} className={TR}>
                 <td className={TD}><div className="font-semibold text-[var(--text-primary)]">{patientName(record.Patient)}</div><div className="mt-0.5 text-xs text-[var(--text-tertiary)]">{record.Patient?.gender || '—'}</div></td>
-                <td className={TD_MONO}>{record.Patient?.folderNumber || '—'}</td>
+                <td className={TD_MONO}>{getPatientFolderNumber(record) || '—'}</td>
                 <td className={TD}><div className="font-medium text-[var(--text-primary)]">{record.Vaccine?.name || 'Vaccine'}</div><div className="mt-0.5 text-xs text-[var(--text-tertiary)]">{record.Vaccine?.code || '—'} · Dose {record.doseNumber}</div></td>
                 <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>{new Date(record.nextDoseDue).toLocaleDateString()}</td>
                 <td className={TD}>{record.Patient?.phoneNumber || '—'}</td>

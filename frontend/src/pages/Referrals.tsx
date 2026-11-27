@@ -25,7 +25,7 @@ import { useAuthStore } from '../store/authStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
-import { getPatientName } from '../utils/patient';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import SendDocumentModal from '../components/SendDocumentModal';
 import ReferralReportBackModal from '../components/referral/ReferralReportBackModal';
 import { ReferralPartFields } from '../components/referral/ReferralStructuredParts';
@@ -542,10 +542,10 @@ export default function Referrals() {
       const q = searchQuery.toLowerCase();
       list = list.filter(r =>
         r.referralNumber?.toLowerCase().includes(q) ||
-        r.patient?.surname?.toLowerCase().includes(q) ||
-        r.patient?.otherNames?.toLowerCase().includes(q) ||
-        r.patient?.folderNumber?.toLowerCase().includes(q) ||
-        r.attendance?.attendanceNumber?.toLowerCase().includes(q) ||
+        getPatientName(r).toLowerCase().includes(q) ||
+        getPatientName(r).toLowerCase().includes(q) ||
+        getPatientFolderNumber(r).toLowerCase().includes(q) ||
+        getAttendanceNumber(r).toLowerCase().includes(q) ||
         r.referredToFacility?.toLowerCase().includes(q) ||
         r.referredFromFacility?.toLowerCase().includes(q),
       );
@@ -692,13 +692,13 @@ export default function Referrals() {
                     <td className={`${TD} sticky left-0 z-10 bg-[var(--bg-card)]`}>
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
-                          <span className="text-[10px] font-bold text-[var(--icon-cyan-text)]">{initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}</span>
+                          <span className="text-[10px] font-bold text-[var(--icon-cyan-text)]">{initials(getPatientName(ref))}</span>
                         </div>
-                        <p className="font-medium text-sm text-[var(--text-primary)] truncate">{ref.patient?.surname} {ref.patient?.otherNames}</p>
+                        <p className="font-medium text-sm text-[var(--text-primary)] truncate">{getPatientName(ref)}</p>
                       </div>
                     </td>
-                    <td className={`${TD} font-mono text-xs`}>{ref.patient?.folderNumber || '—'}</td>
-                    <td className={`${TD} font-mono text-xs`}>{ref.attendance?.attendanceNumber || '—'}</td>
+                    <td className={`${TD} font-mono text-xs`}>{getPatientFolderNumber(ref) || '—'}</td>
+                    <td className={`${TD} font-mono text-xs`}>{getAttendanceNumber(ref) || '—'}</td>
                     <td className={TD}><TypeBadge type={ref.referralType} /></td>
                     <td className={TD}>
                       <p className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[200px]">{ref.referralType === 'outgoing' ? ref.referredToFacility : ref.referredFromFacility}</p>
@@ -726,11 +726,11 @@ export default function Referrals() {
                   <div className="flex items-start justify-between gap-3 mb-3"><TypeBadge type={ref.referralType} size="md" /><UrgencyBadge urgency={ref.urgency} size="md" /></div>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-[var(--icon-cyan-text)]">{initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}</span>
+                      <span className="text-xs font-bold text-[var(--icon-cyan-text)]">{initials(getPatientName(ref))}</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">{ref.patient?.surname} {ref.patient?.otherNames}</p>
-                      <p className="text-[10px] text-[var(--text-tertiary)] font-mono">{ref.patient?.folderNumber}</p>
+                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">{getPatientName(ref)}</p>
+                      <p className="text-[10px] text-[var(--text-tertiary)] font-mono">{getPatientFolderNumber(ref) || '—'}</p>
                     </div>
                   </div>
                 </div>
@@ -741,7 +741,7 @@ export default function Referrals() {
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-[var(--text-tertiary)] flex items-center gap-1"><Hash className="w-3 h-3" /> Attendance #</span>
-                    <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">{ref.attendance?.attendanceNumber || '—'}</span>
+                    <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">{getAttendanceNumber(ref) || '—'}</span>
                   </div>
                   <div>
                     <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">{ref.referralType === 'outgoing' ? 'Referred To' : 'Referred From'}</p>
@@ -839,7 +839,7 @@ export default function Referrals() {
                   {selectedPatient && (
                     <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-xl px-4 py-3">
                       <div><span className="text-[var(--text-tertiary)] block">Patient</span><b className="text-[var(--text-primary)]">{getPatientName(selectedPatient)}</b></div>
-                      <div><span className="text-[var(--text-tertiary)] block">Folder #</span><b className="text-[var(--text-primary)]">{selectedPatient.folderNumber || '—'}</b></div>
+                      <div><span className="text-[var(--text-tertiary)] block">Folder #</span><b className="text-[var(--text-primary)]">{getPatientFolderNumber(selectedPatient) || '—'}</b></div>
                       <div><span className="text-[var(--text-tertiary)] block">Age / Sex</span><b className="text-[var(--text-primary)]">{(selectedPatient.ageDisplay || selectedPatient.age || ageFromDob(selectedPatient.dateOfBirth || selectedPatient.dob)) || '—'} · {selectedPatient.gender || selectedPatient.sex || '—'}</b></div>
                       <div><span className="text-[var(--text-tertiary)] block">Contact</span><b className="text-[var(--text-primary)]">{selectedPatient.contact || selectedPatient.phone || selectedPatient.phoneNumber || '—'}</b></div>
                     </div>
@@ -851,7 +851,7 @@ export default function Referrals() {
                   <div className="px-4 py-3 bg-[var(--icon-cyan-bg)]/50 border border-[var(--border-color)] rounded-lg">
                     <p className="text-xs font-semibold text-[var(--icon-cyan-text)] mb-2 flex items-center gap-1.5"><Stethoscope className="w-3.5 h-3.5" /> Current Visit</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                      <div><span className="text-[var(--text-tertiary)] block">Visit #</span><b className="text-[var(--text-primary)]">{selectedAttendance.attendanceNumber}</b></div>
+                      <div><span className="text-[var(--text-tertiary)] block">Visit #</span><b className="text-[var(--text-primary)]">{getAttendanceNumber(selectedAttendance) || '—'}</b></div>
                       <div><span className="text-[var(--text-tertiary)] block">Date</span><b className="text-[var(--text-primary)]">{new Date(selectedAttendance.dateTime).toLocaleDateString()}</b></div>
                       <div><span className="text-[var(--text-tertiary)] block">Type</span><b className="text-[var(--text-primary)] capitalize">{selectedAttendance.attendanceType}</b></div>
                       <div><span className="text-[var(--text-tertiary)] block">Status</span><b className="text-[var(--text-primary)] capitalize">{selectedAttendance.status}</b></div>

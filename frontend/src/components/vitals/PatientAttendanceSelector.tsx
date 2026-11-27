@@ -1,5 +1,5 @@
 // src/components/vitals/PatientAttendanceSelector.tsx - FIXED VERSION
-import { getPatientName } from '../../utils/patient';
+import { getPatientName, getPatientFolderNumber as resolvePatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, Calendar, ChevronDown, X, Clock, Activity, CheckCircle, Sparkles } from 'lucide-react';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
@@ -53,10 +53,7 @@ const getPatientOtherNames = (patient: any): string => {
 };
 
 const getPatientFullName = getPatientName;
-const getPatientFolderNumber = (patient: any): string => {
-  const normalized = normalizePatient(patient);
-  return normalized?.folderNumber || '';
-};
+const getPatientFolderNumber = resolvePatientFolderNumber;
 
 const getPatientContact = (patient: any): string => {
   const normalized = normalizePatient(patient);
@@ -222,7 +219,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
 
   /** The box must never read as blank: an older record without a minted number falls back to its date. */
   const attendanceLabel = (attendance: any): string =>
-    attendance?.attendanceNumber
+    getAttendanceNumber(attendance)
     || (attendance?.dateTime || attendance?.createdAt
       ? new Date(attendance.dateTime || attendance.createdAt).toLocaleString()
       : 'Visit');

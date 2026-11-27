@@ -8,6 +8,7 @@ import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { usePatientStore } from '../store/patientStore';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import { useToast } from '../store/toastStore';
 import {
   RefreshCw, X, Plus, Edit, Trash2, Eye, Calendar,
@@ -293,7 +294,7 @@ const FamilyPlanningServiceModal: React.FC<{
                   </h2>
                   {patient && (
                     <p className="text-xs text-[var(--text-tertiary)] mt-0.5 truncate">
-                      {patient.surname} {patient.otherNames} · <span className="font-mono">{patient.folderNumber}</span>
+                      {getPatientName(patient)} · <span className="font-mono">{getPatientFolderNumber(patient) || '—'}</span>
                     </p>
                   )}
                 </div>
@@ -646,9 +647,9 @@ export default function FamilyPlanning() {
     if (!searchQuery) return worklistItems;
     const q = searchQuery.toLowerCase();
     return worklistItems.filter(i =>
-      i.patient?.name?.toLowerCase().includes(q) ||
-      i.patient?.folderNumber?.toLowerCase().includes(q) ||
-      i.attendanceNumber?.toLowerCase().includes(q)
+      getPatientName(i).toLowerCase().includes(q) ||
+      getPatientFolderNumber(i).toLowerCase().includes(q) ||
+      getAttendanceNumber(i).toLowerCase().includes(q)
     );
   }, [worklistItems, searchQuery]);
 
@@ -656,10 +657,9 @@ export default function FamilyPlanning() {
     if (!searchQuery) return services;
     const q = searchQuery.toLowerCase();
     return services.filter(s =>
-      s.patient?.surname?.toLowerCase().includes(q) ||
-      s.patient?.otherNames?.toLowerCase().includes(q) ||
-      s.patient?.folderNumber?.toLowerCase().includes(q) ||
-      s.attendance?.attendanceNumber?.toLowerCase().includes(q) ||
+      getPatientName(s).toLowerCase().includes(q) ||
+      getPatientFolderNumber(s).toLowerCase().includes(q) ||
+      getAttendanceNumber(s).toLowerCase().includes(q) ||
       METHOD_LABELS[s.method]?.toLowerCase().includes(q)
     );
   }, [services, searchQuery]);
@@ -927,20 +927,20 @@ export default function FamilyPlanning() {
                         <td className={TD}>
                           <div className="flex items-center gap-3">
                             <PatientAvatar
-                              patient={{ ...item.patient, id: item.patientId, name: item.patient?.name }}
+                              patient={{ ...item.patient, id: item.patientId, name: getPatientName(item) }}
                               size="sm"
                               className="rounded-full border border-[var(--border-color)]"
                             />
                             <div className="min-w-0">
-                              <p className="font-medium text-[var(--text-primary)] text-sm truncate">{item.patient?.name}</p>
+                              <p className="font-medium text-[var(--text-primary)] text-sm truncate">{getPatientName(item)}</p>
                               <p className="text-xs text-[var(--text-secondary)]">
                                 {item.patient?.age} years • {item.patient?.gender}
                               </p>
                             </div>
                           </div>
                         </td>
-                        <td className={TD_MONO}>{item.patient?.folderNumber || '—'}</td>
-                        <td className={TD_MONO}>{item.attendanceNumber || '—'}</td>
+                        <td className={TD_MONO}>{getPatientFolderNumber(item) || '—'}</td>
+                        <td className={TD_MONO}>{getAttendanceNumber(item) || '—'}</td>
                         <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
                           {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleString() : '—'}
                         </td>
@@ -998,17 +998,17 @@ export default function FamilyPlanning() {
                   {/* Header */}
                   <div className="flex items-start gap-3 p-4 pb-3">
                     <PatientAvatar
-                      patient={{ ...item.patient, id: item.patientId, name: item.patient?.name }}
+                      patient={{ ...item.patient, id: item.patientId, name: getPatientName(item) }}
                       size="lg"
                       className="rounded-xl border border-[var(--border-color)]"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-[var(--text-primary)] truncate">
-                        {item.patient?.name}
+                        {getPatientName(item)}
                       </p>
                       <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)] mt-0.5">
-                        <span className="font-mono">#{item.patient?.folderNumber}</span>
-                        <span className="font-mono">· {item.attendanceNumber || '—'}</span>
+                        <span className="font-mono">#{getPatientFolderNumber(item) || '—'}</span>
+                        <span className="font-mono">· {getAttendanceNumber(item) || '—'}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <StatusBadge status={isOutstanding ? item.attendanceStatus : item.status} />
@@ -1108,12 +1108,12 @@ export default function FamilyPlanning() {
                         <div className="flex items-center gap-2.5">
                           <PatientAvatar patient={service.patient} size="sm" className="rounded-full border border-[var(--border-color)]" />
                           <p className="font-medium text-[var(--text-primary)]">
-                            {service.patient?.surname} {service.patient?.otherNames}
+                            {getPatientName(service)}
                           </p>
                         </div>
                       </td>
-                      <td className={TD_MONO}>{service.patient?.folderNumber || '—'}</td>
-                      <td className={TD_MONO}>{service.attendance?.attendanceNumber || '—'}</td>
+                      <td className={TD_MONO}>{getPatientFolderNumber(service) || '—'}</td>
+                      <td className={TD_MONO}>{getAttendanceNumber(service) || '—'}</td>
                       <td className={TD}>
                         <Badge tone="purple" size="sm">{METHOD_LABELS[service.method] || service.method}</Badge>
                       </td>

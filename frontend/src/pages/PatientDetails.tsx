@@ -1,5 +1,5 @@
 // src/pages/PatientDetails.tsx - COMPACT REDESIGNED VERSION
-import { getPatientName as resolvePatientName } from '../utils/patient';
+import { getPatientName as resolvePatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSmartBack } from '../utils/useSmartBack';
@@ -361,7 +361,7 @@ export default function PatientDetails() {
     <div className="space-y-4 p-4 lg:p-6 max-w-[1600px] mx-auto">
       <PageHeader
         title="Patient Details"
-        meta={`Record #${patient.folderNumber || patient.id?.slice(-8)}`}
+        meta={`Record #${getPatientFolderNumber(patient) || patient.id?.slice(-8)}`}
         icon={Users}
         accent="cyan"
         backTo="/dashboard/patients"
@@ -393,7 +393,7 @@ export default function PatientDetails() {
           </div>
           <div className="shrink-0 text-right">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Folder #</p>
-            <p className="text-lg font-bold leading-tight text-[var(--text-primary)]">{patient.folderNumber || '—'}</p>
+            <p className="text-lg font-bold leading-tight text-[var(--text-primary)]">{getPatientFolderNumber(patient) || '—'}</p>
             <p className="text-[11px] text-[var(--text-tertiary)]">Reg. {formatDate(patient.createdAt)}</p>
           </div>
         </div>
@@ -462,7 +462,7 @@ export default function PatientDetails() {
               <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
                 <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-3 flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" /> Patient Info</h3>
                 <InfoRow label="Full Name" value={getPatientFullName(patient)} />
-                <InfoRow label="Folder #" value={patient.folderNumber || 'N/A'} />
+                <InfoRow label="Folder #" value={getPatientFolderNumber(patient) || 'N/A'} />
                 <InfoRow label="Gender" value={patient.gender || 'N/A'} />
                 <InfoRow label="DOB" value={formatDate(patient.dateOfBirth)} />
                 <InfoRow label="Age" value={patient.ageDisplay || `${patient.age || 'N/A'} yrs`} />
@@ -502,7 +502,7 @@ export default function PatientDetails() {
                 <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
                   <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]"><Users className="h-4 w-4 text-[var(--icon-cyan-text)]" /> Basic information</h3>
                   <InfoRow label="Full Name" value={getPatientFullName(patient)} />
-                  <InfoRow label="Folder Number" value={patient.folderNumber || 'N/A'} />
+                  <InfoRow label="Folder Number" value={getPatientFolderNumber(patient) || 'N/A'} />
                   <InfoRow label="Gender" value={patient.gender || 'N/A'} />
                   <InfoRow label="Date of Birth" value={formatDate(patient.dateOfBirth)} />
                   <InfoRow label="Age" value={patient.ageDisplay || `${patient.age || 'N/A'} years`} />
@@ -531,7 +531,7 @@ export default function PatientDetails() {
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div className="w-9 h-9 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center shrink-0"><Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" /></div>
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap"><span className="text-sm font-semibold text-[var(--text-primary)]">{att.attendanceNumber || `Visit ${formatDate(att.dateTime)}`}</span><StatusBadge status={att.status} /></div>
+                              <div className="flex items-center gap-2 flex-wrap"><span className="text-sm font-semibold text-[var(--text-primary)]">{getAttendanceNumber(att) || `Visit ${formatDate(att.dateTime)}`}</span><StatusBadge status={att.status} /></div>
                               <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[var(--text-tertiary)]"><span>{formatDateTime(att.dateTime || att.createdAt)}</span><span>•</span><span className="capitalize">{att.attendanceType?.replace(/_/g, ' ')}</span><span>•</span><span className="capitalize">{att.paymentMode}</span></div>
                             </div>
                           </div>
@@ -561,7 +561,7 @@ export default function PatientDetails() {
                     <div key={att.id} className="border border-[var(--border-color)] rounded-lg overflow-hidden">
                       <button onClick={() => viewMedicalDetails(att)} className="w-full bg-[var(--bg-main)] px-3 py-2.5 flex items-center justify-between hover:bg-[var(--bg-card)] transition-colors text-left">
                         <div className="flex items-center gap-2.5"><div className="w-8 h-8 rounded-md bg-[var(--icon-cyan-bg)] flex items-center justify-center"><Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" /></div>
-                          <div><p className="text-xs font-semibold text-[var(--text-primary)]">{formatDateTime(att.dateTime || att.createdAt)}</p><p className="text-[10px] text-[var(--text-tertiary)]">{att.attendanceType?.replace(/_/g, ' ')} • {att.attendanceNumber}</p></div></div>
+                          <div><p className="text-xs font-semibold text-[var(--text-primary)]">{formatDateTime(att.dateTime || att.createdAt)}</p><p className="text-[10px] text-[var(--text-tertiary)]">{att.attendanceType?.replace(/_/g, ' ')} • {getAttendanceNumber(att) || '—'}</p></div></div>
                         <div className="flex items-center gap-2"><StatusBadge status={att.status} /><ChevronRight className="w-3.5 h-3.5 text-[var(--text-tertiary)]" /></div>
                       </button>
                       <div className="px-3 py-2 grid grid-cols-3 gap-2 text-[11px] border-t border-[var(--border-color)]">
@@ -598,7 +598,7 @@ export default function PatientDetails() {
                     <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2.5">
                       <Calendar className="h-4 w-4 text-[var(--icon-cyan-text)]" />
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-[var(--text-primary)]">{att.attendanceNumber || 'Attendance'} · {formatDate(att.dateTime || att.createdAt)}</p>
+                        <p className="text-xs font-semibold text-[var(--text-primary)]">{getAttendanceNumber(att) || 'Attendance'} · {formatDate(att.dateTime || att.createdAt)}</p>
                         <p className="text-[10px] text-[var(--text-tertiary)]">{formatDateTime(att.dateTime || att.createdAt)} · {String(att.attendanceType || 'visit').replace(/_/g, ' ')}</p>
                       </div>
                       <Badge tone="neutral" size="sm">{att.medications.length} medication{att.medications.length === 1 ? '' : 's'}</Badge>
@@ -694,7 +694,7 @@ export default function PatientDetails() {
                       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2.5">
                         <Calendar className="h-4 w-4 text-[var(--icon-cyan-text)]" />
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-[var(--text-primary)]">{att.attendanceNumber || 'Attendance'} · {formatDate(att.dateTime || att.createdAt)}</p>
+                          <p className="text-xs font-semibold text-[var(--text-primary)]">{getAttendanceNumber(att) || 'Attendance'} · {formatDate(att.dateTime || att.createdAt)}</p>
                           <p className="text-[10px] text-[var(--text-tertiary)]">{formatDateTime(att.dateTime || att.createdAt)} · {String(att.attendanceType || 'visit').replace(/_/g, ' ')} · {att.paymentMode || 'Cash'}</p>
                         </div>
                         <StatusBadge status={att.status} />
@@ -754,7 +754,7 @@ export default function PatientDetails() {
                 <div className="space-y-3">
                   {Array.from(documents.reduce((map, doc) => { const key = doc.entityId; if (!map.has(key)) map.set(key, []); map.get(key)!.push(doc); return map; }, new Map<string, GeneratedDocument[]>()).entries()).map(([entityId, docs]) => {
                     const att = patientAttendances.find(a => a.id === entityId);
-                    const displayName = att ? `${att.attendanceNumber || 'Visit'} - ${formatDate(att.dateTime || att.createdAt)}` : `Group ${entityId.slice(-8)}`;
+                    const displayName = att ? `${getAttendanceNumber(att) || 'Visit'} - ${formatDate(att.dateTime || att.createdAt)}` : `Group ${entityId.slice(-8)}`;
                     return (
                       <div key={entityId} className="border border-[var(--border-color)] rounded-lg overflow-hidden">
                         <div className="bg-[var(--bg-main)] px-3 py-2 border-b border-[var(--border-color)] flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" /><span className="text-xs font-semibold text-[var(--text-primary)]">{displayName}</span>{att && (<span className="text-[10px] text-[var(--text-tertiary)] ml-auto">{formatDateTime(att.dateTime || att.createdAt)}</span>)}</div>
@@ -798,7 +798,7 @@ export default function PatientDetails() {
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--icon-purple-bg)]"><Stethoscope className="h-5 w-5 text-[var(--icon-purple-text)]" /></div>
                   <div className="min-w-0">
                     <h2 className="truncate text-base font-bold leading-tight text-[var(--text-primary)]">Visit Summary</h2>
-                    <p className="truncate text-xs text-[var(--text-tertiary)]">{getPatientFullName(patient)} · {selectedAttendance.attendanceNumber || 'Visit'} · {formatDateTime(selectedAttendance.dateTime || selectedAttendance.createdAt)}</p>
+                    <p className="truncate text-xs text-[var(--text-tertiary)]">{getPatientFullName(patient)} · {getAttendanceNumber(selectedAttendance) || 'Visit'} · {formatDateTime(selectedAttendance.dateTime || selectedAttendance.createdAt)}</p>
                   </div>
                 </div>
                 <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close" onClick={() => { setShowMedicalDetails(false); setSelectedAttendance(null); }} />
