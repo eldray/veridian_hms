@@ -10,7 +10,7 @@ import NewAttendanceModal from '../components/NewAttendanceModal';
 import SendDocumentModal from '../components/SendDocumentModal';
 import MedicalReportModal from '../components/MedicalReportModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
-import { getPatientName } from '../utils/patient';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { PageHeader } from '../components/ui';
@@ -433,12 +433,17 @@ export default function AttendanceDetails() {
   const findPatient = (attendance: any) => {
     // Prisma's relation is named "Patient"; some API responses normalize it to "patient".
     // Prefer the embedded record because it now includes allergy and history details.
-    const embeddedPatient = attendance?.patient ?? attendance?.Patient;
-    if (embeddedPatient?.surname) return embeddedPatient;
-
-    // A counter ticket names a walk-in customer and has no folder at all; showing that
-    // record keeps the visit readable instead of crashing on a missing patient.
+    // If a walk-in counter client was registered later, use the linked Patient
+    // for both the current identity and folder number instead of the old counter name.
     const counterClient = attendance?.counterClient ?? attendance?.CounterClient;
+    const registeredCounterPatient = counterClient?.Patient ?? counterClient?.patient;
+    if (registeredCounterPatient?.id || registeredCounterPatient?.surname) return registeredCounterPatient;
+
+    // Normal registered attendance relation (Prisma/API casing variants).
+    const embeddedPatient = attendance?.patient ?? attendance?.Patient;
+    if (embeddedPatient?.surname || embeddedPatient?.id) return embeddedPatient;
+
+    // A genuinely unregistered counter ticket has no folder; keep its counter name.
     if (counterClient?.name) return counterClient;
 
     const pid = (typeof attendance.patientId === 'object'
@@ -964,7 +969,7 @@ export default function AttendanceDetails() {
     <div className="space-y-4 p-4">
       <PageHeader
         title="Attendance Details"
-        subtitle={`Record #${currentAttendance.attendanceNumber || currentAttendance.id?.slice(-8)}`}
+        subtitle={`Record #${getAttendanceNumber(currentAttendance) || currentAttendance.id?.slice(-8)}`}
         meta={`${getPatientName(currentAttendance)} · Created ${formatShortDate(currentAttendance.dateTime || currentAttendance.createdAt)}`}
         icon={Calendar}
         accent="cyan"
@@ -1361,7 +1366,7 @@ export default function AttendanceDetails() {
                         </div>
                         <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                           <p className="text-xs text-[var(--text-secondary)] font-medium">Folder Number</p>
-                          <p className="font-bold text-[var(--text-primary)] text-sm">{patient.folderNumber || 'N/A'}</p>
+                          <p className="font-bold text-[var(--text-primary)] text-sm">{getPatientFolderNumber(currentAttendance) || getPatientFolderNumber(patient) || 'N/A'}</p>
                         </div>
                         <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
                           <p className="text-xs text-[var(--text-secondary)] font-medium">Age & Gender</p>
