@@ -669,8 +669,8 @@ export default function AttendanceDetails() {
     );
   };
 
-  const printReceiptA4 = (bill: any) => {
-    const payment = latestRecordedPayment(bill);
+  const printReceiptA4 = (bill: any, selectedPayment?: any) => {
+    const payment = selectedPayment || latestRecordedPayment(bill);
     if (!payment) {
       toastError('No payment recorded', 'A receipt can only be issued for a recorded, non-voided payment.');
       return;
@@ -688,8 +688,8 @@ export default function AttendanceDetails() {
     );
   };
 
-  const printReceipt = (bill: any) => {
-    const payment = latestRecordedPayment(bill);
+  const printReceipt = (bill: any, selectedPayment?: any) => {
+    const payment = selectedPayment || latestRecordedPayment(bill);
     if (!payment) {
       toastError('No payment recorded', 'A receipt can only be issued for a recorded, non-voided payment.');
       return;
@@ -1951,6 +1951,49 @@ export default function AttendanceDetails() {
                           )}
                         </div>
                       </div>
+
+                      {((bill.Payment || bill.payments || []) as any[]).filter((payment: any) => !payment.isVoided).length > 0 && (
+                        <div className="mt-3 border-t border-[var(--border-color)] pt-3">
+                          <h4 className="mb-2 text-xs font-semibold text-[var(--text-secondary)]">Payment history</h4>
+                          <div className="space-y-2">
+                            {((bill.Payment || bill.payments || []) as any[])
+                              .filter((payment: any) => !payment.isVoided)
+                              .slice()
+                              .sort((a: any, b: any) => new Date(b.transactionDate || b.paymentDate || 0).getTime() - new Date(a.transactionDate || a.paymentDate || 0).getTime())
+                              .map((payment: any) => (
+                                <div key={payment.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--bg-card)] px-3 py-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium text-[var(--text-primary)]">
+                                      {formatCurrency(payment.amount)} · {(payment.paymentMethod || payment.paymentMode || 'Payment').replace(/_/g, ' ')}
+                                    </p>
+                                    <p className="text-[10px] text-[var(--text-tertiary)]">
+                                      {formatDate(payment.transactionDate || payment.paymentDate || payment.createdAt)}
+                                      {payment.reference ? ` · Ref: ${payment.reference}` : ''}
+                                    </p>
+                                  </div>
+                                  <div className="flex shrink-0 items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => printReceipt(bill, payment)}
+                                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)]"
+                                    >
+                                      <Receipt className="h-3.5 w-3.5" />
+                                      Thermal
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => printReceiptA4(bill, payment)}
+                                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--border-color)]"
+                                    >
+                                      <Printer className="h-3.5 w-3.5" />
+                                      A4
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Documents built from data this page already holds, so any role that can
                           read the bill can produce its paperwork. */}
