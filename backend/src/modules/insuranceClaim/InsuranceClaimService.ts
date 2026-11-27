@@ -474,13 +474,16 @@ ${claimsXml}
     for (const med of medicines) {
       const stockItem = med.StockItem;
       const label = med.name || stockItem?.name || 'this medicine';
-      // Claims may include active prescriptions even before dispensing. The source remains
-      // the attendance's own Medication record; cancelled/discontinued rows are excluded.
-      if (!['prescribed', 'dispensed', 'administered'].includes(med.status)) {
+      // The claim quote/generation path includes only medicines actually supplied
+      // or administered. Prescribed-only medicines remain available in the edit picker,
+      // where an authorised user may add them explicitly to a draft.
+      if (!['dispensed', 'administered'].includes(med.status)) {
         unclaimable.push({
           code: stockItem?.drugCode,
           description: label,
-          reason: `is marked ${String(med.status)}, so it is not an active prescription for this attendance`,
+          reason: med.status === 'prescribed'
+            ? 'has been prescribed but not dispensed or administered. Please dispense it (or record its administration) before adding it to the NHIS claim.'
+            : `is marked ${String(med.status)}, so there is no recorded dispensing or administration for this visit`,
         });
         continue;
       }
@@ -540,7 +543,7 @@ ${claimsXml}
       }
       const quantity = Number(med.quantity ?? 1);
       if (!Number.isFinite(quantity) || quantity <= 0) {
-        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has no valid prescribed quantity to claim' });
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has no dispensed quantity to claim' });
         continue;
       }
       const roundedUnit = Math.round(unitPrice * 100) / 100;
@@ -553,7 +556,7 @@ ${claimsXml}
         unitOfMeasure: stockItem.unitOfMeasure,
         quantity,
         sourceStatus: med.status,
-        date: isoDay(med.prescribedAt ?? med.dispensedAt ?? policyDate),
+        date: isoDay(med.dispensedAt ?? policyDate),
         prescription: `${med.dosage ?? ''} ${med.frequency ?? ''} x ${med.duration ?? ''}`.trim() || 'As prescribed',
         unitPrice: roundedUnit,
         lineTotal: Math.round(roundedUnit * quantity * 100) / 100,
