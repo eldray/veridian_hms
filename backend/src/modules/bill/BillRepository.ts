@@ -1084,6 +1084,36 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       await this.syncAttendanceFinancials(tx, attendance.id, { ...updatedBill, balance });
 
+      // Encounter-generated bills and incremental synchronizations are financial
+      // mutations too. Keep their audit evidence in this transaction so a failed
+      // audit write cannot leave an unrecorded bill/charge synchronization.
+      await appendStructuredFinancialAudit(
+        tx,
+        createdBy,
+        'Bill',
+        updatedBill.id,
+        existingBill ? 'update' : 'create',
+        existingBill ? {
+          status: existingBill.status,
+          totalAmount: toNumber(existingBill.totalAmount),
+          patientPayable: toNumber(existingBill.patientPayable),
+          paidAmount: toNumber(existingBill.paidAmount),
+          balance: toNumber(existingBill.balance),
+        } : undefined,
+        {
+          billNumber: updatedBill.billNumber,
+          attendanceId: attendance.id,
+          paymentMode,
+          status: updatedBill.status,
+          totalAmount: toNumber(updatedBill.totalAmount),
+          patientPayable: toNumber(updatedBill.patientPayable),
+          paidAmount: toNumber(updatedBill.paidAmount),
+          balance: toNumber(updatedBill.balance),
+          activeLineCount: activeLines.length,
+        },
+        { source: 'bill_repository_generate_from_encounter', synchronized: Boolean(existingBill) },
+      );
+
       return updatedBill;
     });
   }
