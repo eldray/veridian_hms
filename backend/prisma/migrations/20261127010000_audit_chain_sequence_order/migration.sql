@@ -1,3 +1,8 @@
+BEGIN;
+
+-- Prevent appends between the historical backfill and sequence activation.
+LOCK TABLE "audit_logs" IN ACCESS EXCLUSIVE MODE;
+
 -- Preserve the audit verifier's existing CUID order for historical rows,
 -- then use a PostgreSQL sequence for every subsequent append.
 CREATE SEQUENCE "audit_logs_chainSequence_seq";
@@ -33,3 +38,5 @@ ALTER COLUMN "chainSequence" SET NOT NULL;
 
 CREATE UNIQUE INDEX "audit_logs_chainSequence_key"
 ON "audit_logs"("chainSequence");
+
+COMMIT;
