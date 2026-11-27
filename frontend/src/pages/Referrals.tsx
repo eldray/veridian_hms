@@ -506,7 +506,7 @@ export default function Referrals() {
     if (!referral?.id) { toastError('Error', 'Referral ID is missing'); return; }
     setPrintingId(referral.id);
     try {
-      const patientName = referral.patient ? `${referral.patient.surname} ${referral.patient.otherNames}`.trim() : 'Unknown Patient';
+      const patientName = getPatientName(referral);
       const structuredForm = referral.structuredForm ?? null;
       const hasStructured = partHasContent(structuredForm?.partI) || partHasContent(structuredForm?.partII);
       const html = generatePDF(hasStructured ? 'referralForm' : 'referral', {
