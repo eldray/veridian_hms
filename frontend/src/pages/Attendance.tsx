@@ -180,7 +180,7 @@ export default function Attendance() {
     switch (sortKey) {
       case 'oldest': return [...filtered].sort((a, b) => -byDate(a, b));
       case 'patientName': return [...filtered].sort((a, b) => getPatientFullName(findPatient(a)).localeCompare(getPatientFullName(findPatient(b))));
-      case 'folder': return [...filtered].sort((a, b) => String(getPatientFolderNumber(findPatient(a)) || '').localeCompare(String(findPatient(b)?.folderNumber || '')));
+      case 'folder': return [...filtered].sort((a, b) => String(getPatientFolderNumber(findPatient(a)) || '').localeCompare(String(getPatientFolderNumber(findPatient(b)) || '')));
       case 'attendanceNo': return [...filtered].sort((a, b) => String(getAttendanceNumber(a)).localeCompare(String(getAttendanceNumber(b))));
       case 'type': return [...filtered].sort((a, b) => String(a.attendanceType || '').localeCompare(String(b.attendanceType || '')));
       case 'payment': return [...filtered].sort((a, b) => String(a.paymentMode || '').localeCompare(String(b.paymentMode || '')));
