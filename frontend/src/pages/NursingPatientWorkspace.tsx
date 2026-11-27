@@ -16,7 +16,7 @@ import { MarGrid } from '../components/nursing/MarGrid';
 import { openMarPrint } from '../components/nursing/MarPrintModal';
 import { NursingNotesPanel } from '../components/nursing/NursingNotesPanel';
 import { promptDialog } from '../context/PromptDialog';
-import { getPatientName } from '../utils/patient';
+import { getPatientName, getPatientFolderNumber } from '../utils/patient';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import type { MarDose } from '../api/nursing';
 import {
@@ -431,7 +431,7 @@ export default function NursingPatientWorkspace() {
               onClick={() => openMarPrint(
                 doses,
                 patientName,
-                selectedPatient.folderNumber || '—',
+                getPatientFolderNumber(selectedPatient) || '—',
                 new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString(),
                 new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString(),
                 hospital,
@@ -852,7 +852,7 @@ export default function NursingPatientWorkspace() {
                     onClick={() => openMarPrint(
                       doses,
                       patientName,
-                      selectedPatient.folderNumber || '—',
+                      getPatientFolderNumber(selectedPatient) || '—',
                       new Date(doses[0]?.scheduledAt || Date.now()).toLocaleDateString(),
                       new Date(doses[doses.length - 1]?.scheduledAt || Date.now()).toLocaleDateString(),
                       hospital,
