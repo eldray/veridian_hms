@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { PrismaClient, UserRole } from '@prisma/client'; // ✅ Import UserRole
 import { WardController } from './WardController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 
 export function createWardRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const controller = new WardController(prisma);
 
   router.use(protect);
+  router.use(auditSensitiveAccess('Ward'));
 
   // ✅ FIXED: Explicitly type the arrays to prevent TypeScript underlines
   const adminRoles: UserRole[] = ['super_admin', 'admin'];
