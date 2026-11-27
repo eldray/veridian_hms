@@ -570,7 +570,10 @@ describe('admission, bed and nursing record consistency', () => {
       bed: { findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true }), update: vi.fn() },
       ward: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
-    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'admin-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
     const repository = new EncounterRepository(prisma);
 
     await repository.updateAdmission('admission-1', { dischargeDate: '2026-10-22T10:00:00.000Z', dischargeStatus: 'home' }, 'admin-1');

@@ -3014,11 +3014,19 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   // ============================================
 
   async createFormalAdmission(data: any, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const admission = await tx.admission.create({
         data: { attendanceId: data.attendanceId, admissionNumber: getCounterService().nextAdmissionNumber(), admissionType: data.admissionType || 'emergency', admissionSource: data.admissionSource || 'opd' }
       });
       await tx.attendance.update({ where: { id: data.attendanceId }, data: { status: 'admitted', bedId: data.bedId, wardId: data.wardId } });
+      await appendClinicalRecordAudit(tx, actorId, 'Admission', admission.id, 'create', undefined, {
+        id: admission.id,
+        attendanceId: admission.attendanceId,
+        admissionNumber: admission.admissionNumber,
+        admissionType: admission.admissionType,
+        admissionSource: admission.admissionSource,
+      }, { workflow: 'formal_admission_created' });
       return admission;
     });
   }
@@ -3238,7 +3246,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return { data: rows.map((r: any) => this.shapeAdmission(r)), total, page, limit };
   }
 
-  async updateAdmission(id: string, data: any, userId?: string) {
+  async updateAdmission(id: string, data: any, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.admission.findUnique({
         where: { id },
@@ -3332,6 +3341,24 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       } else {
         updated = await tx.admission.update({ where: { id }, data: update });
       }
+      await appendClinicalRecordAudit(tx, actorId, 'Admission', id, 'update', {
+        id: existing.id,
+        admissionType: existing.admissionType,
+        admissionSource: existing.admissionSource,
+        dischargeDate: existing.dischargeDate ?? null,
+        dischargeStatus: existing.dischargeStatus ?? null,
+      }, {
+        id: updated.id,
+        admissionType: updated.admissionType,
+        admissionSource: updated.admissionSource,
+        dischargeDate: updated.dischargeDate ?? null,
+        dischargeStatus: updated.dischargeStatus ?? null,
+      }, {
+        workflow: isDischargeRequest ? 'admission_discharged' : 'admission_updated',
+        changedFields: Object.keys(update).filter((field) => field !== 'dailyNotes'),
+        dailyNotesChanged: Object.prototype.hasOwnProperty.call(update, 'dailyNotes'),
+        narrativeContentOmitted: true,
+      });
       return updated;
     });
   }
