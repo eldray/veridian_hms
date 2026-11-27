@@ -181,7 +181,7 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <PatientAvatar imageUrl={item.patient?.imageUrl} name={item.patient?.name} size="sm" className="rounded-full bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
+                        <PatientAvatar imageUrl={item.patient?.imageUrl} name={getPatientName(item)} size="sm" className="rounded-full bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
                         <h3 className="font-semibold">
                           {getPatientName(item)}
                         </h3>
