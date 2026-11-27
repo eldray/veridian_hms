@@ -658,7 +658,6 @@ export default function FamilyPlanning() {
     const q = searchQuery.toLowerCase();
     return services.filter(s =>
       getPatientName(s).toLowerCase().includes(q) ||
-      getPatientName(s).toLowerCase().includes(q) ||
       getPatientFolderNumber(s).toLowerCase().includes(q) ||
       getAttendanceNumber(s).toLowerCase().includes(q) ||
       METHOD_LABELS[s.method]?.toLowerCase().includes(q)
