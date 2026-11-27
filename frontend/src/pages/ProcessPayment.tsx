@@ -196,7 +196,7 @@ export default function ProcessPayment() {
         paymentResult = await addPaymentToBill(bill.id, {
           amount,
           paymentMethod,
-          reference: recordedPayment?.reference || reference || undefined,
+          reference: reference || undefined,
           transactionDate: new Date().toISOString(),
           receivedById: user.id,
           idempotencyKey: paymentAttemptKey.current,
@@ -223,7 +223,7 @@ export default function ProcessPayment() {
           id: recordedPayment?.id,
           amount,
           paymentMethod,
-          reference: reference || undefined,
+          reference: recordedPayment?.reference || reference || undefined,
           transactionDate: new Date().toISOString(),
           User: { fullName: user?.fullName },
         }, true);
