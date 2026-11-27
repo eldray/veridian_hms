@@ -162,7 +162,8 @@ export class AuditRepository extends BaseRepository<any, any, any> {
 
   async verifyChain() {
     // The audit log grows forever; page through it so verification does not
-    // load every row into memory. Ordering by id matches append order.
+    // load every row into memory. The sequence preserves legacy CUID order and
+    // records the serialized append order for all new entries.
     const pageSize = 500;
     let cursorSequence: bigint | undefined;
     let state: AuditChainCursor | undefined;
