@@ -348,7 +348,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: any) {
     if (!selected) return;
     const catalog = catalogsByStock.get(selected.id);
     const unitPrice = editing?.unitPrice ?? payerUnitPrice(catalog, 'private_insurance');
-    onAdd({ id: editing?.id, billLineItemId: editing?.billLineItemId, medicationId: editing?.medicationId, description: selected.name, date: medicineDate, stockItemId: selected.id, drugCode: selected.drugCode || selected.code || editing?.drugCode, serviceCatalogId: catalog?.id || editing?.serviceCatalogId, quantity, unitPrice, total: quantity * unitPrice, ...prescription, prescriptionText: formatPrescriptionDetails(prescription) || editing?.prescriptionText || '' });
+    onAdd({ id: editing?.id, billLineItemId: editing?.billLineItemId, medicationId: selected.id === editing?.stockItemId ? editing?.medicationId : undefined, description: selected.name, date: medicineDate, stockItemId: selected.id, drugCode: selected.drugCode || selected.code || editing?.drugCode, serviceCatalogId: catalog?.id || editing?.serviceCatalogId, quantity, unitPrice, total: quantity * unitPrice, ...prescription, prescriptionText: formatPrescriptionDetails(prescription) || editing?.prescriptionText || '' });
     setSelectedMedicine(null); setSearchTerm(''); setQuantity(1); setPrescription({ ...EMPTY_PRESCRIPTION }); onClose();
   };
   if (!isOpen) return null;
