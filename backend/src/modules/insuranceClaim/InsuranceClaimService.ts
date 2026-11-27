@@ -1588,6 +1588,33 @@ ${claimsXml}
       if (source === 'medication' && !code) {
         throw new ValidationError(`Cannot generate this claim: medicine "${catalog.name}" has no canonical drug code.`);
       }
+      const prescriptionSnapshot = source === 'medication' ? {
+        medicationId: record.id,
+        name: record.name,
+        stockItemId: record.stockItemId,
+        medicineStrength: record.StockItem?.strength ?? null,
+        doseAmount: record.doseAmount?.toString?.() ?? null,
+        doseUnit: record.doseUnit ?? null,
+        dosageText: record.dosage ?? null,
+        frequencyCode: record.frequencyCode ?? null,
+        frequencyText: record.frequency ?? null,
+        frequencyIntervalHours: record.frequencyIntervalHours ?? null,
+        durationValue: record.durationValue ?? null,
+        durationUnit: record.durationUnit ?? null,
+        durationText: record.duration ?? null,
+        route: record.route ?? null,
+        instructions: record.instructions ?? null,
+        prnIndication: record.prnIndication ?? null,
+        prnMaxDosesPerDay: record.prnMaxDosesPerDay ?? null,
+        prnMinimumIntervalHours: record.prnMinimumIntervalHours ?? null,
+        prescribedQuantity: record.quantity,
+        quantityUnit: record.quantityUnit ?? record.StockItem?.unitOfMeasure ?? null,
+        dispensedQuantity: record.dispensedQuantity ?? null,
+        dispensedAt: record.dispensedAt?.toISOString?.() ?? null,
+        prescribedAt: record.prescribedAt?.toISOString?.() ?? null,
+        prescribedById: record.prescribedById,
+        prescriptionVersion: record.prescriptionVersion ?? 1,
+      } : null;
       lines.push({
         itemCategory: itemCategory as any,
         itemType: type || source,
@@ -1600,7 +1627,13 @@ ${claimsXml}
         grossLineTotal: gross,
         serviceDate: record.completedAt || record.performedAt || record.date || record.dispensedAt || serviceDate,
         serviceCatalogId: catalog.id,
-        ...(source === 'medication' ? { medicationId: id } : {}),
+        ...(source === 'medication' ? {
+          medicationId: id,
+          prescriptionText: [record.dosage, record.frequency, record.duration].filter(Boolean).join(' · ') || null,
+          prescriptionSnapshot,
+          prescriptionSnapshotAt: new Date(),
+          prescriptionSnapshotVersion: record.prescriptionVersion ?? 1,
+        } : {}),
         ...(source === 'lab' ? { labTestId: id } : {}),
         ...(source === 'scan' ? { scanId: id } : {}),
         ...(source === 'procedure' ? { procedureId: id } : {}),
