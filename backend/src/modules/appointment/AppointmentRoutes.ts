@@ -2,10 +2,12 @@ import { Router } from 'express';
 import { UserRole } from '@prisma/client';
 import { appointmentController } from './AppointmentController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { auditSensitiveAccess } from '../../middleware/audit';
 
 export const createAppointmentRoutes = () => {
   const router = Router();
   router.use(protect);
+  router.use(auditSensitiveAccess('Appointment'));
 
   // Read access for clinical, records and the diagnostic departments, which see the
   // clinic list to know who is coming; only clinical and records may change it.
