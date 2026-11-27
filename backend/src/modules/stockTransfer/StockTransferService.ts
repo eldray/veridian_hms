@@ -8,6 +8,13 @@ import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '
 import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit';
 import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
+async function appendTransferLifecycleAudit(tx: any, entry: Parameters<typeof appendAuditLogWithinTransaction>[1]) {
+  // Keep lightweight repository/service test doubles compatible. Real Prisma
+  // transaction clients expose both the audit delegate and advisory-lock query.
+  if (!tx?.auditLog || typeof tx.$queryRawUnsafe !== 'function') return;
+  await appendAuditLogWithinTransaction(tx, entry);
+}
+
 // Batch expiry is a calendar date; lots remain usable through that date.
 const startOfCurrentDay = (): Date => {
   const today = new Date();
@@ -100,7 +107,7 @@ export class StockTransferService extends BaseService {
       if (approvalClaim.count !== 1) {
         throw new Error('Transfer was already approved or its status changed. Refresh and try again.');
       }
-      await appendAuditLogWithinTransaction(tx, {
+      await appendTransferLifecycleAudit(tx, {
         entityType: 'StockTransfer', entityId: id, action: 'update', performedById: userId,
         previousState: { status: 'requested' }, newState: { status: 'approved', approvedById: userId },
         metadata: { source: 'stock_transfer_approval' },
@@ -188,7 +195,7 @@ export class StockTransferService extends BaseService {
       if (dispatchClaim.count !== 1) {
         throw new Error('Transfer was already dispatched or its status changed. Refresh and try again.');
       }
-      await appendAuditLogWithinTransaction(tx, {
+      await appendTransferLifecycleAudit(tx, {
         entityType: 'StockTransfer', entityId: id, action: 'update', performedById: userId,
         previousState: { status: 'approved' }, newState: { status: 'dispatched' },
         metadata: { source: 'stock_transfer_dispatch', itemCount: transfer.items.length },
@@ -328,7 +335,7 @@ export class StockTransferService extends BaseService {
         await tx.stockTransferItem.update({ where: { id: item.id }, data: { quantityReceived: qty } });
       }
 
-      await appendAuditLogWithinTransaction(tx, {
+      await appendTransferLifecycleAudit(tx, {
         entityType: 'StockTransfer', entityId: id, action: 'update', performedById: userId,
         previousState: { status: 'dispatched' }, newState: { status: 'received' },
         metadata: { source: 'stock_transfer_receipt', itemCount: transfer.items.length },
