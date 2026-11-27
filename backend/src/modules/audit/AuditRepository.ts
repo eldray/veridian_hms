@@ -164,17 +164,18 @@ export class AuditRepository extends BaseRepository<any, any, any> {
     // The audit log grows forever; page through it so verification does not
     // load every row into memory. Ordering by id matches append order.
     const pageSize = 500;
-    let cursorId: string | undefined;
+    let cursorSequence: bigint | undefined;
     let state: AuditChainCursor | undefined;
     let checked = 0;
 
     for (;;) {
       const rows = await this.prisma.auditLog.findMany({
         take: pageSize,
-        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
-        orderBy: { id: 'asc' },
+        ...(cursorSequence !== undefined ? { cursor: { chainSequence: cursorSequence }, skip: 1 } : {}),
+        orderBy: { chainSequence: 'asc' },
         select: {
           id: true,
+          chainSequence: true,
           entityType: true,
           entityId: true,
           action: true,
@@ -197,7 +198,7 @@ export class AuditRepository extends BaseRepository<any, any, any> {
       }
 
       state = result.cursor;
-      cursorId = rows[rows.length - 1].id;
+      cursorSequence = rows[rows.length - 1].chainSequence;
       if (rows.length < pageSize) break;
     }
 
