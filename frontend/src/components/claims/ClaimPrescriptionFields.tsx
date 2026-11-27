@@ -43,7 +43,7 @@ export function parsePrescriptionDetails(text?: string | null): PrescriptionDeta
   if (!text) return result;
   const parts = text.split(/\s*·\s*/);
   for (const part of parts) {
-    const match = part.match(/^(Dose|Frequency|Duration|Route|Instructions):\s*(.*)$/i);
+    const match = part.match(/^(Dose|Frequency|Duration|Route|Instructions|Quantity unit):\s*(.*)$/i);
     if (!match) {
       if (!result.instructions) result.instructions = part;
       continue;
