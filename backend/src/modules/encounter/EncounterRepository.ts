@@ -387,7 +387,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, dateOfBirth: true, gender: true, contact: true } },
         CounterClient: {
-          select: { id: true, name: true, ageYears: true, phone: true, registeredPatientId: true },
+          select: { id: true, name: true, ageYears: true, phone: true, registeredPatientId: true, Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } } },
           include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } } },
         },
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
