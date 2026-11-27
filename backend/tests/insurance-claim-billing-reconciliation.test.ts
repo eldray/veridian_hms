@@ -110,7 +110,7 @@ describe('private and corporate direct claim generation', () => {
     expect(medicine).toMatchObject({
       medicationId: 'medication-1',
       code: 'DRUG-AMOX-500',
-      prescriptionText: '500 mg · BD · 5 days',
+      prescriptionText: 'Dose: 500 mg · Frequency: BD · Duration: 5 days · Route: oral · Instructions: Take after meals · Quantity unit: capsule',
       prescriptionSnapshotVersion: 3,
       prescriptionSnapshot: {
         medicationId: 'medication-1',
