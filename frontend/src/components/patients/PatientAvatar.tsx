@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { User } from 'lucide-react';
+import { getPatientName } from '../../utils/patient';
 
 export interface PatientAvatarProps {
   patient?: any;
@@ -95,7 +96,7 @@ export const PatientAvatar: React.FC<PatientAvatarProps> = ({
 }) => {
   const rawImageUrl = imageUrlProp ?? patient?.imageUrl ?? patient?.photoUrl ?? patient?.photo ?? '';
   const safeImageUrl = resolvePatientPhotoUrl(rawImageUrl);
-  const name = nameProp ?? patient?.fullName ?? patient?.name ?? [patient?.surname, patient?.otherNames].filter(Boolean).join(' ');
+  const name = nameProp ?? getPatientName(patient);
   const patientKey = String(patient?.id ?? patient?.patientId ?? patient?.folderNumber ?? name ?? 'unknown-patient');
   const placeholderUrl = PLACEHOLDER_PORTRAITS[getPortraitIndex(patientKey)];
   const displayImageUrl = safeImageUrl || placeholderUrl;
