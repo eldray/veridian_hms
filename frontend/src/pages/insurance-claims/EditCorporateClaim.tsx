@@ -756,7 +756,7 @@ export default function EditCorporateClaim() {
                   <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)]">{med.description}{med.prescriptionText && <div className="mt-0.5 text-[10px] italic text-[var(--text-tertiary)]">Rx: {med.prescriptionText}</div>}</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)]">{fmtDate(med.date)}</td>
-                  <td className="px-3 py-3 text-center text-[var(--text-secondary)]">{med.quantity}</td>
+                  <td className="px-3 py-3 text-center text-[var(--text-secondary)]">{med.quantity}{med.quantityUnit ? ` ${med.quantityUnit}` : ''}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{money(med.unitPrice)}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-primary)] font-medium">{money(med.quantity * med.unitPrice)}</td>
                   {canEditClaim && (
