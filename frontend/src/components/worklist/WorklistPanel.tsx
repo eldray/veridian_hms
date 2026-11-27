@@ -5,6 +5,7 @@ import { useWorklistStore, supportsWorklistViews } from '../../store/worklistSto
 import { WorklistViewControls } from './WorklistViewControls';
 import { PatientAvatar } from '../patients/PatientAvatar';
 import type { DepartmentType, WorklistItem } from '../../types/worklist';
+import { getPatientName } from '../../utils/patient';
 import {
   Users, AlertCircle, Clock, CheckCircle,
   TrendingUp, Activity, Pill, FileText,
@@ -180,9 +181,9 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <PatientAvatar imageUrl={item.patient?.imageUrl} name={item.patient?.name} size="sm" className="rounded-full bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
+                        <PatientAvatar imageUrl={item.patient?.imageUrl} name={getPatientName(item)} size="sm" className="rounded-full bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
                         <h3 className="font-semibold">
-                          {item.patient?.name || 'Unknown Patient'}
+                          {getPatientName(item)}
                         </h3>
                         {item.priority === 'critical' && (
                           <span className="px-2 py-0.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] text-xs font-medium rounded-full">

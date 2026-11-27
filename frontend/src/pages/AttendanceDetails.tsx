@@ -965,7 +965,7 @@ export default function AttendanceDetails() {
       <PageHeader
         title="Attendance Details"
         subtitle={`Record #${currentAttendance.attendanceNumber || currentAttendance.id?.slice(-8)}`}
-        meta={`${patient ? getPatientFullName(patient) : 'Unknown Patient'} · Created ${formatShortDate(currentAttendance.dateTime || currentAttendance.createdAt)}`}
+        meta={`${getPatientName(currentAttendance)} · Created ${formatShortDate(currentAttendance.dateTime || currentAttendance.createdAt)}`}
         icon={Calendar}
         accent="cyan"
         onBack={() => navigate('/dashboard/attendance')}

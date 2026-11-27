@@ -14,6 +14,7 @@ import { canAccessPage, isAdminLike } from '../config/access';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { describeApiError, describeApiErrorTitle } from '../utils/apiError';
 import { getScanDisplayName } from '../utils/scan';
+import { getPatientName } from '../utils/patient';
 import {
   addCounterLabOrder, addCounterSaleItem, addCounterScanOrder, closeCounterTicket, dispenseCounterItem,
   getBillingInvoice, getCounterBill, getCounterStockAvailability, getCounterTicket, linkCounterClient, raiseCounterBill,
@@ -997,7 +998,7 @@ function RegisterLink({ clientId, onDone }: { clientId: string; onDone: () => vo
   }, [search]);
 
   const link = async (patient: any) => {
-    const name = `${patient.surname || ''} ${patient.otherNames || ''}`.trim();
+    const name = getPatientName(patient);
     setBusy(true);
     try {
       await linkCounterClient(clientId, patient.id);

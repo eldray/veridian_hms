@@ -1,6 +1,7 @@
 import React from 'react';
 import { Printer, X, ShieldCheck, Phone, MapPin, CalendarDays, CreditCard } from 'lucide-react';
 import { useHospitalStore } from '../../store/hospitalStore';
+import { getPatientName } from '../../utils/patient';
 
 interface PatientIdCardPrintProps {
   patient: any;
@@ -15,9 +16,7 @@ const safeDate = (value: unknown) => {
     : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const patientName = (patient: any) =>
-  [patient?.surname, patient?.otherNames].filter(Boolean).join(' ').trim()
-  || patient?.fullName || patient?.name || 'Patient';
+const patientName = (patient: any) => getPatientName(patient);
 
 const initials = (name: string) =>
   name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'PT';

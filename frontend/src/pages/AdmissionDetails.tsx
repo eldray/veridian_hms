@@ -16,6 +16,7 @@ import {
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { useHospitalStore } from '../store/hospitalStore';
 import { PageHeader } from '../components/ui';
+import { getPatientName } from '../utils/patient';
 
 export default function AdmissionDetails() {
   const goBack = useSmartBack('/dashboard/admissions');
@@ -238,7 +239,7 @@ export default function AdmissionDetails() {
   const isActive = admission?.status !== 'cancelled' && !admission?.dischargeDate && attendance?.status !== 'discharged' && attendance?.status !== 'completed';
   const isDetention = admission?.admissionType === 'detention_observation';
   const isDaySurgery = attendance?.encounterCategory === 'daycase';
-  const patientName = patient ? (patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim()) : 'Unknown Patient';
+  const patientName = getPatientName(attendance || patient || admission);
   const attendanceId = attendance?.id || admission?.attendanceId;
 
   return (

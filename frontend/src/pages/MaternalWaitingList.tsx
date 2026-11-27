@@ -1,4 +1,5 @@
 // src/pages/MaternalWaitingList.tsx — Maternal queue on the shared UI primitives
+import { getPatientName } from '../utils/patient';
 import { useEffect, useMemo, useState } from 'react';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { useNavigate } from 'react-router-dom';
@@ -357,7 +358,7 @@ export default function MaternalWaitingList() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginatedPatients.map((patient) => {
             const isPending = activeTab === 'pending';
-            const name = patient.patient?.name || 'Unknown Patient';
+            const name = getPatientName(patient);
             const accent = getRowAccent(patient);
             const actionAccent = getActionAccent(patient.visitType, isPending);
 

@@ -624,7 +624,7 @@ export default function Nursing() {
             const patient = findPatient(att);
             const admission = admissions.find((a) => a.attendanceId === id && !a.dischargeDate);
             const badges = patientBadges[id] || { alerts: 0, medsDue: 0, tasksPending: 0 };
-            const name = patient ? getPatientName(patient) : 'Unknown Patient';
+            const name = getPatientName(attendance);
             const bedNumber = beds.find((b: any) => b.id === att.bedId)?.bedNumber;
             const age = patient?.dateOfBirth
               ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))

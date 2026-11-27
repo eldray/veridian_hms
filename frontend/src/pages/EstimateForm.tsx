@@ -15,6 +15,7 @@ import { MAX_PICKER_ROWS } from '../components/reusable/PickerLimit';
 import { useToast } from '../store/toastStore';
 import { Button, cn, INPUT, PageHeader, SELECT } from '../components/ui';
 import { computeLineTax, DEFAULT_TAX_CONFIGURATION, type TaxConfiguration } from '../utils/tax';
+import { getPatientName } from '../utils/patient';
 
 // ─────────────────────────────────────────────
 // Types & helpers (unchanged)
@@ -337,7 +338,7 @@ export default function EstimateForm() {
 
   const toPatientOption = (p: any): SearchableOption => ({
     value: p.id,
-    label: `${p.surname || ''} ${p.otherNames || ''}`.trim() || p.folderNumber || p.id,
+    label: getPatientName(p) || p.folderNumber || p.id,
     sublabel: `${p.folderNumber || ''}${p.contact ? ` · ${p.contact}` : ''}`,
   });
 
