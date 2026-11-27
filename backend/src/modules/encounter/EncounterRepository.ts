@@ -32,6 +32,12 @@ export const resolvePatientClassification = (
   return provided;
 };
 
+/** Prisma stores Scan.result as text; template-based clients may send a JSON object. */
+export const serializeScanResultForStorage = (value: unknown): string | null | undefined => {
+  if (value === undefined || value === null) return value;
+  return typeof value === 'object' ? JSON.stringify(value) : String(value);
+};
+
 export const LIVE_PENDING_DAYS = 14;
 export const LIVE_RECENT_HOURS = 72;
 
@@ -2242,8 +2248,8 @@ async addScan(encounterId: string, data: any, userId: string) {
       // Scan.result is a nullable String column. Template-driven forms send a
       // structured { templateId, values } object, so persist it as JSON text and
       // let the UI decode it when reopening the report.
-      updateData[field] = field === 'result' && data.result !== null && typeof data.result === 'object'
-        ? JSON.stringify(data.result)
+      updateData[field] = field === 'result'
+        ? serializeScanResultForStorage(data.result)
         : data[field];
     }
     if (data.imageUrls !== undefined) {
