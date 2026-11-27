@@ -32,7 +32,7 @@ const printableScanImageUrl = (value: unknown): string | null => {
   if (!value || typeof window === 'undefined') return null;
   try {
     const url = new URL(String(value), window.location.origin);
-    if (url.origin !== window.location.origin || !/^\\/(?:api\\/)?uploads\\/scans\\//.test(url.pathname)) return null;
+    if (url.origin !== window.location.origin || !(url.pathname.startsWith('/uploads/scans/') || url.pathname.startsWith('/api/uploads/scans/'))) return null;
     return url.href;
   } catch {
     return null;
