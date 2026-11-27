@@ -24,6 +24,7 @@ export class HIVTestingController extends BaseController {
   create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const body = req.body || {};
     if (!req.user?.id) return this.unauthorized(res, 'Authenticated counsellor information is required');
+    const counsellorId = req.user.id;
     if (!body.patientId || !body.entryPoint) return this.badRequest(res, 'Patient and entry point are required');
     if (body.consentGiven !== true) return this.badRequest(res, 'Consent for HTS counselling must be documented');
     const testingStatus = body.testingStatus || 'not_started';
@@ -58,8 +59,8 @@ export class HIVTestingController extends BaseController {
     const record = await this.prisma.$transaction(async (tx) => {
       const created = await tx.hIVTestingRecord.create({
         data: {
-          patientId: body.patientId,
-          attendanceId: body.attendanceId || null,
+          Patient: { connect: { id: body.patientId } },
+          ...(body.attendanceId ? { Attendance: { connect: { id: body.attendanceId } } } : {}),
           testedAt: body.testedAt ? new Date(body.testedAt) : new Date(),
           entryPoint: String(body.entryPoint),
           testingApproach: body.testingApproach || null,
@@ -85,14 +86,14 @@ export class HIVTestingController extends BaseController {
           referralFacility: body.referralFacility || null,
           referralOutcome: body.referralOutcome || null,
           notes: body.notes || null,
-          counsellorId: req.user!.id,
+          Counsellor: { connect: { id: counsellorId } },
         },
       });
       await appendAuditLogWithinTransaction(tx, {
         entityType: 'HIVTestingRecord',
         entityId: created.id,
         action: 'CREATE',
-        performedById: req.user!.id,
+        performedById: counsellorId,
         metadata: {
           source: 'hiv_testing.record.create',
           restrictedClinicalRecord: true,
