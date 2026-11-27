@@ -36,6 +36,7 @@ const disabled = () => process.env.RATE_LIMIT_DISABLED === 'true';
 
 const loginBuckets = new Map<string, Bucket>();
 const apiBuckets = new Map<string, Bucket>();
+const publicAuthBuckets = new Map<string, Bucket>();
 
 /** Count one hit. Returns the bucket after counting. */
 function hit(map: Map<string, Bucket>, key: string, windowMs: number): Bucket {
@@ -133,6 +134,44 @@ const sweeper = setInterval(() => {
   }
 }, 60_000);
 sweeper.unref?.();
+
+
+
+/**
+ * Additional protection for unauthenticated auth endpoints that are not login.
+ * These use generous per-IP limits to avoid locking out staff behind a shared
+ * hospital router while preventing unlimited reset-request and refresh traffic.
+ */
+function publicAuthEndpointLimiter(options: {
+  key: string;
+  max: () => number;
+  windowMs: () => number;
+  message: string;
+}) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (disabled() || req.method === 'OPTIONS') return next();
+    const bucket = hit(publicAuthBuckets, `${options.key}|${clientIp(req)}`, options.windowMs());
+    const max = options.max();
+    res.setHeader('X-RateLimit-Limit', String(max));
+    res.setHeader('X-RateLimit-Remaining', String(Math.max(0, max - bucket.count)));
+    if (bucket.count > max) return tooMany(res, bucket, options.message);
+    next();
+  };
+}
+
+export const refreshTokenLimiter = publicAuthEndpointLimiter({
+  key: 'refresh',
+  max: () => num(process.env.AUTH_REFRESH_MAX_PER_MIN, 120),
+  windowMs: () => 60_000,
+  message: 'Too many session refresh requests. Please wait a moment and try again.',
+});
+
+export const passwordResetRequestLimiter = publicAuthEndpointLimiter({
+  key: 'password-reset-request',
+  max: () => num(process.env.PASSWORD_RESET_REQUEST_MAX_PER_WINDOW, 30),
+  windowMs: () => num(process.env.PASSWORD_RESET_REQUEST_WINDOW_MIN, 15) * 60_000,
+  message: 'Too many password-reset requests from this network. Please wait before trying again.',
+});
 
 // ---------------------------------------------------------------------------
 // Report period guard
