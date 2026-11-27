@@ -831,7 +831,7 @@ ${claimsXml}
 
       const att = await tx.attendance.findUnique({
         where: { id: attendanceId },
-        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } }, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } }, referral: true, familyPlanningServices: true }
+        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } }, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } }, referral: true, familyPlanningServices: true }
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
