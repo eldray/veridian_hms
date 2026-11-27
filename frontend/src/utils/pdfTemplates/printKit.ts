@@ -1,4 +1,5 @@
 // src/utils/pdfTemplates/printKit.ts
+import { getPatientName } from '../patient';
 // Shared building blocks for every printed document (A4, black-and-white friendly).
 // One letterhead, one patient banner, one signature block, one footer with page numbers —
 // so a prescription, a lab report and a discharge summary read as the same hospital's paperwork.
@@ -94,12 +95,7 @@ export const payerText = (v: unknown): string => {
   return map[k] || (k ? esc(k.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())) : '—');
 };
 
-export const patientName = (p: any): string => {
-  if (!p) return 'Unknown patient';
-  if (p.fullName) return p.fullName;
-  const joined = [p.surname, p.otherNames].filter(Boolean).join(' ').trim();
-  return joined || p.name || 'Unknown patient';
-};
+export const patientName = (p: any): string => getPatientName(p);
 
 /** "34 years", "7 months", "12 days" — what a clinician actually reads for dosing and ranges. */
 export const ageText = (p: any, asOf: unknown = new Date()): string => {
