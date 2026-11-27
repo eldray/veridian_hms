@@ -4,7 +4,7 @@ import { User } from 'lucide-react';
 import { Badge, humanStatus, statusTone } from './Badge';
 import { accentVar, type Accent } from './accent';
 import { cn } from './cn';
-import { getPatientName } from '../../utils/patient';
+import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
 import { PatientAvatar } from '../patients/PatientAvatar';
 
 export interface HeaderField {
@@ -125,8 +125,8 @@ export function PatientVisitHeader({
     // Split Sex and Age into separate fields
     { label: 'Sex', value: sexLabel(patient?.gender) },
     { label: 'Age', value: yearsOld(patient) },
-    { label: 'Folder No.', value: patient?.folderNumber || '—', mono: true },
-    { label: 'Visit No.', value: attendance?.attendanceNumber || 'New Visit', mono: true },
+    { label: 'Folder No.', value: getPatientFolderNumber(patient) || '—', mono: true },
+    { label: 'Visit No.', value: getAttendanceNumber(attendance) || 'New Visit', mono: true },
     { label: 'Visit Date', value: visitDate(attendance) },
     ...(patient?.contact ? [{ label: 'Phone', value: patient.contact }] : []),
     ...(ward
