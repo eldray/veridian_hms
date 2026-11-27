@@ -420,7 +420,7 @@ ${claimsXml}
             insuranceProviderId: true,
             Admission: { select: { admissionDate: true } },
             Medication: {
-              orderBy: { dispensedAt: 'asc' },
+              orderBy: { prescribedAt: 'asc' },
               select: {
                 id: true, name: true, status: true, quantity: true, dosage: true, frequency: true, duration: true,
                 dispensedAt: true, stockItemId: true, serviceCatalogId: true,
@@ -474,17 +474,13 @@ ${claimsXml}
     for (const med of medicines) {
       const stockItem = med.StockItem;
       const label = med.name || stockItem?.name || 'this medicine';
-      // Include medicines recorded as dispensed OR administered. Inpatient medication workflows
-      // may advance the status to administered after pharmacy supply; that must not erase the
-      // auditable evidence that the medicine was supplied for this attendance. Prescribed-only
-      // rows remain excluded because there is no recorded supply or administration.
-      if (!['dispensed', 'administered'].includes(med.status)) {
+      // Claims may include active prescriptions even before dispensing. The source remains
+      // the attendance's own Medication record; cancelled/discontinued rows are excluded.
+      if (!['prescribed', 'dispensed', 'administered'].includes(med.status)) {
         unclaimable.push({
           code: stockItem?.drugCode,
           description: label,
-          reason: med.status === 'prescribed'
-            ? 'has been prescribed but not dispensed or administered. Please dispense it (or record its administration) before adding it to the NHIS claim.'
-            : `is marked ${String(med.status)}, so there is no recorded dispensing or administration for this visit`,
+          reason: `is marked ${String(med.status)}, so it is not an active prescription for this attendance`,
         });
         continue;
       }
@@ -556,7 +552,8 @@ ${claimsXml}
         description: label,
         unitOfMeasure: stockItem.unitOfMeasure,
         quantity,
-        date: isoDay(med.dispensedAt ?? policyDate),
+        sourceStatus: med.status,
+        date: isoDay(med.prescribedAt ?? med.dispensedAt ?? policyDate),
         prescription: `${med.dosage ?? ''} ${med.frequency ?? ''} x ${med.duration ?? ''}`.trim() || 'As prescribed',
         unitPrice: roundedUnit,
         lineTotal: Math.round(roundedUnit * quantity * 100) / 100,
@@ -834,7 +831,7 @@ ${claimsXml}
 
       const att = await tx.attendance.findUnique({
         where: { id: attendanceId },
-        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } }, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } }, referral: true, familyPlanningServices: true }
+        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, User_Attendance_providerIdToUser: { select: { fullName: true, licenseNumber: true } }, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true, LabTestTemplate: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true, ScanTemplate: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true, ProcedureTemplate: true } }, referral: true, familyPlanningServices: true }
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
@@ -1992,17 +1989,19 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           med.ServiceCatalog?.code === row.code
         );
       };
-      const matchingSuppliedMedicines = suppliedMedicines.filter(matchesDispensedStockItem);
+      const matchingSuppliedMedicines = suppliedMedicines.filter((med: any) =>
+        ['prescribed', 'dispensed', 'administered'].includes(String(med.status)) && matchesDispensedStockItem(med)
+      );
       if (!matchingSuppliedMedicines.length) {
-        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine supplied or administered for this attendance. Select a valid supplied medicine before saving the claim.`);
+        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match an active prescription for this attendance. Select a medicine prescribed for this attendance before saving the claim.`);
       }
-      // Claim edits must not increase the quantity beyond what was actually dispensed.
-      // Track totals across rows too, so duplicating a line cannot inflate the claim.
+      // Quantity is editable, but cannot exceed the quantity prescribed on this attendance.
+      // Track totals across rows too, so duplicate lines cannot inflate the claim.
       const suppliedQuantity = matchingSuppliedMedicines.reduce((sum: number, med: any) => sum + Number(med.quantity ?? 0), 0);
       const rowQuantity = Number(row.quantity);
       const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem?.id ?? '') ?? 0;
-      if (!Number.isFinite(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > suppliedQuantity) {
-        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity supplied or administered for this attendance (${suppliedQuantity - alreadyClaimedQuantity} remaining).`);
+      if (!Number.isInteger(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > suppliedQuantity) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the prescribed quantity for this attendance (${suppliedQuantity - alreadyClaimedQuantity} remaining).`);
       }
       claimedQuantityByStockItem.set(catalog.StockItem?.id ?? '', alreadyClaimedQuantity + rowQuantity);
       // A null authorizationRequired is the imported NHIS list not stating the flag, so only an
