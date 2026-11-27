@@ -1,4 +1,5 @@
 // src/components/vitals/PatientAttendanceSelector.tsx - FIXED VERSION
+import { getPatientName } from '../../utils/patient';
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, Calendar, ChevronDown, X, Clock, Activity, CheckCircle, Sparkles } from 'lucide-react';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
@@ -51,16 +52,7 @@ const getPatientOtherNames = (patient: any): string => {
   return normalized?.otherNames || '';
 };
 
-const getPatientFullName = (patient: any): string => {
-  const surname = getPatientSurname(patient);
-  const otherNames = getPatientOtherNames(patient);
-  if (surname || otherNames) {
-    return `${surname} ${otherNames}`.trim();
-  }
-  const normalized = normalizePatient(patient);
-  return normalized?.fullName || normalized?.name || 'Unknown Patient';
-};
-
+const getPatientFullName = getPatientName;
 const getPatientFolderNumber = (patient: any): string => {
   const normalized = normalizePatient(patient);
   return normalized?.folderNumber || '';
