@@ -1,5 +1,5 @@
 // src/pages/ProcessPayment.tsx - FIXED VERSION
-import { getPatientName as getPatientName } from '../utils/patient';
+import { getPatientName as getPatientName, getPatientFolderNumber } from '../utils/patient';
 import { useState, FormEvent, useEffect, useRef } from 'react'; 
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { uuid } from '../utils/uuid';
@@ -381,8 +381,8 @@ export default function ProcessPayment() {
                 <p className="font-bold text-[var(--text-primary)] text-lg">
                   {payerName}
                 </p>
-                {patient?.folderNumber ? (
-                  <p className="text-sm text-[var(--icon-cyan-text)] mt-1">Folder: {patient.folderNumber}</p>
+                {getPatientFolderNumber(patient) ? (
+                  <p className="text-sm text-[var(--icon-cyan-text)] mt-1">Folder: {getPatientFolderNumber(patient)}</p>
                 ) : counterClient ? (
                   <p className="text-sm text-[var(--icon-cyan-text)] mt-1">Counter customer</p>
                 ) : null}
