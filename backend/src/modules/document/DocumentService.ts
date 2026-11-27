@@ -228,6 +228,48 @@ export class DocumentService {
     }
   }
 
+
+  async generatePremierClaimReceipt(claimId: string, paymentId: string, userId: string) {
+    try {
+      const payment = await prisma.insuranceClaimPatientPayment.findFirst({
+        where: { id: paymentId, claimId },
+        include: { claim: { include: { Patient: true, Attendance: true, InsuranceProvider: true } },
+          receivedBy: { select: { fullName: true, username: true } } },
+      });
+      if (!payment) return { success: false, error: 'Premier patient payment not found' };
+      if (payment.receiptFilePath) return { success: true, filePath: payment.receiptFilePath };
+      const template = await this.documentRepository.getDefaultTemplate('receipt');
+      if (!template) return { success: false, error: 'Receipt template not found' };
+      const patient = payment.claim.Patient;
+      const attendance = payment.claim.Attendance;
+      const content = `
+        PAYMENT RECEIPT
+        ===============
+        Receipt Number: ${payment.receiptNumber}
+        Patient: ${patient.surname} ${patient.otherNames}
+        Patient Folder: ${patient.folderNumber}
+        Attendance: ${attendance?.attendanceNumber || 'N/A'}
+        Insurance Provider: ${payment.claim.InsuranceProvider?.name || 'Premier Health'}
+        Payment Amount: GHS ${Number(payment.amount).toFixed(2)}
+        Payment Method: ${String(payment.paymentMethod).replace('_', ' ').toUpperCase()}
+        Payment Reference: ${payment.reference || 'N/A'}
+        Received By: ${payment.receivedBy?.fullName || payment.receivedBy?.username || userId}
+        Transaction Date: ${new Date(payment.transactionDate).toLocaleString()}
+        Notes: ${payment.notes || 'N/A'}
+        Generated: ${new Date().toLocaleString()}
+      `;
+      const fileName = `premier_claim_receipt_${claimId}_${payment.id}.pdf`;
+      const filePath = await this.generatePdf(content, fileName, template);
+      await prisma.insuranceClaimPatientPayment.update({ where: { id: payment.id }, data: { receiptFilePath: filePath } });
+      const document = await this.documentRepository.createDocument({
+        templateId: template.id, entityType: 'insurance_claim', entityId: claimId, filePath, generatedById: userId,
+      });
+      return { success: true, documentId: document.id, filePath };
+    } catch (error: any) {
+      return { success: false, error: error.message || 'Could not generate receipt' };
+    }
+  }
+
   async generateReferralLetter(referralId: string, userId: string) {
     try {
       const referral = await this.getEntityData('referral', referralId);

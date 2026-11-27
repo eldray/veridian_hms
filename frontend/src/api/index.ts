@@ -1119,6 +1119,9 @@ export const deleteInsuranceClaimDraft = (claimId: string) =>
 // Alias — same endpoint as updateClaimDraft (drafts only)
 export const updateInsuranceClaim = updateClaimDraft;
 
+export const recordPremierClaimPatientPayment = (claimId: string, data: any) =>
+  api.post(`/insurance-claims/${claimId}/patient-payments`, data).then(r => r.data);
+
 export const finalizeClaim = (claimId: string) =>
   api.patch(`/insurance-claims/${claimId}/finalize`).then(r => r.data);
 

@@ -432,6 +432,7 @@ export default function EditPrivateClaim() {
     updateClaimDraft,
     replaceClaimItems,
     finalizeClaim,
+    recordPremierPatientPayment,
     downloadClaimXml,
     printClaim,
     isLoading,
@@ -455,6 +456,10 @@ export default function EditPrivateClaim() {
   const [preAuthNumber, setPreAuthNumber] = useState('');
   const [tablesOpen, setTablesOpen] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCollecting, setIsCollecting] = useState(false);
+  const [collectionAmount, setCollectionAmount] = useState('');
+  const [collectionMethod, setCollectionMethod] = useState<'cash' | 'card' | 'bank_transfer' | 'cheque'>('cash');
+  const [collectionReference, setCollectionReference] = useState('');
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [editingService, setEditingService] = useState<any>(null);
   const [editingMedicine, setEditingMedicine] = useState<any>(null);
@@ -798,6 +803,56 @@ export default function EditPrivateClaim() {
             </div>
           </div>
         </ClaimCard>
+
+        {isPremier && isFinalized && (() => {
+          const payments = (currentClaim as any)?.patientPayments || [];
+          const due = Math.max(0, Number(premierCalculation?.patientPayableNow || 0));
+          const collected = payments.reduce((sum: number, payment: any) => sum + Number(payment.amount || 0), 0);
+          const outstanding = Math.max(0, due - collected);
+          const deferred = Math.max(0, Number(premierCalculation?.deferredPatientBalance || 0));
+          const submitCollection = async (event: any) => {
+            event.preventDefault();
+            const amount = Math.round(Number(collectionAmount) * 100) / 100;
+            if (!id || !Number.isFinite(amount) || amount <= 0 || amount > outstanding) {
+              toastError('Invalid collection amount', 'Enter an amount within the outstanding Premier patient balance.');
+              return;
+            }
+            setIsCollecting(true);
+            try {
+              const result = await recordPremierPatientPayment(id, {
+                amount, paymentMethod: collectionMethod, reference: collectionReference.trim() || undefined,
+                idempotencyKey: `premier-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+              });
+              success('Patient payment recorded', `Receipt ${result?.payment?.receiptNumber || ''} · GHS ${amount.toFixed(2)}`);
+              setCollectionAmount('');
+              setCollectionReference('');
+              if (result?.receipt?.filePath) window.open(result.receipt.filePath, '_blank', 'noopener,noreferrer');
+              else toastError('Receipt unavailable', 'The payment was saved, but receipt generation failed. Ask Accounts to reprint it.');
+            } catch (error: any) {
+              toastError('Collection failed', error?.response?.data?.message || error?.message || 'Could not record patient payment.');
+            } finally { setIsCollecting(false); }
+          };
+          return (
+            <ClaimCard title="Premier patient collection">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-lg bg-[var(--bg-main)] p-3"><p className="text-xs text-[var(--text-secondary)]">Patient amount due</p><p className="text-lg font-semibold">{money(due)}</p></div>
+                  <div className="rounded-lg bg-[var(--bg-main)] p-3"><p className="text-xs text-[var(--text-secondary)]">Collected</p><p className="text-lg font-semibold text-[var(--icon-green-text)]">{money(collected)}</p></div>
+                  <div className="rounded-lg bg-[var(--bg-main)] p-3"><p className="text-xs text-[var(--text-secondary)]">Outstanding</p><p className="text-lg font-semibold">{money(outstanding)}</p></div>
+                </div>
+                {outstanding > 0 ? (
+                  <form onSubmit={submitCollection} className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                    <div><label className="block text-xs text-[var(--text-secondary)] mb-1">Amount (GHS)</label><input type="number" min="0.01" max={outstanding.toFixed(2)} step="0.01" required value={collectionAmount} onChange={e => setCollectionAmount(e.target.value)} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm" /></div>
+                    <div><label className="block text-xs text-[var(--text-secondary)] mb-1">Payment method</label><select value={collectionMethod} onChange={e => setCollectionMethod(e.target.value as any)} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm"><option value="cash">Cash</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option><option value="cheque">Cheque</option></select></div>
+                    <div><label className="block text-xs text-[var(--text-secondary)] mb-1">Reference (optional)</label><input value={collectionReference} onChange={e => setCollectionReference(e.target.value)} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm" placeholder="Transaction / cheque ref" /></div>
+                    <button type="submit" disabled={isCollecting || !collectionAmount} className="rounded-lg bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] px-4 py-2 text-sm font-semibold disabled:opacity-50">{isCollecting ? 'Recording…' : 'Collect & issue receipt'}</button>
+                  </form>
+                ) : deferred > 0 ? <p className="text-sm text-[var(--text-secondary)]">No payment is due on this first attendance. GHS {money(deferred)} is deferred to the next Premier OPD attendance.</p> : <p className="text-sm text-[var(--icon-green-text)]">The Premier patient balance for this claim is fully settled.</p>}
+                {payments.length > 0 && <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr><TH>Receipt</TH><TH>Date</TH><TH>Method</TH><TH className="text-right">Amount</TH><TH>Received by</TH></tr></thead><tbody>{payments.map((payment: any) => <tr key={payment.id} className="border-t border-[var(--border-color)]"><td className="px-3 py-2 font-medium">{payment.receiptNumber}</td><td className="px-3 py-2">{new Date(payment.transactionDate).toLocaleString()}</td><td className="px-3 py-2 capitalize">{String(payment.paymentMethod).replace('_', ' ')}</td><td className="px-3 py-2 text-right">{money(Number(payment.amount))}</td><td className="px-3 py-2">{payment.receivedBy?.fullName || payment.receivedBy?.username || '—'}</td></tr>)}</tbody></table></div>}
+              </div>
+            </ClaimCard>
+          );
+        })()}
 
         <ListSection title="DIAGNOSES" count={diagnoses.length} open={tablesOpen} emptyText="No diagnoses added..." action={addBtn('Add', 'diagnosis')}>
           <table className="w-full text-sm">

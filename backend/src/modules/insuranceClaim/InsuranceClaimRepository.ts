@@ -32,6 +32,7 @@ const CLAIM_DETAIL_INCLUDE = {
   // all read claim.items, and without them a claim downloads as "has no itemized lines" and
   // prints an empty table with a zero total. `gdrgTariff` and `diagnosis` are what the payer's
   // GDRG code and ICD-10 come from.
+  patientPayments: { orderBy: { transactionDate: 'asc' }, include: { receivedBy: { select: { id: true, fullName: true, username: true } } } },
   items: {
     orderBy: { itemNumber: 'asc' },
     include: { gdrgTariff: true, diagnosis: true },

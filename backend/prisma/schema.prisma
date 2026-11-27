@@ -296,6 +296,7 @@ model Patient {
   Bill                   Bill[]
   counterClients       CounterClient[]  @relation("CounterClientRegistration")
   InsuranceClaim         InsuranceClaim[]
+  claimPatientPayments    InsuranceClaimPatientPayment[]
   InsuranceProvider      InsuranceProvider?      @relation(fields: [insuranceProviderId], references: [id])
   Vitals                 Vitals[]
   appointments           Appointment[]
@@ -1328,6 +1329,7 @@ model InsuranceClaim {
 
   items InsuranceClaimItem[]
   trackingEvents InsuranceClaimTrackingEvent[]
+  patientPayments InsuranceClaimPatientPayment[]
   claimitSubmissions ClaimItSubmission[]
 
   batch   ClaimBatch? @relation(fields: [batchId], references: [id])
@@ -1341,6 +1343,30 @@ model InsuranceClaim {
   @@index([corporateAccountId, status])
   @@index([insuranceProviderId, status])
   @@index([finalizedAt])
+}
+
+/// Patient-side collections against Premier benefit-cap balances. Separate from Bill/Payment
+/// so private claims continue to bypass Billing without duplicate bills.
+model InsuranceClaimPatientPayment {
+  id              String        @id @default(cuid())
+  receiptNumber   String        @unique
+  claimId         String
+  patientId       String
+  amount          Decimal       @db.Decimal(15, 2)
+  paymentMethod   PaymentMethod
+  reference       String?
+  idempotencyKey  String        @unique
+  transactionDate DateTime      @default(now())
+  receivedById    String
+  notes           String?       @db.Text
+  receiptFilePath String?
+  createdAt       DateTime      @default(now())
+  claim      InsuranceClaim @relation(fields: [claimId], references: [id], onDelete: Restrict)
+  patient    Patient        @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  receivedBy User           @relation("ClaimPatientPayment_receivedBy", fields: [receivedById], references: [id])
+  @@index([claimId, transactionDate])
+  @@index([patientId, transactionDate])
+  @@map("insurance_claim_patient_payments")
 }
 
 model InsuranceClaimTrackingEvent {
@@ -2493,6 +2519,7 @@ model User {
   InsuranceClaim_InsuranceClaim_createdByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_createdByIdToUser")
   InsuranceClaim_InsuranceClaim_updatedByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_updatedByIdToUser")
   claimTrackingEvents InsuranceClaimTrackingEvent[] @relation("ClaimTrackingEvent_recordedBy")
+  claimPatientPaymentsReceived InsuranceClaimPatientPayment[] @relation("ClaimPatientPayment_receivedBy")
   batchTrackingEvents ClaimBatchTrackingEvent[]     @relation("BatchTrackingEvent_recordedBy")
   claimitSubmissions  ClaimItSubmission[]           @relation("ClaimItSubmission_submittedBy")
   Invoice                                         Invoice[]
