@@ -1000,13 +1000,13 @@ const attendanceDate = (requiredDaysBack?: number): Date => {
     r < 0.76 ? intBetween(31, 90) :
     r < 0.93 ? intBetween(91, 200) :
     intBetween(201, 365));
-  // daysAgo() picks a working hour, and for today that hour can still be ahead of the
-  // clock. An encounter in the future makes every downstream timestamp nonsense - a
-  // result released before it was asked for, a discharge that has not happened - so the
-  // last few hours of today are simply not available to a visit that started today.
+  // daysAgo() picks a working hour, which can be later than the current clock
+  // when the seed runs before 07:00. Clamp future encounters to the current instant
+  // (not an hour earlier): this preserves today's daily-coverage row without creating
+  // future clinical timestamps or colliding with yesterday's row.
   const at = daysAgo(daysBack);
-  const latest = Date.now() - 60 * 60_000;
-  return at.getTime() > latest ? new Date(latest - intBetween(0, 90) * 60_000) : at;
+  const latest = Date.now();
+  return at.getTime() > latest ? new Date(latest) : at;
 };
 
 const addMinutes = (d: Date, minutes: number) => new Date(d.getTime() + minutes * 60_000);
