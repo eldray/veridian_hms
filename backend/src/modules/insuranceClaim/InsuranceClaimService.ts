@@ -516,7 +516,7 @@ ${claimsXml}
             insuranceProviderId: true,
             Admission: { select: { admissionDate: true } },
             Medication: {
-              orderBy: { prescribedAt: 'asc' }
+              orderBy: { prescribedAt: 'asc' },
               select: {
                 id: true, name: true, status: true, quantity: true, dosage: true, frequency: true, duration: true,
                 prescribedAt: true, dispensedAt: true, stockItemId: true, serviceCatalogId: true,
