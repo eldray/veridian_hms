@@ -192,7 +192,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
     return this.getModel().update({ where: { id }, data, include: { BillLineItem: true, Patient: true, CounterClient: true } });
   }
 
-  async delete(id: string) {
+  async delete(id: string, actorId: string) {
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for bill audit');
     return this.prisma.$transaction(async (tx) => {
       if (typeof tx.$queryRaw === 'function') {
         await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${id} FOR UPDATE`;
@@ -221,6 +222,20 @@ export class BillRepository extends BaseRepository<any, any, any> {
         });
       }
 
+      await appendStructuredFinancialAudit(
+        tx, actorId, 'Bill', id, 'delete',
+        {
+          billNumber: bill.billNumber,
+          paymentMode: bill.paymentMode,
+          status: bill.status,
+          totalAmount: toNumber(bill.totalAmount),
+          patientPayable: toNumber(bill.patientPayable),
+          balance: toNumber(bill.balance),
+          attendanceId: bill.attendanceId,
+        },
+        undefined,
+        { source: 'bill_repository_delete' },
+      );
       const deleted = await tx.bill.delete({ where: { id } });
       if (bill.attendanceId) await this.syncAttendanceFinancials(tx, bill.attendanceId);
       return deleted;

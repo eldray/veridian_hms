@@ -75,14 +75,15 @@ export class BillService extends BaseService {
     return this.billRepository.update(id, { notes: data.notes });
   }
 
-  async deleteBill(id: string) {
+  async deleteBill(id: string, actorId: string) {
     this.logInfo('Deleting bill', { id });
     const existing = await this.billRepository.findById(id);
     if (!existing) throw new Error('Bill not found');
     if ((existing.Payment?.length ?? 0) > 0 || ['paid', 'partial'].includes(existing.status)) {
       throw new Error('A bill with payment history cannot be deleted. Preserve the audit trail and use the approved cancellation or adjustment workflow.');
     }
-    return this.billRepository.delete(id);
+    if (!actorId) throw new ValidationError('Authenticated staff identity is required for bill audit');
+    return this.billRepository.delete(id, actorId);
   }
 
   async addPayment(billId: string, paymentData: AddPaymentInput, receivedById: string) {

@@ -618,7 +618,7 @@ describe('bill lifecycle financial reconciliation', () => {
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
     const repository = new BillRepository(prisma);
 
-    await repository.delete('bill-delete');
+    await repository.delete('bill-delete', 'staff-1');
 
     expect(corporateUpdate).toHaveBeenCalledWith({
       where: { id: 'corporate-1' },

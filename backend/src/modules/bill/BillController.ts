@@ -126,7 +126,8 @@ export class BillController extends BaseController {
 
   deleteBill = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
-      await billService.deleteBill(req.params.id);
+      if (!req.user?.id) return this.unauthorized(res, 'User authentication required');
+      await billService.deleteBill(req.params.id, req.user.id);
       return this.ok(res, null, 'Bill deleted successfully');
     } catch (error: any) {
       if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
