@@ -190,7 +190,7 @@ export class StockTransferService extends BaseService {
       }
       await appendAuditLogWithinTransaction(tx, {
         entityType: 'StockTransfer', entityId: id, action: 'update', performedById: userId,
-        previousState: { status: 'approved' }, newState: { status: 'dispatched', dispatchedAt: new Date() },
+        previousState: { status: 'approved' }, newState: { status: 'dispatched' },
         metadata: { source: 'stock_transfer_dispatch', itemCount: transfer.items.length },
       });
 
@@ -330,7 +330,7 @@ export class StockTransferService extends BaseService {
 
       await appendAuditLogWithinTransaction(tx, {
         entityType: 'StockTransfer', entityId: id, action: 'update', performedById: userId,
-        previousState: { status: 'dispatched' }, newState: { status: 'received', receivedAt: new Date() },
+        previousState: { status: 'dispatched' }, newState: { status: 'received' },
         metadata: { source: 'stock_transfer_receipt', itemCount: transfer.items.length },
       });
 
