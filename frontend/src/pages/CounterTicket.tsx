@@ -65,6 +65,7 @@ export default function CounterTicket() {
 
   const [ticket, setTicket] = useState<any | null>(null);
   const [bill, setBill] = useState<any | null>(null);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(true);
@@ -163,6 +164,20 @@ export default function CounterTicket() {
     if (!id) return;
     loadTicket(id);
   }, [id, loadTicket]);
+
+  useEffect(() => {
+    let active = true;
+    if (!bill?.id) { setPaymentHistory([]); return; }
+    getBillingInvoice(bill.id).then((response: any) => {
+      if (!active) return;
+      const fullBill = response?.data ?? response;
+      const payments = (fullBill?.Payment || fullBill?.Payments || fullBill?.payments || fullBill?.paymentHistory || [])
+        .filter((payment: any) => !payment?.isVoided)
+        .sort((a: any, b: any) => new Date(b.paymentDate || b.transactionDate || b.createdAt || 0).getTime() - new Date(a.paymentDate || a.transactionDate || a.createdAt || 0).getTime());
+      setPaymentHistory(payments);
+    }).catch(() => { if (active) setPaymentHistory([]); });
+    return () => { active = false; };
+  }, [bill?.id]);
 
   useLiveRefresh(['counter', 'bills', 'encounters', 'billing'], () => {
     if (id) loadTicket(id, true);
@@ -883,28 +898,52 @@ export default function CounterTicket() {
                           <Button
                             variant="secondary"
                             icon={Printer}
-                            disabled={!!working || Number(bill.paidAmount || 0) <= 0}
-                            title={Number(bill.paidAmount || 0) > 0 ? 'Print a receipt for the latest recorded payment' : 'A receipt is available after a payment is recorded'}
-                            onClick={() => print('Print receipt', 'Receipt not printed', async () => {
-                              const fullBill: any = await getBillingInvoice(bill.id);
-                              if (!fullBill) throw new Error('Bill details could not be loaded.');
-                              const payments = (fullBill.Payment || fullBill.Payments || fullBill.payments || fullBill.paymentHistory || [])
-                                .filter((payment: any) => !payment?.isVoided)
-                                .sort((a: any, b: any) => new Date(a.paymentDate || a.transactionDate || a.createdAt || 0).getTime() - new Date(b.paymentDate || b.transactionDate || b.createdAt || 0).getTime());
-                              const lastPayment = payments[payments.length - 1];
-                              if (!lastPayment) throw new Error('No recorded payment is available for a receipt. Take payment at Accounts first.');
-                              return generatePDF('thermalReceipt', {
-                                bill: fullBill,
-                                patient: fullBill.Patient || fullBill.patient || printPatient,
-                                payment: lastPayment,
-                                paperWidth: 80,
-                              }, hospitalInfo);
-                            }, `counter_${bill.billNumber}_receipt`)}
+                            disabled={!!working || paymentHistory.length === 0}
+                            title={paymentHistory.length > 0 ? 'Print a receipt for the latest recorded payment' : 'A receipt is available after a payment is recorded'}
+                            onClick={() => {
+                              const latestPayment = paymentHistory[0];
+                              if (!latestPayment) return;
+                              void print('Print receipt', 'Receipt not printed', async () => {
+                                const fullBill: any = await getBillingInvoice(bill.id);
+                                if (!fullBill) throw new Error('Bill details could not be loaded.');
+                                const currentPayments = (fullBill.Payment || fullBill.Payments || fullBill.payments || fullBill.paymentHistory || []).filter((item: any) => !item?.isVoided);
+                                const selectedPayment = currentPayments.find((item: any) => item.id === latestPayment.id);
+                                if (!selectedPayment) throw new Error('This payment is no longer available or has been voided.');
+                                return generatePDF('thermalReceipt', { bill: fullBill, patient: fullBill.Patient || fullBill.patient || printPatient, payment: selectedPayment, paperWidth: 80 }, hospitalInfo);
+                              }, `counter_${bill.billNumber}_receipt`);
+                            }}
                           >
-                            Print receipt
+                            Print latest receipt
                           </Button>
                         </>
                       ) : null}
+                    {canPrintMoneyDoc && (
+                      <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
+                        <div className="px-3 py-2 border-b border-[var(--border-color)] text-sm font-semibold text-[var(--text-primary)]">Payment history and receipts</div>
+                        {paymentHistory.length === 0 ? (
+                          <p className="px-3 py-3 text-xs text-[var(--text-secondary)]">No recorded payments are available for this bill.</p>
+                        ) : (
+                          <table className="w-full text-sm">
+                            <thead><tr><th className="px-3 py-2 text-left text-xs text-[var(--text-secondary)]">Date</th><th className="px-3 py-2 text-left text-xs text-[var(--text-secondary)]">Method / reference</th><th className="px-3 py-2 text-right text-xs text-[var(--text-secondary)]">Amount</th><th className="px-3 py-2 text-right text-xs text-[var(--text-secondary)]">Receipt</th></tr></thead>
+                            <tbody>{paymentHistory.map((payment: any) => (
+                              <tr key={payment.id} className="border-t border-[var(--border-color)]">
+                                <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">{new Date(payment.paymentDate || payment.transactionDate || payment.createdAt).toLocaleString()}</td>
+                                <td className="px-3 py-2 text-[var(--text-secondary)]"><span className="capitalize">{String(payment.paymentMethod || payment.paymentMode || '—').replace('_', ' ')}</span>{payment.reference ? <span className="block text-xs text-[var(--text-tertiary)]">{payment.reference}</span> : null}</td>
+                                <td className="px-3 py-2 text-right font-medium text-[var(--text-primary)]">{money(payment.amount)}</td>
+                                <td className="px-3 py-2 text-right"><Button variant="ghost" size="sm" icon={Printer} disabled={!!working} onClick={() => print('Print payment receipt', 'Receipt not printed', async () => {
+                                  const fullBill: any = await getBillingInvoice(bill.id);
+                                  if (!fullBill) throw new Error('Bill details could not be loaded.');
+                                  const currentPayments = (fullBill.Payment || fullBill.Payments || fullBill.payments || fullBill.paymentHistory || []).filter((item: any) => !item?.isVoided);
+                                  const selectedPayment = currentPayments.find((item: any) => item.id === payment.id);
+                                  if (!selectedPayment) throw new Error('This payment is no longer available or has been voided.');
+                                  return generatePDF('thermalReceipt', { bill: fullBill, patient: fullBill.Patient || fullBill.patient || printPatient, payment: selectedPayment, paperWidth: 80 }, hospitalInfo);
+                                }, `counter_${bill.billNumber}_receipt_${payment.id}`)}>Receipt</Button></td>
+                              </tr>
+                            ))}</tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
                       <Button
                         variant="secondary"
                         icon={RefreshCw}
