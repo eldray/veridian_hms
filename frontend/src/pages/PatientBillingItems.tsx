@@ -49,6 +49,7 @@ interface BillLineItem {
   isFullyPaid: boolean;
   voidReason?: string;
   serviceCatalog?: { name: string; code: string };
+  wardChargeRecord?: { ward?: { wardName?: string } | null } | null;
   /** Original bill-line IDs represented by a grouped ward-accommodation row. */
   sourceItemIds?: string[];
 }
@@ -496,9 +497,19 @@ export default function PatientBillingItems() {
     // Present daily charges at the same ward/rate as one readable accommodation row.
     const wardGroups = new Map<string, BillLineItem[]>();
     for (const item of groups['Ward & Accommodation']) {
-      const key = `${item.description}::${Number(item.unitPrice).toFixed(2)}`;
+      const wardName = item.wardChargeRecord?.ward?.wardName?.trim();
+      const isLegacyIdLabel = /^ward accommodation\s*\(/i.test(item.description || '');
+      const displayDescription = wardName
+        ? `Ward accommodation – ${wardName}`
+        : isLegacyIdLabel
+          ? 'Ward accommodation'
+          : item.description;
+      // Keep unknown-ward source descriptions separate for audit clarity, but never
+      // expose an internal ward ID to staff as the accommodation label.
+      const groupingIdentity = wardName || item.description;
+      const key = `${groupingIdentity}::${Number(item.unitPrice).toFixed(2)}`;
       const current = wardGroups.get(key) || [];
-      current.push(item);
+      current.push({ ...item, description: displayDescription });
       wardGroups.set(key, current);
     }
     groups['Ward & Accommodation'] = Array.from(wardGroups.values()).map((rows) => {
