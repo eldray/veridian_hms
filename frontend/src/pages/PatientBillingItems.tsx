@@ -1414,7 +1414,7 @@ export default function PatientBillingItems() {
                                   {billDetails.InsuranceProvider.type !== 'nhis' && (
                                     <>
                                       {' · '}
-                                      {billDetails.InsuranceProvider.coveragePercentage}% coverage
+                                      {/\bpremier\s+health\b/i.test(String(billDetails.InsuranceProvider.name || '')) ? 'Benefit caps' : `${billDetails.InsuranceProvider.coveragePercentage}% coverage`}
                                     </>
                                   )}
                                 </span>

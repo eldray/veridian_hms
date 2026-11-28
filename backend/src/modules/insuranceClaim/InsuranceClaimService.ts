@@ -138,6 +138,7 @@ export class InsuranceClaimService extends BaseService {
     let priorDeferred = 0;
     let surgeryCase = false;
     let benefitPeriod = '';
+    let maxOpdVisits = 2;
 
     if (context.encounterCategory === 'ipd' || context.encounterCategory === 'daycase') {
       if (!context.Admission?.id) throw new ValidationError('Premier inpatient/day-case claim must be linked to an admission before benefits can be calculated.');
@@ -166,7 +167,9 @@ export class InsuranceClaimService extends BaseService {
         priorInsurerUsed += Number(calc?.scheme === 'premier_health' ? calc.insurerCovered || 0 : priorClaim.totalClaimAmount || 0);
         if (calc?.scheme === 'premier_health') priorDeferred += Number(calc.deferredPatientBalance || 0);
       }
-      cap = visitOrdinal !== null && visitOrdinal <= 2 ? Math.max(0, Math.min(Number(policy.opd?.perVisitCap), Number(policy.opd?.perVisitCap) * 2 - priorInsurerUsed)) : 0;
+      maxOpdVisits = Math.max(1, Math.floor(Number(policy.opd?.maxVisitsPerCalendarMonth) || 2));
+      const perVisitCap = Math.max(0, Number(policy.opd?.perVisitCap) || 0);
+      cap = visitOrdinal !== null && visitOrdinal <= maxOpdVisits ? Math.max(0, Math.min(perVisitCap, perVisitCap * maxOpdVisits - priorInsurerUsed)) : 0;
       benefitPeriod = serviceDate.getFullYear() + '-' + String(serviceDate.getMonth() + 1).padStart(2, '0');
     }
 
@@ -189,8 +192,9 @@ export class InsuranceClaimService extends BaseService {
     });
     const insurerCovered = money(rows.reduce((sum, row) => sum + Number(row.lineTotal || 0), 0));
     const patientExcess = money(Math.max(0, grossAmount - insurerCovered));
-    const patientPayableNow = context.encounterCategory !== 'opd' ? patientExcess : visitOrdinal === 1 ? 0 : money(priorDeferred + patientExcess);
-    const deferredPatientBalance = context.encounterCategory !== 'opd' ? 0 : visitOrdinal === 1 ? patientExcess : 0;
+    const deferFirstVisitExcess = context.encounterCategory === 'opd' && visitOrdinal === 1 && maxOpdVisits > 1;
+    const patientPayableNow = context.encounterCategory !== 'opd' ? patientExcess : deferFirstVisitExcess ? 0 : money(priorDeferred + patientExcess);
+    const deferredPatientBalance = deferFirstVisitExcess ? patientExcess : 0;
     return {
       scheme: 'premier_health', benefitPeriod, encounterCategory: context.encounterCategory,
       visitOrdinal, cap, grossAmount, insurerCovered, patientExcess,
