@@ -111,7 +111,7 @@ describe('vitals worklist view', () => {
     const where = firstWhere(findMany);
 
     expect(where.Vitals.some.recordedAt.gte).toBeInstanceOf(Date);
-    expect(where.status).toBeUndefined();
+    expect(where.status).toEqual({ not: 'cancelled' });
     expect(result.data[0].status).toBe('completed');
     expect(result.data[0].lastVitals.recordedAt).toEqual(recordedAt);
     expect(result.buckets.closed).toBe(1);
