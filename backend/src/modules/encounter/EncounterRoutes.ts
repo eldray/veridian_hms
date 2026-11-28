@@ -35,6 +35,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.get('/worklist/scans', requireRole(['admin', 'doctor', 'midwife', 'sonographer']), controller.getRadiologyWorklist);
   router.get('/worklist/procedures', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getProceduresWorklist);
   router.get('/worklist/maternal', requireRole(['admin', 'doctor', 'midwife']), controller.getMaternalWorklist);
+  router.post('/:id/maternal/start', requireRole(['admin', 'super_admin', 'doctor', 'midwife']), controller.startMaternalTask);
   // Closed visits still carrying an unanswered lab, scan or procedure — the warning tab.
   router.get('/worklist/outstanding', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer']), controller.getOutstandingWorklist);
   router.get('/worklist/summary', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'sonographer']), controller.getWorklistSummary);
