@@ -48,7 +48,26 @@ export default function ServiceCatalogTab() {
   const [nhisAuthorizationVerified, setNhisAuthorizationVerified] = useState(false);
   const [nhisPayerName, setNhisPayerName] = useState('NHIS');
   const [nhisPolicy, setNhisPolicy] = useState({ isCovered: true, authorizationRequired: false, prescribingLevel: 'C', copaymentMode: 'none', copaymentAmount: '', copaymentPercentage: '', tariffPrice: '', effectiveFrom: new Date().toISOString().slice(0, 10), effectiveTo: '', notes: '' });
+
   const isLoading = storeLoading || localLoading;
+
+  // Display a single canonical code. Covered items use their NHIS code (or
+  // the linked template/stock code when that is the NHIS code); non-covered
+  // items retain their facility/catalogue code instead.
+  const getServiceCode = (service: any) =>
+    service.StockItem?.drugCode ||
+    service.LabTestTemplate?.investigationCode ||
+    service.ScanTemplate?.investigationCode ||
+    service.ProcedureTemplate?.procedureCode ||
+    service.nhisServiceCode ||
+    service.code ||
+    '-';
+
+  const isServiceNHISCovered = (service: any) => service.isNHISCovered !== false;
+
+  const getDisplayedCodeLabel = (service: any) =>
+    isServiceNHISCovered(service) ? 'NHIS Code' : 'Code';
+
 
   useEffect(() => { loadData(); }, []);
 
@@ -275,7 +294,7 @@ export default function ServiceCatalogTab() {
                   <div key={service.id} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:shadow-lg transition-all cursor-pointer" onClick={() => handleViewDetails(service)}>
                     <div className="p-2.5">
                       <div className="flex items-start justify-between mb-2"><div className="flex items-center gap-2 min-w-0"><div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${getServiceColor(service.serviceType)}`}>{getServiceIcon(service.serviceType)}</div><div className="min-w-0"><h3 className="font-semibold text-[var(--text-primary)] line-clamp-1 text-sm">{service.name}</h3><span className={`text-xs px-2 py-0.5 rounded-full ${getServiceColor(service.serviceType)}`}>{service.serviceType.replace('_', ' ')}</span></div></div>{service.nhisRequiresAuth && (<div className="bg-[var(--icon-orange-bg)] p-1 rounded-lg shrink-0" title="Requires Authorization"><AlertCircle className="w-3 h-3 text-[var(--icon-orange-text)]" /></div>)}</div>
-                      <div className="space-y-1.5 mb-2.5"><div className="flex justify-between text-xs"><span className="text-[var(--text-secondary)]">Code:</span><span className="font-mono font-medium text-[var(--text-primary)]">{service.StockItem?.drugCode || service.LabTestTemplate?.investigationCode || service.ScanTemplate?.investigationCode || service.ProcedureTemplate?.procedureCode || service.nhisServiceCode || service.code}</span></div>{service.nhisServiceCode && service.serviceType !== 'medication' && (<div className="flex justify-between text-xs"><span className="text-[var(--text-secondary)]">NHIS:</span><span className="font-mono font-medium text-[var(--icon-cyan-text)]">{service.nhisServiceCode}</span></div>)}{service.description && (<p className="text-xs text-[var(--text-secondary)] line-clamp-2">{service.description}</p>)}</div>
+                      <div className="space-y-1.5 mb-2.5"><div className="flex justify-between text-xs"><span className="text-[var(--text-secondary)]">{getDisplayedCodeLabel(service)}:</span><span className="font-mono font-medium text-[var(--text-primary)]">{getServiceCode(service)}</span></div>{service.description && (<p className="text-xs text-[var(--text-secondary)] line-clamp-2">{service.description}</p>)}</div>
                       <div className="grid grid-cols-2 gap-1.5 pt-2.5 border-t border-[var(--border-color)]">
                         <div className="bg-[var(--icon-green-bg)] rounded-lg p-1.5 text-center"><p className="text-[11px] text-[var(--text-secondary)]">Cash</p><p className="font-bold text-sm text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</p></div>
                         <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-1.5 text-center"><p className="text-[11px] text-[var(--text-secondary)]">NHIS</p><p className="font-bold text-sm text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</p></div>
@@ -298,13 +317,12 @@ export default function ServiceCatalogTab() {
             <>
               <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                 <div className="overflow-x-auto"><table className="w-full">
-                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Service</th><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Type</th><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Code</th><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">NHIS Code</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Cash (GHS)</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">NHIS (GHS)</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Insurance (GHS)</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Corporate (GHS)</th><th className="text-center p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Actions</th></tr></thead>
+                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Service</th><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Type</th><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Code / NHIS Code</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Cash (GHS)</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">NHIS (GHS)</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Insurance (GHS)</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Corporate (GHS)</th><th className="text-center p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Actions</th></tr></thead>
                   <tbody className="divide-y divide-[var(--border-color)]">{paginatedServices.map(service => (
                     <tr key={service.id} className="hover:bg-[var(--bg-main)] cursor-pointer" onClick={() => handleViewDetails(service)}>
                       <td className="p-2.5"><div className="font-medium text-[var(--text-primary)]">{service.name}</div>{service.description && <div className="text-xs text-[var(--text-secondary)] line-clamp-1">{service.description}</div>}</td>
                       <td className="p-2.5"><span className={`text-xs px-2 py-1 rounded-full ${getServiceColor(service.serviceType)}`}>{service.serviceType.replace('_', ' ')}</span></td>
-                      <td className="p-3 font-mono text-xs text-[var(--text-secondary)]">{service.code}</td>
-                      <td className="p-3 font-mono text-xs text-[var(--icon-cyan-text)]">{service.serviceType === 'medication' ? '-' : (service.nhisServiceCode || '-')}</td>
+                      <td className={`p-3 font-mono text-xs ${isServiceNHISCovered(service) ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)]'}`}><span className="text-[10px] uppercase tracking-wide opacity-70 mr-1">{getDisplayedCodeLabel(service)}:</span>{getServiceCode(service)}</td>
                       <td className="p-2.5 text-right font-medium text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</td>
                       <td className="p-2.5 text-right font-medium text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</td>
                       <td className="p-2.5 text-right font-medium text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</td>
