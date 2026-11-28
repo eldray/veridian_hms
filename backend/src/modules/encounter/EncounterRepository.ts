@@ -15,6 +15,15 @@ import { appendStockMovementAudit } from '../stockTransaction/stockMovementAudit
 import { appendClinicalRecordAudit } from './clinicalAudit';
 import { appendAuditLogWithinTransaction } from '../../services/auditChain';
 
+/** BMI uses the stored metric units: weight in kg and height in cm. */
+const calculateVitalsBMI = (weight: unknown, height: unknown): number | null => {
+  const weightKg = Number(weight);
+  const heightCm = Number(height);
+  if (!Number.isFinite(weightKg) || weightKg <= 0 ||
+      !Number.isFinite(heightCm) || heightCm <= 0) return null;
+  return Math.round((weightKg / Math.pow(heightCm / 100, 2)) * 10) / 10;
+};
+
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
 /**
@@ -970,6 +979,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         vitalsData[key] = data[key as keyof AddVitalsDTO];
       }
     }
+    // BMI is derived on the server so every entry path (including nursing and
+    // quick-entry screens) stores the same value without relying on the client.
+    const calculatedBMI = calculateVitalsBMI(data.weight, data.height);
+    if (calculatedBMI !== null) vitalsData.bmi = calculatedBMI;
     const hasAntenatalData =
       fetalHeartRate !== undefined ||
       fundalHeight !== undefined ||
@@ -1048,7 +1061,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     // Allow only measured vitals and notes to be edited. Never pass the full
     // client object into Prisma, where IDs, links, recorder and timestamps live.
     const vitalsData: any = {};
-    for (const key of ['bloodPressure', 'temperature', 'pulse', 'respiration', 'spo2', 'weight', 'height', 'bmi', 'muac', 'notes']) {
+    for (const key of ['bloodPressure', 'temperature', 'pulse', 'respiration', 'spo2', 'weight', 'height', 'muac', 'notes']) {
       if (data[key] !== undefined) vitalsData[key] = data[key];
     }
     const hasAntenatalData =
@@ -1069,7 +1082,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       spo2: [0, 100],
       weight: [0, 500],
       height: [0, 300],
-      bmi: [0, 150],
       muac: [0, 100],
     };
     for (const [key, value] of Object.entries(vitalsData)) {
@@ -1113,6 +1125,14 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         },
       });
       if (!existingVitals) throw new NotFoundError('Vitals', vitalsId);
+
+      // Recalculate whenever either measurement changes, using the unchanged
+      // counterpart from the persisted observation. Never trust a client BMI.
+      if (data.weight !== undefined || data.height !== undefined) {
+        const weight = data.weight !== undefined ? data.weight : existingVitals.weight;
+        const height = data.height !== undefined ? data.height : existingVitals.height;
+        vitalsData.bmi = calculateVitalsBMI(weight, height);
+      }
 
       const attendance = await this.requireUnfinalizedClinicalEncounter(existingVitals.attendanceId, tx);
       if (hasAntenatalData && attendance.attendanceType !== 'antenatal') {
