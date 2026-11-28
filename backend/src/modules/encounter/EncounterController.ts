@@ -495,7 +495,7 @@ export class EncounterController extends BaseController {
   });
 
   getMaternalWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const worklist = await this.service.getMaternalWorklist();
+    const worklist = await this.service.getMaternalWorklist(parseWorklistQuery(req.query));
     return this.ok(res, worklist, 'Maternal worklist retrieved');
   });
 
