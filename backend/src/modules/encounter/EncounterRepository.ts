@@ -3687,6 +3687,47 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return this.getModel().findMany({ where, include, orderBy: { dateTime: 'desc' }, take: WORKLIST_ROW_LIMIT });
   }
 
+  async startVitalsTask(attendanceId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, status: true, vitalsStartedAt: true },
+      });
+      if (!attendance) throw new NotFoundError('Encounter', attendanceId);
+      if (attendance.status === 'cancelled') throw new ConflictError('Vitals cannot be started for a cancelled attendance');
+
+      const completedToday = await tx.vitals.findFirst({
+        where: { attendanceId, recordedAt: { gte: startOfCurrentDay() } },
+        select: { id: true },
+      });
+      if (completedToday) throw new ConflictError('Vitals have already been recorded for this attendance today');
+      if (attendance.vitalsStartedAt) return attendance;
+
+      const startedAt = new Date();
+      const claimed = await tx.attendance.updateMany({
+        where: { id: attendanceId, status: { not: 'cancelled' }, vitalsStartedAt: null },
+        data: { vitalsStartedAt: startedAt, vitalsStartedById: actorId },
+      });
+      if (claimed.count !== 1) {
+        const latest = await tx.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, status: true, vitalsStartedAt: true } });
+        if (latest?.vitalsStartedAt) return latest;
+        throw new ConflictError('The vitals task changed in another session; refresh the waiting list');
+      }
+
+      const updated = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, status: true, vitalsStartedAt: true },
+      });
+      if (!updated) throw new NotFoundError('Encounter', attendanceId);
+      await appendClinicalRecordAudit(tx, actorId, 'Attendance', attendanceId, 'update',
+        { vitalsStartedAt: null },
+        { vitalsStartedAt: startedAt, vitalsStartedById: actorId },
+        { workflow: 'vitals_task_started' });
+      return updated;
+    });
+  }
+
   async getVitalsWorklist(query: WorklistQuery = {}): Promise<any> {
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const view = query.view || 'pending';
@@ -3695,18 +3736,20 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (query.dateTo) recordedRange.lte = query.dateTo;
     if (!Object.keys(recordedRange).length) recordedRange.gte = today;
 
-    // Recording vitals is a concrete completion event. There is no persisted
-    // "started taking vitals" event yet, so never infer In Progress from an open visit.
+    // A saved vitals reading completes the task; an explicit start event makes it In Progress.
+    // Attendance closure does not erase unfinished vitals work.
     const where: any = {
       encounterCategory: { in: ['opd', 'ipd', 'daycase'] },
       attendanceType: { not: 'walk_in' },
+      status: { not: 'cancelled' },
     };
     if (view === 'completed') {
       where.Vitals = { some: { recordedAt: recordedRange } };
     } else if (view === 'in_progress') {
-      where.id = { in: [] };
+      where.vitalsStartedAt = recordedRange;
+      where.NOT = { Vitals: { some: { recordedAt: recordedRange } } };
     } else {
-      where.status = { in: ['pending', 'admitted'] };
+      where.vitalsStartedAt = null;
       where.NOT = { Vitals: { some: { recordedAt: recordedRange } } };
       if (query.dateFrom || query.dateTo) {
         const visitRange: any = {};
@@ -3731,7 +3774,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       const identity = this.displayIdentity(attendance);
       const lastVitals = attendance.Vitals?.[0];
       const hasVitalsToday = Boolean(lastVitals);
-      const waitTime = hasVitalsToday ? 0 : Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000);
+      const waitAnchor = view === 'in_progress' && attendance.vitalsStartedAt ? attendance.vitalsStartedAt : attendance.dateTime;
+      const waitTime = hasVitalsToday ? 0 : Math.floor((Date.now() - new Date(waitAnchor).getTime()) / 60000);
       let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       if (!hasVitalsToday) { const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
 
@@ -3744,14 +3788,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         patient: identity.patient,
         location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined,
         hasVitalsToday, lastVitals: lastVitals ? { bloodPressure: lastVitals.bloodPressure, temperature: lastVitals.temperature, pulse: lastVitals.pulse, respiration: lastVitals.respiration, spo2: lastVitals.spo2, recordedAt: lastVitals.recordedAt } : null,
-        waitTime, priority, status: hasVitalsToday ? 'completed' : 'pending', encounterCategory: attendance.encounterCategory
+        waitTime, priority, status: hasVitalsToday ? 'completed' : (attendance.vitalsStartedAt ? 'in_progress' : 'pending'), encounterCategory: attendance.encounterCategory
       };
     });
     return {
       view,
       total: processedItems.length,
       pending: processedItems.filter((i: any) => i.status === 'pending').length,
-      inProgress: 0,
+      inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length,
       completed: processedItems.filter((i: any) => i.status === 'completed').length,
       buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : bucketsOf(processedItems),
       data: processedItems,
