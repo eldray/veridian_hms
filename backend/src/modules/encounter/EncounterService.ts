@@ -848,6 +848,7 @@ export class EncounterService extends BaseService {
     });
   }
 
+  async startVitalsTask(id: string, userId: string) { return this.repository.startVitalsTask(id, userId); }
   async addVitals(id: string, data: AddVitalsDTO, userId: string) { return this.repository.addVitals(id, data, userId); }
   async updateVitals(id: string, data: any, userId?: string) { return this.repository.updateVitals(id, data, userId); }
   async deleteVitals(id: string, userId?: string) { return this.repository.deleteVitals(id, userId); }
