@@ -119,4 +119,14 @@ describe('Premier Health Insurance aggregate benefit caps', () => {
     expect(result).toMatchObject({ surgeryCase: true, cap: 2000, grossAmount: 3000, insurerCovered: 2000, patientPayableNow: 1000 });
     expect(rows.reduce((sum, row) => sum + row.lineTotal, 0)).toBe(2000);
   });
+  it('uses the configured OPD and IPD caps from the provider policy', async () => {
+    const customPolicy = { ...policy, opd: { perVisitCap: 250, maxVisitsPerCalendarMonth: 1, deferFirstVisitExcess: true }, ipd: { perAdmissionCap: 900 } };
+    const db = { attendance: { findMany: vi.fn().mockResolvedValue([]) }, insuranceClaim: { findMany: vi.fn() } };
+    const opdRows = [line('service', 400)];
+    const opdResult = await allocate(makeService(), db, context({ InsuranceProvider: { benefitPolicy: customPolicy } }), opdRows);
+    expect(opdResult).toMatchObject({ visitOrdinal: 1, cap: 250, insurerCovered: 250, deferredPatientBalance: 150 });
+    const ipdRows = [line('service', 1200)];
+    const ipdResult = await allocate(makeService(), db, context({ InsuranceProvider: { benefitPolicy: customPolicy }, encounterCategory: 'ipd', Admission: { id: 'custom-admission' } }), ipdRows);
+    expect(ipdResult).toMatchObject({ cap: 900, insurerCovered: 900, patientPayableNow: 300 });
+  });
 });
