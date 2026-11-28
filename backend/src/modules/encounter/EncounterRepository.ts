@@ -4170,7 +4170,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         : attendance.attendanceType === 'delivery'
           ? await tx.deliveryRecord.findFirst({ where: { attendanceId }, select: { id: true } })
           : await tx.postnatalRecord.findFirst({ where: { attendanceId }, select: { id: true } });
-      if (existingRecord) throw new ConflictError('This maternal task already has a clinical record');
+      if (existingRecord) return attendance;
       if (attendance.maternalStartedAt) return attendance;
 
       const startedAt = new Date();
