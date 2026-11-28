@@ -792,7 +792,7 @@ export default function Nursing() {
                   const admission = admissions.find((a) => a.attendanceId === id && !a.dischargeDate);
                   const badges = patientBadges[id] || { alerts: 0, medsDue: 0, tasksPending: 0 };
                   const name = patient ? getPatientName(patient) : 'Unknown Patient';
-                  const bedNumber = beds.find((b: any) => b.id === att.bedId)?.bedNumber;
+                  const bedNumber = getBedNumber(att) || beds.find((b: any) => b.id === att.bedId)?.bedNumber;
                   const wardName = getWardName(att) || wards.find((w: any) => w.id === getWardId(att))?.wardName;
                   const age = patient?.dateOfBirth
                     ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))
