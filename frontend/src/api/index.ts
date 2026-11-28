@@ -4708,7 +4708,7 @@ export default {
   addDiagnosisToEncounter, removeDiagnosisFromEncounter,
   addLabTestToEncounter, updateLabTestInEncounter, removeLabTestFromEncounter,
   addProcedureToEncounter, updateProcedureStatus, removeProcedureFromEncounter,
-  addMedicationToEncounter, updateMedicationStatus, dispenseMedication, removeMedicationFromEncounter,
+  addMedicationToEncounter, updateMedicationStatus, startMedicationDispensing, dispenseMedication, removeMedicationFromEncounter,
   addScanToEncounter, updateScanStatus, removeScanFromEncounter,
   addServiceToEncounter, addServicesToEncounter, removeServiceFromEncounter,
   addVitalsToEncounter, getVitalsByEncounter, getLatestVitals, getVitalsForEncounters, updateVitals, deleteVitals,
