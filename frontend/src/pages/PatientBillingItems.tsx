@@ -1440,8 +1440,11 @@ export default function PatientBillingItems() {
                                 </thead>
                                 <tbody>
                                   {paymentsForBill.map((payment) => {
-                                    const refunded = refundedOn(payment);
-                                    const refundable = refundableOn(payment);
+                                    const linkedRefundTotal = billRefunds
+                                      .filter((refund) => refund.paymentId === payment.id)
+                                      .reduce((sum, refund) => sum + Number(refund.amount || 0), 0);
+                                    const refunded = roundMoney(linkedRefundTotal || refundedOn(payment));
+                                    const refundable = Math.max(0, roundMoney(Number(payment.amount) - refunded));
                                     return (
                                       <tr key={payment.id} className="border-b border-[var(--border-color)] last:border-b-0">
                                         <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">{formatDate(payment.transactionDate)}</td>
