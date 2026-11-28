@@ -1812,6 +1812,11 @@ export const updateMedicationStatus = async (
   return response;
 };
 
+export const startMedicationDispensing = async (encounterId: string, medicationId: string) => {
+  const response = await api.post(`/encounters/${encounterId}/medications/${medicationId}/start-dispensing`);
+  return response.data;
+};
+
 export const dispenseMedication = async (
   encounterId: string,
   medicationId: string,
