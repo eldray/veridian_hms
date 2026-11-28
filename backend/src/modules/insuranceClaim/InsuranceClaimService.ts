@@ -166,7 +166,9 @@ export class InsuranceClaimService extends BaseService {
         priorInsurerUsed += Number(calc?.scheme === 'premier_health' ? calc.insurerCovered || 0 : priorClaim.totalClaimAmount || 0);
         if (calc?.scheme === 'premier_health') priorDeferred += Number(calc.deferredPatientBalance || 0);
       }
-      cap = visitOrdinal !== null && visitOrdinal <= 2 ? Math.max(0, Math.min(Number(policy.opd?.perVisitCap), Number(policy.opd?.perVisitCap) * 2 - priorInsurerUsed)) : 0;
+      const maxVisits = Math.max(1, Math.floor(Number(policy.opd?.maxVisitsPerCalendarMonth) || 2));
+      const perVisitCap = Math.max(0, Number(policy.opd?.perVisitCap) || 0);
+      cap = visitOrdinal !== null && visitOrdinal <= maxVisits ? Math.max(0, Math.min(perVisitCap, perVisitCap * maxVisits - priorInsurerUsed)) : 0;
       benefitPeriod = serviceDate.getFullYear() + '-' + String(serviceDate.getMonth() + 1).padStart(2, '0');
     }
 
