@@ -507,6 +507,12 @@ export class EncounterController extends BaseController {
     return this.ok(res, worklist, 'Procedures worklist retrieved');
   });
 
+  startMaternalTask = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.startMaternalTask(req.params.id, req.user!.id);
+    (req as any).auditHandled = true;
+    return this.ok(res, result, 'Maternal task started');
+  });
+
   getMaternalWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const worklist = await this.service.getMaternalWorklist(parseWorklistQuery(req.query));
     return this.ok(res, worklist, 'Maternal worklist retrieved');
