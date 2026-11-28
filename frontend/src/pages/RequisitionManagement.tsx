@@ -81,6 +81,7 @@ export default function RequisitionsPage() {
   const [stockItems, setStockItems] = useState<any[]>([]); // only used for name fallback
 
   const myDepartmentId = user?.departmentId || '';
+  const canRequestForWard = hasRole(['doctor', 'nurse', 'midwife']);
   const myDepartmentName = departments.find(d => d.id === myDepartmentId)?.name || '';
 
   const [formData, setFormData] = useState({
@@ -102,10 +103,13 @@ export default function RequisitionsPage() {
   // ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     try {
+      // Ward records are only needed for clinical ward-based requests. Do not let
+      // a role that correctly lacks ward access (e.g. Pharmacy) lose the entire
+      // requisitions page because an optional /wards request returns 403.
       const [requisitionResult, departmentResult, wardResult] = await Promise.all([
         getRequisitions(),
         getDepartments(),
-        getWards(),
+        canRequestForWard ? getWards().catch(() => []) : Promise.resolve([]),
       ]);
       // The API helpers normalize paginated and wrapped responses. Keep a final
       // defensive unwrap here because the wards endpoint has legacy envelopes.
@@ -121,7 +125,7 @@ export default function RequisitionsPage() {
       console.error('Failed to load data:', error);
       toastError('Load failed', 'Could not load requisition data');
     }
-  }, [getRequisitions]);
+  }, [getRequisitions, canRequestForWard]);
 
   useEffect(() => {
     loadData();
@@ -893,7 +897,7 @@ export default function RequisitionsPage() {
                     <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Requesting from</label>
                     <div className="flex items-center gap-3">
                       <div className="inline-flex shrink-0 rounded-lg border border-[var(--border-color)] overflow-hidden bg-[var(--bg-main)]">
-                        {(['department', 'ward'] as const).map(type => (
+                        {(['department', ...(canRequestForWard ? ['ward' as const] : [])] as const).map(type => (
                           <button key={type} type="button" disabled={!!editingRequisition}
                             onClick={() => setFormData({ ...formData, requesterType: type })}
                             className={`px-3 py-2 text-xs font-semibold transition-colors ${formData.requesterType === type ? 'bg-[var(--icon-cyan-text)] text-white' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'}`}>
