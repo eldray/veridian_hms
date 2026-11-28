@@ -240,7 +240,7 @@ export default function VitalsWaitingList() {
       <PageHeader
         title="Vital Signs"
         subtitle="Record and monitor patient vital signs"
-        meta={`${filteredPatients.length} shown • ${pendingPatients.length} due • ${recentPatients.length} done today`}
+        meta={`${filteredPatients.length} shown • ${view === 'pending' ? `${pendingPatients.length} due` : view === 'in_progress' ? `${worklistItems.length} in progress` : `${recentPatients.length} completed`}`}
         icon={HeartPulse}
         accent="red"
         backTo="/dashboard"
