@@ -728,7 +728,6 @@ model LabTest {
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
-  @@index([dispensingStartedAt])
 }
 
 model Scan {
@@ -885,6 +884,7 @@ model Medication {
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
+  @@index([dispensingStartedAt])
 }
 
 model Vitals {
