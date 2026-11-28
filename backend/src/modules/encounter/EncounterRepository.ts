@@ -3675,7 +3675,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   /** Date filters for item queues use the timestamp of the requested work, never the parent visit. */
-  private workItemDateWhere(query: WorklistQuery, field: 'requestedAt' | 'prescribedAt' | 'createdAt' | 'updatedAt'): Record<string, any> {
+  private workItemDateWhere(query: WorklistQuery, field: 'requestedAt' | 'prescribedAt' | 'dispensedAt' | 'createdAt' | 'updatedAt'): Record<string, any> {
     const range: Record<string, Date> = {};
     if (query.dateFrom) range.gte = query.dateFrom;
     if (query.dateTo) range.lte = query.dateTo;
