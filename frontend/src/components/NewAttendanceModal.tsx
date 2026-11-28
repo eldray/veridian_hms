@@ -440,9 +440,11 @@ export default function NewAttendanceModal({
                       Insurance: {currentInsuranceProvider.name}
                     </p>
                     <p className="text-xs text-[var(--icon-purple-text)] opacity-80">
-                      {currentInsuranceProvider.coveragePercentage !== '—'
-                        ? `Coverage: ${currentInsuranceProvider.coveragePercentage}% • `
-                        : ''}
+                      {/\bpremier\s+health\b/i.test(String(currentInsuranceProvider.name || ''))
+                        ? 'Benefit caps • '
+                        : currentInsuranceProvider.coveragePercentage !== '—'
+                          ? `Coverage: ${currentInsuranceProvider.coveragePercentage}% • `
+                          : ''}
                       {currentInsuranceProvider.isActive ? 'Active' : 'Inactive'}
                     </p>
                   </div>
