@@ -977,8 +977,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         const unitPrice = resolveUnitPrice(wardPrice, paymentMode);
         if (unitPrice <= 0) continue;
         const lineTotal = unitPrice;
-        const serviceDate = new Date(charge.chargeDate).toISOString().slice(0, 10);
-        const description = `Ward accommodation (${charge.wardId}) - ${serviceDate}`;
+        const description = `Ward accommodation – ${charge.ward?.wardName || 'Ward'}`;
         const insurerCovers = (paymentMode === 'nhis' && toNumber(charge.nhisPrice) > 0) ||
           (paymentMode === 'private_insurance' && toNumber(charge.insurancePrice) > 0);
         const insuranceCoveredAmount = insurerCovers && payerProvider ? money(lineTotal * coverageRate) : 0;

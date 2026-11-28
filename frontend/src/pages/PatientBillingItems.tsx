@@ -49,6 +49,8 @@ interface BillLineItem {
   isFullyPaid: boolean;
   voidReason?: string;
   serviceCatalog?: { name: string; code: string };
+  /** Original bill-line IDs represented by a grouped ward-accommodation row. */
+  sourceItemIds?: string[];
 }
 
 interface BillRefund {
@@ -490,6 +492,33 @@ export default function PatientBillingItems() {
       }
     });
 
+    // WardChargeRecord remains one source line per charged day for auditability.
+    // Present daily charges at the same ward/rate as one readable accommodation row.
+    const wardGroups = new Map<string, BillLineItem[]>();
+    for (const item of groups['Ward & Accommodation']) {
+      const key = `${item.description}::${Number(item.unitPrice).toFixed(2)}`;
+      const current = wardGroups.get(key) || [];
+      current.push(item);
+      wardGroups.set(key, current);
+    }
+    groups['Ward & Accommodation'] = Array.from(wardGroups.values()).map((rows) => {
+      if (rows.length === 1) return rows[0];
+      const first = rows[0];
+      return {
+        ...first,
+        id: `ward-group:${rows.map((row) => row.id).join(':')}`,
+        sourceItemIds: rows.filter((row) => !row.isFullyPaid && Number(row.patientPayableAmount || 0) > 0).map((row) => row.id),
+        quantity: rows.reduce((sum, row) => sum + Number(row.quantity || 0), 0),
+        lineTotal: rows.reduce((sum, row) => sum + Number(row.lineTotal || 0), 0),
+        vatAmount: rows.reduce((sum, row) => sum + Number(row.vatAmount || 0), 0),
+        insuranceCoveredAmount: rows.reduce((sum, row) => sum + Number(row.insuranceCoveredAmount || 0), 0),
+        patientPayableAmount: rows.reduce((sum, row) => sum + Number(row.patientPayableAmount || 0), 0),
+        paidAmount: rows.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0),
+        balance: rows.reduce((sum, row) => sum + Number(row.balance || 0), 0),
+        isFullyPaid: rows.every((row) => row.isFullyPaid || Number(row.balance || 0) <= 0),
+      };
+    });
+
     Object.keys(groups).forEach((k) => { if (groups[k].length === 0) delete groups[k]; });
     return groups;
   }, [selectedBill]);
@@ -533,11 +562,13 @@ export default function PatientBillingItems() {
   }, [selectedBill, selectedItems]);
 
   // ===== Selection helpers =====
-  const toggleItemSelection = useCallback((itemId: string) => {
+  const toggleItemSelection = useCallback((itemIds: string | string[]) => {
+    const ids = Array.isArray(itemIds) ? itemIds : [itemIds];
     setSelectedItems((prev) => {
       const next = new Set(prev);
-      if (next.has(itemId)) next.delete(itemId);
-      else next.add(itemId);
+      const allSelected = ids.every((id) => next.has(id));
+      if (allSelected) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
       return next;
     });
   }, []);
@@ -557,13 +588,15 @@ export default function PatientBillingItems() {
   }, []);
 
   const toggleCategorySelection = useCallback((items: BillLineItem[]) => {
-    const unpaid = items.filter((i) => !i.isFullyPaid && i.patientPayableAmount > 0);
-    if (unpaid.length === 0) return;
+    const unpaidIds = items
+      .filter((item) => !item.isFullyPaid && item.patientPayableAmount > 0)
+      .flatMap((item) => item.sourceItemIds || [item.id]);
+    if (unpaidIds.length === 0) return;
     setSelectedItems((prev) => {
       const next = new Set(prev);
-      const allSelected = unpaid.every((i) => next.has(i.id));
-      if (allSelected) unpaid.forEach((i) => next.delete(i.id));
-      else unpaid.forEach((i) => next.add(i.id));
+      const allSelected = unpaidIds.every((id) => next.has(id));
+      if (allSelected) unpaidIds.forEach((id) => next.delete(id));
+      else unpaidIds.forEach((id) => next.add(id));
       return next;
     });
   }, []);
@@ -1183,7 +1216,7 @@ export default function PatientBillingItems() {
                         <div className="space-y-4">
                           {Object.entries(groupedItems).map(([category, items]) => {
                             const unpaidItems = items.filter((i) => !i.isFullyPaid && i.patientPayableAmount > 0);
-                            const allSelected = unpaidItems.length > 0 && unpaidItems.every((i) => selectedItems.has(i.id));
+                            const allSelected = unpaidItems.length > 0 && unpaidItems.every((i) => (i.sourceItemIds || [i.id]).every((id) => selectedItems.has(id)));
 
                             return (
                               <div key={category} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
@@ -1232,6 +1265,8 @@ export default function PatientBillingItems() {
                                       {items.map((item) => {
                                         const isFullyPaid = item.isFullyPaid || item.balance === 0;
                                         const displayBalance = Number(item.balance || 0);
+                                        const itemIds = item.sourceItemIds || [item.id];
+                                        const itemSelected = itemIds.every((id) => selectedItems.has(id));
                                         return (
                                           <tr key={item.id} className="hover:bg-[var(--bg-main)]/50 transition-colors">
                                             <td className="px-3 py-3 text-center">
@@ -1239,11 +1274,11 @@ export default function PatientBillingItems() {
                                                 <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)] mx-auto" />
                                               ) : item.patientPayableAmount > 0 && canMakePayment ? (
                                                 <button
-                                                  onClick={(e) => { e.stopPropagation(); toggleItemSelection(item.id); }}
+                                                  onClick={(e) => { e.stopPropagation(); toggleItemSelection(itemIds); }}
                                                   className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] mx-auto block transition-colors"
-                                                  aria-label={selectedItems.has(item.id) ? 'Deselect item' : 'Select item'}
+                                                  aria-label={itemSelected ? 'Deselect accommodation' : 'Select accommodation'}
                                                 >
-                                                  {selectedItems.has(item.id)
+                                                  {itemSelected
                                                     ? <CheckSquare className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                                                     : <Square className="w-4 h-4" />}
                                                 </button>
