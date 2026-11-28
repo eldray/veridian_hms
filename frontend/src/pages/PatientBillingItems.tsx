@@ -140,7 +140,7 @@ const getGroupedBillItems = (bill: ProcessedBill): Record<string, BillLineItem[]
   const wardGroups = new Map<string, BillLineItem[]>();
   for (const item of groups['Ward & Accommodation']) {
     const wardName = item.wardChargeRecord?.ward?.wardName?.trim();
-    const isLegacyIdLabel = /^ward accommodation\\s*\\(/i.test(item.description || '');
+    const isLegacyIdLabel = /^ward accommodation\s*\(/i.test(item.description || '');
     const displayDescription = wardName ? `Ward accommodation – ${wardName}`
       : isLegacyIdLabel ? 'Ward accommodation' : item.description;
     const groupingIdentity = wardName || item.description;
