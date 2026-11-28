@@ -6939,8 +6939,7 @@
     "isActive": true,
     "requiresAuthorization": false,
     "isNHISCovered": true
-  }
-,
+  },
   {
     "name": "Helicobacter pylori intestinal infection",
     "icdCode": "A04.8",
@@ -7036,7 +7035,7 @@
     "tariffCode": "DIAG-B829",
     "isChronic": false,
     "morbidityGroup": "intestinal_worms",
-    "isActive": false,
+    "isActive": true,
     "requiresAuthorization": false,
     "isNHISCovered": true
   },
