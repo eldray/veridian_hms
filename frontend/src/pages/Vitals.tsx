@@ -13,9 +13,7 @@
 //  6. VIEWPORT FIX: Antenatal, Ward and Bed columns REMOVED (not needed). Table is now 14 cols pending /
 //     12 cols recent, text-xs + table-fixed + truncated patient name + short visit date, so it fits
 //     a normal viewport instead of overflowing sideways.
-//  7. FIX: column set is now driven by `isPendingQueue` (view === 'pending' && activeTab === 'pending'),
-//     not by activeTab alone — when the worklist view is completed / awaiting-results the table no
-//     longer shows Pending-only Priority/Abnormal columns for a non-pending queue (and vice versa).
+//  7. FIX: column set follows the shared Pending / In Progress / Completed task view.
 //  8. FIX: <colgroup> widths added — table-fixed without widths still divides space evenly and
 //     overflows. Patient gets the wide slot, vitals get narrow numeric slots.
 //  9. FIX: waitTime guarded — undefined waitTime rendered "NaNh NaNm".
@@ -133,16 +131,11 @@ export default function VitalsWaitingList() {
   }, []);
 
   // Directly use worklistItems - they already have hasVitalsToday flag
-  const pendingPatients = useMemo(() => {
-    return worklistItems.filter(item => !item.hasVitalsToday);
-  }, [worklistItems]);
+  const pendingPatients = useMemo(() => worklistItems.filter(item => item.status === 'pending'), [worklistItems]);
 
-  const recentPatients = useMemo(() => {
-    return worklistItems.filter(item => item.hasVitalsToday);
-  }, [worklistItems]);
+  const recentPatients = useMemo(() => worklistItems.filter(item => item.status === 'completed'), [worklistItems]);
 
-  // Priority / Abnormal columns belong to the pending queue only. When the worklist view is
-  // completed / awaiting-results, activeTab is meaningless — the queue itself decides.
+  // Priority / Abnormal columns belong to Pending only; other views show task-history columns.
   const isPendingQueue = view === 'pending';
 
   // Filter based on search and active tab. The completed and awaiting-results queues are already
