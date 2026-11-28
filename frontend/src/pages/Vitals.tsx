@@ -441,7 +441,7 @@ export default function VitalsWaitingList() {
                       className="inline-flex items-center gap-1"
                       onClick={() => toggleSort('waiting')}
                     >
-                      {isPendingQueue ? 'Waiting Time' : 'Recorded At'}
+                      {view === 'pending' ? 'Waiting Time' : view === 'in_progress' ? 'Started At' : 'Recorded At'}
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
@@ -514,11 +514,13 @@ export default function VitalsWaitingList() {
                       <div className="flex items-center gap-1 text-[var(--text-secondary)]">
                         <Clock className="w-3.5 h-3.5 shrink-0" />
                         <span>
-                          {isPendingQueue
+                          {view === 'pending'
                             ? formatWaitTime(patient.waitTime)
-                            : patient.vitalsRecordedAt
-                              ? new Date(patient.vitalsRecordedAt).toLocaleTimeString()
-                              : '—'
+                            : view === 'in_progress'
+                              ? (patient.vitalsStartedAt ? new Date(patient.vitalsStartedAt).toLocaleTimeString() : '—')
+                              : patient.vitalsRecordedAt
+                                ? new Date(patient.vitalsRecordedAt).toLocaleTimeString()
+                                : '—'
                           }
                         </span>
                       </div>
@@ -528,8 +530,8 @@ export default function VitalsWaitingList() {
                         variant="ghost"
                         size="sm"
                         iconOnly
-                        icon={isPendingQueue ? Eye : Edit3}
-                        aria-label={isPendingQueue ? 'Record Vitals' : 'Edit Vitals'}
+                        icon={view === 'completed' ? Eye : Edit3}
+                        aria-label={view === 'pending' ? 'Start Vitals' : view === 'in_progress' ? 'Continue Vitals' : 'View Vitals'}
                         className="mx-auto"
                         onClick={(e) => { e.stopPropagation(); handlePatientClick(patient); }}
                       />
