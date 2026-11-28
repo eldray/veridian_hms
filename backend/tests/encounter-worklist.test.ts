@@ -101,6 +101,7 @@ describe('vitals worklist view', () => {
     expect(result.view).toBe('pending');
     expect(where.status).toEqual({ not: 'cancelled' });
     expect(where.vitalsStartedAt).toBeNull();
+    expect(result.buckets.today).toBe(1);
     expect(where.NOT).toEqual({ Vitals: { some: {} } });
   });
 
@@ -339,7 +340,7 @@ describe('medical and maternal worklist views', () => {
     ]));
     expect(result.data[0].attendanceNumber).toBe('ANC-0000003');
     expect(result.data[0].riskLevel).toBe('high');
-    expect(result.buckets).toEqual({ today: 0, inpatients: 1, overdue: 0, closed: 0 });
+    expect(result.buckets).toEqual({ today: 1, inpatients: 0, overdue: 0, closed: 0 });
   });
 });
 
@@ -597,6 +598,7 @@ describe('clinical request worklist timestamps', () => {
     expect(result.data).toHaveLength(1);
     expect(result.data[0].status).toBe('in_progress');
     expect(result.data[0].inProgressCount).toBe(1);
+    expect(result.buckets.closed).toBe(0);
     expect(result.data[0].medications[0].dispensingStartedAt).toEqual(startedAt);
   });
 
