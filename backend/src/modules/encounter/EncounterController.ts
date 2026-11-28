@@ -233,6 +233,12 @@ export class EncounterController extends BaseController {
     return this.ok(res, vitals, 'Vitals retrieved successfully');
   });
 
+  startVitalsTask = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.startVitalsTask(req.params.id, req.user!.id);
+    (req as any).auditHandled = true;
+    return this.ok(res, result, 'Vitals task started');
+  });
+
   addVitals = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const data: AddVitalsDTO = req.body;
