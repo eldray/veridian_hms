@@ -669,15 +669,15 @@ export default function DispensePatient() {
         <>
           <WorklistViewControls department="pharmacy" />
           <QueuedVisits
-          title="Dispensing queue"
-          description="Prescriptions waiting to be filled — pick a visit to dispense"
-          icon={Pill}
-          accent="green"
-          rows={queueRows}
-          loading={queueLoading}
-          emptyMessage="No prescriptions are waiting. Open the dispensing list to review dispensed history."
-          onOpen={openQueuedVisit}
-          onRefresh={loadData}
+            title="Dispensing queue"
+            description="Prescriptions waiting to be filled — pick a visit to dispense"
+            icon={Pill}
+            accent="green"
+            rows={queueRows}
+            loading={queueLoading}
+            emptyMessage="No prescriptions are waiting. Open the dispensing list to review dispensed history."
+            onOpen={openQueuedVisit}
+            onRefresh={loadQueue}
             onViewAll={() => navigate('/dashboard/pharmacy')}
           />
         </>
