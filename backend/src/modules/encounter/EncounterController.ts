@@ -8,7 +8,7 @@ import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
 import { ValidationError } from '../../utils/errors';
 import { projectEncounterForRole } from './EncounterReadProjection';
 
-const WORKLIST_VIEWS = ['pending', 'completed', 'outstanding'];
+const WORKLIST_VIEWS = ['pending', 'in_progress', 'completed', 'outstanding'];
 
 const ATTENDANCE_TYPES = [
   'emergency_acute', 'antenatal', 'postnatal', 'chronic_followup', 'specialist_consultation',
@@ -34,7 +34,7 @@ export const parseWorklistQuery = (query: Record<string, any> = {}): WorklistQue
   const rawView = typeof query.view === 'string' ? query.view.trim().toLowerCase() : '';
   if (rawView && !WORKLIST_VIEWS.includes(rawView)) {
     throw new ValidationError(
-      `Unknown worklist view "${rawView}". Use pending, completed or outstanding.`,
+      `Unknown worklist view "${rawView}". Use pending, in_progress, completed or outstanding.`,
       [{ field: 'view', message: 'Use pending, completed or outstanding.', code: 'invalid_view' }],
     );
   }
