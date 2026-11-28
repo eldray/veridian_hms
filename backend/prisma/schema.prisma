@@ -853,6 +853,8 @@ model Medication {
   instructions         String?
   status               MedicationStatus @default(prescribed)
   prescribedAt         DateTime         @default(now())
+  dispensingStartedAt  DateTime?
+  dispensingStartedById String?
   dispensedAt          DateTime?
   administeredAt       DateTime?
   dispensedById        String?
