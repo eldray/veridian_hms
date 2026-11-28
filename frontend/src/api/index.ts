@@ -1928,6 +1928,11 @@ export const getEncounterConsumableUse = getEncounterConsumableUses;
 
 
 // Vitals
+export const startMaternalTask = async (encounterId: string) => {
+  const response = await api.post(`/encounters/${encounterId}/maternal/start`);
+  return response.data;
+};
+
 export const startVitalsTask = async (encounterId: string) => {
   const response = await api.post(`/encounters/${encounterId}/vitals/start`);
   return response.data;
@@ -4716,7 +4721,7 @@ export default {
   addMedicationToEncounter, updateMedicationStatus, startMedicationDispensing, dispenseMedication, removeMedicationFromEncounter,
   addScanToEncounter, updateScanStatus, removeScanFromEncounter,
   addServiceToEncounter, addServicesToEncounter, removeServiceFromEncounter,
-  startVitalsTask, addVitalsToEncounter, getVitalsByEncounter, getLatestVitals, getVitalsForEncounters, updateVitals, deleteVitals,
+  startMaternalTask, startVitalsTask, addVitalsToEncounter, getVitalsByEncounter, getLatestVitals, getVitalsForEncounters, updateVitals, deleteVitals,
   getBillingBreakdown, calculateEncounterBill, getEncounterStats,
 
   // Bills
