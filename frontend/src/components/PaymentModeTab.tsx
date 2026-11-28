@@ -1014,7 +1014,7 @@ function PrivateForm({
               {privateProviders.map((p: any) => (
                 <option key={p._id || p.id} value={p._id || p.id}>
                   {p.name}
-                  {p.coveragePercentage ? ` — ${p.coveragePercentage}% coverage` : ''}
+                  {/\bpremier\s+health\b/i.test(String(p.name || '')) ? ' — Benefit caps' : p.coveragePercentage ? ` — ${p.coveragePercentage}% coverage` : ''}
                 </option>
               ))}
             </select>
