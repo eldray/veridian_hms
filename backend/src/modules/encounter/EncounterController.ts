@@ -271,6 +271,13 @@ export class EncounterController extends BaseController {
     return this.created(res, prescription, 'Prescription added successfully');
   });
 
+  startMedicationDispensing = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { encounterId, medicationId } = req.params;
+    const medication = await this.service.startMedicationDispensing(encounterId, medicationId, req.user!.id);
+    (req as any).auditHandled = true;
+    return this.ok(res, medication, 'Dispensing started');
+  });
+
   dispenseMedication = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, medicationId } = req.params;
     const { quantity, batchNumber, expiryDate } = req.body;
