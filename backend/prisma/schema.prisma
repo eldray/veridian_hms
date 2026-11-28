@@ -728,6 +728,7 @@ model LabTest {
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
+  @@index([dispensingStartedAt])
 }
 
 model Scan {
