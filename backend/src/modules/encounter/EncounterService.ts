@@ -915,6 +915,7 @@ export class EncounterService extends BaseService {
   async getPharmacyWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('pharmacy', query), WORKLIST_CACHE_MS, () => this.repository.getPharmacyWorklist(query)); }
   async getRadiologyWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('scans', query), WORKLIST_CACHE_MS, () => this.repository.getRadiologyWorklist(query)); }
   async getProceduresWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('procedures', query), WORKLIST_CACHE_MS, () => this.repository.getProceduresWorklist(query)); }
+  async startMaternalTask(id: string, userId: string) { return this.repository.startMaternalTask(id, userId); }
   async getMaternalWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('maternal', query), WORKLIST_CACHE_MS, () => this.repository.getMaternalWorklist(query)); }
   // Shown on every dashboard/sidebar: computed at most once every 15 s however many users ask
   async getWorklistSummary() {
