@@ -297,11 +297,6 @@ export default function MaternalWaitingList() {
         </div>
       </Card>
 
-      {/* ── Queue view: open visits, visits closed today, visits closed with a result still owed ── */}
-      <Card>
-        <WorklistViewControls department="maternal" />
-      </Card>
-
       {/* ── List ── */}
       {filteredPatients.length === 0 ? (
         <Card padded={false}>
