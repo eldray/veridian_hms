@@ -127,15 +127,17 @@ export default function MaternalWaitingList() {
     [worklistItems],
   );
 
-  const pendingPatients = useMemo(
-    () => queueItems.filter(item => !item.hasBeenAttended && item.status !== 'completed'),
-    [queueItems],
-  );
-
-  const recentPatients = useMemo(
-    () => queueItems.filter(item => item.hasBeenAttended || item.status === 'completed'),
-    [queueItems],
-  );
+  // The API has already applied the shared Pending / In Progress / Completed
+  // task view. Do not reclassify rows from attendance closure or hasBeenAttended.
+  const stats = {
+    total: queueItems.length,
+    highRisk: queueItems.filter(p => p.riskLevel === 'high').length,
+    urgent: queueItems.filter(p => p.priority === 'urgent' || p.priority === 'stat' || p.priority === 'emergency').length,
+    recentCompleted: view === 'completed' ? queueItems.length : 0,
+    antenatal: queueItems.filter(p => p.visitType === 'antenatal').length,
+    delivery: queueItems.filter(p => p.visitType === 'delivery').length,
+    postnatal: queueItems.filter(p => p.visitType === 'postnatal').length,
+  };
 
   const getFilteredByVisitType = (patients: any[]) => {
     if (activeVisitType === 'all') return patients;
