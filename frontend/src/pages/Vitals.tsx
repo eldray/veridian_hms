@@ -47,7 +47,6 @@ import {
   Button,
   Card,
   SearchInput,
-  Tabs,
   Badge,
   StatCard,
   Pagination,
@@ -109,7 +108,6 @@ export default function VitalsWaitingList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
   const [sortKey, setSortKey] = useState<'visit' | 'waiting'>('visit');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -145,14 +143,12 @@ export default function VitalsWaitingList() {
 
   // Priority / Abnormal columns belong to the pending queue only. When the worklist view is
   // completed / awaiting-results, activeTab is meaningless — the queue itself decides.
-  const isPendingQueue = view === 'pending' && activeTab === 'pending';
+  const isPendingQueue = view === 'pending';
 
   // Filter based on search and active tab. The completed and awaiting-results queues are already
   // narrowed by the server, so the pending/done-today split only applies to the to-do queue.
   const filteredPatients = useMemo(() => {
-    const source = view === 'pending'
-      ? (activeTab === 'pending' ? pendingPatients : recentPatients)
-      : worklistItems;
+    const source = view === 'pending' ? pendingPatients : worklistItems;
     const searched = !searchQuery
       ? source
       : source.filter(p => {
@@ -176,7 +172,7 @@ export default function VitalsWaitingList() {
           : new Date(b.vitalsRecordedAt || b.attendanceDateTime || 0).getTime();
       return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
-  }, [pendingPatients, recentPatients, worklistItems, searchQuery, activeTab, view, sortKey, sortDir, isPendingQueue]);
+  }, [pendingPatients, worklistItems, searchQuery, view, sortKey, sortDir, isPendingQueue]);
 
   // Pagination - clamped so filtering can never strand you on an empty page
   const totalPages = Math.max(1, Math.ceil(filteredPatients.length / itemsPerPage));
@@ -189,7 +185,7 @@ export default function VitalsWaitingList() {
   // Reset page when tab, search, or worklist view changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchQuery, view]);
+  }, [searchQuery, view]);
 
   // Stats
   const stats = {
@@ -255,18 +251,6 @@ export default function VitalsWaitingList() {
         icon={HeartPulse}
         accent="red"
         backTo="/dashboard"
-        tabs={view === 'pending' ? (
-          <Tabs<'pending' | 'recent'>
-            tabs={[
-              { key: 'pending', label: 'Pending Vitals', icon: Clock, count: pendingPatients.length },
-              { key: 'recent', label: 'Recent Vitals (Today)', icon: CheckCircle, count: recentPatients.length },
-            ]}
-            active={activeTab}
-            onChange={setActiveTab}
-            accent="red"
-            aria-label="Vitals queue"
-          />
-        ) : undefined}
         actions={(
           <>
             <Button
