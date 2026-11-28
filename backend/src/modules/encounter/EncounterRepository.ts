@@ -3610,11 +3610,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
    * yesterday's work, so it is dated by when it was closed, not when it started.
    */
   private attendanceQueueWhere(
-    view: 'pending' | 'completed' | 'outstanding',
+    view: 'pending' | 'in_progress' | 'completed',
     query: WorklistQuery,
     extra: any = {},
   ): any {
     const where: any = { ...extra };
+    if (view === 'in_progress') return { ...where, id: '__no_persisted_task_progress__' };
     const range: any = {};
     if (query.dateFrom) range.gte = query.dateFrom;
     if (query.dateTo) range.lte = query.dateTo;
@@ -3757,23 +3758,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     // To do: an unanswered request on a visit still open — the patient is here. Awaiting
     // results: the same request on a visit already closed, which would otherwise vanish when the
     // visit closes. Completed: tests answered in the last 72 hours.
-    const where: any = view === 'completed'
-      ? {
-        status: 'completed',
-        updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...itemDateFilter,
-      }
-      : {
-        status: { in: ['requested', 'in_progress'] },
-        requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
-        ...itemDateFilter,
-        Attendance: {
-          is: {
-            status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-
-          },
-        },
-      };
+    const statusForView = view === 'completed' ? 'completed' : view === 'in_progress' ? 'in_progress' : 'requested';
+    const where: any = {
+      status: statusForView,
+      ...(view === 'completed'
+        ? { updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }
+        : { requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }),
+      ...itemDateFilter,
+    };
     const allLabTests = await this.prisma.labTest.findMany({
       where,
       select: {
@@ -3834,22 +3826,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     // Prescriptions on open visits are counter work; the same prescription on a closed visit is
     // an outstanding collection the patient left without. Dispensed rows are the completed view.
     const where: any = view === 'completed'
-      ? {
-        status: 'dispensed',
-        updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...itemDateFilter,
-      }
-      : {
-        status: 'prescribed',
-        prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
-        ...itemDateFilter,
-        Attendance: {
-          is: {
-            status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-
-          },
-        },
-      };
+      ? { status: 'dispensed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) }, ...itemDateFilter }
+      : view === 'in_progress'
+        ? { id: '__no_pharmacy_task_in_progress__' }
+        : { status: 'prescribed', prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) }, ...itemDateFilter };
     const allMedications = await this.prisma.medication.findMany({
       where,
       select: {
@@ -3912,23 +3892,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'updatedAt' : 'requestedAt');
     // To do: a scan requested on a visit still open. Awaiting results: the same request on a
     // visit already closed. Completed: scans reported in the last 72 hours.
-    const where: any = view === 'completed'
-      ? {
-        status: 'completed',
-        updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...itemDateFilter,
-      }
-      : {
-        status: { in: ['requested', 'in_progress'] },
-        requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
-        ...itemDateFilter,
-        Attendance: {
-          is: {
-            status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-
-          },
-        },
-      };
+    const statusForView = view === 'completed' ? 'completed' : view === 'in_progress' ? 'in_progress' : 'requested';
+    const where: any = {
+      status: statusForView,
+      ...(view === 'completed'
+        ? { updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }
+        : { requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }),
+      ...itemDateFilter,
+    };
     const allScans = await this.prisma.scan.findMany({
       where,
       include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ScanTemplate: true, User_Scan_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'desc' }
@@ -3986,23 +3957,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'updatedAt' : 'createdAt');
     // Theatre work on an open visit; a procedure still scheduled on a closed visit is the
     // outcome that slipped through and needs chasing. Completed rows are the last 72 hours.
-    const where: any = view === 'completed'
-      ? {
-        status: 'completed',
-        updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...itemDateFilter,
-      }
-      : {
-        status: { in: ['scheduled', 'in_progress'] },
-        createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
-        ...itemDateFilter,
-        Attendance: {
-          is: {
-            status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-
-          },
-        },
-      };
+    const statusForView = view === 'completed' ? 'completed' : view === 'in_progress' ? 'in_progress' : 'scheduled';
+    const where: any = {
+      status: statusForView,
+      ...(view === 'completed'
+        ? { updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }
+        : { createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }),
+      ...itemDateFilter,
+    };
     const allProcedures = await this.prisma.procedure.findMany({
       where,
       include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { createdAt: 'desc' }
