@@ -165,16 +165,6 @@ export default function MaternalWaitingList() {
   useEffect(() => { setCurrentPage(1); }, [view, activeVisitType, searchQuery]);
 
   // ── Stats ──
-  const stats = {
-    total: pendingPatients.length,
-    highRisk: pendingPatients.filter(p => p.riskLevel === 'high').length,
-    urgent: pendingPatients.filter(p => p.priority === 'urgent' || p.priority === 'stat' || p.priority === 'emergency').length,
-    recentCompleted: recentPatients.length,
-    antenatal: pendingPatients.filter(p => p.visitType === 'antenatal').length,
-    delivery: pendingPatients.filter(p => p.visitType === 'delivery').length,
-    postnatal: pendingPatients.filter(p => p.visitType === 'postnatal').length,
-  };
-
   const getVisitTabCount = (key: typeof activeVisitType) => {
     switch (key) {
       case 'all': return stats.total;
