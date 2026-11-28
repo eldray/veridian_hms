@@ -41,7 +41,6 @@ import {
   TR,
   cn,
   type BadgeTone,
-  type TabItem,
 } from '../components/ui';
 
 // This queue's own statuses and priorities are not part of Badge's shared maps, so the tone and
@@ -64,11 +63,6 @@ const PRIORITY_LABELS: Record<string, string> = {
   urgent: 'URGENT',
 };
 
-const QUEUE_TABS: TabItem[] = [
-  { key: 'pending', label: 'Pending Review', icon: Clock },
-  { key: 'recent', label: 'Reviewed Today', icon: CheckCircle },
-];
-
 export default function MedicalWaitingList() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
@@ -78,7 +72,6 @@ export default function MedicalWaitingList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
 
   // ✅ ONLY use worklistStore
   const { worklistItems, fetchWorklist, isLoading: worklistLoading, view } = useWorklistStore();
@@ -113,19 +106,17 @@ export default function MedicalWaitingList() {
     return worklistItems.filter(item => item.hasMedicalNotesToday || item.status === 'reviewed');
   }, [worklistItems]);
 
-  // Filter based on search and active tab. The completed and awaiting-results queues are already
-  // narrowed by the server, so the review split only applies to the to-do queue.
+  // The shared worklist view is the single source of truth for Pending, In Progress and Completed.
   const filteredPatients = useMemo(() => {
-    const source = view === 'pending' ? (activeTab === 'pending' ? pendingPatients : recentPatients) : worklistItems;
-    if (!searchQuery) return source;
+    if (!searchQuery) return worklistItems;
     const lower = searchQuery.toLowerCase();
-    return source.filter(patient =>
+    return worklistItems.filter(patient =>
       getPatientName(patient).toLowerCase().includes(lower) ||
       getPatientFolderNumber(patient).toLowerCase().includes(lower) ||
       getAttendanceNumber(patient).toLowerCase().includes(lower) ||
       patient.complaints?.toLowerCase().includes(lower)
     );
-  }, [pendingPatients, recentPatients, worklistItems, searchQuery, activeTab, view]);
+  }, [worklistItems, searchQuery]);
 
   // Pagination
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
@@ -137,7 +128,7 @@ export default function MedicalWaitingList() {
   // Reset page when tab changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab]);
+  }, [view]);
 
   // Stats
   const stats = {
@@ -178,18 +169,6 @@ export default function MedicalWaitingList() {
           </Button>
           <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>Refresh</Button>
         </>
-      )}
-      tabs={view === 'pending' && (
-        <Tabs
-          tabs={QUEUE_TABS.map(tab => ({
-            ...tab,
-            count: tab.key === 'pending' ? pendingPatients.length : recentPatients.length,
-          }))}
-          active={activeTab}
-          onChange={(key) => setActiveTab(key as 'pending' | 'recent')}
-          accent="green"
-          aria-label="Review status"
-        />
       )}
     />
   );
@@ -265,16 +244,14 @@ export default function MedicalWaitingList() {
 
       {/* Table View */}
       <Card
-        title={activeTab === 'pending'
-          ? `Waiting List (${filteredPatients.length} patients)`
-          : `Recently Reviewed Today (${filteredPatients.length} patients)`}
-        icon={activeTab === 'pending' ? ClipboardList : History}
+        title={`${view === 'pending' ? 'Pending' : view === 'in_progress' ? 'In Progress' : 'Completed'} (${filteredPatients.length} patients)`}
+        icon={view === 'completed' ? History : ClipboardList}
         accent="green"
         padded={false}
       >
         {filteredPatients.length === 0 ? (
           <div className="p-6 text-center">
-            {activeTab === 'pending' ? (
+            {view !== 'completed' ? (
               <>
                 <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No patients waiting for consultation</p>
@@ -301,10 +278,10 @@ export default function MedicalWaitingList() {
                   <th className={TH}>Complaints</th>
                   <th className={cn(TH, 'text-center')}>Status</th>
                   <th className={TH}>
-                    {activeTab === 'pending' ? 'Priority' : 'Reviewed At'}
+                    {view === 'completed' ? 'Reviewed At' : 'Priority'}
                   </th>
                   <th className={TH}>
-                    {activeTab === 'pending' ? 'Wait Time' : 'Doctor'}
+                    {view === 'completed' ? 'Doctor' : 'Wait Time'}
                   </th>
                   <th className={cn(TH, 'text-center')}>Actions</th>
                 </tr>
@@ -352,7 +329,7 @@ export default function MedicalWaitingList() {
                       </Badge>
                     </td>
                     <td className={TD}>
-                      {activeTab === 'pending' ? (
+                      {view !== 'completed' ? (
                         <Badge tone={PRIORITY_TONES[patient.priority] ?? 'green'} dot size="sm">
                           {PRIORITY_LABELS[patient.priority] ?? 'WAITING'}
                         </Badge>
@@ -382,12 +359,12 @@ export default function MedicalWaitingList() {
                       <Button
                         size="sm"
                         variant="soft"
-                        accent={activeTab === 'pending' ? 'green' : 'blue'}
-                        icon={activeTab === 'pending' ? Eye : FileText}
+                        accent={view === 'completed' ? 'blue' : 'green'}
+                        icon={view === 'completed' ? FileText : Eye}
                         className="mx-auto"
                         onClick={(e) => { e.stopPropagation(); handleStartConsultation(patient); }}
                       >
-                        {activeTab === 'pending' ? 'Start Consultation' : 'View Record'}
+                        {view === 'completed' ? 'View Record' : 'Start Consultation'}
                       </Button>
                     </td>
                   </tr>
