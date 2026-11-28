@@ -741,7 +741,6 @@ export function LabSummary() {
               style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
             >
               <span className="inline-flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" style={{ color: 'var(--icon-purple-text)' }} aria-hidden="true" />
                 Avg turnaround: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{avgTAT} min</span>
               </span>
@@ -831,7 +830,10 @@ export function ScanSummary() {
             >
               <span className="inline-flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} aria-hidden="true" />
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} aria-hidden="true" />
                 Avg turnaround: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{avgTAT} min</span>
+              </span>
               </span>
             </div>
           )}
