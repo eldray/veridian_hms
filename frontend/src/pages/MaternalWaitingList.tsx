@@ -23,7 +23,6 @@ import {
   Segmented,
   StatCard,
   statusTone,
-  Tabs,
   TABLE_SHELL,
   TD,
   TD_MONO,
@@ -33,7 +32,6 @@ import {
   cn,
   type Accent,
   type BadgeTone,
-  type TabItem,
 } from '../components/ui';
 
 // ── Chips (shared Badge; only this queue's own tones and wording live here) ────
@@ -81,11 +79,6 @@ const VISIT_TABS = [
 
 const MATERNAL_VISIT_TYPES = new Set<string>(Object.keys(VISIT_TYPES));
 
-const QUEUE_TABS: TabItem[] = [
-  { key: 'pending', label: 'Pending Visits', icon: Clock },
-  { key: 'recent', label: 'Recent Visits Today', icon: CheckCircle },
-];
-
 type ViewMode = 'grid' | 'table';
 
 export default function MaternalWaitingList() {
@@ -97,7 +90,6 @@ export default function MaternalWaitingList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
   const [activeVisitType, setActiveVisitType] = useState<'all' | 'antenatal' | 'delivery' | 'postnatal'>('all');
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('maternalQueueView');
@@ -151,9 +143,7 @@ export default function MaternalWaitingList() {
   };
 
   const filteredPatients = useMemo(() => {
-    const source = view === 'pending'
-      ? getFilteredByVisitType(activeTab === 'pending' ? pendingPatients : recentPatients)
-      : getFilteredByVisitType(queueItems as any[]);
+    const source = getFilteredByVisitType(queueItems as any[]);
     if (!searchQuery) return source;
     const lower = searchQuery.toLowerCase();
     return source.filter(patient =>
@@ -162,7 +152,7 @@ export default function MaternalWaitingList() {
       (patient.attendanceNumber || '').toLowerCase().includes(lower) ||
       patient.complaints?.toLowerCase().includes(lower),
     );
-  }, [pendingPatients, recentPatients, queueItems, searchQuery, activeTab, activeVisitType, view]);
+  }, [queueItems, searchQuery, activeVisitType]);
 
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
   const paginatedPatients = filteredPatients.slice(
@@ -170,7 +160,7 @@ export default function MaternalWaitingList() {
     currentPage * itemsPerPage,
   );
 
-  useEffect(() => { setCurrentPage(1); }, [activeTab, activeVisitType, searchQuery]);
+  useEffect(() => { setCurrentPage(1); }, [view, activeVisitType, searchQuery]);
 
   // ── Stats ──
   const stats = {
@@ -265,18 +255,6 @@ export default function MaternalWaitingList() {
             accent="green"
             aria-label="Visit type"
           />
-          {view === 'pending' && (
-            <Tabs
-              tabs={QUEUE_TABS.map(tab => ({
-                ...tab,
-                count: tab.key === 'pending' ? stats.total : stats.recentCompleted,
-              }))}
-              active={activeTab}
-              onChange={(key) => setActiveTab(key as 'pending' | 'recent')}
-              accent="green"
-              aria-label="Review status"
-            />
-          )}
         </div>
       )}
     />
@@ -334,7 +312,7 @@ export default function MaternalWaitingList() {
       {filteredPatients.length === 0 ? (
         <Card padded={false}>
           <div className="p-6 text-center">
-            {activeTab === 'pending' ? (
+            {view !== 'completed' ? (
               <>
                 <div className="w-12 h-12 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center mx-auto mb-3">
                   <CheckCircle className="w-6 h-6 text-[var(--icon-green-text)]" />
@@ -357,7 +335,7 @@ export default function MaternalWaitingList() {
         /* ════════ GRID VIEW ════════ */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginatedPatients.map((patient) => {
-            const isPending = activeTab === 'pending';
+            const isPending = view !== 'completed';
             const name = getPatientName(patient);
             const accent = getRowAccent(patient);
             const actionAccent = getActionAccent(patient.visitType, isPending);
