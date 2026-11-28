@@ -190,6 +190,52 @@ describe('medical and maternal worklist views', () => {
     expect(result.data[0].attendanceStatus).toBe('pending');
   });
 
+  it('uses saved clinical draft content as consultation in-progress, not open attendance alone', async () => {
+    const draftUpdatedAt = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ medicalNotes: 'History documented', finalizedAt: null, updatedAt: draftUpdatedAt }),
+    ]);
+
+    const result = await repository.getMedicalWorklist({ view: 'in_progress' });
+    const where = firstWhere(findMany);
+
+    expect(where.finalizedAt).toBeNull();
+    expect(where.AND).toEqual([expect.objectContaining({ OR: expect.arrayContaining([
+      { medicalNotes: { not: null } },
+      { assessment: { not: null } },
+    ]) })]);
+    expect(where.status).toBeUndefined();
+    expect(where.updatedAt).toBeUndefined();
+    expect(result.data[0].status).toBe('in_progress');
+    expect(result.inProgress).toBe(1);
+  });
+
+  it('uses clinical finalisation, not attendance closure, for completed consultations', async () => {
+    const finalizedAt = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'pending', finalizedAt, medicalNotes: 'Consultation complete' }),
+    ]);
+
+    const result = await repository.getMedicalWorklist({ view: 'completed' });
+    const where = firstWhere(findMany);
+
+    expect(where.finalizedAt).toEqual({ gte: expect.any(Date) });
+    expect(where.status).toBeUndefined();
+    expect(result.data[0].status).toBe('completed');
+    expect(result.data[0].finalizedAt).toEqual(finalizedAt);
+  });
+
+  it('keeps unfinished clinical drafts visible even when the attendance has closed', async () => {
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'completed', medicalNotes: 'Assessment started', finalizedAt: null }),
+    ]);
+
+    const result = await repository.getMedicalWorklist({ view: 'in_progress' });
+
+    expect(firstWhere(findMany).status).toBeUndefined();
+    expect(result.data[0].status).toBe('in_progress');
+  });
+
   it('keeps the maternity queue on maternity visit types', async () => {
     const { repository, findMany } = queueRepository([
       attendanceRow({
