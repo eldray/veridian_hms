@@ -97,7 +97,8 @@ describe('vitals worklist view', () => {
     const where = firstWhere(findMany);
 
     expect(result.view).toBe('pending');
-    expect(where.status).toEqual({ in: ['pending', 'admitted'] });
+    expect(where.status).toEqual({ not: 'cancelled' });
+    expect(where.vitalsStartedAt).toBeNull();
     expect(where.NOT).toEqual({ Vitals: { some: { recordedAt: { gte: expect.any(Date) } } } });
   });
 
@@ -116,13 +117,46 @@ describe('vitals worklist view', () => {
     expect(result.buckets.closed).toBe(1);
   });
 
-  it('does not invent an in-progress state when no start event is persisted', async () => {
-    const { repository, findMany } = queueRepository();
+  it('shows in-progress vitals only when an explicit start event exists', async () => {
+    const startedAt = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ vitalsStartedAt: startedAt, Vitals: [] }),
+    ]);
     const result = await repository.getVitalsWorklist({ view: 'in_progress' });
+    const where = firstWhere(findMany);
 
-    expect(firstWhere(findMany).id).toEqual({ in: [] });
-    expect(result.inProgress).toBe(0);
-    expect(result.data).toHaveLength(0);
+    expect(where.vitalsStartedAt.gte).toBeInstanceOf(Date);
+    expect(where.NOT).toEqual({ Vitals: { some: { recordedAt: { gte: expect.any(Date) } } } });
+    expect(result.inProgress).toBe(1);
+    expect(result.data[0].status).toBe('in_progress');
+    expect(result.data[0].vitalsStartedAt).toEqual(startedAt);
+  });
+
+  it('records an audited vitals start event without completing the task', async () => {
+    const started = { id: 'attendance-1', status: 'pending', vitalsStartedAt: new Date() };
+    const attendance = {
+      findUnique: vi.fn()
+        .mockResolvedValueOnce({ id: 'attendance-1', status: 'pending', vitalsStartedAt: null })
+        .mockResolvedValueOnce(started),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const tx = {
+      attendance,
+      vitals: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    const result = await repository.startVitalsTask('attendance-1', 'nurse-1');
+
+    expect(attendance.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'attendance-1', status: { not: 'cancelled' }, vitalsStartedAt: null },
+      data: expect.objectContaining({ vitalsStartedById: 'nurse-1' }),
+    }));
+    expect(result.vitalsStartedAt).toBeInstanceOf(Date);
   });
 
   it('applies explicit date ranges to the vitals task completion timestamp', async () => {
