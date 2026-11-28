@@ -36,7 +36,7 @@
   },
   "devDependencies": {
     "baseline-browser-mapping": "^2.10.38",
-    "electron": "^36.0.0",
+    "electron": "^45.5.0",
     "electron-builder": "^26.18.0",
     "prisma": "^6.19.3"
   }
