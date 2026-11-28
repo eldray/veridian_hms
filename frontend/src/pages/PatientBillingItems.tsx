@@ -487,7 +487,7 @@ export default function PatientBillingItems() {
     if (!dataLoaded || !selectedAttendanceId || paginatedBills.length === 0) return;
     let cancelled = false;
     const unloadedBills = paginatedBills.filter((bill: any) =>
-      !billDetailsById[bill.id] && (!Array.isArray(bill.BillLineItem) || bill.BillLineItem.length === 0)
+      !billDetailsById[bill.id]
     );
     const loadAll = async () => {
       for (const bill of unloadedBills) {
@@ -1487,7 +1487,7 @@ export default function PatientBillingItems() {
                                 </tbody>
                               </table>
                             </div>
-                            <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-color)] bg-[var(--bg-main)] p-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 border-t border-[var(--border-color)] bg-[var(--bg-main)] p-3">
                               <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
                                 <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Collected</p>
                                 <p className="mt-1 text-sm font-bold tabular-nums text-[var(--text-primary)]">{formatCurrency(totalCollected)}</p>
