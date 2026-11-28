@@ -390,6 +390,10 @@ export default function PatientBillingItems() {
     if (!patientId) return;
     if (loadedForPatientRef.current === patientId) return;
     loadedForPatientRef.current = patientId;
+    setBillDetailsById({});
+    setBillLoadErrors({});
+    setSelectedBill(null);
+    setSelectedItems(new Set());
     loadData();
   }, [patientId, loadData]);
 
@@ -1084,7 +1088,7 @@ export default function PatientBillingItems() {
           <div className="space-y-3">
             {paginatedBills.map((bill) => {
               const billDetails = billDetailsById[bill.id]
-                ?? (Array.isArray((bill as any).BillLineItem) ? bill as ProcessedBill : null);
+                ?? ((bill as any).BillLineItem?.length > 0 ? bill as ProcessedBill : null);
               const isLoadingThis = loadingBillIds.has(bill.id);
               const groupedItems = billDetails ? getGroupedBillItems(billDetails) : {};
               const billItems = billDetails?.BillLineItem?.filter((item) => !item.isVoided) || [];
