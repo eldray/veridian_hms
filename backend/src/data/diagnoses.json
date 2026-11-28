@@ -6939,5 +6939,137 @@
     "isActive": true,
     "requiresAuthorization": false,
     "isNHISCovered": true
+  },
+  {
+    "name": "Helicobacter pylori intestinal infection",
+    "icdCode": "A04.8",
+    "description": "H. pylori intestinal infection when it is not documented as the cause of a disease classifiable to another chapter",
+    "tariffCode": "DIAG-A048",
+    "isChronic": false,
+    "morbidityGroup": "diarrhoea_diseases",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Taeniasis (tapeworm infection)",
+    "icdCode": "B68.9",
+    "description": "Intestinal tapeworm infection, unspecified",
+    "tariffCode": "DIAG-B689",
+    "isChronic": false,
+    "morbidityGroup": "intestinal_worms",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Cysticercosis",
+    "icdCode": "B69.9",
+    "description": "Cysticercosis, unspecified",
+    "tariffCode": "DIAG-B699",
+    "isChronic": false,
+    "morbidityGroup": "intestinal_worms",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Strongyloidiasis",
+    "icdCode": "B78.9",
+    "description": "Strongyloides infection, unspecified",
+    "tariffCode": "DIAG-B789",
+    "isChronic": false,
+    "morbidityGroup": "intestinal_worms",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Enterobiasis (pinworm/threadworm infection)",
+    "icdCode": "B80",
+    "description": "Pinworm or threadworm intestinal infection",
+    "tariffCode": "DIAG-B80",
+    "isChronic": false,
+    "morbidityGroup": "intestinal_worms",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Mixed intestinal helminthiasis",
+    "icdCode": "B81.4",
+    "description": "Mixed infection with more than one intestinal helminth",
+    "tariffCode": "DIAG-B814",
+    "isChronic": false,
+    "morbidityGroup": "intestinal_worms",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Other specified intestinal helminthiasis",
+    "icdCode": "B81.8",
+    "description": "Other specified intestinal worm infection not classified elsewhere",
+    "tariffCode": "DIAG-B818",
+    "isChronic": false,
+    "morbidityGroup": "intestinal_worms",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Intestinal helminthiasis, unspecified",
+    "icdCode": "B82.0",
+    "description": "Intestinal worm infection when the helminth has not been specified",
+    "tariffCode": "DIAG-B820",
+    "isChronic": false,
+    "morbidityGroup": "intestinal_worms",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Intestinal parasitism, unspecified",
+    "icdCode": "B82.9",
+    "description": "Intestinal parasitic infection, unspecified",
+    "tariffCode": "DIAG-B829",
+    "isChronic": false,
+    "morbidityGroup": "intestinal_worms",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Helminthiasis, unspecified (worms)",
+    "icdCode": "B83.9",
+    "description": "Worm infection not otherwise specified; use B82.0 for unspecified intestinal helminthiasis",
+    "tariffCode": "DIAG-B839",
+    "isChronic": false,
+    "morbidityGroup": "intestinal_worms",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Other gastritis (including H. pylori-associated gastritis)",
+    "icdCode": "K29.6",
+    "description": "Other gastritis; when associated with Helicobacter pylori, add B98.0 as the causative organism code where applicable",
+    "tariffCode": "DIAG-K296",
+    "isChronic": false,
+    "morbidityGroup": "all_other_diseases",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
+  },
+  {
+    "name": "Helicobacter pylori as the cause of diseases classified elsewhere",
+    "icdCode": "B98.0",
+    "description": "H. pylori organism code used with the associated disease diagnosis (for example, H. pylori-associated gastritis); not usually a standalone disease code",
+    "tariffCode": "DIAG-B980",
+    "isChronic": false,
+    "morbidityGroup": "all_other_diseases",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "isNHISCovered": true
   }
 ]
