@@ -5,7 +5,7 @@ import {
   Clock, Stethoscope, Shield, Hospital, CreditCard, Heart, FileText,
   Coins, Package, ClipboardList, AlertCircle, ChevronRight,
   Activity, FlaskConical, ScanLine, Users, Baby, UserPlus,
-  CheckCircle, Bed, Calendar, Pill, AlertTriangle, Folder,
+  CheckCircle, Bed, Calendar, Pill, AlertTriangle, UserRound, CalendarCheck,
 } from 'lucide-react';
 import type { PaymentMode } from '../../types';
 import {
@@ -329,7 +329,7 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
                       title="Patient folder number"
                       aria-label={`Patient folder number: ${getPatientFolderNumber(att) || 'not available'}`}
                     >
-                      <Folder className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                      <UserRound className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
                       {getPatientFolderNumber(att) || '—'}
                     </span>
                     <span
@@ -338,7 +338,7 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
                       title="Attendance number"
                       aria-label={`Attendance number: ${getAttendanceNumber(att) || 'not available'}`}
                     >
-                      <ClipboardList className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                      <CalendarCheck className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
                       {getAttendanceNumber(att) || '—'}
                     </span>
                   </div>
