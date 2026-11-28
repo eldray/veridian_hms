@@ -22,6 +22,7 @@ import {
   SearchInput,
   Segmented,
   StatCard,
+  Tabs,
   statusTone,
   TABLE_SHELL,
   TD,
