@@ -220,9 +220,12 @@ describe('medical and maternal worklist views', () => {
       attendanceRow({ status: 'completed', attendanceType: 'postnatal' }),
     ]);
 
-    const result = await repository.getMaternalWorklist({ view: 'pending' });
+    const result = await repository.getMaternalWorklist({ view: 'completed' });
 
-    expect(firstWhere(findMany).status).toEqual({ in: ['pending', 'admitted'] });
+    expect(firstWhere(findMany).status).toBeUndefined();
+    expect(firstWhere(findMany).OR).toEqual(expect.arrayContaining([
+      expect.objectContaining({ attendanceType: 'postnatal', postnatalRecords: { some: { examinationDate: { gte: expect.any(Date) } } } }),
+    ]));
     expect(result.data).toHaveLength(0);
   });
 
