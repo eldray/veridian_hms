@@ -586,6 +586,8 @@ model Attendance {
   finalizedById              String?
   vitalsStartedAt            DateTime?
   vitalsStartedById          String?
+  maternalStartedAt          DateTime?
+  maternalStartedById        String?
   autoClosedAt               DateTime?
   medicalNotes               String? // Legacy/general clinical notes retained for compatibility
   clinicalNotes              Json? // Legacy structured clinical data retained during migration
@@ -683,6 +685,7 @@ model Attendance {
   @@index([providerId])
   @@index([finalizedAt])
   @@index([vitalsStartedAt])
+  @@index([maternalStartedAt])
   @@index([clinicalOutcome])
   @@index([corporateAccountId])
   @@index([status])
