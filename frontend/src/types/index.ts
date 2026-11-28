@@ -55,8 +55,8 @@ export type BatchStatus = 'generated' | 'finalized';
 
 // Clinical
 export type LabTestStatus = 'requested' | 'in_progress' | 'completed' | 'cancelled';
-export type ProcedureStatus = 'scheduled' | 'completed' | 'cancelled';
-export type ScanStatus = 'requested' | 'completed' | 'cancelled';
+export type ProcedureStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+export type ScanStatus = 'requested' | 'in_progress' | 'completed' | 'cancelled';
 export type MedicationStatus = 'prescribed' | 'dispensed' | 'administered' | 'cancelled';
 export type Priority = 'routine' | 'urgent' | 'stat';
 export type ScanPriority = 'routine' | 'urgent';
