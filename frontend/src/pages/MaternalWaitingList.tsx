@@ -467,7 +467,7 @@ export default function MaternalWaitingList() {
               </thead>
               <tbody>
                 {paginatedPatients.map((patient) => {
-                  const isPending = view !== 'completed';
+                  const isPending = view === 'pending';
                   const name = patient.patient?.name || 'Unknown Patient';
                   const accent = getRowAccent(patient);
 
@@ -566,7 +566,7 @@ export default function MaternalWaitingList() {
                           icon={isPending ? Eye : FileText}
                           onClick={(e) => { e.stopPropagation(); handleStartVisit(patient); }}
                         >
-                          {getActionButtonText(patient.visitType, isPending)}
+                          {getActionButtonText(patient.visitType)}
                         </Button>
                       </td>
                     </tr>
