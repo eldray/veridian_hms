@@ -3698,7 +3698,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (attendance.status === 'cancelled') throw new ConflictError('Vitals cannot be started for a cancelled attendance');
 
       const completedToday = await tx.vitals.findFirst({
-        where: { attendanceId, recordedAt: { gte: startOfCurrentDay() } },
+        where: { attendanceId },
         select: { id: true },
       });
       if (completedToday) throw new ConflictError('Vitals have already been recorded for this attendance today');
@@ -3734,7 +3734,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const recordedRange: any = {};
     if (query.dateFrom) recordedRange.gte = query.dateFrom;
     if (query.dateTo) recordedRange.lte = query.dateTo;
-    if (!Object.keys(recordedRange).length) recordedRange.gte = today;
+    if (view === 'completed' && !Object.keys(recordedRange).length) recordedRange.gte = today;
+    const startedRange: any = {};
+    if (query.dateFrom) startedRange.gte = query.dateFrom;
+    if (query.dateTo) startedRange.lte = query.dateTo;
 
     // A saved vitals reading completes the task; an explicit start event makes it In Progress.
     // Attendance closure does not erase unfinished vitals work.
@@ -3746,11 +3749,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (view === 'completed') {
       where.Vitals = { some: { recordedAt: recordedRange } };
     } else if (view === 'in_progress') {
-      where.vitalsStartedAt = recordedRange;
-      where.NOT = { Vitals: { some: { recordedAt: recordedRange } } };
+      where.vitalsStartedAt = Object.keys(startedRange).length ? startedRange : { not: null };
+      where.NOT = { Vitals: { some: {} } };
     } else {
       where.vitalsStartedAt = null;
-      where.NOT = { Vitals: { some: { recordedAt: recordedRange } } };
+      where.NOT = { Vitals: { some: {} } };
       if (query.dateFrom || query.dateTo) {
         const visitRange: any = {};
         if (query.dateFrom) visitRange.gte = query.dateFrom;
@@ -3765,7 +3768,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
         CounterClient: { select: { name: true, ageYears: true } },
         Bed: { include: { Ward: true } },
-        Vitals: { where: { recordedAt: recordedRange }, orderBy: { recordedAt: 'desc' }, take: 1 },
+        Vitals: { where: view === 'completed' ? { recordedAt: recordedRange } : {}, orderBy: { recordedAt: 'desc' }, take: 1 },
       },
     );
     activeAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
