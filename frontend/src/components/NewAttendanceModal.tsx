@@ -379,6 +379,14 @@ export default function NewAttendanceModal({
     resolvedNhisActive === true &&
     !resolvedNhisExpired &&
     nhisVerification?.status === 'verified';
+
+  // A verification result belongs to one exact membership record; never carry it
+  // across patients or when the membership number changes.
+  useEffect(() => {
+    setNhisVerification(null);
+    setNhisCCC('');
+  }, [patientId, resolvedPatient?.id, resolvedNhisNumber]);
+
   const selectedCorporateAccount = corporateAccounts.find((a: any) => a.id === selectedCorporateAccountId);
 
   const currentInsuranceProvider = paymentMode === 'private_insurance'
