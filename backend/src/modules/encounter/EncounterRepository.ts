@@ -3654,20 +3654,47 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async getVitalsWorklist(query: WorklistQuery = {}): Promise<any> {
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const view = query.view || 'pending';
+    const recordedRange: any = {};
+    if (query.dateFrom) recordedRange.gte = query.dateFrom;
+    if (query.dateTo) recordedRange.lte = query.dateTo;
+    if (!Object.keys(recordedRange).length) recordedRange.gte = today;
+
+    // Recording vitals is a concrete completion event. There is no persisted
+    // "started taking vitals" event yet, so never infer In Progress from an open visit.
+    const where: any = {
+      encounterCategory: { in: ['opd', 'ipd', 'daycase'] },
+      attendanceType: { not: 'walk_in' },
+    };
+    if (view === 'completed') {
+      where.Vitals = { some: { recordedAt: recordedRange } };
+    } else if (view === 'in_progress') {
+      where.id = { in: [] };
+    } else {
+      where.status = { in: ['pending', 'admitted'] };
+      where.NOT = { Vitals: { some: { recordedAt: recordedRange } } };
+      if (query.dateFrom || query.dateTo) {
+        const visitRange: any = {};
+        if (query.dateFrom) visitRange.gte = query.dateFrom;
+        if (query.dateTo) visitRange.lte = query.dateTo;
+        where.dateTime = visitRange;
+      }
+    }
+
     const activeAttendances = await this.findQueueAttendances(
-      this.attendanceQueueWhere(view, query, {
-        // A counter ticket is not a clinical queue: it has no vitals or consultation note to
-        // write, so including it would leave a permanent "pending" row and skew wait times.
-        encounterCategory: { in: ['opd', 'ipd', 'daycase'] }, attendanceType: { not: 'walk_in' },
-      }),
-      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
+      where,
+      {
+        Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
+        CounterClient: { select: { name: true, ageYears: true } },
+        Bed: { include: { Ward: true } },
+        Vitals: { where: { recordedAt: recordedRange }, orderBy: { recordedAt: 'desc' }, take: 1 },
+      },
     );
     activeAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
 
     const processedItems = activeAttendances.map((attendance: any) => {
       const identity = this.displayIdentity(attendance);
       const lastVitals = attendance.Vitals?.[0];
-      const hasVitalsToday = lastVitals ? new Date(lastVitals.recordedAt).toDateString() === today.toDateString() : false;
+      const hasVitalsToday = Boolean(lastVitals);
       const waitTime = hasVitalsToday ? 0 : Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000);
       let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       if (!hasVitalsToday) { const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
@@ -3681,14 +3708,15 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         patient: identity.patient,
         location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined,
         hasVitalsToday, lastVitals: lastVitals ? { bloodPressure: lastVitals.bloodPressure, temperature: lastVitals.temperature, pulse: lastVitals.pulse, respiration: lastVitals.respiration, spo2: lastVitals.spo2, recordedAt: lastVitals.recordedAt } : null,
-        waitTime, priority, status: hasVitalsToday ? 'vitals_done' : 'pending_vitals', encounterCategory: attendance.encounterCategory
+        waitTime, priority, status: hasVitalsToday ? 'completed' : 'pending', encounterCategory: attendance.encounterCategory
       };
     });
     return {
       view,
       total: processedItems.length,
-      pending: processedItems.filter((i: any) => !i.hasVitalsToday).length,
-      recent: processedItems.filter((i: any) => i.hasVitalsToday).length,
+      pending: processedItems.filter((i: any) => i.status === 'pending').length,
+      inProgress: 0,
+      completed: processedItems.filter((i: any) => i.status === 'completed').length,
       buckets: bucketsOf(processedItems),
       data: processedItems,
     };
