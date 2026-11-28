@@ -1,6 +1,7 @@
 // src/utils/pdfTemplates/scanReportPDF.ts
 // Radiology / ultrasound report: indication, findings (template-aware), impression, reporter.
 import { getScanDisplayName, humanScanModality } from '../scan';
+import { getWardName } from '../wardDisplay';
 import {
   esc, orDash, payerText, multiline, fmtDate, fmtDateTime, clinicianOf,
   resolveHospital, docTitle, patientBanner, section, table, signatures, note, kvGrid, pageShell,
@@ -158,7 +159,7 @@ export const generateScanReportHTML = (
       [
         ['Visit no.', orDash(visitNo)],
         ['Requested by', orDash(requester)],
-        ['Ward / dept.', orDash(attendance?.Ward?.wardName || attendance?.ward?.wardName || attendance?.department || attendance?.Department?.name)],
+        ['Ward / dept.', orDash(getWardName(attendance) || attendance?.department || attendance?.Department?.name)],
         ['Payer', payerText(attendance?.paymentMode || patient?.paymentMode)],
       ],
       reportedAt,
