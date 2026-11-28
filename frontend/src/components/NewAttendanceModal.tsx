@@ -191,7 +191,7 @@ export default function NewAttendanceModal({
             ? 'NHIS membership is inactive. Update the patient record before using NHIS.'
             : 'NHIS membership details have not been confirmed. Verify the patient record before using NHIS.');
         }
-        if (nhisVerification?.status !== 'verified') {
+        if (currentNhisVerification?.status !== 'verified') {
           errors.push('Verify this membership with NHIA in this attendance form before creating an NHIS attendance.');
         }
         const expiryDate = new Date(`${String(expiry).slice(0, 10)}T23:59:59`);
@@ -606,7 +606,7 @@ export default function NewAttendanceModal({
                 <div className="mb-2 text-xs text-[var(--text-secondary)] flex flex-wrap gap-x-3 gap-y-1">
                   <span>Member No: <strong>{resolvedNhisNumber || 'Not recorded'}</strong></span>
                   <span>Membership record: <strong>{resolvedNhisActive === true ? 'Active' : resolvedNhisActive === false ? 'Inactive' : 'Not recorded'}</strong></span>
-                  <span>NHIA verification: <strong>{nhisVerification?.status === 'verified' ? 'Verified' : currentNhisVerification?.status === 'ineligible' ? 'Not eligible' : currentNhisVerification?.status === 'failed' ? 'Failed' : 'Not verified'}</strong></span>
+                  <span>NHIA verification: <strong>{currentNhisVerification?.status === 'verified' ? 'Verified' : currentNhisVerification?.status === 'ineligible' ? 'Not eligible' : currentNhisVerification?.status === 'failed' ? 'Failed' : 'Not verified'}</strong></span>
                   <span>Expiry: <strong>{resolvedNhisExpiry ? new Date(resolvedNhisExpiry).toLocaleDateString() : 'Not recorded'}</strong></span>
                 </div>
                 {!resolvedNhisDetailsComplete ? (
@@ -640,12 +640,12 @@ export default function NewAttendanceModal({
                         <p className="text-xs text-[var(--text-secondary)]">NHIA verification must be completed by an administrator, accounts, or records user.</p>
                       )}
                       {currentNhisVerification && (
-                        <span className={`text-xs font-medium ${nhisVerification.status === 'verified' ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}`}>
+                        <span className={`text-xs font-medium ${currentNhisVerification.status === 'verified' ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}`}>
                           {currentNhisVerification.message}
                         </span>
                       )}
                     </div>
-                    {nhisVerification?.status === 'verified' && resolvedNhisActive === true && !resolvedNhisExpired ? (
+                    {currentNhisVerification?.status === 'verified' && resolvedNhisActive === true && !resolvedNhisExpired ? (
                   <div>
                     <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
                       NHIS CCC Code *
