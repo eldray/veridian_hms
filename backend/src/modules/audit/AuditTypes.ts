@@ -11,7 +11,7 @@ export interface AuditLogFilters {
 }
 
 export interface AuditLogExportFilters extends AuditLogFilters {
-  format?: 'json' | 'csv';
+  format?: 'json' | 'csv' | 'xlsx';
 }
 
 export interface AuditLogMeta {

@@ -4,6 +4,7 @@ import {
   getAuditLogById,
   getAuditMeta,
   exportAuditLogsCsv,
+  exportAuditLogsXlsx,
   AuditLogEntry,
   AuditLogFilters,
   AuditLogMeta,
@@ -35,6 +36,7 @@ interface AuditState {
   setPage: (page: number) => void;
   setLimit: (limit: number) => void;
   exportCsv: () => Promise<Blob>;
+  exportXlsx: () => Promise<Blob>;
   clearSelectedLog: () => void;
   clearError: () => void;
 }
@@ -151,6 +153,22 @@ export const useAuditStore = create<AuditState>((set, get) => ({
       set({
         isExporting: false,
         error: err?.response?.data?.message || 'Failed to export audit logs',
+      });
+      throw err;
+    }
+  },
+
+  exportXlsx: async () => {
+    set({ isExporting: true });
+    try {
+      const { page, limit, ...rest } = get().filters;
+      const blob = await exportAuditLogsXlsx(rest);
+      set({ isExporting: false });
+      return blob;
+    } catch (err: any) {
+      set({
+        isExporting: false,
+        error: err?.response?.data?.message || 'Failed to export audit logs to Excel',
       });
       throw err;
     }
