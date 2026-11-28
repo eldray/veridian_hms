@@ -461,7 +461,7 @@ export default function MaternalWaitingList() {
               </thead>
               <tbody>
                 {paginatedPatients.map((patient) => {
-                  const isPending = activeTab === 'pending';
+                  const isPending = view !== 'completed';
                   const name = patient.patient?.name || 'Unknown Patient';
                   const accent = getRowAccent(patient);
 
