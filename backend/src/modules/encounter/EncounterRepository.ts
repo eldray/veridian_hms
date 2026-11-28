@@ -3675,7 +3675,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   /** Date filters for item queues use the timestamp of the requested work, never the parent visit. */
-  private workItemDateWhere(query: WorklistQuery, field: 'requestedAt' | 'prescribedAt' | 'dispensedAt' | 'createdAt' | 'updatedAt'): Record<string, any> {
+  private workItemDateWhere(query: WorklistQuery, field: 'requestedAt' | 'prescribedAt' | 'dispensedAt' | 'dispensingStartedAt' | 'createdAt' | 'updatedAt'): Record<string, any> {
     const range: Record<string, Date> = {};
     if (query.dateFrom) range.gte = query.dateFrom;
     if (query.dateTo) range.lte = query.dateTo;
@@ -3968,13 +3968,13 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getPharmacyWorklist(query: WorklistQuery = {}): Promise<any> {
     const view = query.view ?? 'pending';
-    const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'dispensedAt' : 'prescribedAt');
+    const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'dispensedAt' : view === 'in_progress' ? 'dispensingStartedAt' : 'prescribedAt');
     // Prescriptions on open visits are counter work; the same prescription on a closed visit is
     // an outstanding collection the patient left without. Dispensed rows are the completed view.
     const where: any = view === 'completed'
       ? { status: 'dispensed', dispensedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) }, ...itemDateFilter }
       : view === 'in_progress'
-        ? { status: 'prescribed', dispensingStartedAt: { not: null }, prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) }, ...itemDateFilter }
+        ? { status: 'prescribed', dispensingStartedAt: { not: null }, ...itemDateFilter }
         : { status: 'prescribed', dispensingStartedAt: null, prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) }, ...itemDateFilter };
     const allMedications = await this.prisma.medication.findMany({
       where,
