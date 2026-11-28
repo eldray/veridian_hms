@@ -170,6 +170,17 @@ const getGroupedBillItems = (bill: ProcessedBill): Record<string, BillLineItem[]
   return groups;
 };
 
+const normalizeBillForDisplay = (bill: ProcessedBill): ProcessedBill => ({
+  ...bill,
+  BillLineItem: (bill.BillLineItem || []).map((item: any) => ({
+    ...item,
+    paidAmount: item.paidAmount ?? (bill.status === 'paid' ? item.patientPayableAmount : 0),
+    balance: item.balance ?? (bill.status === 'paid' ? 0 : item.patientPayableAmount),
+    isFullyPaid: item.isFullyPaid ?? bill.status === 'paid',
+    serviceCategory: item.serviceCategory || item.serviceType || 'miscellaneous',
+  })),
+});
+
 const getBillRefundHistory = (bill: ProcessedBill): BillRefund[] => {
   const direct = bill.Refund ?? bill.refunds ?? [];
   const nested = (bill.Payment ?? bill.payments ?? []).flatMap((payment) => payment.refunds || []);
@@ -466,7 +477,7 @@ export default function PatientBillingItems() {
         await getBill(billId);
         const loadedBill = useBillingStore.getState().currentBill as ProcessedBill | null;
         if (loadedBill?.id === billId && selectedAttendanceIdRef.current === attendanceAtRequest) {
-          setBillDetailsById((current) => ({ ...current, [billId]: loadedBill }));
+          setBillDetailsById((current) => ({ ...current, [billId]: normalizeBillForDisplay(loadedBill) }));
         }
       } catch (err: any) {
         console.error('Error loading bill details:', err);
@@ -514,7 +525,7 @@ export default function PatientBillingItems() {
     if (!currentBill || !patientBills.some((bill) => bill.id === currentBill.id)) return;
     const loadedAttendanceId = String((currentBill as any).attendanceId || currentBill.Attendance?.id || '');
     if (loadedAttendanceId && loadedAttendanceId !== selectedAttendanceId) return;
-    setBillDetailsById((current) => ({ ...current, [currentBill.id]: currentBill as ProcessedBill }));
+    setBillDetailsById((current) => ({ ...current, [currentBill.id]: normalizeBillForDisplay(currentBill as ProcessedBill) }));
   }, [currentBill, patientBills, selectedAttendanceId]);
 
   useEffect(() => {
@@ -782,8 +793,8 @@ export default function PatientBillingItems() {
     await refundBillPayment(selectedBill.id, data);
     const refreshedBill = useBillingStore.getState().currentBill as ProcessedBill | null;
     if (refreshedBill?.id === selectedBill.id) {
-      setSelectedBill(refreshedBill);
-      setBillDetailsById((current) => ({ ...current, [refreshedBill.id]: refreshedBill }));
+      setSelectedBill(normalizeBillForDisplay(refreshedBill));
+      setBillDetailsById((current) => ({ ...current, [refreshedBill.id]: normalizeBillForDisplay(refreshedBill) }));
     }
     await getBills({ patientId: actualPatientId } as any);
     setRefundTarget(null);
