@@ -517,6 +517,35 @@ describe('clinical request worklist timestamps', () => {
     expect(result.data[0].medications[0].dispensingStartedAt).toEqual(startedAt);
   });
 
+  it('records a pharmacy start event without changing medication status or stock', async () => {
+    const started = { id: 'rx-1', attendanceId: 'visit-1', status: 'prescribed', dispensingStartedAt: new Date(), dispensingStartedById: 'pharmacist-1' };
+    const medication = {
+      findUnique: vi.fn()
+        .mockResolvedValueOnce({ id: 'rx-1', attendanceId: 'visit-1', status: 'prescribed', dispensingStartedAt: null })
+        .mockResolvedValueOnce(started),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const tx = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'visit-1', status: 'pending' }) },
+      medication,
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'pharmacist-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    const result = await repository.startMedicationDispensing('visit-1', 'rx-1', 'pharmacist-1');
+
+    expect(tx.attendance.findUnique).toHaveBeenCalled();
+    expect(medication.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'rx-1', attendanceId: 'visit-1', status: 'prescribed', dispensingStartedAt: null },
+      data: expect.objectContaining({ dispensingStartedById: 'pharmacist-1' }),
+    }));
+    expect(result.status).toBe('prescribed');
+    expect(result.dispensingStartedAt).toBeInstanceOf(Date);
+  });
+
   it('filters scan requests by requestedAt and sorts newest request groups first', async () => {
     const older = new Date('2026-11-24T08:15:00Z');
     const newest = new Date('2026-11-24T10:45:00Z');
