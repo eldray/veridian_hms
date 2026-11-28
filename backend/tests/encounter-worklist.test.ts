@@ -92,7 +92,9 @@ describe('attendance queue ranking', () => {
 
 describe('vitals worklist view', () => {
   it('keeps pending visits without a recorded vitals task', async () => {
-    const { repository, findMany } = queueRepository();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'completed', Vitals: [] }),
+    ]);
     const result = await repository.getVitalsWorklist();
     const where = firstWhere(findMany);
 
@@ -120,7 +122,7 @@ describe('vitals worklist view', () => {
   it('shows in-progress vitals only when an explicit start event exists', async () => {
     const startedAt = new Date();
     const { repository, findMany } = queueRepository([
-      attendanceRow({ vitalsStartedAt: startedAt, Vitals: [] }),
+      attendanceRow({ status: 'completed', vitalsStartedAt: startedAt, Vitals: [] }),
     ]);
     const result = await repository.getVitalsWorklist({ view: 'in_progress' });
     const where = firstWhere(findMany);
@@ -133,10 +135,10 @@ describe('vitals worklist view', () => {
   });
 
   it('records an audited vitals start event without completing the task', async () => {
-    const started = { id: 'attendance-1', status: 'pending', vitalsStartedAt: new Date() };
+    const started = { id: 'attendance-1', status: 'completed', vitalsStartedAt: new Date() };
     const attendance = {
       findUnique: vi.fn()
-        .mockResolvedValueOnce({ id: 'attendance-1', status: 'pending', vitalsStartedAt: null })
+        .mockResolvedValueOnce({ id: 'attendance-1', status: 'completed', vitalsStartedAt: null })
         .mockResolvedValueOnce(started),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     };
