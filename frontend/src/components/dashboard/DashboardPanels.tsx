@@ -832,7 +832,6 @@ export function ScanSummary() {
                 <Clock className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} aria-hidden="true" />
                 Avg turnaround: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{avgTAT} min</span>
               </span>
-              </span>
             </div>
           )}
 
