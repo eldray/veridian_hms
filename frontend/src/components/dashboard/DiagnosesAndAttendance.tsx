@@ -175,7 +175,7 @@ export function DiagnosesAndAttendance() {
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between mb-0.5">
                                                 <span className="text-[11px] truncate" style={{ color: 'var(--text-primary)', maxWidth: '80%' }}>{name}</span>
-                                                <span className="text-[11px] font-semibold flex-shrink-0 ml-2" style={{ color: 'var(--icon-cyan-text)' }}>{count}</span>
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold flex-shrink-0 ml-2" style={{ color: 'var(--icon-cyan-text)' }}><Users className="w-3 h-3" aria-hidden="true" />{count}</span>
                                             </div>
                                             {/* track */}
                                             <div className="w-full rounded-full" style={{ height: 5, background: 'var(--bg-main)' }}>
