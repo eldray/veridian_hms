@@ -149,6 +149,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
 
   // VITALS
   router.get('/:id/vitals', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getVitalsByEncounter);
+  router.post('/:id/vitals/start', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.startVitalsTask);
   router.post('/:id/vitals', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.addVitals);
   router.put('/vitals/:vitalsId', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.updateVitals);
   router.delete('/vitals/:vitalsId', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.deleteVitals);
