@@ -21,7 +21,7 @@ export function createRequisitionRoutes(prisma: PrismaClient): Router {
   // the laboratory and imaging stores are included, matching the requisitions page
   // in src/config/access.ts. Approval stays with the supplying department below.
   const REQUESTING_DEPARTMENTS = [
-    'admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist', 'lab_tech', 'sonographer',
+    'admin', 'super_admin', 'hr_officer', 'doctor', 'nurse', 'midwife', 'records', 'accounts', 'pharmacist', 'lab_tech', 'sonographer',
   ];
 
   router.get('/', requireRole(REQUESTING_DEPARTMENTS), controller.getRequisitions as any);
