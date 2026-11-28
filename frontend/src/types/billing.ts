@@ -72,6 +72,11 @@ export interface BillingCollectionPayment {
   paymentMethod: string;
   reference: string | null;
   notes: string | null;
+  /** Direct Premier patient-share receipt; not attached to a Bill. */
+  sourceType?: 'premier_claim_patient_payment';
+  claimNumber?: string;
+  attendanceNumber?: string | null;
+  providerName?: string | null;
   /** A reversed payment is reported under `reversals`, never under `payments`. */
   isVoided: boolean;
   /** True when the reversal row is a refund, which names the operator and refund number. */
