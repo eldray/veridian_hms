@@ -167,3 +167,13 @@ export const exportAuditLogsCsv = (
       responseType: 'blob',
     })
     .then((r) => r.data);
+
+export const exportAuditLogsXlsx = (
+  filters: Omit<AuditLogFilters, 'page' | 'limit'> = {},
+): Promise<Blob> =>
+  api
+    .get('/audit/logs/export', {
+      params: { ...filters, format: 'xlsx' },
+      responseType: 'blob',
+    })
+    .then((r) => r.data);
