@@ -121,6 +121,78 @@ const refundedOn = (payment: BillPayment) =>
   roundMoney((payment.refunds || []).reduce((sum, refund) => sum + Number(refund.amount || 0), 0));
 /** Never negative: several partial refunds may exhaust a payment. */
 const refundableOn = (payment: BillPayment) => Math.max(0, roundMoney(Number(payment.amount) - refundedOn(payment)));
+
+const getGroupedBillItems = (bill: ProcessedBill): Record<string, BillLineItem[]> => {
+  const groups: Record<string, BillLineItem[]> = {
+    Consultation: [], 'Laboratory Tests': [], 'Scans & Imaging': [],
+    Medications: [], Procedures: [], 'Ward & Accommodation': [], 'Other Services': [],
+  };
+  const categoryMap: Record<string, string> = {
+    consultation: 'Consultation', lab_test: 'Laboratory Tests', scan: 'Scans & Imaging',
+    medication: 'Medications', procedure: 'Procedures', ward: 'Ward & Accommodation',
+  };
+  (bill.BillLineItem || []).forEach((item) => {
+    if (!item.isVoided) {
+      const key = categoryMap[item.serviceType?.toLowerCase()] ?? 'Other Services';
+      groups[key].push(item);
+    }
+  });
+  const wardGroups = new Map<string, BillLineItem[]>();
+  for (const item of groups['Ward & Accommodation']) {
+    const wardName = item.wardChargeRecord?.ward?.wardName?.trim();
+    const isLegacyIdLabel = /^ward accommodation\s*\(/i.test(item.description || '');
+    const displayDescription = wardName ? `Ward accommodation – ${wardName}`
+      : isLegacyIdLabel ? 'Ward accommodation' : item.description;
+    const groupingIdentity = wardName || item.description;
+    const key = `${groupingIdentity}::${Number(item.unitPrice).toFixed(2)}`;
+    const current = wardGroups.get(key) || [];
+    current.push({ ...item, description: displayDescription });
+    wardGroups.set(key, current);
+  }
+  groups['Ward & Accommodation'] = Array.from(wardGroups.values()).map((rows) => {
+    if (rows.length === 1) return rows[0];
+    const first = rows[0];
+    return {
+      ...first,
+      id: `ward-group:${rows.map((row) => row.id).join(':')}`,
+      sourceItemIds: rows.filter((row) => !row.isFullyPaid && Number(row.patientPayableAmount || 0) > 0).map((row) => row.id),
+      quantity: rows.reduce((sum, row) => sum + Number(row.quantity || 0), 0),
+      lineTotal: rows.reduce((sum, row) => sum + Number(row.lineTotal || 0), 0),
+      vatAmount: rows.reduce((sum, row) => sum + Number(row.vatAmount || 0), 0),
+      insuranceCoveredAmount: rows.reduce((sum, row) => sum + Number(row.insuranceCoveredAmount || 0), 0),
+      patientPayableAmount: rows.reduce((sum, row) => sum + Number(row.patientPayableAmount || 0), 0),
+      paidAmount: rows.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0),
+      balance: rows.reduce((sum, row) => sum + Number(row.balance || 0), 0),
+      isFullyPaid: rows.every((row) => row.isFullyPaid || Number(row.balance || 0) <= 0),
+    };
+  });
+  Object.keys(groups).forEach((key) => { if (!groups[key].length) delete groups[key]; });
+  return groups;
+};
+
+const normalizeBillForDisplay = (bill: ProcessedBill): ProcessedBill => ({
+  ...bill,
+  BillLineItem: (bill.BillLineItem || []).map((item: any) => ({
+    ...item,
+    paidAmount: item.paidAmount ?? (bill.status === 'paid' ? item.patientPayableAmount : 0),
+    balance: item.balance ?? (bill.status === 'paid' ? 0 : item.patientPayableAmount),
+    isFullyPaid: item.isFullyPaid ?? bill.status === 'paid',
+    serviceCategory: item.serviceCategory || item.serviceType || 'miscellaneous',
+  })),
+});
+
+const getBillRefundHistory = (bill: ProcessedBill): BillRefund[] => {
+  const direct = bill.Refund ?? bill.refunds ?? [];
+  const nested = (bill.Payment ?? bill.payments ?? []).flatMap((payment) => payment.refunds || []);
+  const seen = new Set<string>();
+  return [...direct, ...nested].filter((refund) => {
+    const identity = refund.id || `${refund.refundNumber}:${refund.amount}:${refund.refundedAt}`;
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  }).sort((a, b) => new Date(b.refundedAt).getTime() - new Date(a.refundedAt).getTime());
+};
+
 const paymentAttemptStorageKey = (billId: string) => `veridian:payment-attempt:${billId}`;
 const getOrCreatePaymentAttemptKey = (billId: string) => {
   try {
@@ -152,6 +224,9 @@ export default function PatientBillingItems() {
 
   // ===== Local UI state =====
   const [selectedBill, setSelectedBill] = useState<ProcessedBill | null>(null);
+  const [billDetailsById, setBillDetailsById] = useState<Record<string, ProcessedBill>>({});
+  const [loadingBillIds, setLoadingBillIds] = useState<Set<string>>(new Set());
+  const [billLoadErrors, setBillLoadErrors] = useState<Record<string, string>>({});
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -214,7 +289,9 @@ export default function PatientBillingItems() {
   const loadedForPatientRef = useRef<string | null>(null);
   const autoOpenedBillRef = useRef<string | null>(null);
   // Prevent a slow response for the previous visit from replacing the newly selected visit.
-  const billDetailsRequestRef = useRef(0);
+  const selectedAttendanceIdRef = useRef(selectedAttendanceId);
+  selectedAttendanceIdRef.current = selectedAttendanceId;
+  const billDetailsInFlightRef = useRef(new Set<string>());
 
   // ===== Helpers =====
   const formatCurrency = useCallback(
@@ -324,6 +401,10 @@ export default function PatientBillingItems() {
     if (!patientId) return;
     if (loadedForPatientRef.current === patientId) return;
     loadedForPatientRef.current = patientId;
+    setBillDetailsById({});
+    setBillLoadErrors({});
+    setSelectedBill(null);
+    setSelectedItems(new Set());
     loadData();
   }, [patientId, loadData]);
 
@@ -387,42 +468,49 @@ export default function PatientBillingItems() {
   // ===== Bill detail fetch =====
   const handleViewBillDetails = useCallback(
     async (billId: string) => {
-      const requestVersion = ++billDetailsRequestRef.current;
-      setIsLoadingItems(true);
+      if (billDetailsInFlightRef.current.has(billId)) return;
+      const attendanceAtRequest = selectedAttendanceId;
+      billDetailsInFlightRef.current.add(billId);
+      setLoadingBillIds((current) => new Set(current).add(billId));
+      setBillLoadErrors((current) => { const next = { ...current }; delete next[billId]; return next; });
       try {
         await getBill(billId);
-        // Only the most recent request may finish the visible loading state. Older
-        // attendance requests can complete after a user has switched visits.
+        const loadedBill = useBillingStore.getState().currentBill as ProcessedBill | null;
+        if (loadedBill?.id === billId && selectedAttendanceIdRef.current === attendanceAtRequest) {
+          setBillDetailsById((current) => ({ ...current, [billId]: normalizeBillForDisplay(loadedBill) }));
+        }
       } catch (err: any) {
         console.error('Error loading bill details:', err);
-        if (requestVersion === billDetailsRequestRef.current) {
+        if (selectedAttendanceIdRef.current === attendanceAtRequest) {
+          setBillLoadErrors((current) => ({ ...current, [billId]: err?.message || 'Unable to load bill items.' }));
           toastError('Unable to load bill items', err.message || 'Please retry loading this bill.');
         }
       } finally {
-        if (requestVersion === billDetailsRequestRef.current) setIsLoadingItems(false);
+        billDetailsInFlightRef.current.delete(billId);
+        setLoadingBillIds((current) => { const next = new Set(current); next.delete(billId); return next; });
       }
     },
-    [getBill, toastError]
+    [getBill, toastError, selectedAttendanceId]
   );
 
   // AUTO-EXPAND LOGIC: Fetch all bills in the current paginated view
   useEffect(() => {
-    if (!dataLoaded || paginatedBills.length === 0) return;
-    
-    // Find bills that haven't been fully loaded yet
-    const unloadedBills = paginatedBills.filter((b: any) => !b.BillLineItem || b.BillLineItem.length === 0);
-    if (unloadedBills.length === 0) return;
-
-    // Sequentially load each bill's line items to avoid spamming the API
+    if (!dataLoaded || !selectedAttendanceId || paginatedBills.length === 0) return;
+    let cancelled = false;
+    const unloadedBills = paginatedBills.filter((bill: any) =>
+      !billDetailsById[bill.id]
+    );
     const loadAll = async () => {
       for (const bill of unloadedBills) {
+        if (cancelled) break;
         await handleViewBillDetails(bill.id);
       }
     };
     void loadAll();
-    
+    return () => { cancelled = true; };
+  // Keep the attendance and page identity stable; each fetch updates its own keyed cache.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataLoaded, paginatedBills.map(b => b.id).join(',')]);
+  }, [dataLoaded, selectedAttendanceId, paginatedBills.map((bill) => bill.id).join(',')]);
 
   useEffect(() => {
     const requestedBillId = new URLSearchParams(window.location.search).get('billId');
@@ -434,24 +522,10 @@ export default function PatientBillingItems() {
   }, [dataLoaded, patientBills, handleViewBillDetails]);
 
   useEffect(() => {
-    if (!currentBill) return;
+    if (!currentBill || !patientBills.some((bill) => bill.id === currentBill.id)) return;
     const loadedAttendanceId = String((currentBill as any).attendanceId || currentBill.Attendance?.id || '');
-    // The billing store is shared across pages. Ignore late responses for a bill
-    // belonging to another visit so they cannot overwrite the selected attendance.
-    if (!patientBills.some((bill) => bill.id === currentBill.id)) return;
     if (loadedAttendanceId && loadedAttendanceId !== selectedAttendanceId) return;
-    setSelectedBill(() => ({
-      ...currentBill,
-      BillLineItem:
-        currentBill.BillLineItem?.map((item: any) => ({
-          ...item,
-          paidAmount: item.paidAmount ?? (currentBill.status === 'paid' ? item.patientPayableAmount : 0),
-          balance: item.balance ?? (currentBill.status === 'paid' ? 0 : item.patientPayableAmount),
-          isFullyPaid: item.isFullyPaid ?? currentBill.status === 'paid',
-          serviceCategory: item.serviceCategory || item.serviceType || 'miscellaneous',
-        })) || [],
-    }));
-    setSelectedItems(new Set());
+    setBillDetailsById((current) => ({ ...current, [currentBill.id]: normalizeBillForDisplay(currentBill as ProcessedBill) }));
   }, [currentBill, patientBills, selectedAttendanceId]);
 
   useEffect(() => {
@@ -464,104 +538,6 @@ export default function PatientBillingItems() {
   );
 
   // ===== Grouped items =====
-  const groupedItems = useMemo(() => {
-    if (!selectedBill?.BillLineItem) return {} as Record<string, BillLineItem[]>;
-
-    const groups: Record<string, BillLineItem[]> = {
-      Consultation: [],
-      'Laboratory Tests': [],
-      'Scans & Imaging': [],
-      Medications: [],
-      Procedures: [],
-      'Ward & Accommodation': [],
-      'Other Services': [],
-    };
-
-    const categoryMap: Record<string, string> = {
-      consultation: 'Consultation',
-      lab_test: 'Laboratory Tests',
-      scan: 'Scans & Imaging',
-      medication: 'Medications',
-      procedure: 'Procedures',
-      ward: 'Ward & Accommodation',
-    };
-
-    selectedBill.BillLineItem.forEach((item) => {
-      if (!item.isVoided) {
-        const key = categoryMap[item.serviceType?.toLowerCase()] ?? 'Other Services';
-        groups[key].push(item);
-      }
-    });
-
-    // WardChargeRecord remains one source line per charged day for auditability.
-    // Present daily charges at the same ward/rate as one readable accommodation row.
-    const wardGroups = new Map<string, BillLineItem[]>();
-    for (const item of groups['Ward & Accommodation']) {
-      const wardName = item.wardChargeRecord?.ward?.wardName?.trim();
-      const isLegacyIdLabel = /^ward accommodation\s*\(/i.test(item.description || '');
-      const displayDescription = wardName
-        ? `Ward accommodation – ${wardName}`
-        : isLegacyIdLabel
-          ? 'Ward accommodation'
-          : item.description;
-      // Keep unknown-ward source descriptions separate for audit clarity, but never
-      // expose an internal ward ID to staff as the accommodation label.
-      const groupingIdentity = wardName || item.description;
-      const key = `${groupingIdentity}::${Number(item.unitPrice).toFixed(2)}`;
-      const current = wardGroups.get(key) || [];
-      current.push({ ...item, description: displayDescription });
-      wardGroups.set(key, current);
-    }
-    groups['Ward & Accommodation'] = Array.from(wardGroups.values()).map((rows) => {
-      if (rows.length === 1) return rows[0];
-      const first = rows[0];
-      return {
-        ...first,
-        id: `ward-group:${rows.map((row) => row.id).join(':')}`,
-        sourceItemIds: rows.filter((row) => !row.isFullyPaid && Number(row.patientPayableAmount || 0) > 0).map((row) => row.id),
-        quantity: rows.reduce((sum, row) => sum + Number(row.quantity || 0), 0),
-        lineTotal: rows.reduce((sum, row) => sum + Number(row.lineTotal || 0), 0),
-        vatAmount: rows.reduce((sum, row) => sum + Number(row.vatAmount || 0), 0),
-        insuranceCoveredAmount: rows.reduce((sum, row) => sum + Number(row.insuranceCoveredAmount || 0), 0),
-        patientPayableAmount: rows.reduce((sum, row) => sum + Number(row.patientPayableAmount || 0), 0),
-        paidAmount: rows.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0),
-        balance: rows.reduce((sum, row) => sum + Number(row.balance || 0), 0),
-        isFullyPaid: rows.every((row) => row.isFullyPaid || Number(row.balance || 0) <= 0),
-      };
-    });
-
-    Object.keys(groups).forEach((k) => { if (groups[k].length === 0) delete groups[k]; });
-    return groups;
-  }, [selectedBill]);
-
-  // ===== Totals =====
-  const totals = useMemo(() => {
-    if (!selectedBill) return null;
-    const allItems = selectedBill.BillLineItem?.filter((i) => !i.isVoided) || [];
-    const lineSubtotal = allItems.reduce((s, i) => s + i.lineTotal, 0);
-    const taxAmount = Number(selectedBill.taxAmount || 0);
-    return {
-      subtotal: lineSubtotal,
-      taxAmount,
-      insuranceCovered: allItems.reduce((s, i) => s + i.insuranceCoveredAmount, 0),
-      // The bill's own figure already includes tax; the line sum is the fallback
-      // for older bills whose header was never re-totalled.
-      patientPayable: Number(selectedBill.patientPayable ?? (lineSubtotal + taxAmount)),
-      totalPaid: selectedBill.paidAmount || 0,
-      balance: selectedBill.balance || 0,
-    };
-  }, [selectedBill]);
-
-  // ===== Payments and refunds =====
-  const paymentsForBill = useMemo(
-    () => (selectedBill?.Payment ?? selectedBill?.payments ?? []).filter((payment) => !payment.isVoided),
-    [selectedBill]
-  );
-  const billRefunds = useMemo(
-    () => selectedBill?.Refund ?? selectedBill?.refunds ?? [],
-    [selectedBill]
-  );
-
   const selectedItemsTotal = useMemo(() => {
     if (!selectedBill || selectedItems.size === 0) return 0;
     let total = 0;
@@ -815,6 +791,11 @@ export default function PatientBillingItems() {
   const handleProcessRefund = useCallback(async (data: RefundSubmission) => {
     if (!selectedBill) return;
     await refundBillPayment(selectedBill.id, data);
+    const refreshedBill = useBillingStore.getState().currentBill as ProcessedBill | null;
+    if (refreshedBill?.id === selectedBill.id) {
+      setSelectedBill(normalizeBillForDisplay(refreshedBill));
+      setBillDetailsById((current) => ({ ...current, [refreshedBill.id]: normalizeBillForDisplay(refreshedBill) }));
+    }
     await getBills({ patientId: actualPatientId } as any);
     setRefundTarget(null);
     success('Refund processed', `${formatCurrency(data.amount)} has been refunded`);
@@ -950,8 +931,10 @@ export default function PatientBillingItems() {
             }}
             onAttendanceSelect={(attendanceId) => {
               // Invalidate any in-flight detail request from the previously selected visit.
-              billDetailsRequestRef.current += 1;
               setIsLoadingItems(false);
+              setBillDetailsById({});
+              setBillLoadErrors({});
+              setSelectedBill(null);
               setSelectedAttendanceId(attendanceId);
               setSelectedBill(null);
               setSelectedItems(new Set());
@@ -962,6 +945,9 @@ export default function PatientBillingItems() {
               setSelectedAttendanceId('');
               setSelectedBill(null);
               setSelectedItems(new Set());
+              setBillDetailsById({});
+              setBillLoadErrors({});
+              setSelectedBill(null);
             }}
           />
           {!selectedAttendanceId && (
@@ -1112,9 +1098,27 @@ export default function PatientBillingItems() {
         <>
           <div className="space-y-3">
             {paginatedBills.map((bill) => {
-              // Determine if this specific bill is the one currently loaded in the store
-              const isThisBillLoaded = selectedBill?.id === bill.id;
-              const isLoadingThis = isLoadingItems && !isThisBillLoaded;
+              const billDetails = billDetailsById[bill.id]
+                ?? ((bill as any).BillLineItem?.length > 0 ? bill as ProcessedBill : null);
+              const isLoadingThis = loadingBillIds.has(bill.id);
+              const groupedItems = billDetails ? getGroupedBillItems(billDetails) : {};
+              const billItems = billDetails?.BillLineItem?.filter((item) => !item.isVoided) || [];
+              const lineSubtotal = billItems.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0);
+              const taxAmount = Number(billDetails?.taxAmount || 0);
+              const totals = billDetails ? {
+                subtotal: lineSubtotal,
+                taxAmount,
+                insuranceCovered: billItems.reduce((sum, item) => sum + Number(item.insuranceCoveredAmount || 0), 0),
+                patientPayable: Number(billDetails.patientPayable ?? (lineSubtotal + taxAmount)),
+                totalPaid: Number(billDetails.paidAmount || 0),
+                balance: Number(billDetails.balance || 0),
+              } : null;
+              const isCashPayment = billDetails?.paymentMode === 'cash';
+              const paymentsForBill = (billDetails?.Payment ?? billDetails?.payments ?? []).filter((payment) => !payment.isVoided);
+              const billRefunds = billDetails ? getBillRefundHistory(billDetails) : [];
+              const totalRefunded = billRefunds.reduce((sum, refund) => sum + Number(refund.amount || 0), 0);
+              const totalCollected = paymentsForBill.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+              const netCollected = Math.max(0, roundMoney(totalCollected - totalRefunded));
 
               return (
                 <div key={bill.id} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-sm overflow-hidden">
@@ -1189,7 +1193,7 @@ export default function PatientBillingItems() {
                       <div className="flex justify-center py-8">
                         <div className="w-8 h-8 border-2 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin" />
                       </div>
-                    ) : isThisBillLoaded ? (
+                    ) : billDetails ? (
                       <div className="p-4 sm:p-5">
                         {/* Toolbar */}
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
@@ -1198,17 +1202,17 @@ export default function PatientBillingItems() {
                               Line Items
                             </span>
                             <span className="px-2 py-0.5 rounded-md bg-[var(--bg-card)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-tertiary)] tabular-nums">
-                              {selectedBill.BillLineItem?.filter((i) => !i.isVoided).length || 0}
+                              {billDetails.BillLineItem?.filter((i) => !i.isVoided).length || 0}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            {canMakePayment && selectedBill.status !== 'paid' && selectedBill.Attendance?.id && (
-                              <Button variant="soft" accent="green" size="sm" icon={PlusCircle} onClick={() => setShowAddServiceModal(true)}>
+                            {canMakePayment && billDetails.status !== 'paid' && billDetails.Attendance?.id && (
+                              <Button variant="soft" accent="green" size="sm" icon={PlusCircle} onClick={() => { setSelectedBill(billDetails); setShowAddServiceModal(true); }}>
                                 Add charge
                               </Button>
                             )}
-                            {(selectedBill.status === 'paid' || selectedBill.status === 'partial') && (
-                              <Button variant="secondary" size="sm" icon={Printer} onClick={() => handleViewReceipt(selectedBill.id)}>
+                            {(billDetails.status === 'paid' || billDetails.status === 'partial') && (
+                              <Button variant="secondary" size="sm" icon={Printer} onClick={() => handleViewReceipt(billDetails.id)}>
                                 Print Receipt
                               </Button>
                             )}
@@ -1216,7 +1220,7 @@ export default function PatientBillingItems() {
                         </div>
 
                         {/* Zero-value warning */}
-                        {Object.entries(groupedItems).length === 0 && Number(selectedBill.totalAmount || 0) === 0 && (
+                        {Object.entries(groupedItems).length === 0 && Number(billDetails.totalAmount || 0) === 0 && (
                           <div className="mb-4 rounded-lg border border-[var(--border-color)] bg-[var(--icon-yellow-bg)] p-4 text-sm text-[var(--icon-yellow-text)]">
                             <p className="font-semibold">No itemised charges recorded</p>
                             <p className="mt-1">This zero-value bill has no active line items. Review the attendance and clinical records before taking any billing action.</p>
@@ -1247,7 +1251,7 @@ export default function PatientBillingItems() {
                                         <th className="w-10 px-3 py-2 text-center">
                                           {unpaidItems.length > 0 && (
                                             <button
-                                              onClick={(e) => { e.stopPropagation(); toggleCategorySelection(items); }}
+                                              onClick={(e) => { e.stopPropagation(); setSelectedBill(billDetails); if (selectedBill?.id !== billDetails.id) setSelectedItems(new Set()); toggleCategorySelection(items); }}
                                               className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
                                               aria-label={allSelected ? 'Deselect all unpaid' : 'Select all unpaid'}
                                             >
@@ -1285,7 +1289,7 @@ export default function PatientBillingItems() {
                                                 <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)] mx-auto" />
                                               ) : item.patientPayableAmount > 0 && canMakePayment ? (
                                                 <button
-                                                  onClick={(e) => { e.stopPropagation(); toggleItemSelection(itemIds); }}
+                                                  onClick={(e) => { e.stopPropagation(); setSelectedBill(billDetails); if (selectedBill?.id !== billDetails.id) setSelectedItems(new Set()); toggleItemSelection(itemIds); }}
                                                   className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] mx-auto block transition-colors"
                                                   aria-label={itemSelected ? 'Deselect accommodation' : 'Select accommodation'}
                                                 >
@@ -1404,15 +1408,15 @@ export default function PatientBillingItems() {
                                 </p>
                               </div>
                             </div>
-                            {!isCashPayment && selectedBill.InsuranceProvider && (
+                            {!isCashPayment && billDetails.InsuranceProvider && (
                               <div className="flex items-center gap-2 px-3 py-2 border-t border-[var(--border-color)] text-[11px] text-[var(--text-secondary)]">
                                 <Shield className="w-3 h-3 text-[var(--icon-cyan-text)] flex-shrink-0" />
                                 <span>
-                                  <span className="font-medium text-[var(--text-primary)]">{selectedBill.InsuranceProvider.name}</span>
-                                  {selectedBill.InsuranceProvider.type !== 'nhis' && (
+                                  <span className="font-medium text-[var(--text-primary)]">{billDetails.InsuranceProvider.name}</span>
+                                  {billDetails.InsuranceProvider.type !== 'nhis' && (
                                     <>
                                       {' · '}
-                                      {selectedBill.InsuranceProvider.coveragePercentage}% coverage
+                                      {billDetails.InsuranceProvider.coveragePercentage}% coverage
                                     </>
                                   )}
                                 </span>
@@ -1447,8 +1451,11 @@ export default function PatientBillingItems() {
                                 </thead>
                                 <tbody>
                                   {paymentsForBill.map((payment) => {
-                                    const refunded = refundedOn(payment);
-                                    const refundable = refundableOn(payment);
+                                    const linkedRefundTotal = billRefunds
+                                      .filter((refund) => refund.paymentId === payment.id)
+                                      .reduce((sum, refund) => sum + Number(refund.amount || 0), 0);
+                                    const refunded = roundMoney(linkedRefundTotal || refundedOn(payment));
+                                    const refundable = Math.max(0, roundMoney(Number(payment.amount) - refunded));
                                     return (
                                       <tr key={payment.id} className="border-b border-[var(--border-color)] last:border-b-0">
                                         <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">{formatDate(payment.transactionDate)}</td>
@@ -1467,7 +1474,7 @@ export default function PatientBillingItems() {
                                             size="sm"
                                             icon={Printer}
                                             disabled={isLoadingItems}
-                                            onClick={() => handleViewReceipt(selectedBill.id, payment.id)}
+                                            onClick={() => handleViewReceipt(billDetails.id, payment.id)}
                                           >
                                             Print
                                           </Button>
@@ -1479,7 +1486,7 @@ export default function PatientBillingItems() {
                                               size="sm"
                                               icon={Undo2}
                                               disabled={refundable <= 0}
-                                              onClick={() => handleOpenRefundModal(payment)}
+                                              onClick={() => { setSelectedBill(billDetails); handleOpenRefundModal(payment); }}
                                             >
                                               Refund
                                             </Button>
@@ -1491,37 +1498,62 @@ export default function PatientBillingItems() {
                                 </tbody>
                               </table>
                             </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 border-t border-[var(--border-color)] bg-[var(--bg-main)] p-3">
+                              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Collected</p>
+                                <p className="mt-1 text-sm font-bold tabular-nums text-[var(--text-primary)]">{formatCurrency(totalCollected)}</p>
+                              </div>
+                              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Refunded</p>
+                                <p className="mt-1 text-sm font-bold tabular-nums text-[var(--icon-red-text)]">−{formatCurrency(totalRefunded)}</p>
+                              </div>
+                              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+                                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Net retained</p>
+                                <p className="mt-1 text-sm font-bold tabular-nums text-[var(--icon-green-text)]">{formatCurrency(netCollected)}</p>
+                              </div>
+                            </div>
                             {billRefunds.length > 0 && (
                               <div className="border-t border-[var(--border-color)]">
-                                <p className="px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Refund history</p>
-                                <ul className="divide-y divide-[var(--border-color)]">
+                                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-[var(--text-primary)]">Refund history</p>
+                                    <p className="text-[11px] text-[var(--text-secondary)]">{billRefunds.length} refund transaction{billRefunds.length === 1 ? '' : 's'} recorded</p>
+                                  </div>
+                                  <span className="text-sm font-bold tabular-nums text-[var(--icon-red-text)]">−{formatCurrency(totalRefunded)}</span>
+                                </div>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 p-3 pt-0">
                                   {billRefunds.map((refund) => (
-                                    <li key={refund.id} className="px-4 py-2 flex items-start justify-between gap-3 text-xs">
-                                      <div className="min-w-0">
-                                        <p className="font-medium text-[var(--text-primary)]">
-                                          {refund.refundNumber} · {refund.reason}
-                                        </p>
-                                        <p className="text-[var(--text-secondary)]">
-                                          {formatDate(refund.refundedAt)} · {refund.refundMethod.replace(/_/g, ' ')}
-                                          {refund.reference ? ` · ${refund.reference}` : ''}
-                                          {(refund.processedBy?.fullName || refund.processedBy?.username) ? ` · By ${refund.processedBy.fullName || refund.processedBy.username}` : ''}
-                                        </p>
+                                    <div key={refund.id} className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <p className="text-xs font-semibold text-[var(--text-primary)]">{refund.refundNumber || 'Refund'}</p>
+                                          <p className="mt-1 text-xs text-[var(--text-secondary)]">{refund.reason}</p>
+                                        </div>
+                                        <span className="shrink-0 text-sm font-bold tabular-nums text-[var(--icon-red-text)]">−{formatCurrency(Number(refund.amount))}</span>
                                       </div>
-                                      <span className="font-bold text-[var(--icon-red-text)] tabular-nums flex-shrink-0">
-                                        -{formatCurrency(Number(refund.amount))}
-                                      </span>
-                                    </li>
+                                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-[var(--text-tertiary)]">
+                                        <span>{formatDate(refund.refundedAt)}</span>
+                                        <span className="capitalize">{refund.refundMethod.replace(/_/g, ' ')}</span>
+                                        {refund.reference && <span>Ref: {refund.reference}</span>}
+                                        {(refund.processedBy?.fullName || refund.processedBy?.username) && <span>By: {refund.processedBy.fullName || refund.processedBy.username}</span>}
+                                        {refund.paymentId && <span>Payment: {refund.paymentId.slice(-8)}</span>}
+                                      </div>
+                                    </div>
                                   ))}
-                                </ul>
+                                </div>
                               </div>
                             )}
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <div className="p-6 text-center text-sm text-[var(--text-tertiary)]">
-                        Preparing items...
+                    ) : billLoadErrors[bill.id] ? (
+                      <div className="p-6 text-center text-sm text-[var(--icon-red-text)]">
+                        <p>Unable to load this bill’s items.</p>
+                        <p className="mt-1 text-xs text-[var(--text-secondary)]">{billLoadErrors[bill.id]}</p>
+                        <Button className="mt-3" size="sm" variant="secondary" icon={RefreshCw} onClick={() => void handleViewBillDetails(bill.id)}>Retry</Button>
                       </div>
+                    ) : (
+                      <div className="p-6 text-center text-sm text-[var(--text-tertiary)]">Preparing items…</div>
                     )}
                   </div>
                 </div>
