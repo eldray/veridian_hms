@@ -195,6 +195,45 @@ describe('medical and maternal worklist views', () => {
     expect(result.data[0].status).toBe('in_progress');
   });
 
+  it('uses the saved ANC visit record as completion even if attendance remains open', async () => {
+    const visitDate = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({
+        status: 'pending', attendanceType: 'antenatal',
+        antenatalVisits: [{ id: 'anc-visit-1', visitDate }],
+      }),
+    ]);
+
+    const result = await repository.getMaternalWorklist({ view: 'completed' });
+    const where = firstWhere(findMany);
+
+    expect(where.status).toBeUndefined();
+    expect(where.OR).toEqual(expect.arrayContaining([
+      expect.objectContaining({ attendanceType: 'antenatal', antenatalVisits: { some: { visitDate: { gte: expect.any(Date) } } } }),
+    ]));
+    expect(result.data[0].status).toBe('completed');
+    expect(result.data[0].completedAt).toEqual(visitDate);
+  });
+
+  it('does not mark a closed maternal attendance complete without its own clinical record', async () => {
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'completed', attendanceType: 'postnatal' }),
+    ]);
+
+    const result = await repository.getMaternalWorklist({ view: 'pending' });
+
+    expect(firstWhere(findMany).status).toEqual({ in: ['pending', 'admitted'] });
+    expect(result.data).toHaveLength(0);
+  });
+
+  it('does not invent maternal in-progress work when the form has no saved draft state', async () => {
+    const { repository, findMany } = queueRepository();
+    const result = await repository.getMaternalWorklist({ view: 'in_progress' });
+
+    expect(firstWhere(findMany).id).toEqual({ in: [] });
+    expect(result.inProgress).toBe(0);
+  });
+
   it('keeps the maternity queue on maternity visit types', async () => {
     const { repository, findMany } = queueRepository([
       attendanceRow({
