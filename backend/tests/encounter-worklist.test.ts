@@ -113,6 +113,7 @@ describe('vitals worklist view', () => {
     expect(where.status).toBeUndefined();
     expect(result.data[0].status).toBe('completed');
     expect(result.data[0].lastVitals.recordedAt).toEqual(recordedAt);
+    expect(result.buckets.closed).toBe(1);
   });
 
   it('does not invent an in-progress state when no start event is persisted', async () => {
@@ -182,6 +183,7 @@ describe('medical and maternal worklist views', () => {
     expect(where.status).toBeUndefined();
     expect(result.data[0].status).toBe('completed');
     expect(result.data[0].finalizedAt).toEqual(finalizedAt);
+    expect(result.buckets.closed).toBe(1);
   });
 
   it('keeps unfinished clinical drafts visible even when the attendance has closed', async () => {
@@ -213,6 +215,7 @@ describe('medical and maternal worklist views', () => {
     ]));
     expect(result.data[0].status).toBe('completed');
     expect(result.data[0].completedAt).toEqual(visitDate);
+    expect(result.buckets.closed).toBe(1);
   });
 
   it('does not mark a closed maternal attendance complete without its own clinical record', async () => {
