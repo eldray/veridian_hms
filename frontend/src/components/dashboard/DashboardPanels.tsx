@@ -5,7 +5,7 @@ import {
   Clock, Stethoscope, Shield, Hospital, CreditCard, Heart, FileText,
   Coins, Package, ClipboardList, AlertCircle, ChevronRight,
   Activity, FlaskConical, ScanLine, Users, Baby, UserPlus,
-  CheckCircle, Bed, Calendar, Pill, AlertTriangle,
+  CheckCircle, Bed, Calendar, Pill, AlertTriangle, UserRound, CalendarCheck,
 } from 'lucide-react';
 import type { PaymentMode } from '../../types';
 import {
@@ -322,14 +322,23 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
                     <span
-                      className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                      style={{ background: 'var(--bg-card)', color: 'var(--text-tertiary)' }}
+                      className="inline-flex items-center gap-1.5 font-mono text-[10px] px-1.5 py-1 rounded"
+                      style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}
+                      title="Patient folder number"
+                      aria-label={`Patient folder number: ${getPatientFolderNumber(att) || 'not available'}`}
                     >
+                      <UserRound className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
                       {getPatientFolderNumber(att) || '—'}
                     </span>
-                    <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    <span
+                      className="inline-flex items-center gap-1.5 text-[10px]"
+                      style={{ color: 'var(--text-tertiary)' }}
+                      title="Attendance number"
+                      aria-label={`Attendance number: ${getAttendanceNumber(att) || 'not available'}`}
+                    >
+                      <CalendarCheck className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
                       {getAttendanceNumber(att) || '—'}
                     </span>
                   </div>
