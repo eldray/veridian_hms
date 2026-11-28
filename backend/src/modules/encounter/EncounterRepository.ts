@@ -3701,7 +3701,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         where: { attendanceId },
         select: { id: true },
       });
-      if (completedToday) throw new ConflictError('Vitals have already been recorded for this attendance today');
+      if (completedToday) return attendance;
       if (attendance.vitalsStartedAt) return attendance;
 
       const startedAt = new Date();
