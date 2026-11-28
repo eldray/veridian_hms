@@ -10,6 +10,7 @@ import { useInsuranceStore } from '../store/insuranceStore';
 import { useCorporateStore } from '../store/corporateStore';
 import { useToast } from '../store/toastStore';
 import { describeApiError } from '../utils/apiError';
+import { verifyNHISEligibility } from '../api';
 import { X, Save, User, CheckCircle, CreditCard, Tag, Shield, Building, AlertCircle, Calendar, Clock, FileText, Stethoscope, Syringe } from 'lucide-react';
 import type { AttendanceType, PaymentMode, AttendanceStatus } from '../types';
 import ComplaintInput from './ComplaintInput';
@@ -45,6 +46,8 @@ export default function NewAttendanceModal({
   const [attendanceType, setAttendanceType] = useState<AttendanceType>(initialAttendanceType || 'emergency_acute');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(initialPaymentMode || 'cash');
   const [nhisCCC, setNhisCCC] = useState('');
+  const [nhisVerification, setNhisVerification] = useState<{ memberNumber: string; status: 'verified' | 'ineligible' | 'failed'; message: string } | null>(null);
+  const [isVerifyingNhis, setIsVerifyingNhis] = useState(false);
   const [selectedCorporateAccountId, setResolvedCorporateAccountId] = useState(corporateAccountId || '');
   const [complaints, setComplaints] = useState('');
   const [status, setStatus] = useState<AttendanceStatus>('pending');
@@ -128,6 +131,42 @@ export default function NewAttendanceModal({
     }
   }, [patient, isEditMode]);
 
+  const canVerifyNhis = ['admin', 'accounts', 'records'].includes(String(user?.role || '').toLowerCase());
+
+  const handleVerifyNhis = async () => {
+    const memberNumber = String(resolvedNhisNumber || '').trim();
+    if (!memberNumber || !resolvedNhisExpiry) {
+      error('NHIS details required', 'Enter the membership number and expiry date in the patient record first.');
+      return;
+    }
+    setIsVerifyingNhis(true);
+    setNhisVerification(null);
+    try {
+      const result = await verifyNHISEligibility(memberNumber);
+      const eligible = result?.success === true && result?.data?.isActive === true && result?.data?.isEligible === true;
+      const message = result?.message || (eligible ? 'Membership verified with NHIA.' : 'NHIA did not confirm active eligibility.');
+      setNhisVerification({ memberNumber, status: eligible ? 'verified' : 'ineligible', message });
+      if (eligible) {
+        setPatient((current: any) => current ? {
+          ...current,
+          nhisActive: true,
+          nhisExpiryDate: result.data.expiryDate || current.nhisExpiryDate,
+        } : current);
+        success('NHIS membership verified', 'NHIA confirmed this membership is active and eligible. You can now enter the CCC.');
+      } else {
+        setNhisCCC('');
+        error('NHIS eligibility not confirmed', message);
+      }
+    } catch (err: any) {
+      const message = describeApiError(err, 'Could not verify this membership with NHIA.');
+      setNhisVerification({ memberNumber, status: 'failed', message });
+      setNhisCCC('');
+      error('NHIS verification failed', message);
+    } finally {
+      setIsVerifyingNhis(false);
+    }
+  };
+
   // ✅ FIXED validateForm — uses resolvedPatient so patient=null doesn't break it
   const validateForm = (): boolean => {
     const errors: string[] = [];
@@ -150,7 +189,10 @@ export default function NewAttendanceModal({
         if (nhisActive !== true) {
           errors.push(nhisActive === false
             ? 'NHIS membership is inactive. Update the patient record before using NHIS.'
-            : 'NHIS membership status is not verified. Verify the patient record before using NHIS.');
+            : 'NHIS membership details have not been confirmed. Verify the patient record before using NHIS.');
+        }
+        if (currentNhisVerification?.status !== 'verified') {
+          errors.push('Verify this membership with NHIA in this attendance form before creating an NHIS attendance.');
         }
         const expiryDate = new Date(`${String(expiry).slice(0, 10)}T23:59:59`);
         const isExpired = Number.isNaN(expiryDate.getTime()) || expiryDate.getTime() < Date.now();
@@ -330,12 +372,22 @@ export default function NewAttendanceModal({
     ? new Date(`${String(resolvedNhisExpiry).slice(0, 10)}T23:59:59`)
     : null;
   const resolvedNhisDetailsComplete = Boolean(resolvedNhisNumber && resolvedNhisExpiry);
+  const currentNhisVerification = nhisVerification?.memberNumber === String(resolvedNhisNumber || '').trim() ? nhisVerification : null;
   const resolvedNhisExpired = !resolvedNhisExpiryDate ||
     Number.isNaN(resolvedNhisExpiryDate.getTime()) ||
     resolvedNhisExpiryDate.getTime() < Date.now();
   const resolvedNhisEligible = resolvedNhisDetailsComplete &&
     resolvedNhisActive === true &&
-    !resolvedNhisExpired;
+    !resolvedNhisExpired &&
+    currentNhisVerification?.status === 'verified';
+
+  // A verification result belongs to one exact membership record; never carry it
+  // across patients or when the membership number changes.
+  useEffect(() => {
+    setNhisVerification(null);
+    setNhisCCC('');
+  }, [patientId, resolvedPatient?.id, resolvedNhisNumber]);
+
   const selectedCorporateAccount = corporateAccounts.find((a: any) => a.id === selectedCorporateAccountId);
 
   const currentInsuranceProvider = paymentMode === 'private_insurance'
@@ -539,27 +591,6 @@ export default function NewAttendanceModal({
                   Auto-populated from patient's default payment method
                 </p>
               )}
-            </div>
-
-            {/* Attendance Type */}
-            <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
-              <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2">Attendance Type</h3>
-              <select
-                value={attendanceType}
-                onChange={(e) => setAttendanceType(e.target.value as AttendanceType)}
-                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
-                disabled={isLoading}
-              >
-                {attendanceTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                Select the appropriate type of attendance
-              </p>
-            </div>
 
             {/* Verify membership details and active status before requesting the attendance CCC. */}
             {paymentMode === 'nhis' && (
@@ -574,7 +605,8 @@ export default function NewAttendanceModal({
                 </h3>
                 <div className="mb-2 text-xs text-[var(--text-secondary)] flex flex-wrap gap-x-3 gap-y-1">
                   <span>Member No: <strong>{resolvedNhisNumber || 'Not recorded'}</strong></span>
-                  <span>Status: <strong>{resolvedNhisActive === true ? 'Active' : resolvedNhisActive === false ? 'Inactive' : 'Not verified'}</strong></span>
+                  <span>Membership record: <strong>{resolvedNhisActive === true ? 'Active' : resolvedNhisActive === false ? 'Inactive' : 'Not recorded'}</strong></span>
+                  <span>NHIA verification: <strong>{currentNhisVerification?.status === 'verified' ? 'Verified' : currentNhisVerification?.status === 'ineligible' ? 'Not eligible' : currentNhisVerification?.status === 'failed' ? 'Failed' : 'Not verified'}</strong></span>
                   <span>Expiry: <strong>{resolvedNhisExpiry ? new Date(resolvedNhisExpiry).toLocaleDateString() : 'Not recorded'}</strong></span>
                 </div>
                 {!resolvedNhisDetailsComplete ? (
@@ -592,15 +624,28 @@ export default function NewAttendanceModal({
                       </Link>
                     )}
                   </div>
-                ) : !resolvedNhisEligible ? (
-                  <p className="text-xs font-medium text-[var(--icon-red-text)]">
-                    {resolvedNhisActive === false
-                      ? 'NHIS membership is inactive. Update or verify the patient’s NHIS details before proceeding.'
-                      : resolvedNhisActive !== true
-                        ? 'NHIS membership status has not been verified. Verify the patient’s NHIS details before proceeding.'
-                        : 'NHIS membership has expired. Update the patient’s NHIS details before proceeding.'}
-                  </p>
                 ) : (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {canVerifyNhis ? (
+                        <button
+                          type="button"
+                          onClick={handleVerifyNhis}
+                          disabled={isVerifyingNhis || isLoading}
+                          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 disabled:opacity-50"
+                        >
+                          {isVerifyingNhis ? 'Verifying with NHIA…' : currentNhisVerification?.status === 'verified' ? 'Verify again with NHIA' : 'Verify with NHIA'}
+                        </button>
+                      ) : (
+                        <p className="text-xs text-[var(--text-secondary)]">NHIA verification must be completed by an administrator, accounts, or records user.</p>
+                      )}
+                      {currentNhisVerification && (
+                        <span className={`text-xs font-medium ${currentNhisVerification.status === 'verified' ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}`}>
+                          {currentNhisVerification.message}
+                        </span>
+                      )}
+                    </div>
+                    {currentNhisVerification?.status === 'verified' && resolvedNhisActive === true && !resolvedNhisExpired ? (
                   <div>
                     <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
                       NHIS CCC Code *
@@ -630,9 +675,40 @@ export default function NewAttendanceModal({
                       }
                     </p>
                   </div>
+                    ) : (
+                      <p className="text-xs font-medium text-[var(--icon-red-text)]">
+                        {resolvedNhisActive === false
+                          ? 'Membership record is inactive. Update it before proceeding.'
+                          : resolvedNhisExpired
+                            ? 'Membership expiry date has passed or is invalid.'
+                            : 'NHIA verification is required before entering the CCC.'}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             )}
+            </div>
+
+            {/* Attendance Type */}
+            <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2">Attendance Type</h3>
+              <select
+                value={attendanceType}
+                onChange={(e) => setAttendanceType(e.target.value as AttendanceType)}
+                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
+                disabled={isLoading}
+              >
+                {attendanceTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                Select the appropriate type of attendance
+              </p>
+            </div>
 
             {/* Private Insurance Validation Display */}
             {paymentMode === 'private_insurance' && (
