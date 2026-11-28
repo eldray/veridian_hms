@@ -32,7 +32,8 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "bundle": "node scripts/bundle.mjs dist-bundle",
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
-    "prebuild": "prisma generate --schema=prisma/schema.prisma"
+    "prebuild": "prisma generate --schema=prisma/schema.prisma",
+    "seed:core": "tsx src/seed/coreOnly.ts"
   },
   "keywords": [
     "hospital",
