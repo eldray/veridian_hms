@@ -3635,13 +3635,6 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       where.updatedAt = { gte: daysAgo(WORKLIST_OPEN_DAYS) };
     }
 
-    if (view === 'outstanding') {
-      where.OR = [
-        { LabTest: { some: { status: { in: [...UNANSWERED_INVESTIGATION.labTest] } } } },
-        { Scan: { some: { status: { in: [...UNANSWERED_INVESTIGATION.scan] } } } },
-        { Procedure: { some: { status: { in: [...UNANSWERED_INVESTIGATION.procedure] } } } },
-      ];
-    }
     return where;
   }
 
@@ -4030,17 +4023,27 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   /**
-   * Visits that were closed while an investigation was still unanswered: a lab asked for and never
-   * resulted, a scan requested and never reported, a procedure scheduled and never performed. The
-   * visit is out of the pending queue by then, so without this the request simply disappears and the
-   * patient is the one who comes back to find out.
+   * Legacy follow-up list for investigations left unanswered after the attendance was closed.
+   * This is intentionally separate from the three task-status tabs: it is a closed-visit
+   * follow-up view, not an "in progress" task state.
    */
   async getOutstandingResultsWorklist(query: WorklistQuery = {}): Promise<any> {
+    const closedAtRange: any = {};
+    if (query.dateFrom) closedAtRange.gte = query.dateFrom;
+    if (query.dateTo) closedAtRange.lte = query.dateTo;
+    if (!Object.keys(closedAtRange).length) closedAtRange.gte = daysAgo(WORKLIST_OPEN_DAYS);
     const rows = await this.findQueueAttendances(
-      this.attendanceQueueWhere('outstanding', query, {
+      {
+        status: { in: CLOSED_ATTENDANCE_STATUSES },
+        updatedAt: closedAtRange,
         encounterCategory: { in: ['opd', 'ipd', 'daycase'] },
         ...(query.attendanceTypes?.length ? { attendanceType: { in: query.attendanceTypes } } : {}),
-      }),
+        OR: [
+          { LabTest: { some: { status: { in: [...UNANSWERED_INVESTIGATION.labTest] } } } },
+          { Scan: { some: { status: { in: [...UNANSWERED_INVESTIGATION.scan] } } } },
+          { Procedure: { some: { status: { in: [...UNANSWERED_INVESTIGATION.procedure] } } } },
+        ],
+      },
       {
         Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
         CounterClient: { select: { name: true, ageYears: true } },
