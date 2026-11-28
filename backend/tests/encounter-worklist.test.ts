@@ -91,88 +91,85 @@ describe('attendance queue ranking', () => {
 });
 
 describe('vitals worklist view', () => {
-  it('asks only for visits that are still open by default', async () => {
-    const { repository, findMany } = queueRepository();
-
+  it('keeps pending visits without a recorded vitals task', async () => {
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'completed', Vitals: [] }),
+    ]);
     const result = await repository.getVitalsWorklist();
     const where = firstWhere(findMany);
 
     expect(result.view).toBe('pending');
-    expect(where.status).toEqual({ in: ['pending', 'admitted'] });
-    expect(CLOSED_ATTENDANCE_STATUSES.some((s) => where.status.in.includes(s))).toBe(false);
-    expect(where.dateTime).toBeUndefined();
+    expect(where.status).toEqual({ not: 'cancelled' });
+    expect(where.vitalsStartedAt).toBeNull();
+    expect(result.buckets.today).toBe(1);
+    expect(where.NOT).toEqual({ Vitals: { some: {} } });
   });
 
-  it('orders today before an older pending visit and an earlier admission', async () => {
-    const { repository } = queueRepository([
-      attendanceRow({ id: 'overdue', attendanceNumber: 'ATT-2', status: 'pending', dateTime: daysAgo(9) }),
-      attendanceRow({ id: 'inpatient', attendanceNumber: 'ATT-3', status: 'admitted', dateTime: daysAgo(20) }),
-      attendanceRow({ id: 'today', attendanceNumber: 'ATT-1', status: 'pending', dateTime: new Date() }),
+  it('shows completed vitals by the actual recorded task, regardless of attendance closure', async () => {
+    const recordedAt = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'pending', Vitals: [{ recordedAt, bloodPressure: '120/80' }] }),
     ]);
+    const result = await repository.getVitalsWorklist({ view: 'completed' });
+    const where = firstWhere(findMany);
 
-    const result = await repository.getVitalsWorklist();
-
-    expect(result.data.map((row: any) => row.id)).toEqual(['today', 'inpatient', 'overdue']);
-    expect(result.buckets).toEqual({ today: 1, inpatients: 1, overdue: 1, closed: 0 });
-    expect(result.data.map((row: any) => row.queueRank)).toEqual([0, 1, 2]);
+    expect(where.Vitals.some.recordedAt.gte).toBeInstanceOf(Date);
+    expect(where.status).toEqual({ not: 'cancelled' });
+    expect(result.data[0].status).toBe('completed');
+    expect(result.data[0].lastVitals.recordedAt).toEqual(recordedAt);
+    expect(result.buckets.closed).toBe(1);
   });
 
-  it('carries the attendance number and visit date on every row', async () => {
-    const openedOn = daysAgo(3);
-    const { repository } = queueRepository([
-      attendanceRow({ attendanceNumber: 'ATT-0000042', dateTime: openedOn, status: 'pending' }),
+  it('shows in-progress vitals only when an explicit start event exists', async () => {
+    const startedAt = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'completed', vitalsStartedAt: startedAt, Vitals: [] }),
     ]);
+    const result = await repository.getVitalsWorklist({ view: 'in_progress' });
+    const where = firstWhere(findMany);
 
-    const [row] = (await repository.getVitalsWorklist()).data;
-
-    expect(row.attendanceNumber).toBe('ATT-0000042');
-    expect(row.attendanceDateTime).toEqual(openedOn);
-    expect(row.attendanceStatus).toBe('pending');
+    expect(where.vitalsStartedAt).toEqual({ not: null });
+    expect(where.NOT).toEqual({ Vitals: { some: {} } });
+    expect(result.inProgress).toBe(1);
+    expect(result.data[0].status).toBe('in_progress');
+    expect(result.data[0].vitalsStartedAt).toEqual(startedAt);
   });
 
-  it('reads a date filter as the visit date', async () => {
+  it('records an audited vitals start event without completing the task', async () => {
+    const started = { id: 'attendance-1', status: 'completed', vitalsStartedAt: new Date() };
+    const attendance = {
+      findUnique: vi.fn()
+        .mockResolvedValueOnce({ id: 'attendance-1', status: 'completed', vitalsStartedAt: null })
+        .mockResolvedValueOnce(started),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const tx = {
+      attendance,
+      vitals: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    const result = await repository.startVitalsTask('attendance-1', 'nurse-1');
+
+    expect(attendance.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'attendance-1', status: { not: 'cancelled' }, vitalsStartedAt: null },
+      data: expect.objectContaining({ vitalsStartedById: 'nurse-1' }),
+    }));
+    expect(result.vitalsStartedAt).toBeInstanceOf(Date);
+  });
+
+  it('applies explicit date ranges to the vitals task completion timestamp', async () => {
     const dateFrom = new Date(Date.UTC(2026, 9, 1));
     const dateTo = new Date(Date.UTC(2026, 9, 31, 23, 59, 59, 999));
     const { repository, findMany } = queueRepository();
 
-    await repository.getVitalsWorklist({ view: 'pending', dateFrom, dateTo });
+    await repository.getVitalsWorklist({ view: 'completed', dateFrom, dateTo });
 
-    expect(firstWhere(findMany).dateTime).toEqual({ gte: dateFrom, lte: dateTo });
-  });
-
-  it('reads the completed view as visits closed today once the queue moved on', async () => {
-    const { repository, findMany } = queueRepository();
-
-    const result = await repository.getVitalsWorklist({ view: 'completed' });
-    const where = firstWhere(findMany);
-
-    expect(result.view).toBe('completed');
-    expect(where.status.in).toEqual(CLOSED_ATTENDANCE_STATUSES);
-    expect(where.dateTime).toBeUndefined();
-    expect(where.updatedAt.gte.getUTCHours()).toBe(0);
-    expect(where.updatedAt.gte.getUTCMinutes()).toBe(0);
-    expect(where.updatedAt.gte.getTime()).toBeLessThanOrEqual(Date.now());
-  });
-
-  it('lets an explicit range date the completed view by the visit instead', async () => {
-    const dateFrom = new Date(Date.UTC(2026, 9, 5));
-    const { repository, findMany } = queueRepository();
-
-    await repository.getVitalsWorklist({ view: 'completed', dateFrom });
-    const where = firstWhere(findMany);
-
-    expect(where.dateTime).toEqual({ gte: dateFrom });
-    expect(where.updatedAt).toBeUndefined();
-  });
-
-  it('reads the queue newest-first and re-ranks it itself', async () => {
-    const { repository, findMany } = queueRepository([attendanceRow()]);
-
-    await repository.getVitalsWorklist();
-    const args = findMany.mock.calls[0][0];
-
-    expect(args.orderBy).toEqual({ dateTime: 'desc' });
-    expect(args.take).toBeGreaterThan(0);
+    expect(firstWhere(findMany).Vitals.some.recordedAt).toEqual({ gte: dateFrom, lte: dateTo });
   });
 });
 
@@ -190,6 +187,140 @@ describe('medical and maternal worklist views', () => {
     expect(result.data[0].attendanceStatus).toBe('pending');
   });
 
+  it('uses saved clinical draft content as consultation in-progress, not open attendance alone', async () => {
+    const draftUpdatedAt = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ medicalNotes: 'History documented', finalizedAt: null, updatedAt: draftUpdatedAt }),
+    ]);
+
+    const result = await repository.getMedicalWorklist({ view: 'in_progress' });
+    const where = firstWhere(findMany);
+
+    expect(where.finalizedAt).toBeNull();
+    expect(where.AND).toEqual([expect.objectContaining({ OR: expect.arrayContaining([
+      { medicalNotes: { not: null } },
+      { assessment: { not: null } },
+    ]) })]);
+    expect(where.status).toBeUndefined();
+    expect(where.updatedAt).toBeUndefined();
+    expect(result.data[0].status).toBe('in_progress');
+    expect(result.inProgress).toBe(1);
+  });
+
+  it('uses clinical finalisation, not attendance closure, for completed consultations', async () => {
+    const finalizedAt = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'pending', finalizedAt, medicalNotes: 'Consultation complete' }),
+    ]);
+
+    const result = await repository.getMedicalWorklist({ view: 'completed' });
+    const where = firstWhere(findMany);
+
+    expect(where.finalizedAt).toEqual({ gte: expect.any(Date) });
+    expect(where.status).toBeUndefined();
+    expect(result.data[0].status).toBe('completed');
+    expect(result.data[0].finalizedAt).toEqual(finalizedAt);
+    expect(result.buckets.closed).toBe(1);
+  });
+
+  it('keeps unfinished clinical drafts visible even when the attendance has closed', async () => {
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'completed', medicalNotes: 'Assessment started', finalizedAt: null }),
+    ]);
+
+    const result = await repository.getMedicalWorklist({ view: 'in_progress' });
+
+    expect(firstWhere(findMany).status).toBeUndefined();
+    expect(result.data[0].status).toBe('in_progress');
+  });
+
+  it('uses the saved ANC visit record as completion even if attendance remains open', async () => {
+    const visitDate = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({
+        status: 'pending', attendanceType: 'antenatal',
+        antenatalVisits: [{ id: 'anc-visit-1', visitDate }],
+      }),
+    ]);
+
+    const result = await repository.getMaternalWorklist({ view: 'completed' });
+    const where = firstWhere(findMany);
+
+    expect(where.status).toEqual({ not: 'cancelled' });
+    expect(where.OR).toEqual(expect.arrayContaining([
+      expect.objectContaining({ attendanceType: 'antenatal', antenatalVisits: { some: { visitDate: { gte: expect.any(Date) } } } }),
+    ]));
+    expect(result.data[0].status).toBe('completed');
+    expect(result.data[0].completedAt).toEqual(visitDate);
+    expect(result.buckets.closed).toBe(1);
+  });
+
+  it('does not mark a closed maternal attendance complete without its own clinical record', async () => {
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'completed', attendanceType: 'postnatal' }),
+    ]);
+
+    const result = await repository.getMaternalWorklist({ view: 'completed' });
+
+    expect(firstWhere(findMany).status).toEqual({ not: 'cancelled' });
+    expect(firstWhere(findMany).OR).toEqual(expect.arrayContaining([
+      expect.objectContaining({ attendanceType: 'postnatal', postnatalRecords: { some: { examinationDate: { gte: expect.any(Date) } } } }),
+    ]));
+    // Prisma's relation predicate excludes this closed visit because it has no PostnatalRecord.
+    expect(result.data[0].status).toBe('pending');
+  });
+
+  it('does not invent maternal in-progress work when the form has no saved draft state', async () => {
+    const { repository, findMany } = queueRepository();
+    const result = await repository.getMaternalWorklist({ view: 'in_progress' });
+
+    expect(firstWhere(findMany).OR).toEqual(expect.arrayContaining([
+      expect.objectContaining({ attendanceType: 'antenatal', maternalStartedAt: { not: null }, antenatalVisits: { none: {} } }),
+    ]));
+    expect(result.inProgress).toBe(0);
+  });
+
+  it('shows a started maternal task as in progress even after attendance closure', async () => {
+    const startedAt = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'completed', attendanceType: 'antenatal', maternalStartedAt: startedAt, antenatalVisits: [] }),
+    ]);
+
+    const result = await repository.getMaternalWorklist({ view: 'in_progress' });
+
+    expect(firstWhere(findMany).status).toEqual({ not: 'cancelled' });
+    expect(result.data[0].status).toBe('in_progress');
+    expect(result.data[0].maternalStartedAt).toEqual(startedAt);
+    expect(result.inProgress).toBe(1);
+  });
+
+  it('records a maternal task start event without completing the clinical record', async () => {
+    const started = { id: 'attendance-1', status: 'completed', attendanceType: 'antenatal', maternalStartedAt: new Date() };
+    const attendance = {
+      findUnique: vi.fn()
+        .mockResolvedValueOnce({ id: 'attendance-1', status: 'completed', attendanceType: 'antenatal', maternalStartedAt: null })
+        .mockResolvedValueOnce(started),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const tx = {
+      attendance,
+      aNCVisit: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    const result = await repository.startMaternalTask('attendance-1', 'midwife-1');
+
+    expect(attendance.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'attendance-1', status: { not: 'cancelled' }, maternalStartedAt: null },
+      data: expect.objectContaining({ maternalStartedById: 'midwife-1' }),
+    }));
+    expect(result.maternalStartedAt).toBeInstanceOf(Date);
+  });
+
   it('keeps the maternity queue on maternity visit types', async () => {
     const { repository, findMany } = queueRepository([
       attendanceRow({
@@ -203,10 +334,13 @@ describe('medical and maternal worklist views', () => {
     const where = firstWhere(findMany);
 
     expect(where.attendanceType).toEqual({ in: ['antenatal', 'delivery', 'postnatal'] });
-    expect(where.status).toEqual({ in: ['pending', 'admitted'] });
+    expect(where.status).toEqual({ not: 'cancelled' });
+    expect(where.OR).toEqual(expect.arrayContaining([
+      expect.objectContaining({ attendanceType: 'antenatal', maternalStartedAt: null, antenatalVisits: { none: {} } }),
+    ]));
     expect(result.data[0].attendanceNumber).toBe('ANC-0000003');
     expect(result.data[0].riskLevel).toBe('high');
-    expect(result.buckets).toEqual({ today: 0, inpatients: 1, overdue: 0, closed: 0 });
+    expect(result.buckets).toEqual({ today: 1, inpatients: 0, overdue: 0, closed: 0 });
   });
 });
 
@@ -331,8 +465,9 @@ describe('worklist query parsing', () => {
     expect(parseWorklistQuery({})).toEqual({ view: undefined, dateFrom: null, dateTo: null });
   });
 
-  it('reads a view case-insensitively', () => {
+  it('reads each shared task status case-insensitively', () => {
     expect(parseWorklistQuery({ view: ' OUTSTANDING ' }).view).toBe('outstanding');
+    expect(parseWorklistQuery({ view: ' IN_PROGRESS ' }).view).toBe('in_progress');
   });
 
   it('expands a single day into that whole day', () => {
@@ -367,7 +502,7 @@ describe('worklist query parsing', () => {
   });
 
   it('rejects a view the queue cannot answer rather than silently defaulting', () => {
-    expect(() => parseWorklistQuery({ view: 'admitted' })).toThrow(/pending, completed or outstanding/i);
+    expect(() => parseWorklistQuery({ view: 'admitted' })).toThrow(/pending, in_progress, completed or outstanding/i);
   });
 });
 
@@ -423,7 +558,7 @@ describe('clinical request worklist timestamps', () => {
     const args = labTest.findMany.mock.calls[0][0];
 
     expect(args.where.requestedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
-    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.where.Attendance?.is?.dateTime).toBeUndefined();
     expect(args.orderBy).toEqual({ requestedAt: 'desc' });
     expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
     expect(result.data[0].tests[0].id).toBe('new-request');
@@ -441,10 +576,59 @@ describe('clinical request worklist timestamps', () => {
     const args = medication.findMany.mock.calls[0][0];
 
     expect(args.where.prescribedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
-    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.where.dispensingStartedAt).toBeNull();
+    expect(args.where.Attendance?.is?.dateTime).toBeUndefined();
     expect(args.orderBy).toEqual({ prescribedAt: 'desc' });
     expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
     expect(result.data[0].medications[0].id).toBe('new-rx');
+  });
+
+  it('separates started pharmacy dispensing tasks from pending prescriptions', async () => {
+    const startedAt = new Date('2026-11-24T10:00:00Z');
+    const medication = { findMany: vi.fn(async (_args: any) => [
+      { id: 'started-rx', attendanceId: 'started-visit', name: 'Amoxicillin', status: 'prescribed', prescribedAt: new Date('2026-11-24T09:00:00Z'), dispensingStartedAt: startedAt, dispensedAt: null, StockItem: null, Attendance: requestAttendance('started') },
+    ]) };
+    const repository = new EncounterRepository({ medication } as any);
+    const result = await repository.getPharmacyWorklist({ view: 'in_progress' });
+    const args = medication.findMany.mock.calls[0][0];
+
+    expect(args.where.status).toBe('prescribed');
+    expect(args.where.dispensingStartedAt).toEqual({ not: null });
+    expect(result.view).toBe('in_progress');
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].status).toBe('in_progress');
+    expect(result.data[0].inProgressCount).toBe(1);
+    expect(result.buckets.closed).toBe(0);
+    expect(result.data[0].medications[0].dispensingStartedAt).toEqual(startedAt);
+  });
+
+  it('records a pharmacy start event without changing medication status or stock', async () => {
+    const started = { id: 'rx-1', attendanceId: 'visit-1', status: 'prescribed', dispensingStartedAt: new Date(), dispensingStartedById: 'pharmacist-1' };
+    const medication = {
+      findUnique: vi.fn()
+        .mockResolvedValueOnce({ id: 'rx-1', attendanceId: 'visit-1', status: 'prescribed', dispensingStartedAt: null })
+        .mockResolvedValueOnce(started),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const tx = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'visit-1', status: 'pending' }) },
+      medication,
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'pharmacist-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    const result = await repository.startMedicationDispensing('visit-1', 'rx-1', 'pharmacist-1');
+
+    expect(tx.attendance.findUnique).toHaveBeenCalled();
+    expect(medication.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'rx-1', attendanceId: 'visit-1', status: 'prescribed', dispensingStartedAt: null },
+      data: expect.objectContaining({ dispensingStartedById: 'pharmacist-1' }),
+    }));
+    expect(result.status).toBe('prescribed');
+    expect(result.dispensingStartedAt).toBeInstanceOf(Date);
   });
 
   it('filters scan requests by requestedAt and sorts newest request groups first', async () => {
@@ -459,7 +643,7 @@ describe('clinical request worklist timestamps', () => {
     const args = scan.findMany.mock.calls[0][0];
 
     expect(args.where.requestedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
-    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.where.Attendance?.is?.dateTime).toBeUndefined();
     expect(args.orderBy).toEqual({ requestedAt: 'desc' });
     expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
     expect(result.data[0].scans[0].id).toBe('new-scan');
@@ -477,7 +661,7 @@ describe('clinical request worklist timestamps', () => {
     const args = procedure.findMany.mock.calls[0][0];
 
     expect(args.where.createdAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
-    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.where.Attendance?.is?.dateTime).toBeUndefined();
     expect(args.orderBy).toEqual({ createdAt: 'desc' });
     expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
     expect(result.data[0].procedureNames).toBe('Minor suturing');

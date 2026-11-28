@@ -12,13 +12,15 @@ import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVisits';
+import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
+import { useWorklistStore } from '../store/worklistStore';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
-import { deleteEncounterConsumableUse, getEncounterConsumableUses, getPharmacyWorklist } from '../api';
+import { deleteEncounterConsumableUse, getEncounterConsumableUses, getPharmacyWorklist, startMedicationDispensing } from '../api';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { PrintFormatToggle, getPrintFormat } from '../components/PrintFormatToggle';
 import { getPatientName } from '../utils/patient';
@@ -181,6 +183,9 @@ export default function DispensePatient() {
   const location = useLocation();
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
+  const worklistView = useWorklistStore((s) => s.view);
+  const worklistDateFrom = useWorklistStore((s) => s.dateFrom);
+  const worklistDateTo = useWorklistStore((s) => s.dateTo);
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -215,7 +220,7 @@ export default function DispensePatient() {
   const loadQueue = async () => {
     setQueueLoading(true);
     try {
-      const response: any = await getPharmacyWorklist();
+      const response: any = await getPharmacyWorklist({ view: worklistView, dateFrom: worklistDateFrom || undefined, dateTo: worklistDateTo || undefined });
       // Unwrap the standard API envelope and the worklist object's row array.
       // Also accept direct/intercepted response shapes for transport compatibility.
       const payload = response?.data?.data ?? response?.data ?? response;
@@ -239,7 +244,7 @@ export default function DispensePatient() {
           attendanceNumber: row.attendanceNumber,
           visitDate: row.attendanceDateTime,
           detail: [
-            `${row.prescribedCount ?? 0} to dispense`,
+            worklistView === 'in_progress' ? `${row.inProgressCount ?? 0} in progress` : worklistView === 'completed' ? `${row.dispensedCount ?? 0} dispensed` : `${row.prescribedCount ?? 0} to dispense`,
             row.prescriptionCount ? `${row.prescriptionCount} prescribed` : null,
             firstMed,
           ].filter(Boolean).join(' · '),
@@ -253,6 +258,10 @@ export default function DispensePatient() {
       setQueueLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!id && !(location.state as any)?.patient) void loadQueue();
+  }, [worklistView, worklistDateFrom, worklistDateTo, id]);
 
   const openQueuedVisit = (row: QueuedVisit) => {
     navigate(`/dashboard/dispense/${row.patientId}`, {
@@ -273,7 +282,7 @@ export default function DispensePatient() {
   const loadData = async () => {
     setRefreshing(true);
     try {
-      if (!id && !(location.state as any)?.patient) await loadQueue();
+      // The standalone dispensing queue is refreshed by its task-view effect.
       // The route names the patient, so ask for that patient's record and that
       // patient's visits. This screen used to download the whole patient register and
       // every live visit in the hospital before it could show one prescription list.
@@ -371,7 +380,7 @@ export default function DispensePatient() {
     return Math.max(0, Number(balance?.quantity) || 0);
   };
 
-  const handleDispenseClick = (med: any) => {
+  const handleDispenseClick = async (med: any) => {
     const stock = getStockFor(med);
     if (!user?.departmentId) {
       toastError('Pharmacy department not assigned', 'Assign your user account to the pharmacy/issuing department before dispensing.');
@@ -382,7 +391,17 @@ export default function DispensePatient() {
       toastError('No pharmacy stock', `${med.name} has no stock balance in your assigned issuing department. Check the stock allocation before dispensing.`);
       return;
     }
-    setDispenseModal({ isOpen: true, medication: med, stockItem: { ...stock, dispenseAvailable: available } });
+    try {
+      if (!med.dispensingStartedAt) {
+        await startMedicationDispensing(attendance?.id || selectedAttendanceId, med.id);
+        med = { ...med, dispensingStartedAt: new Date().toISOString() };
+        setPrescriptions((items) => items.map((item) => item.id === med.id ? med : item));
+        void loadQueue();
+      }
+      setDispenseModal({ isOpen: true, medication: med, stockItem: { ...stock, dispenseAvailable: available } });
+    } catch (err: any) {
+      toastError('Could not start dispensing', err.response?.data?.message || err.message || 'Refresh the queue and try again.');
+    }
   };
 
   const handleConfirmDispense = async (quantity: number) => {
@@ -647,18 +666,21 @@ export default function DispensePatient() {
       </div>
 
       {!selectedAttendanceId && (
-        <QueuedVisits
-          title="Dispensing queue"
-          description="Prescriptions waiting to be filled — pick a visit to dispense"
-          icon={Pill}
-          accent="green"
-          rows={queueRows}
-          loading={queueLoading}
-          emptyMessage="No prescriptions are waiting. Open the dispensing list to review dispensed history."
-          onOpen={openQueuedVisit}
-          onRefresh={loadData}
-          onViewAll={() => navigate('/dashboard/pharmacy')}
-        />
+        <>
+          <WorklistViewControls department="pharmacy" />
+          <QueuedVisits
+            title="Dispensing queue"
+            description="Prescriptions waiting to be filled — pick a visit to dispense"
+            icon={Pill}
+            accent="green"
+            rows={queueRows}
+            loading={queueLoading}
+            emptyMessage="No prescriptions are waiting. Open the dispensing list to review dispensed history."
+            onOpen={openQueuedVisit}
+            onRefresh={loadQueue}
+            onViewAll={() => navigate('/dashboard/pharmacy')}
+          />
+        </>
       )}
 
       {selectedAttendanceId && attendance && (
@@ -810,7 +832,7 @@ export default function DispensePatient() {
                             ? <StatusBadge status="dispensed" />
                             : noStock
                             ? <Badge tone="red">Blocked</Badge>
-                            : <StatusBadge status="prescribed" />}
+                            : <StatusBadge status={med.dispensingStartedAt ? 'in_progress' : 'prescribed'} />}
                         </Col>
 
                         {/* 10. Actions */}
@@ -836,7 +858,7 @@ export default function DispensePatient() {
                                 disabled={!canDispense || !hasStock || dispensingId === med.id}
                                 onClick={() => handleDispenseClick(med)}
                               >
-                                Dispense
+                                {med.dispensingStartedAt ? 'Continue' : 'Dispense'}
                               </Button>
                             )}
                             {canDispense && !isDispensed && lowStock && (
@@ -873,7 +895,7 @@ export default function DispensePatient() {
                               {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || 'As directed'}
                             </p>
                           </div>
-                          <StatusBadge status={isDispensed ? 'dispensed' : 'prescribed'} />
+                          <StatusBadge status={isDispensed ? 'dispensed' : med.dispensingStartedAt ? 'in_progress' : 'prescribed'} />
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -934,7 +956,7 @@ export default function DispensePatient() {
                               disabled={!canDispense || !hasStock || dispensingId === med.id}
                               onClick={() => handleDispenseClick(med)}
                             >
-                              Dispense
+                              {med.dispensingStartedAt ? 'Continue' : 'Dispense'}
                             </Button>
                           )}
                           {canDispense && !isDispensed && lowStock && (

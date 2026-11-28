@@ -780,6 +780,8 @@ export class EncounterService extends BaseService {
   // ============================================
   // PHARMACY (FIXED RACE CONDITION)
   // ============================================
+  async startMedicationDispensing(encounterId: string, medicationId: string, userId: string) { return this.repository.startMedicationDispensing(encounterId, medicationId, userId); }
+
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Dispensed quantity must be a positive whole number');
@@ -846,6 +848,7 @@ export class EncounterService extends BaseService {
     });
   }
 
+  async startVitalsTask(id: string, userId: string) { return this.repository.startVitalsTask(id, userId); }
   async addVitals(id: string, data: AddVitalsDTO, userId: string) { return this.repository.addVitals(id, data, userId); }
   async updateVitals(id: string, data: any, userId?: string) { return this.repository.updateVitals(id, data, userId); }
   async deleteVitals(id: string, userId?: string) { return this.repository.deleteVitals(id, userId); }
@@ -912,6 +915,7 @@ export class EncounterService extends BaseService {
   async getPharmacyWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('pharmacy', query), WORKLIST_CACHE_MS, () => this.repository.getPharmacyWorklist(query)); }
   async getRadiologyWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('scans', query), WORKLIST_CACHE_MS, () => this.repository.getRadiologyWorklist(query)); }
   async getProceduresWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('procedures', query), WORKLIST_CACHE_MS, () => this.repository.getProceduresWorklist(query)); }
+  async startMaternalTask(id: string, userId: string) { return this.repository.startMaternalTask(id, userId); }
   async getMaternalWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('maternal', query), WORKLIST_CACHE_MS, () => this.repository.getMaternalWorklist(query)); }
   // Shown on every dashboard/sidebar: computed at most once every 15 s however many users ask
   async getWorklistSummary() {

@@ -35,6 +35,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.get('/worklist/scans', requireRole(['admin', 'doctor', 'midwife', 'sonographer']), controller.getRadiologyWorklist);
   router.get('/worklist/procedures', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getProceduresWorklist);
   router.get('/worklist/maternal', requireRole(['admin', 'doctor', 'midwife']), controller.getMaternalWorklist);
+  router.post('/:id/maternal/start', requireRole(['admin', 'super_admin', 'doctor', 'midwife']), controller.startMaternalTask);
   // Closed visits still carrying an unanswered lab, scan or procedure — the warning tab.
   router.get('/worklist/outstanding', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer']), controller.getOutstandingWorklist);
   router.get('/worklist/summary', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'sonographer']), controller.getWorklistSummary);
@@ -149,12 +150,18 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
 
   // VITALS
   router.get('/:id/vitals', requireRole(['admin', 'doctor', 'nurse', 'midwife']), controller.getVitalsByEncounter);
+  router.post('/:id/vitals/start', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.startVitalsTask);
   router.post('/:id/vitals', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.addVitals);
   router.put('/vitals/:vitalsId', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.updateVitals);
   router.delete('/vitals/:vitalsId', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.deleteVitals);
 
   // PRESCRIPTIONS + DISPENSING
   router.post('/:id/prescriptions', requireRole(['admin', 'super_admin', 'doctor']), controller.addPrescription);
+  router.post(
+    '/:encounterId/medications/:medicationId/start-dispensing',
+    requireRole(['admin', 'super_admin', 'pharmacist']),
+    controller.startMedicationDispensing,
+  );
   router.put(
     '/:encounterId/medications/:medicationId/dispense',
     requireRole(['admin', 'super_admin', 'pharmacist']),

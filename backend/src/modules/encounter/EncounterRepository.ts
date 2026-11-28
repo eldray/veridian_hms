@@ -1461,6 +1461,36 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return medication;
   }
 
+  // Persist the moment a pharmacist begins preparing a prescription. This is a task event,
+  // not a stock movement; stock is still deducted only by the guarded dispense transaction.
+  async startMedicationDispensing(encounterId: string, medicationId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({ where: { id: encounterId }, select: { id: true, status: true } });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
+        throw new ConflictError('Dispensing cannot be started for a closed encounter');
+      }
+      const medication = await tx.medication.findUnique({ where: { id: medicationId } });
+      if (!medication || medication.attendanceId !== encounterId) throw new NotFoundError('Medication', medicationId);
+      if (medication.status !== 'prescribed') throw new ConflictError('Only a prescribed medication can be started for dispensing');
+      if (medication.dispensingStartedAt) return medication;
+      const startedAt = new Date();
+      const changed = await tx.medication.updateMany({
+        where: { id: medicationId, attendanceId: encounterId, status: 'prescribed', dispensingStartedAt: null },
+        data: { dispensingStartedAt: startedAt, dispensingStartedById: actorId },
+      });
+      if (changed.count !== 1) throw new ConflictError('This prescription was changed by another user; refresh the dispensing list');
+      const updated = await tx.medication.findUnique({ where: { id: medicationId } });
+      if (!updated) throw new NotFoundError('Medication', medicationId);
+      await appendClinicalRecordAudit(tx, actorId, 'Medication', medicationId, 'update',
+        { status: 'prescribed', dispensingStartedAt: null },
+        { status: 'prescribed', dispensingStartedAt: startedAt, dispensingStartedById: actorId },
+        { workflow: 'medication_dispensing_started' });
+      return updated;
+    });
+  }
+
   // ✅ PRODUCTION FIX: Dispensing must deduct stock safely using a transaction
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
     // Keep the legacy repository entry point on the same guarded inventory path.
@@ -1538,6 +1568,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       const prescriptionFields = ['dosage', 'frequency', 'duration', 'route', 'instructions', 'doseAmount', 'doseUnit', 'frequencyCode', 'frequencyIntervalHours', 'durationValue', 'durationUnit', 'quantityUnit', 'prnIndication', 'prnMaxDosesPerDay', 'prnMinimumIntervalHours'];
       if (prescriptionFields.some((field) => data[field] !== undefined) || data.notes !== undefined) {
         await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
+      }
+      if (med.dispensingStartedAt && prescriptionFields.some((field) => data[field] !== undefined)) {
+        throw new ConflictError('A prescription cannot be edited after pharmacy dispensing has started; ask pharmacy to resolve the in-progress task first');
       }
       if (med.status !== 'prescribed' && prescriptionFields.some((field) => data[field] !== undefined)) {
         throw new ConflictError('Only an undispensed prescription can be edited; dispensed or administered medication requires a documented clinical correction workflow');
@@ -1901,9 +1934,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.findFirst({
         where: { id: medicationId, attendanceId: encounterId },
-        select: { id: true, status: true, quantity: true, prescribedAt: true, prescribedById: true },
+        select: { id: true, status: true, quantity: true, prescribedAt: true, prescribedById: true, dispensingStartedAt: true },
       });
       if (!medication) throw new NotFoundError('Medication', medicationId);
+      if (medication.dispensingStartedAt) {
+        throw new ConflictError('A prescription with pharmacy dispensing in progress cannot be deleted; resolve the pharmacy task first');
+      }
       if (medication.status === 'dispensed' || medication.status === 'administered') {
         throw new ConflictError('A dispensed or administered medication cannot be removed as an ordinary deletion; document a dispensing return or clinical correction');
       }
@@ -3610,11 +3646,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
    * yesterday's work, so it is dated by when it was closed, not when it started.
    */
   private attendanceQueueWhere(
-    view: 'pending' | 'completed' | 'outstanding',
+    view: 'pending' | 'in_progress' | 'completed',
     query: WorklistQuery,
     extra: any = {},
   ): any {
     const where: any = { ...extra };
+    if (view === 'in_progress') return { ...where, id: '__no_persisted_task_progress__' };
     const range: any = {};
     if (query.dateFrom) range.gte = query.dateFrom;
     if (query.dateTo) range.lte = query.dateTo;
@@ -3634,18 +3671,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       where.updatedAt = { gte: daysAgo(WORKLIST_OPEN_DAYS) };
     }
 
-    if (view === 'outstanding') {
-      where.OR = [
-        { LabTest: { some: { status: { in: [...UNANSWERED_INVESTIGATION.labTest] } } } },
-        { Scan: { some: { status: { in: [...UNANSWERED_INVESTIGATION.scan] } } } },
-        { Procedure: { some: { status: { in: [...UNANSWERED_INVESTIGATION.procedure] } } } },
-      ];
-    }
     return where;
   }
 
   /** Date filters for item queues use the timestamp of the requested work, never the parent visit. */
-  private workItemDateWhere(query: WorklistQuery, field: 'requestedAt' | 'prescribedAt' | 'createdAt' | 'updatedAt'): Record<string, any> {
+  private workItemDateWhere(query: WorklistQuery, field: 'requestedAt' | 'prescribedAt' | 'dispensedAt' | 'dispensingStartedAt' | 'createdAt' | 'updatedAt'): Record<string, any> {
     const range: Record<string, Date> = {};
     if (query.dateFrom) range.gte = query.dateFrom;
     if (query.dateTo) range.lte = query.dateTo;
@@ -3657,24 +3687,98 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return this.getModel().findMany({ where, include, orderBy: { dateTime: 'desc' }, take: WORKLIST_ROW_LIMIT });
   }
 
+  async startVitalsTask(attendanceId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, status: true, vitalsStartedAt: true },
+      });
+      if (!attendance) throw new NotFoundError('Encounter', attendanceId);
+      if (attendance.status === 'cancelled') throw new ConflictError('Vitals cannot be started for a cancelled attendance');
+
+      const completedToday = await tx.vitals.findFirst({
+        where: { attendanceId },
+        select: { id: true },
+      });
+      if (completedToday) return attendance;
+      if (attendance.vitalsStartedAt) return attendance;
+
+      const startedAt = new Date();
+      const claimed = await tx.attendance.updateMany({
+        where: { id: attendanceId, status: { not: 'cancelled' }, vitalsStartedAt: null },
+        data: { vitalsStartedAt: startedAt, vitalsStartedById: actorId },
+      });
+      if (claimed.count !== 1) {
+        const latest = await tx.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, status: true, vitalsStartedAt: true } });
+        if (latest?.vitalsStartedAt) return latest;
+        throw new ConflictError('The vitals task changed in another session; refresh the waiting list');
+      }
+
+      const updated = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, status: true, vitalsStartedAt: true },
+      });
+      if (!updated) throw new NotFoundError('Encounter', attendanceId);
+      await appendClinicalRecordAudit(tx, actorId, 'Attendance', attendanceId, 'update',
+        { vitalsStartedAt: null },
+        { vitalsStartedAt: startedAt, vitalsStartedById: actorId },
+        { workflow: 'vitals_task_started' });
+      return updated;
+    });
+  }
+
   async getVitalsWorklist(query: WorklistQuery = {}): Promise<any> {
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const view = query.view || 'pending';
+    const recordedRange: any = {};
+    if (query.dateFrom) recordedRange.gte = query.dateFrom;
+    if (query.dateTo) recordedRange.lte = query.dateTo;
+    if (view === 'completed' && !Object.keys(recordedRange).length) recordedRange.gte = today;
+    const startedRange: any = {};
+    if (query.dateFrom) startedRange.gte = query.dateFrom;
+    if (query.dateTo) startedRange.lte = query.dateTo;
+
+    // A saved vitals reading completes the task; an explicit start event makes it In Progress.
+    // Attendance closure does not erase unfinished vitals work.
+    const where: any = {
+      encounterCategory: { in: ['opd', 'ipd', 'daycase'] },
+      attendanceType: { not: 'walk_in' },
+      status: { not: 'cancelled' },
+    };
+    if (view === 'completed') {
+      where.Vitals = { some: { recordedAt: recordedRange } };
+    } else if (view === 'in_progress') {
+      where.vitalsStartedAt = Object.keys(startedRange).length ? startedRange : { not: null };
+      where.NOT = { Vitals: { some: {} } };
+    } else {
+      where.vitalsStartedAt = null;
+      where.NOT = { Vitals: { some: {} } };
+      if (query.dateFrom || query.dateTo) {
+        const visitRange: any = {};
+        if (query.dateFrom) visitRange.gte = query.dateFrom;
+        if (query.dateTo) visitRange.lte = query.dateTo;
+        where.dateTime = visitRange;
+      }
+    }
+
     const activeAttendances = await this.findQueueAttendances(
-      this.attendanceQueueWhere(view, query, {
-        // A counter ticket is not a clinical queue: it has no vitals or consultation note to
-        // write, so including it would leave a permanent "pending" row and skew wait times.
-        encounterCategory: { in: ['opd', 'ipd', 'daycase'] }, attendanceType: { not: 'walk_in' },
-      }),
-      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
+      where,
+      {
+        Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
+        CounterClient: { select: { name: true, ageYears: true } },
+        Bed: { include: { Ward: true } },
+        Vitals: { where: view === 'completed' ? { recordedAt: recordedRange } : {}, orderBy: { recordedAt: 'desc' }, take: 1 },
+      },
     );
     activeAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
 
     const processedItems = activeAttendances.map((attendance: any) => {
       const identity = this.displayIdentity(attendance);
       const lastVitals = attendance.Vitals?.[0];
-      const hasVitalsToday = lastVitals ? new Date(lastVitals.recordedAt).toDateString() === today.toDateString() : false;
-      const waitTime = hasVitalsToday ? 0 : Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000);
+      const hasVitalsToday = Boolean(lastVitals);
+      const waitAnchor = view === 'in_progress' && attendance.vitalsStartedAt ? attendance.vitalsStartedAt : attendance.dateTime;
+      const waitTime = hasVitalsToday ? 0 : Math.floor((Date.now() - new Date(waitAnchor).getTime()) / 60000);
       let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       if (!hasVitalsToday) { const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
 
@@ -3684,18 +3788,20 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         attendanceDateTime: identity.attendanceDateTime,
         queueRank: attendanceQueueRank(attendance),
         attendanceStatus: identity.attendanceStatus,
+        vitalsStartedAt: attendance.vitalsStartedAt ?? null,
         patient: identity.patient,
         location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined,
         hasVitalsToday, lastVitals: lastVitals ? { bloodPressure: lastVitals.bloodPressure, temperature: lastVitals.temperature, pulse: lastVitals.pulse, respiration: lastVitals.respiration, spo2: lastVitals.spo2, recordedAt: lastVitals.recordedAt } : null,
-        waitTime, priority, status: hasVitalsToday ? 'vitals_done' : 'pending_vitals', encounterCategory: attendance.encounterCategory
+        waitTime, priority, status: hasVitalsToday ? 'completed' : (attendance.vitalsStartedAt ? 'in_progress' : 'pending'), encounterCategory: attendance.encounterCategory
       };
     });
     return {
       view,
       total: processedItems.length,
-      pending: processedItems.filter((i: any) => !i.hasVitalsToday).length,
-      recent: processedItems.filter((i: any) => i.hasVitalsToday).length,
-      buckets: bucketsOf(processedItems),
+      pending: processedItems.filter((i: any) => i.status === 'pending').length,
+      inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length,
+      completed: processedItems.filter((i: any) => i.status === 'completed').length,
+      buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : view === 'pending' ? { today: processedItems.length, inpatients: 0, overdue: 0, closed: 0 } : { today: 0, inpatients: 0, overdue: 0, closed: 0 },
       data: processedItems,
     };
   }
@@ -3703,23 +3809,65 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async getMedicalWorklist(query: WorklistQuery = {}): Promise<any> {
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const view = query.view || 'pending';
+    const dateRange: any = {};
+    if (query.dateFrom) dateRange.gte = query.dateFrom;
+    if (query.dateTo) dateRange.lte = query.dateTo;
+    if (!Object.keys(dateRange).length && view === 'completed') dateRange.gte = today;
+
+    // A consultation is in progress only when a clinician has actually saved clinical
+    // content. Attendance being open/admitted is not evidence that consultation has started.
+    // Finalisation is the completion event; unfinished drafts remain visible after attendance
+    // closure so closing the visit cannot silently complete the consultation task.
+    const hasClinicalDraft = {
+      OR: [
+        { medicalNotes: { not: null } },
+        { assessment: { not: null } },
+        { treatmentPlan: { not: null } },
+        { historyPresentingComplaint: { not: null } },
+        { physicalExamination: { not: null } },
+      ],
+    };
+    const baseWhere: any = {
+      encounterCategory: { in: ['opd', 'ipd', 'daycase'] },
+      attendanceType: { not: 'walk_in' },
+    };
+    if (view === 'completed') {
+      baseWhere.finalizedAt = Object.keys(dateRange).length ? dateRange : { gte: daysAgo(WORKLIST_DONE_HOURS / 24) };
+    } else if (view === 'in_progress') {
+      baseWhere.finalizedAt = null;
+      baseWhere.AND = [hasClinicalDraft];
+      if (Object.keys(dateRange).length) baseWhere.updatedAt = dateRange;
+    } else {
+      baseWhere.status = { in: ['pending', 'admitted'] };
+      baseWhere.finalizedAt = null;
+      baseWhere.NOT = hasClinicalDraft;
+      if (Object.keys(dateRange).length) baseWhere.dateTime = dateRange;
+    }
+
     const activeAttendances = await this.findQueueAttendances(
-      this.attendanceQueueWhere(view, query, {
-        // A counter ticket is not a clinical queue: it has no vitals or consultation note to
-        // write, so including it would leave a permanent "pending" row and skew wait times.
-        encounterCategory: { in: ['opd', 'ipd', 'daycase'] }, attendanceType: { not: 'walk_in' },
-      }),
-      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 }, AttendanceDiagnosis: { take: 1 } },
+      baseWhere,
+      {
+        Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
+        CounterClient: { select: { name: true, ageYears: true } },
+        Bed: { include: { Ward: true } },
+        Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 },
+        AttendanceDiagnosis: { take: 1 },
+      },
     );
     activeAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
 
     const processedItems = activeAttendances.map((attendance: any) => {
       const identity = this.displayIdentity(attendance);
       const hasVitalsToday = (attendance.Vitals?.length || 0) > 0;
-      const hasMedicalNotesToday = attendance.medicalNotes !== null && attendance.medicalNotes !== '';
+      const hasMedicalNotesToday = Boolean(
+        attendance.medicalNotes || attendance.assessment || attendance.treatmentPlan ||
+        attendance.historyPresentingComplaint || attendance.physicalExamination
+      );
       const hasDiagnosis = (attendance.AttendanceDiagnosis?.length || 0) > 0;
-      const isPending = hasVitalsToday && !hasMedicalNotesToday && !hasDiagnosis;
-      const waitTime = isPending ? Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000) : 0;
+      const isFinalized = Boolean(attendance.finalizedAt);
+      const waitTime = !hasMedicalNotesToday && !isFinalized
+        ? Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000)
+        : 0;
       let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       const waitHours = waitTime / 60;
       if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent';
@@ -3733,20 +3881,19 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         patient: identity.patient,
         location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined,
         hasMedicalNotesToday, vitals: attendance.Vitals?.[0], hasDiagnosis, waitTime, priority,
-        status: isPending ? 'pending_doctor' : (hasMedicalNotesToday ? 'reviewed' : 'pending_vitals_first'), encounterCategory: attendance.encounterCategory
+        finalizedAt: attendance.finalizedAt,
+        status: isFinalized ? 'completed' : (hasMedicalNotesToday ? 'in_progress' : (hasVitalsToday ? 'pending_doctor' : 'pending_vitals_first')),
+        encounterCategory: attendance.encounterCategory,
       };
     });
     return {
       view,
       total: processedItems.length,
-      pending: processedItems.filter((i: any) => i.status === 'pending_doctor').length,
-      reviewed: processedItems.filter((i: any) => i.hasMedicalNotesToday).length,
-      // "To do" is only the visits still waiting for a consultation; the pending query also
-      // carries reviewed visits so the queue can show them under its Reviewed tab, and counting
-      // those as outstanding work made the tab disagree with the list it opens.
-      buckets: bucketsOf(view === 'pending'
-        ? processedItems.filter((i: any) => i.status === 'pending_doctor')
-        : processedItems),
+      pending: processedItems.filter((i: any) => i.status === 'pending_doctor' || i.status === 'pending_vitals_first').length,
+      inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length,
+      completed: processedItems.filter((i: any) => i.status === 'completed').length,
+      reviewed: processedItems.filter((i: any) => i.status === 'completed').length,
+      buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : bucketsOf(processedItems),
       data: processedItems,
     };
   }
@@ -3757,23 +3904,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     // To do: an unanswered request on a visit still open — the patient is here. Awaiting
     // results: the same request on a visit already closed, which would otherwise vanish when the
     // visit closes. Completed: tests answered in the last 72 hours.
-    const where: any = view === 'completed'
-      ? {
-        status: 'completed',
-        updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...itemDateFilter,
-      }
-      : {
-        status: { in: ['requested', 'in_progress'] },
-        requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
-        ...itemDateFilter,
-        Attendance: {
-          is: {
-            status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-
-          },
-        },
-      };
+    const statusForView = view === 'completed' ? 'completed' : view === 'in_progress' ? 'in_progress' : 'requested';
+    const where: any = {
+      status: statusForView,
+      ...(view === 'completed'
+        ? { updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }
+        : { requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }),
+      ...itemDateFilter,
+    };
     const allLabTests = await this.prisma.labTest.findMany({
       where,
       select: {
@@ -3823,33 +3961,21 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       today: view === 'pending' ? processedItems.length : 0,
       inpatients: 0,
       overdue: 0,
-      closed: view === 'pending' ? 0 : processedItems.length,
+      closed: view === 'completed' ? processedItems.length : 0,
     };
     return { view, total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingTests).length, completed: processedItems.filter((i: any) => i.hasResults).length, inProgress: processedItems.filter((i: any) => i.inProgressCount > 0).length, buckets, data: processedItems };
   }
 
   async getPharmacyWorklist(query: WorklistQuery = {}): Promise<any> {
     const view = query.view ?? 'pending';
-    const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'updatedAt' : 'prescribedAt');
+    const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'dispensedAt' : view === 'in_progress' ? 'dispensingStartedAt' : 'prescribedAt');
     // Prescriptions on open visits are counter work; the same prescription on a closed visit is
     // an outstanding collection the patient left without. Dispensed rows are the completed view.
     const where: any = view === 'completed'
-      ? {
-        status: 'dispensed',
-        updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...itemDateFilter,
-      }
-      : {
-        status: 'prescribed',
-        prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
-        ...itemDateFilter,
-        Attendance: {
-          is: {
-            status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-
-          },
-        },
-      };
+      ? { status: 'dispensed', dispensedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) }, ...itemDateFilter }
+      : view === 'in_progress'
+        ? { status: 'prescribed', dispensingStartedAt: { not: null }, ...itemDateFilter }
+        : { status: 'prescribed', dispensingStartedAt: null, prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) }, ...itemDateFilter };
     const allMedications = await this.prisma.medication.findMany({
       where,
       select: {
@@ -3861,6 +3987,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         duration: true,
         status: true,
         prescribedAt: true,
+        dispensingStartedAt: true,
+        dispensingStartedById: true,
         dispensedAt: true,
         StockItem: { select: { name: true } },
         Attendance: {
@@ -3881,10 +4009,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     for (const med of allMedications) {
       const attendanceId = med.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId: med.attendanceId, ...this.displayIdentity(med.Attendance), location: med.Attendance.Bed ? { ward: med.Attendance.Bed.Ward?.wardName, bed: med.Attendance.Bed.bedNumber } : undefined, medications: [], prescribedCount: 0, dispensedCount: 0, oldestPrescribedAt: med.prescribedAt, newestPrescribedAt: med.prescribedAt });
+        groupedByAttendance.set(attendanceId, { attendanceId: med.attendanceId, ...this.displayIdentity(med.Attendance), location: med.Attendance.Bed ? { ward: med.Attendance.Bed.Ward?.wardName, bed: med.Attendance.Bed.bedNumber } : undefined, medications: [], prescribedCount: 0, inProgressCount: 0, dispensedCount: 0, oldestPrescribedAt: med.prescribedAt, newestPrescribedAt: med.prescribedAt });
       }
       const group = groupedByAttendance.get(attendanceId)!; group.medications.push(med);
-      if (med.status === 'prescribed') group.prescribedCount++; else if (med.status === 'dispensed') group.dispensedCount++;
+      if (med.status === 'prescribed' && med.dispensingStartedAt) group.inProgressCount++; else if (med.status === 'prescribed') group.prescribedCount++; else if (med.status === 'dispensed') group.dispensedCount++;
       if (new Date(med.prescribedAt) < new Date(group.oldestPrescribedAt)) group.oldestPrescribedAt = med.prescribedAt;
       if (new Date(med.prescribedAt) > new Date(group.newestPrescribedAt)) group.newestPrescribedAt = med.prescribedAt;
     }
@@ -3892,19 +4020,20 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     for (const group of groupedByAttendance.values()) {
       group.medications.sort((a: any, b: any) => queueTimeKey(b.prescribedAt) - queueTimeKey(a.prescribedAt));
       const hasPendingPrescriptions = group.prescribedCount > 0;
-      const allDispensed = group.prescribedCount === 0 && group.dispensedCount > 0;
+      const hasInProgressPrescriptions = group.inProgressCount > 0;
+      const allDispensed = group.prescribedCount === 0 && group.inProgressCount === 0 && group.dispensedCount > 0;
       let waitTime = 0; let priority: 'routine' | 'urgent' | 'stat' = 'routine';
-      if (hasPendingPrescriptions) { waitTime = Math.floor((Date.now() - new Date(group.oldestPrescribedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
-      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, prescriptionCount: group.prescribedCount + group.dispensedCount, prescribedCount: group.prescribedCount, dispensedCount: group.dispensedCount, hasPendingPrescriptions, hasBeenDispensed: allDispensed, oldestPrescribedAt: group.oldestPrescribedAt, newestPrescribedAt: group.newestPrescribedAt, medications: group.medications.map((m: any) => ({ id: m.id, name: m.StockItem?.name || m.name, dosage: m.dosage, frequency: m.frequency, duration: m.duration, status: m.status, prescribedAt: m.prescribedAt, dispensedAt: m.dispensedAt })), waitTime, priority, status: hasPendingPrescriptions ? 'pending' : (allDispensed ? 'dispensed' : 'partial'), encounterCategory: 'ipd' });
+      if (hasPendingPrescriptions || hasInProgressPrescriptions) { const waitAnchor = hasPendingPrescriptions ? group.oldestPrescribedAt : group.medications.map((med: any) => med.dispensingStartedAt).filter(Boolean).sort((a: Date, b: Date) => new Date(a).getTime() - new Date(b).getTime())[0] || group.oldestPrescribedAt; waitTime = Math.floor((Date.now() - new Date(waitAnchor).getTime()) / 60000); const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
+      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, prescriptionCount: group.prescribedCount + group.inProgressCount + group.dispensedCount, prescribedCount: group.prescribedCount, inProgressCount: group.inProgressCount, dispensedCount: group.dispensedCount, hasPendingPrescriptions, hasBeenDispensed: allDispensed, oldestPrescribedAt: group.oldestPrescribedAt, newestPrescribedAt: group.newestPrescribedAt, medications: group.medications.map((m: any) => ({ id: m.id, name: m.StockItem?.name || m.name, dosage: m.dosage, frequency: m.frequency, duration: m.duration, status: m.status, prescribedAt: m.prescribedAt, dispensingStartedAt: m.dispensingStartedAt, dispensedAt: m.dispensedAt })), waitTime, priority, status: hasPendingPrescriptions ? 'pending' : (hasInProgressPrescriptions ? 'in_progress' : (allDispensed ? 'dispensed' : 'partial')), encounterCategory: 'ipd' });
     }
     processedItems.sort((a: any, b: any) => queueTimeKey(b.newestPrescribedAt) - queueTimeKey(a.newestPrescribedAt));
     const buckets = {
       today: view === 'pending' ? processedItems.length : 0,
       inpatients: 0,
       overdue: 0,
-      closed: view === 'pending' ? 0 : processedItems.length,
+      closed: view === 'completed' ? processedItems.length : 0,
     };
-    return { view, total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingPrescriptions).length, dispensed: processedItems.filter((i: any) => i.hasBeenDispensed).length, buckets, data: processedItems };
+    return { view, total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingPrescriptions).length, inProgress: processedItems.filter((i: any) => i.inProgressCount > 0).length, dispensed: processedItems.filter((i: any) => i.hasBeenDispensed).length, buckets, data: processedItems };
   }
 
   async getRadiologyWorklist(query: WorklistQuery = {}): Promise<any> {
@@ -3912,23 +4041,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'updatedAt' : 'requestedAt');
     // To do: a scan requested on a visit still open. Awaiting results: the same request on a
     // visit already closed. Completed: scans reported in the last 72 hours.
-    const where: any = view === 'completed'
-      ? {
-        status: 'completed',
-        updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...itemDateFilter,
-      }
-      : {
-        status: { in: ['requested', 'in_progress'] },
-        requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
-        ...itemDateFilter,
-        Attendance: {
-          is: {
-            status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-
-          },
-        },
-      };
+    const statusForView = view === 'completed' ? 'completed' : view === 'in_progress' ? 'in_progress' : 'requested';
+    const where: any = {
+      status: statusForView,
+      ...(view === 'completed'
+        ? { updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }
+        : { requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }),
+      ...itemDateFilter,
+    };
     const allScans = await this.prisma.scan.findMany({
       where,
       include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ScanTemplate: true, User_Scan_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'desc' }
@@ -3986,23 +4106,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const itemDateFilter = this.workItemDateWhere(query, view === 'completed' ? 'updatedAt' : 'createdAt');
     // Theatre work on an open visit; a procedure still scheduled on a closed visit is the
     // outcome that slipped through and needs chasing. Completed rows are the last 72 hours.
-    const where: any = view === 'completed'
-      ? {
-        status: 'completed',
-        updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) },
-        ...itemDateFilter,
-      }
-      : {
-        status: { in: ['scheduled', 'in_progress'] },
-        createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) },
-        ...itemDateFilter,
-        Attendance: {
-          is: {
-            status: { in: view === 'outstanding' ? CLOSED_ATTENDANCE_STATUSES : ['pending', 'admitted'] },
-
-          },
-        },
-      };
+    const statusForView = view === 'completed' ? 'completed' : view === 'in_progress' ? 'in_progress' : 'scheduled';
+    const where: any = {
+      status: statusForView,
+      ...(view === 'completed'
+        ? { updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }
+        : { createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }),
+      ...itemDateFilter,
+    };
     const allProcedures = await this.prisma.procedure.findMany({
       where,
       include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { createdAt: 'desc' }
@@ -4042,12 +4153,100 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return { view, total: processedItems.length, scheduled: processedItems.filter((i: any) => i.status === 'scheduled').length, inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length, completed: processedItems.filter((i: any) => i.status === 'completed').length, buckets, data: processedItems };
   }
 
+  async startMaternalTask(attendanceId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, status: true, attendanceType: true, maternalStartedAt: true },
+      });
+      if (!attendance) throw new NotFoundError('Encounter', attendanceId);
+      if (!['antenatal', 'delivery', 'postnatal'].includes(attendance.attendanceType)) {
+        throw new ValidationError('This attendance is not a maternal visit');
+      }
+      if (attendance.status === 'cancelled') throw new ConflictError('A maternal task cannot be started for a cancelled attendance');
+
+      const existingRecord = attendance.attendanceType === 'antenatal'
+        ? await tx.aNCVisit.findFirst({ where: { attendanceId }, select: { id: true } })
+        : attendance.attendanceType === 'delivery'
+          ? await tx.deliveryRecord.findFirst({ where: { attendanceId }, select: { id: true } })
+          : await tx.postnatalRecord.findFirst({ where: { attendanceId }, select: { id: true } });
+      if (existingRecord) return attendance;
+      if (attendance.maternalStartedAt) return attendance;
+
+      const startedAt = new Date();
+      const claimed = await tx.attendance.updateMany({
+        where: { id: attendanceId, status: { not: 'cancelled' }, maternalStartedAt: null },
+        data: { maternalStartedAt: startedAt, maternalStartedById: actorId },
+      });
+      if (claimed.count !== 1) {
+        const latest = await tx.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, status: true, attendanceType: true, maternalStartedAt: true } });
+        if (latest?.maternalStartedAt) return latest;
+        throw new ConflictError('The maternal task changed in another session; refresh the waiting list');
+      }
+
+      const updated = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, status: true, attendanceType: true, maternalStartedAt: true },
+      });
+      if (!updated) throw new NotFoundError('Encounter', attendanceId);
+      await appendClinicalRecordAudit(tx, actorId, 'Attendance', attendanceId, 'update',
+        { maternalStartedAt: null },
+        { maternalStartedAt: startedAt, maternalStartedById: actorId },
+        { workflow: 'maternal_task_started', visitType: attendance.attendanceType });
+      return updated;
+    });
+  }
+
   async getMaternalWorklist(query: WorklistQuery = {}): Promise<any> {
-    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const view = query.view || 'pending';
+    const range: any = {};
+    if (query.dateFrom) range.gte = query.dateFrom;
+    if (query.dateTo) range.lte = query.dateTo;
+    if (view === 'completed' && !Object.keys(range).length) range.gte = startOfCurrentDay();
+
+    // Each maternal attendance has one task-start event and one matching clinical record.
+    // Unfinished work remains visible after attendance closure; cancelled visits are excluded.
+    const maternalTypes = ['antenatal', 'delivery', 'postnatal'];
+    const where: any = { attendanceType: { in: maternalTypes }, status: { not: 'cancelled' } };
+    const taskRelations: Record<string, any> = {
+      antenatal: { antenatalVisits: { some: Object.keys(range).length ? { visitDate: range } : {} } },
+      delivery: { deliveryRecords: { some: Object.keys(range).length ? { deliveryDate: range } : {} } },
+      postnatal: { postnatalRecords: { some: Object.keys(range).length ? { examinationDate: range } : {} } },
+    };
+    const pendingRelations: Record<string, any> = {
+      antenatal: { antenatalVisits: { none: {} }, maternalStartedAt: null },
+      delivery: { deliveryRecords: { none: {} }, maternalStartedAt: null },
+      postnatal: { postnatalRecords: { none: {} }, maternalStartedAt: null },
+    };
+    const inProgressRelations: Record<string, any> = {
+      antenatal: { antenatalVisits: { none: {} }, maternalStartedAt: { not: null } },
+      delivery: { deliveryRecords: { none: {} }, maternalStartedAt: { not: null } },
+      postnatal: { postnatalRecords: { none: {} }, maternalStartedAt: { not: null } },
+    };
+    if (view === 'in_progress') {
+      where.OR = maternalTypes.map(type => ({ attendanceType: type, ...inProgressRelations[type] }));
+      if (Object.keys(range).length) where.maternalStartedAt = range;
+    } else if (view === 'completed') {
+      where.OR = maternalTypes.map(type => ({ attendanceType: type, ...taskRelations[type] }));
+    } else {
+      where.OR = maternalTypes.map(type => ({ attendanceType: type, ...pendingRelations[type] }));
+      if (Object.keys(range).length) where.dateTime = range;
+    }
+
     const maternalAttendances = await this.findQueueAttendances(
-      this.attendanceQueueWhere(view, query, { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] } }),
-      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 }, antenatalBookings: true, currentAntenatalBookings: true, antenatalVisits: { orderBy: { visitDate: 'desc' }, take: 1 }, deliveryRecords: { orderBy: { deliveryDate: 'desc' }, take: 1 }, postnatalRecords: { orderBy: { examinationDate: 'desc' }, take: 1 } },
+      where,
+      {
+        Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
+        CounterClient: { select: { name: true, ageYears: true } },
+        Bed: { include: { Ward: true } },
+        Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+        antenatalBookings: true,
+        currentAntenatalBookings: true,
+        antenatalVisits: { where: Object.keys(range).length ? { visitDate: range } : {}, orderBy: { visitDate: 'desc' }, take: 1 },
+        deliveryRecords: { where: Object.keys(range).length ? { deliveryDate: range } : {}, orderBy: { deliveryDate: 'desc' }, take: 1 },
+        postnatalRecords: { where: Object.keys(range).length ? { examinationDate: range } : {}, orderBy: { examinationDate: 'desc' }, take: 1 },
+      },
     );
     maternalAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
     const processedItems = maternalAttendances.map((attendance: any) => {
@@ -4056,29 +4255,60 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       const delivery = attendance.deliveryRecords[0];
       const postnatal = attendance.postnatalRecords[0];
       const lastVitals = attendance.Vitals?.[0];
-      const hasBeenAttended = attendance.status === 'completed' || attendance.status === 'discharged';
-      const completedToday = hasBeenAttended && new Date(attendance.updatedAt).toDateString() === today.toDateString();
-      const waitTime = !hasBeenAttended ? Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000) : 0;
+      const completed = Boolean(attendance.antenatalVisits?.length || attendance.deliveryRecords?.length || attendance.postnatalRecords?.length);
+      const inProgress = !completed && Boolean(attendance.maternalStartedAt);
+      const waitAnchor = inProgress ? attendance.maternalStartedAt : attendance.dateTime;
+      const waitTime = completed ? 0 : Math.floor((Date.now() - new Date(waitAnchor).getTime()) / 60000);
       let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       const riskLevel = antenatal?.riskLevel || 'low';
-      if (!hasBeenAttended) { const waitHours = waitTime / 60; if (riskLevel === 'high' || waitHours > 48) priority = 'stat'; else if (riskLevel === 'medium' || waitHours > 24) priority = 'urgent'; }
-      return { id: attendance.id, patientId: identity.patientId, attendanceId: attendance.id, attendanceNumber: identity.attendanceNumber, attendanceDateTime: identity.attendanceDateTime, queueRank: attendanceQueueRank(attendance), patient: identity.patient, location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined, visitType: attendance.attendanceType as any, status: identity.attendanceStatus, hasBeenAttended: completedToday, completedAt: completedToday ? attendance.updatedAt : undefined, waitTime, priority, riskLevel, encounterCategory: attendance.encounterCategory, gestationalAge: antenatal?.gestationalAgeWeeks, edd: antenatal?.edd, deliveryDate: delivery?.deliveryDate, deliveryType: delivery?.deliveryType, postnatalDay: postnatal?.dayNumber, complaints: attendance.medicalNotes, latestVitals: lastVitals ? { bloodPressure: lastVitals.bloodPressure, temperature: lastVitals.temperature, pulse: lastVitals.pulse } : undefined };
+      if (!completed) { const waitHours = waitTime / 60; if (riskLevel === 'high' || waitHours > 48) priority = 'stat'; else if (riskLevel === 'medium' || waitHours > 24) priority = 'urgent'; }
+      return {
+        id: attendance.id, patientId: identity.patientId, attendanceId: attendance.id,
+        attendanceNumber: identity.attendanceNumber, attendanceDateTime: identity.attendanceDateTime,
+        queueRank: attendanceQueueRank(attendance), patient: identity.patient,
+        location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined,
+        visitType: attendance.attendanceType as any, attendanceStatus: identity.attendanceStatus,
+        maternalStartedAt: attendance.maternalStartedAt ?? null,
+        status: completed ? 'completed' : (inProgress ? 'in_progress' : 'pending'), hasBeenAttended: completed,
+        completedAt: attendance.antenatalVisits?.[0]?.visitDate || delivery?.deliveryDate || postnatal?.examinationDate,
+        waitTime, priority, riskLevel, encounterCategory: attendance.encounterCategory,
+        gestationalAge: antenatal?.gestationalAgeWeeks, edd: antenatal?.edd,
+        deliveryDate: delivery?.deliveryDate, deliveryType: delivery?.deliveryType,
+        postnatalDay: postnatal?.dayNumber, complaints: attendance.medicalNotes,
+        latestVitals: lastVitals ? { bloodPressure: lastVitals.bloodPressure, temperature: lastVitals.temperature, pulse: lastVitals.pulse } : undefined,
+      };
     });
-    return { view, total: processedItems.length, pending: processedItems.filter((i: any) => !i.hasBeenAttended).length, recent: processedItems.filter((i: any) => i.hasBeenAttended).length, buckets: bucketsOf(processedItems), data: processedItems };
+    return {
+      view, total: processedItems.length,
+      pending: processedItems.filter((i: any) => i.status === 'pending').length,
+      inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length,
+      completed: processedItems.filter((i: any) => i.status === 'completed').length,
+      buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : view === 'pending' ? { today: processedItems.length, inpatients: 0, overdue: 0, closed: 0 } : { today: 0, inpatients: 0, overdue: 0, closed: 0 }, data: processedItems,
+    };
   }
 
   /**
-   * Visits that were closed while an investigation was still unanswered: a lab asked for and never
-   * resulted, a scan requested and never reported, a procedure scheduled and never performed. The
-   * visit is out of the pending queue by then, so without this the request simply disappears and the
-   * patient is the one who comes back to find out.
+   * Legacy follow-up list for investigations left unanswered after the attendance was closed.
+   * This is intentionally separate from the three task-status tabs: it is a closed-visit
+   * follow-up view, not an "in progress" task state.
    */
   async getOutstandingResultsWorklist(query: WorklistQuery = {}): Promise<any> {
+    const closedAtRange: any = {};
+    if (query.dateFrom) closedAtRange.gte = query.dateFrom;
+    if (query.dateTo) closedAtRange.lte = query.dateTo;
+    if (!Object.keys(closedAtRange).length) closedAtRange.gte = daysAgo(WORKLIST_OPEN_DAYS);
     const rows = await this.findQueueAttendances(
-      this.attendanceQueueWhere('outstanding', query, {
+      {
+        status: { in: CLOSED_ATTENDANCE_STATUSES },
+        updatedAt: closedAtRange,
         encounterCategory: { in: ['opd', 'ipd', 'daycase'] },
         ...(query.attendanceTypes?.length ? { attendanceType: { in: query.attendanceTypes } } : {}),
-      }),
+        OR: [
+          { LabTest: { some: { status: { in: [...UNANSWERED_INVESTIGATION.labTest] } } } },
+          { Scan: { some: { status: { in: [...UNANSWERED_INVESTIGATION.scan] } } } },
+          { Procedure: { some: { status: { in: [...UNANSWERED_INVESTIGATION.procedure] } } } },
+        ],
+      },
       {
         Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
         CounterClient: { select: { name: true, ageYears: true } },

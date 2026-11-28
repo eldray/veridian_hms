@@ -8,7 +8,7 @@ import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
 import { ValidationError } from '../../utils/errors';
 import { projectEncounterForRole } from './EncounterReadProjection';
 
-const WORKLIST_VIEWS = ['pending', 'completed', 'outstanding'];
+const WORKLIST_VIEWS = ['pending', 'in_progress', 'completed', 'outstanding'];
 
 const ATTENDANCE_TYPES = [
   'emergency_acute', 'antenatal', 'postnatal', 'chronic_followup', 'specialist_consultation',
@@ -34,7 +34,7 @@ export const parseWorklistQuery = (query: Record<string, any> = {}): WorklistQue
   const rawView = typeof query.view === 'string' ? query.view.trim().toLowerCase() : '';
   if (rawView && !WORKLIST_VIEWS.includes(rawView)) {
     throw new ValidationError(
-      `Unknown worklist view "${rawView}". Use pending, completed or outstanding.`,
+      `Unknown worklist view "${rawView}". Use pending, in_progress, completed or outstanding.`,
       [{ field: 'view', message: 'Use pending, completed or outstanding.', code: 'invalid_view' }],
     );
   }
@@ -233,6 +233,12 @@ export class EncounterController extends BaseController {
     return this.ok(res, vitals, 'Vitals retrieved successfully');
   });
 
+  startVitalsTask = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.startVitalsTask(req.params.id, req.user!.id);
+    (req as any).auditHandled = true;
+    return this.ok(res, result, 'Vitals task started');
+  });
+
   addVitals = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const data: AddVitalsDTO = req.body;
@@ -269,6 +275,13 @@ export class EncounterController extends BaseController {
     const prescription = await this.service.addPrescription(id, data, user.id);
     (req as any).auditHandled = true;
     return this.created(res, prescription, 'Prescription added successfully');
+  });
+
+  startMedicationDispensing = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { encounterId, medicationId } = req.params;
+    const medication = await this.service.startMedicationDispensing(encounterId, medicationId, req.user!.id);
+    (req as any).auditHandled = true;
+    return this.ok(res, medication, 'Dispensing started');
   });
 
   dispenseMedication = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -494,8 +507,14 @@ export class EncounterController extends BaseController {
     return this.ok(res, worklist, 'Procedures worklist retrieved');
   });
 
+  startMaternalTask = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.startMaternalTask(req.params.id, req.user!.id);
+    (req as any).auditHandled = true;
+    return this.ok(res, result, 'Maternal task started');
+  });
+
   getMaternalWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const worklist = await this.service.getMaternalWorklist();
+    const worklist = await this.service.getMaternalWorklist(parseWorklistQuery(req.query));
     return this.ok(res, worklist, 'Maternal worklist retrieved');
   });
 

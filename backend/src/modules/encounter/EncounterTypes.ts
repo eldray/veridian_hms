@@ -95,7 +95,7 @@ export interface BaseWorklistItem {
  *  completed   - visits closed today (wider with a date filter), so a desk can review finished work
  *  outstanding - visits closed while a lab, scan or procedure is still unanswered
  */
-export type WorklistView = 'pending' | 'completed' | 'outstanding';
+export type WorklistView = 'pending' | 'in_progress' | 'completed';
 
 /** Request timestamps are exposed so grouped worklists can retain their queue ordering context. */
 export interface WorklistQuery {

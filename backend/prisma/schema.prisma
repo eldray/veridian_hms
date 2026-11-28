@@ -584,6 +584,10 @@ model Attendance {
   providerId                 String? // Clinician responsible for this clinical assessment
   finalizedAt                DateTime?
   finalizedById              String?
+  vitalsStartedAt            DateTime?
+  vitalsStartedById          String?
+  maternalStartedAt          DateTime?
+  maternalStartedById        String?
   autoClosedAt               DateTime?
   medicalNotes               String? // Legacy/general clinical notes retained for compatibility
   clinicalNotes              Json? // Legacy structured clinical data retained during migration
@@ -680,6 +684,8 @@ model Attendance {
   @@index([paymentMode])
   @@index([providerId])
   @@index([finalizedAt])
+  @@index([vitalsStartedAt])
+  @@index([maternalStartedAt])
   @@index([clinicalOutcome])
   @@index([corporateAccountId])
   @@index([status])
@@ -853,6 +859,8 @@ model Medication {
   instructions         String?
   status               MedicationStatus @default(prescribed)
   prescribedAt         DateTime         @default(now())
+  dispensingStartedAt  DateTime?
+  dispensingStartedById String?
   dispensedAt          DateTime?
   administeredAt       DateTime?
   dispensedById        String?
@@ -882,6 +890,7 @@ model Medication {
   @@index([attendanceId])
   @@index([serviceCatalogId])
   @@index([status])
+  @@index([dispensingStartedAt])
 }
 
 model Vitals {

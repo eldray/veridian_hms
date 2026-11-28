@@ -291,10 +291,9 @@ export interface WorklistState {
 }
 
 /**
- * The three queues an attendance-based worklist answers: work still open, work finished, and the
- * warning queue — visits already closed that still owe a lab, scan or procedure result.
+ * Shared service-work status views. Each department filters its own work items, not the parent attendance.
  */
-export type WorklistView = 'pending' | 'completed' | 'outstanding';
+export type WorklistView = 'pending' | 'in_progress' | 'completed';
 
 /** Query parameters a queue accepts; an empty range means "the queue's own default window". */
 export interface WorklistParams {

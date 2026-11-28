@@ -7,6 +7,7 @@ import { useLiveRefresh } from '../api/realtime';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { useToast } from '../store/toastStore';
+import { startMaternalTask } from '../api';
 import {
   AlertCircle, AlertTriangle, Baby, Calendar, CheckCircle, Clock, Eye, FileText, Heart,
   History, Hospital, LayoutGrid, List, RefreshCw, Stethoscope, User, Users,
@@ -22,8 +23,8 @@ import {
   SearchInput,
   Segmented,
   StatCard,
-  statusTone,
   Tabs,
+  statusTone,
   TABLE_SHELL,
   TD,
   TD_MONO,
@@ -33,7 +34,6 @@ import {
   cn,
   type Accent,
   type BadgeTone,
-  type TabItem,
 } from '../components/ui';
 
 // ── Chips (shared Badge; only this queue's own tones and wording live here) ────
@@ -81,11 +81,6 @@ const VISIT_TABS = [
 
 const MATERNAL_VISIT_TYPES = new Set<string>(Object.keys(VISIT_TYPES));
 
-const QUEUE_TABS: TabItem[] = [
-  { key: 'pending', label: 'Pending Visits', icon: Clock },
-  { key: 'recent', label: 'Recent Visits Today', icon: CheckCircle },
-];
-
 type ViewMode = 'grid' | 'table';
 
 export default function MaternalWaitingList() {
@@ -97,7 +92,6 @@ export default function MaternalWaitingList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
   const [activeVisitType, setActiveVisitType] = useState<'all' | 'antenatal' | 'delivery' | 'postnatal'>('all');
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('maternalQueueView');
@@ -135,15 +129,17 @@ export default function MaternalWaitingList() {
     [worklistItems],
   );
 
-  const pendingPatients = useMemo(
-    () => queueItems.filter(item => !item.hasBeenAttended && item.status !== 'completed'),
-    [queueItems],
-  );
-
-  const recentPatients = useMemo(
-    () => queueItems.filter(item => item.hasBeenAttended || item.status === 'completed'),
-    [queueItems],
-  );
+  // The API has already applied the shared Pending / In Progress / Completed
+  // task view. Do not reclassify rows from attendance closure or hasBeenAttended.
+  const stats = {
+    total: queueItems.length,
+    highRisk: queueItems.filter(p => p.riskLevel === 'high').length,
+    urgent: queueItems.filter(p => p.priority === 'urgent' || p.priority === 'stat' || p.priority === 'emergency').length,
+    recentCompleted: view === 'completed' ? queueItems.length : 0,
+    antenatal: queueItems.filter(p => p.visitType === 'antenatal').length,
+    delivery: queueItems.filter(p => p.visitType === 'delivery').length,
+    postnatal: queueItems.filter(p => p.visitType === 'postnatal').length,
+  };
 
   const getFilteredByVisitType = (patients: any[]) => {
     if (activeVisitType === 'all') return patients;
@@ -151,9 +147,7 @@ export default function MaternalWaitingList() {
   };
 
   const filteredPatients = useMemo(() => {
-    const source = view === 'pending'
-      ? getFilteredByVisitType(activeTab === 'pending' ? pendingPatients : recentPatients)
-      : getFilteredByVisitType(queueItems as any[]);
+    const source = getFilteredByVisitType(queueItems as any[]);
     if (!searchQuery) return source;
     const lower = searchQuery.toLowerCase();
     return source.filter(patient =>
@@ -162,7 +156,7 @@ export default function MaternalWaitingList() {
       (patient.attendanceNumber || '').toLowerCase().includes(lower) ||
       patient.complaints?.toLowerCase().includes(lower),
     );
-  }, [pendingPatients, recentPatients, queueItems, searchQuery, activeTab, activeVisitType, view]);
+  }, [queueItems, searchQuery, activeVisitType]);
 
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
   const paginatedPatients = filteredPatients.slice(
@@ -170,19 +164,9 @@ export default function MaternalWaitingList() {
     currentPage * itemsPerPage,
   );
 
-  useEffect(() => { setCurrentPage(1); }, [activeTab, activeVisitType, searchQuery]);
+  useEffect(() => { setCurrentPage(1); }, [view, activeVisitType, searchQuery]);
 
   // ── Stats ──
-  const stats = {
-    total: pendingPatients.length,
-    highRisk: pendingPatients.filter(p => p.riskLevel === 'high').length,
-    urgent: pendingPatients.filter(p => p.priority === 'urgent' || p.priority === 'stat' || p.priority === 'emergency').length,
-    recentCompleted: recentPatients.length,
-    antenatal: pendingPatients.filter(p => p.visitType === 'antenatal').length,
-    delivery: pendingPatients.filter(p => p.visitType === 'delivery').length,
-    postnatal: pendingPatients.filter(p => p.visitType === 'postnatal').length,
-  };
-
   const getVisitTabCount = (key: typeof activeVisitType) => {
     switch (key) {
       case 'all': return stats.total;
@@ -192,7 +176,13 @@ export default function MaternalWaitingList() {
     }
   };
 
-  const handleStartVisit = (patient: any) => {
+  const handleStartVisit = async (patient: any) => {
+    try {
+      if (view !== 'completed') await startMaternalTask(patient.attendanceId);
+    } catch (err: any) {
+      toastError('Could not start maternal task', err.response?.data?.message || err.message || 'Refresh the waiting list and try again.');
+      return;
+    }
     navigate(`/dashboard/maternal/${patient.attendanceId}`, {
       state: {
         patient: {
@@ -213,8 +203,16 @@ export default function MaternalWaitingList() {
   const getActionAccent = (visitType: string, isPending: boolean): Accent =>
     isPending ? (VISIT_TYPES[visitType]?.accent ?? 'cyan') : 'purple';
 
-  const getActionButtonText = (visitType: string, isPending: boolean) => {
-    if (!isPending) return 'View Record';
+  const getActionButtonText = (visitType: string) => {
+    if (view === 'completed') return 'View Record';
+    if (view === 'in_progress') {
+      switch (visitType) {
+        case 'antenatal': return 'Resume ANC';
+        case 'delivery': return 'Resume Delivery';
+        case 'postnatal': return 'Resume Postnatal Check';
+        default: return 'Resume Visit';
+      }
+    }
     switch (visitType) {
       case 'antenatal': return 'Start ANC';
       case 'delivery': return 'Start Delivery';
@@ -258,6 +256,7 @@ export default function MaternalWaitingList() {
       )}
       tabs={(
         <div className="space-y-3">
+          <WorklistViewControls department="maternal" />
           <Tabs
             tabs={VISIT_TABS.map(tab => ({ ...tab, count: getVisitTabCount(tab.key) }))}
             active={activeVisitType}
@@ -265,18 +264,6 @@ export default function MaternalWaitingList() {
             accent="green"
             aria-label="Visit type"
           />
-          {view === 'pending' && (
-            <Tabs
-              tabs={QUEUE_TABS.map(tab => ({
-                ...tab,
-                count: tab.key === 'pending' ? stats.total : stats.recentCompleted,
-              }))}
-              active={activeTab}
-              onChange={(key) => setActiveTab(key as 'pending' | 'recent')}
-              accent="green"
-              aria-label="Review status"
-            />
-          )}
         </div>
       )}
     />
@@ -300,10 +287,10 @@ export default function MaternalWaitingList() {
 
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Waiting" value={stats.total} icon={Users} accent="cyan" />
+        <StatCard label={view === 'pending' ? "Pending" : view === 'in_progress' ? "In Progress" : "Completed"} value={stats.total} icon={Users} accent="cyan" />
         <StatCard label="High Risk" value={stats.highRisk} icon={AlertTriangle} accent="red" />
         <StatCard label="Urgent" value={stats.urgent} icon={AlertCircle} accent="orange" />
-        <StatCard label="Completed Today" value={stats.recentCompleted} icon={CheckCircle} accent="purple" />
+        <StatCard label="Completed" value={stats.recentCompleted} icon={CheckCircle} accent="purple" />
       </div>
 
       {/* ── Search + view toggle ── */}
@@ -325,16 +312,11 @@ export default function MaternalWaitingList() {
         </div>
       </Card>
 
-      {/* ── Queue view: open visits, visits closed today, visits closed with a result still owed ── */}
-      <Card>
-        <WorklistViewControls department="maternal" />
-      </Card>
-
       {/* ── List ── */}
       {filteredPatients.length === 0 ? (
         <Card padded={false}>
           <div className="p-6 text-center">
-            {activeTab === 'pending' ? (
+            {view !== 'completed' ? (
               <>
                 <div className="w-12 h-12 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center mx-auto mb-3">
                   <CheckCircle className="w-6 h-6 text-[var(--icon-green-text)]" />
@@ -357,7 +339,7 @@ export default function MaternalWaitingList() {
         /* ════════ GRID VIEW ════════ */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginatedPatients.map((patient) => {
-            const isPending = activeTab === 'pending';
+            const isPending = view === 'pending';
             const name = getPatientName(patient);
             const accent = getRowAccent(patient);
             const actionAccent = getActionAccent(patient.visitType, isPending);
@@ -379,13 +361,15 @@ export default function MaternalWaitingList() {
                 {/* Header: visit type + priority */}
                 <div className="flex items-center justify-between gap-2 p-3.5 pb-3">
                   {getVisitTypeBadge(patient.visitType)}
-                  {isPending ? (
+                  {view === 'pending' ? (
                     <Badge tone={priorityTone(patient.priority, patient.riskLevel)} dot size="sm">
                       {priorityLabel(patient.priority, patient.riskLevel)}
                     </Badge>
                   ) : (
                     <span className="text-[10px] text-[var(--text-tertiary)] font-mono">
-                      {patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                      {view === 'in_progress'
+                        ? (patient.maternalStartedAt ? `Started ${new Date(patient.maternalStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'In progress')
+                        : (patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}
                     </span>
                   )}
                 </div>
@@ -462,7 +446,7 @@ export default function MaternalWaitingList() {
                 >
                   <span className="flex items-center gap-1.5">
                     {isPending ? <Eye className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
-                    {getActionButtonText(patient.visitType, isPending)}
+                    {getActionButtonText(patient.visitType)}
                   </span>
                 </div>
               </button>
@@ -483,7 +467,8 @@ export default function MaternalWaitingList() {
               </thead>
               <tbody>
                 {paginatedPatients.map((patient) => {
-                  const isPending = activeTab === 'pending';
+                  const isPending = view === 'pending';
+                  const isInProgress = view === 'in_progress';
                   const name = patient.patient?.name || 'Unknown Patient';
                   const accent = getRowAccent(patient);
 
@@ -552,13 +537,15 @@ export default function MaternalWaitingList() {
                           </Badge>
                         ) : (
                           <span className="text-xs text-[var(--text-secondary)]">
-                            {patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                            {isInProgress
+                              ? (patient.maternalStartedAt ? `Started ${new Date(patient.maternalStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'In progress')
+                              : (patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}
                           </span>
                         )}
                       </td>
 
                       <td className={TD}>
-                        {isPending ? (
+                        {view !== 'completed' ? (
                           <span className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
                             <Clock className="w-3 h-3" />
                             {Math.floor((patient.waitTime || 0) / 60)}h {(patient.waitTime || 0) % 60}m
@@ -579,10 +566,10 @@ export default function MaternalWaitingList() {
                           size="sm"
                           variant="soft"
                           accent={getActionAccent(patient.visitType, isPending)}
-                          icon={isPending ? Eye : FileText}
+                          icon={view === 'completed' ? FileText : Eye}
                           onClick={(e) => { e.stopPropagation(); handleStartVisit(patient); }}
                         >
-                          {getActionButtonText(patient.visitType, isPending)}
+                          {getActionButtonText(patient.visitType)}
                         </Button>
                       </td>
                     </tr>

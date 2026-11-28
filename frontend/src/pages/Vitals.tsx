@@ -13,9 +13,7 @@
 //  6. VIEWPORT FIX: Antenatal, Ward and Bed columns REMOVED (not needed). Table is now 14 cols pending /
 //     12 cols recent, text-xs + table-fixed + truncated patient name + short visit date, so it fits
 //     a normal viewport instead of overflowing sideways.
-//  7. FIX: column set is now driven by `isPendingQueue` (view === 'pending' && activeTab === 'pending'),
-//     not by activeTab alone — when the worklist view is completed / awaiting-results the table no
-//     longer shows Pending-only Priority/Abnormal columns for a non-pending queue (and vice versa).
+//  7. FIX: column set follows the shared Pending / In Progress / Completed task view.
 //  8. FIX: <colgroup> widths added — table-fixed without widths still divides space evenly and
 //     overflows. Patient gets the wide slot, vitals get narrow numeric slots.
 //  9. FIX: waitTime guarded — undefined waitTime rendered "NaNh NaNm".
@@ -26,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { useToast } from '../store/toastStore';
+import { startVitalsTask } from '../api';
 import {
   HeartPulse,
   Activity,
@@ -46,7 +45,6 @@ import {
   Button,
   Card,
   SearchInput,
-  Tabs,
   Badge,
   StatCard,
   Pagination,
@@ -108,7 +106,6 @@ export default function VitalsWaitingList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
   const [sortKey, setSortKey] = useState<'visit' | 'waiting'>('visit');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -134,24 +131,17 @@ export default function VitalsWaitingList() {
   }, []);
 
   // Directly use worklistItems - they already have hasVitalsToday flag
-  const pendingPatients = useMemo(() => {
-    return worklistItems.filter(item => !item.hasVitalsToday);
-  }, [worklistItems]);
+  const pendingPatients = useMemo(() => worklistItems.filter(item => item.status === 'pending'), [worklistItems]);
 
-  const recentPatients = useMemo(() => {
-    return worklistItems.filter(item => item.hasVitalsToday);
-  }, [worklistItems]);
+  const recentPatients = useMemo(() => worklistItems.filter(item => item.status === 'completed'), [worklistItems]);
 
-  // Priority / Abnormal columns belong to the pending queue only. When the worklist view is
-  // completed / awaiting-results, activeTab is meaningless — the queue itself decides.
-  const isPendingQueue = view === 'pending' && activeTab === 'pending';
+  // Priority / Abnormal columns belong to Pending only; other views show task-history columns.
+  const isPendingQueue = view === 'pending';
 
   // Filter based on search and active tab. The completed and awaiting-results queues are already
   // narrowed by the server, so the pending/done-today split only applies to the to-do queue.
   const filteredPatients = useMemo(() => {
-    const source = view === 'pending'
-      ? (activeTab === 'pending' ? pendingPatients : recentPatients)
-      : worklistItems;
+    const source = view === 'pending' ? pendingPatients : worklistItems;
     const searched = !searchQuery
       ? source
       : source.filter(p => {
@@ -175,7 +165,7 @@ export default function VitalsWaitingList() {
           : new Date(b.vitalsRecordedAt || b.attendanceDateTime || 0).getTime();
       return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
-  }, [pendingPatients, recentPatients, worklistItems, searchQuery, activeTab, view, sortKey, sortDir, isPendingQueue]);
+  }, [pendingPatients, worklistItems, searchQuery, view, sortKey, sortDir, isPendingQueue]);
 
   // Pagination - clamped so filtering can never strand you on an empty page
   const totalPages = Math.max(1, Math.ceil(filteredPatients.length / itemsPerPage));
@@ -188,7 +178,7 @@ export default function VitalsWaitingList() {
   // Reset page when tab, search, or worklist view changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchQuery, view]);
+  }, [searchQuery, view]);
 
   // Stats
   const stats = {
@@ -199,7 +189,15 @@ export default function VitalsWaitingList() {
     recentVitals: recentPatients.length
   };
 
-  const handlePatientClick = (patient: any) => {
+  const handlePatientClick = async (patient: any) => {
+    try {
+      if (!patient.hasVitalsToday && view !== 'completed') {
+        await startVitalsTask(patient.attendanceId);
+      }
+    } catch (err: any) {
+      toastError('Could not start vitals', err.response?.data?.message || err.message || 'Refresh the waiting list and try again.');
+      return;
+    }
     navigate(`/dashboard/vitals/${patient.patientId}`, {
       state: {
         patient: {
@@ -242,22 +240,10 @@ export default function VitalsWaitingList() {
       <PageHeader
         title="Vital Signs"
         subtitle="Record and monitor patient vital signs"
-        meta={`${filteredPatients.length} shown • ${pendingPatients.length} due • ${recentPatients.length} done today`}
+        meta={`${filteredPatients.length} shown • ${view === 'pending' ? `${pendingPatients.length} due` : view === 'in_progress' ? `${worklistItems.length} in progress` : `${recentPatients.length} completed`}`}
         icon={HeartPulse}
         accent="red"
         backTo="/dashboard"
-        tabs={view === 'pending' ? (
-          <Tabs<'pending' | 'recent'>
-            tabs={[
-              { key: 'pending', label: 'Pending Vitals', icon: Clock, count: pendingPatients.length },
-              { key: 'recent', label: 'Recent Vitals (Today)', icon: CheckCircle, count: recentPatients.length },
-            ]}
-            active={activeTab}
-            onChange={setActiveTab}
-            accent="red"
-            aria-label="Vitals queue"
-          />
-        ) : undefined}
         actions={(
           <>
             <Button
@@ -347,7 +333,7 @@ export default function VitalsWaitingList() {
       <div className={TABLE_SHELL}>
         <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
           <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            {isPendingQueue ? (
+            {view === 'pending' ? (isPendingQueue ? (
               <>
                 <Heart className="w-4 h-4 text-[var(--icon-red-text)]" />
                 Vitals Waiting List ({filteredPatients.length} patients)
@@ -357,13 +343,23 @@ export default function VitalsWaitingList() {
                 <History className="w-4 h-4 text-[var(--icon-green-text)]" />
                 Recent Vitals Recorded Today ({filteredPatients.length} patients)
               </>
+            )) : view === 'in_progress' ? (
+              <>
+                <Clock className="w-4 h-4 text-[var(--icon-orange-text)]" />
+                Vitals In Progress ({filteredPatients.length} patients)
+              </>
+            ) : (
+              <>
+                <History className="w-4 h-4 text-[var(--icon-green-text)]" />
+                Completed Vitals ({filteredPatients.length} patients)
+              </>
             )}
           </h2>
         </div>
 
         {filteredPatients.length === 0 ? (
           <div className="p-6 text-center">
-            {isPendingQueue ? (
+            {view === 'pending' ? (isPendingQueue ? (
               <>
                 <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No patients waiting for vitals</p>
@@ -374,6 +370,18 @@ export default function VitalsWaitingList() {
                 <History className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No vitals recorded today</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Record vitals to see them here</p>
+              </>
+            )) : view === 'in_progress' ? (
+              <>
+                <Clock className="w-8 h-8 text-[var(--icon-orange-text)] mx-auto mb-2 opacity-50" />
+                <p className="text-[var(--text-secondary)]">No vitals tasks in progress</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Start a vitals task by opening a pending visit</p>
+              </>
+            ) : (
+              <>
+                <History className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-50" />
+                <p className="text-[var(--text-secondary)]">No completed vitals for this date range</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Recorded readings will appear here</p>
               </>
             )}
           </div>
