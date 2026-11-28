@@ -1461,6 +1461,36 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return medication;
   }
 
+  // Persist the moment a pharmacist begins preparing a prescription. This is a task event,
+  // not a stock movement; stock is still deducted only by the guarded dispense transaction.
+  async startMedicationDispensing(encounterId: string, medicationId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({ where: { id: encounterId }, select: { id: true, status: true } });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
+        throw new ConflictError('Dispensing cannot be started for a closed encounter');
+      }
+      const medication = await tx.medication.findUnique({ where: { id: medicationId } });
+      if (!medication || medication.attendanceId !== encounterId) throw new NotFoundError('Medication', medicationId);
+      if (medication.status !== 'prescribed') throw new ConflictError('Only a prescribed medication can be started for dispensing');
+      if (medication.dispensingStartedAt) return medication;
+      const startedAt = new Date();
+      const changed = await tx.medication.updateMany({
+        where: { id: medicationId, attendanceId: encounterId, status: 'prescribed', dispensingStartedAt: null },
+        data: { dispensingStartedAt: startedAt, dispensingStartedById: actorId },
+      });
+      if (changed.count !== 1) throw new ConflictError('This prescription was changed by another user; refresh the dispensing list');
+      const updated = await tx.medication.findUnique({ where: { id: medicationId } });
+      if (!updated) throw new NotFoundError('Medication', medicationId);
+      await appendClinicalRecordAudit(tx, actorId, 'Medication', medicationId, 'update',
+        { status: 'prescribed', dispensingStartedAt: null },
+        { status: 'prescribed', dispensingStartedAt: startedAt, dispensingStartedById: actorId },
+        { workflow: 'medication_dispensing_started' });
+      return updated;
+    });
+  }
+
   // ✅ PRODUCTION FIX: Dispensing must deduct stock safely using a transaction
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
     // Keep the legacy repository entry point on the same guarded inventory path.
