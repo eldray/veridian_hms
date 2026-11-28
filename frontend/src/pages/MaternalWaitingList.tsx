@@ -7,6 +7,7 @@ import { useLiveRefresh } from '../api/realtime';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { useToast } from '../store/toastStore';
+import { startMaternalTask } from '../api';
 import {
   AlertCircle, AlertTriangle, Baby, Calendar, CheckCircle, Clock, Eye, FileText, Heart,
   History, Hospital, LayoutGrid, List, RefreshCw, Stethoscope, User, Users,
@@ -175,7 +176,13 @@ export default function MaternalWaitingList() {
     }
   };
 
-  const handleStartVisit = (patient: any) => {
+  const handleStartVisit = async (patient: any) => {
+    try {
+      if (view !== 'completed') await startMaternalTask(patient.attendanceId);
+    } catch (err: any) {
+      toastError('Could not start maternal task', err.response?.data?.message || err.message || 'Refresh the waiting list and try again.');
+      return;
+    }
     navigate(`/dashboard/maternal/${patient.attendanceId}`, {
       state: {
         patient: {
@@ -196,8 +203,16 @@ export default function MaternalWaitingList() {
   const getActionAccent = (visitType: string, isPending: boolean): Accent =>
     isPending ? (VISIT_TYPES[visitType]?.accent ?? 'cyan') : 'purple';
 
-  const getActionButtonText = (visitType: string, isPending: boolean) => {
-    if (!isPending) return 'View Record';
+  const getActionButtonText = (visitType: string) => {
+    if (view === 'completed') return 'View Record';
+    if (view === 'in_progress') {
+      switch (visitType) {
+        case 'antenatal': return 'Resume ANC';
+        case 'delivery': return 'Resume Delivery';
+        case 'postnatal': return 'Resume Postnatal Check';
+        default: return 'Resume Visit';
+      }
+    }
     switch (visitType) {
       case 'antenatal': return 'Start ANC';
       case 'delivery': return 'Start Delivery';
@@ -324,7 +339,7 @@ export default function MaternalWaitingList() {
         /* ════════ GRID VIEW ════════ */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginatedPatients.map((patient) => {
-            const isPending = view !== 'completed';
+            const isPending = view === 'pending';
             const name = getPatientName(patient);
             const accent = getRowAccent(patient);
             const actionAccent = getActionAccent(patient.visitType, isPending);
@@ -346,13 +361,15 @@ export default function MaternalWaitingList() {
                 {/* Header: visit type + priority */}
                 <div className="flex items-center justify-between gap-2 p-3.5 pb-3">
                   {getVisitTypeBadge(patient.visitType)}
-                  {isPending ? (
+                  {view === 'pending' ? (
                     <Badge tone={priorityTone(patient.priority, patient.riskLevel)} dot size="sm">
                       {priorityLabel(patient.priority, patient.riskLevel)}
                     </Badge>
                   ) : (
                     <span className="text-[10px] text-[var(--text-tertiary)] font-mono">
-                      {patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                      {view === 'in_progress'
+                        ? (patient.maternalStartedAt ? `Started ${new Date(patient.maternalStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'In progress')
+                        : (patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}
                     </span>
                   )}
                 </div>
@@ -429,7 +446,7 @@ export default function MaternalWaitingList() {
                 >
                   <span className="flex items-center gap-1.5">
                     {isPending ? <Eye className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}
-                    {getActionButtonText(patient.visitType, isPending)}
+                    {getActionButtonText(patient.visitType)}
                   </span>
                 </div>
               </button>
