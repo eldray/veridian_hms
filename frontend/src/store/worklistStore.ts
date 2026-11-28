@@ -180,7 +180,9 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
   /** Switching queue re-reads it: the tabs are different queries, not a filtered copy of one list. */
   setView: (view: WorklistView) => {
     const { currentDepartment } = get();
-    set({ view, selectedItem: null });
+    // In-progress tasks can span clinic days. Do not silently hide yesterday's unfinished
+    // work behind the default "today" date range when staff switch into this view.
+    set({ view, selectedItem: null, ...(view === 'in_progress' ? { dateFrom: '', dateTo: '' } : {}) });
     if (currentDepartment) get().fetchWorklist(currentDepartment);
   },
 
