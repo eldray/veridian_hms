@@ -45,7 +45,7 @@ const narrationOf = (payment: BillingCollectionPayment) => {
 
 type DetailRow = {
   payment: BillingCollectionPayment;
-  kind: 'collection' | 'reversal' | 'refund';
+  kind: 'collection' | 'claim_collection' | 'reversal' | 'refund';
   text: string;
 };
 
@@ -78,7 +78,7 @@ export default function CollectionsReport({
 
   const details = useMemo<DetailRow[]>(() => {
     const rows: DetailRow[] = [
-      ...report.payments.map((payment) => ({ payment, kind: 'collection' as const, text: '' })),
+      ...report.payments.map((payment) => ({ payment, kind: (payment.sourceType === 'premier_claim_patient_payment' ? 'claim_collection' : 'collection') as DetailRow['kind'], text: '' })),
       ...report.reversals.map((payment) => ({
         payment,
         kind: (payment.isRefund ? 'refund' : 'reversal') as DetailRow['kind'],
@@ -109,7 +109,7 @@ export default function CollectionsReport({
     try {
       const header = ['Receipt #', 'Date', 'Time', 'Type', 'Folder #', 'Paid by', 'Bill / Claim #', 'Method', 'Collected by', 'Breakdown group', 'Breakdown line', 'Line', 'Qty', 'Amount'];
       const lines: string[][] = [];
-      for (const payment of [...report.payments.map((p) => ({ p, kind: 'Collection' })), ...report.reversals.map((p) => ({ p, kind: p.isRefund ? 'Refund' : 'Reversal' }))]) {
+      for (const payment of [...report.payments.map((p) => ({ p, kind: p.sourceType === 'premier_claim_patient_payment' ? 'Premier claim collection' : 'Collection' })), ...report.reversals.map((p) => ({ p, kind: p.isRefund ? 'Refund' : 'Reversal' }))]) {
         for (const item of payment.p.items) {
           const group = report.groups.find((g) => g.lines.some((l) => l.key === item.breakdownRow));
           lines.push([
@@ -327,6 +327,8 @@ export default function CollectionsReport({
                               <Badge tone="yellow" size="sm" dot>refunded</Badge>
                             ) : row.kind === 'reversal' ? (
                               <Badge tone="red" size="sm" dot>reversed</Badge>
+                            ) : row.kind === 'claim_collection' ? (
+                              <Badge tone="green" size="sm" dot>claim receipt</Badge>
                             ) : (
                               <Badge tone="green" size="sm" dot>paid</Badge>
                             )}
