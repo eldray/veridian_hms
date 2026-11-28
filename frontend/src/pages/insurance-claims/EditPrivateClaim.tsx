@@ -800,32 +800,6 @@ export default function EditPrivateClaim() {
           </div>
         </ClaimCard>
 
-        <ClaimCard title="Coverage">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            {isPremier ? (
-              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3">
-                <p className="text-sm font-semibold text-[var(--text-primary)]">Premier benefit cap</p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">The selected cap applies to the combined value of all entries — consultations, ward charges, procedures, medicines, laboratory tests and scans. OPD is GHS 350 per attendance (two visits monthly); IPD is GHS 1,200 per admission; a surgical admission uses the selected GHS 2,000 or GHS 2,200 total cap.</p>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">Insurance coverage</label>
-                <div className="flex items-center gap-3">
-                  <input type="range" min={0} max={100} value={coveragePercentage} onChange={e => setCoveragePercentage(parseInt(e.target.value))} disabled={locked} className="flex-1" />
-                  <span className="w-14 text-right text-[15px] text-[var(--text-secondary)] font-medium">{coveragePercentage}%</span>
-                </div>
-              </div>
-            )}
-            <div className="text-[15px] text-[var(--text-secondary)] space-y-1">
-              <div className="flex justify-between"><span>Gross claim total</span><span>{money(subtotal)}</span></div>
-              <div className="flex justify-between"><span>{isPremier ? 'Premier pays (within cap)' : 'Insurance pays (' + coveragePercentage + '%)'}</span><span>{money(insuranceCoverage)}</span></div>
-              <div className="flex justify-between font-semibold border-t pt-1"><span>{isPremier ? 'Patient payable now' : 'Patient pays'}</span><span>{money(patientPayable)}</span></div>
-              {isPremier && Number(premierCalculation?.deferredPatientBalance || 0) > 0 && <p className="pt-1 text-xs text-[var(--text-secondary)]">First-visit excess deferred to the next Premier OPD attendance: {money(Number(premierCalculation.deferredPatientBalance))}</p>}
-              {isPremier && Number(premierCalculation?.priorDeferred || 0) > 0 && <p className="pt-1 text-xs text-[var(--text-secondary)]">Includes deferred excess from the previous OPD attendance: {money(Number(premierCalculation.priorDeferred))}</p>}
-            </div>
-          </div>
-        </ClaimCard>
-
         {isPremier && isFinalized && (() => {
           const payments = (currentClaim as any)?.patientPayments || [];
           const due = Math.max(0, Number(premierCalculation?.patientPayableNow || 0));
@@ -952,6 +926,32 @@ export default function EditPrivateClaim() {
             <div className="flex justify-between"><span>Laboratory & imaging</span><strong>{money(services.filter(x => x.itemCategory === 'investigation').reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
             <div className="flex justify-between"><span>Medicines</span><strong>{money(medicines.reduce((sum, x) => sum + x.quantity * x.unitPrice, 0))}</strong></div>
             <div className="flex justify-between border-t pt-2"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
+          </div>
+        </ClaimCard>
+
+        <ClaimCard title="Coverage">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            {isPremier ? (
+              <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3">
+                <p className="text-sm font-semibold text-[var(--text-primary)]">Premier benefit cap</p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">The selected cap applies to the combined value of all entries — consultations, ward charges, procedures, medicines, laboratory tests and scans. OPD is GHS 350 per attendance (two visits monthly); IPD is GHS 1,200 per admission; a surgical admission uses the selected GHS 2,000 or GHS 2,200 total cap.</p>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">Insurance coverage</label>
+                <div className="flex items-center gap-3">
+                  <input type="range" min={0} max={100} value={coveragePercentage} onChange={e => setCoveragePercentage(parseInt(e.target.value))} disabled={locked} className="flex-1" />
+                  <span className="w-14 text-right text-[15px] text-[var(--text-secondary)] font-medium">{coveragePercentage}%</span>
+                </div>
+              </div>
+            )}
+            <div className="text-[15px] text-[var(--text-secondary)] space-y-1">
+              <div className="flex justify-between"><span>Gross claim total</span><span>{money(subtotal)}</span></div>
+              <div className="flex justify-between"><span>{isPremier ? 'Premier pays (within cap)' : 'Insurance pays (' + coveragePercentage + '%)'}</span><span>{money(insuranceCoverage)}</span></div>
+              <div className="flex justify-between font-semibold border-t pt-1"><span>{isPremier ? 'Patient payable now' : 'Patient pays'}</span><span>{money(patientPayable)}</span></div>
+              {isPremier && Number(premierCalculation?.deferredPatientBalance || 0) > 0 && <p className="pt-1 text-xs text-[var(--text-secondary)]">First-visit excess deferred to the next Premier OPD attendance: {money(Number(premierCalculation.deferredPatientBalance))}</p>}
+              {isPremier && Number(premierCalculation?.priorDeferred || 0) > 0 && <p className="pt-1 text-xs text-[var(--text-secondary)]">Includes deferred excess from the previous OPD attendance: {money(Number(premierCalculation.priorDeferred))}</p>}
+            </div>
           </div>
         </ClaimCard>
 
