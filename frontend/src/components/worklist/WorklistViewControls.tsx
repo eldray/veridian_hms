@@ -73,7 +73,7 @@ export const WorklistViewControls: React.FC<WorklistViewControlsProps> = ({ depa
       {withDates && (
         <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <CalendarDays className="w-3.5 h-3.5" />
-          <span className="font-medium whitespace-nowrap">{['lab', 'pharmacy', 'scans', 'theatre'].includes(department) ? (view === 'completed' ? 'Completed date' : 'Request date') : 'Visit date'}</span>
+          <span className="font-medium whitespace-nowrap">{department === 'vitals' ? (view === 'completed' ? 'Recorded date' : view === 'in_progress' ? 'Started date' : 'Visit date') : ['lab', 'pharmacy', 'scans', 'theatre'].includes(department) ? (view === 'completed' ? 'Completed date' : 'Request date') : 'Visit date'}</span>
           <input
             type="date"
             value={dateFrom}
