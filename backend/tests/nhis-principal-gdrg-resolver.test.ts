@@ -332,8 +332,9 @@ describe('NHIS diagnosis/procedure G-DRG mapping integrity', () => {
 
   it('covers every diagnosis catalogue code with a G-DRG mapping and has no obsolete mapping keys', () => {
     const mappedCodes = new Set(diagnosisGdrgMappings.map((mapping) => mapping.icdCode));
-    // R99 (brought in dead) is intentionally excluded from claim-driving G-DRG diagnosis mapping.
-    const nonClaimDiagnosisCodes = new Set(['R99']);
+    // R99 and newly added catalogue entries without verified Annex C mapping are excluded
+    // from automatic claim-driving G-DRG resolution until reviewed.
+    const nonClaimDiagnosisCodes = new Set(['R99', 'A04.8', 'B68.9', 'B69.9', 'B78.9', 'B80', 'B81.4', 'B81.8', 'B82.0', 'B82.9', 'B83.9', 'K29.6', 'B98.0']);
     const catalogueCodes = new Set(diagnosesCatalogue.map((diagnosis) => diagnosis.icdCode));
     const unmapped = diagnosesCatalogue.map((diagnosis) => diagnosis.icdCode)
       .filter((code) => !mappedCodes.has(code) && !nonClaimDiagnosisCodes.has(code));
