@@ -73,13 +73,13 @@ export const WorklistViewControls: React.FC<WorklistViewControlsProps> = ({ depa
       {withDates && (
         <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
           <CalendarDays className="w-3.5 h-3.5" />
-          <span className="font-medium whitespace-nowrap">{['vitals', 'maternal'].includes(department) ? (view === 'completed' ? 'Completed date' : view === 'in_progress' ? 'Started date' : 'Visit date') : ['lab', 'pharmacy', 'scans', 'theatre'].includes(department) ? (view === 'completed' ? 'Completed date' : view === 'in_progress' ? 'Started date' : 'Request date') : 'Visit date'}</span>
+          <span className="font-medium whitespace-nowrap">{['vitals', 'maternal'].includes(department) ? (view === 'completed' ? 'Completed date' : view === 'in_progress' ? 'Started date' : 'Visit date') : department === 'pharmacy' && view === 'in_progress' ? 'Started date' : ['lab', 'pharmacy', 'scans', 'theatre'].includes(department) ? (view === 'completed' ? 'Completed date' : 'Request date') : 'Visit date'}</span>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateRange({ dateFrom: e.target.value, dateTo })}
             className="px-2 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]"
-            aria-label={['vitals', 'maternal'].includes(department) ? (view === 'completed' ? 'Completed date from' : view === 'in_progress' ? 'Started date from' : 'Visit date from') : ['lab', 'pharmacy', 'scans', 'theatre'].includes(department) ? (view === 'completed' ? 'Completed date from' : view === 'in_progress' ? 'Started date from' : 'Request date from') : 'Visit date from'}
+            aria-label={['vitals', 'maternal'].includes(department) ? (view === 'completed' ? 'Completed date from' : view === 'in_progress' ? 'Started date from' : 'Visit date from') : department === 'pharmacy' && view === 'in_progress' ? 'Started date from' : ['lab', 'pharmacy', 'scans', 'theatre'].includes(department) ? (view === 'completed' ? 'Completed date from' : 'Request date from') : 'Visit date from'}
           />
           <span>to</span>
           <input
@@ -87,7 +87,7 @@ export const WorklistViewControls: React.FC<WorklistViewControlsProps> = ({ depa
             value={dateTo}
             onChange={(e) => setDateRange({ dateFrom, dateTo: e.target.value })}
             className="px-2 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]"
-            aria-label={['vitals', 'maternal'].includes(department) ? (view === 'completed' ? 'Completed date to' : view === 'in_progress' ? 'Started date to' : 'Visit date to') : ['lab', 'pharmacy', 'scans', 'theatre'].includes(department) ? (view === 'completed' ? 'Completed date to' : view === 'in_progress' ? 'Started date to' : 'Request date to') : 'Visit date to'}
+            aria-label={['vitals', 'maternal'].includes(department) ? (view === 'completed' ? 'Completed date to' : view === 'in_progress' ? 'Started date to' : 'Visit date to') : department === 'pharmacy' && view === 'in_progress' ? 'Started date to' : ['lab', 'pharmacy', 'scans', 'theatre'].includes(department) ? (view === 'completed' ? 'Completed date to' : 'Request date to') : 'Visit date to'}
           />
           {(dateFrom || dateTo) && (
             <button
