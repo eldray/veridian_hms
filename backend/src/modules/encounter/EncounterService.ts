@@ -830,7 +830,7 @@ export class EncounterService extends BaseService {
     });
   }
 
-  async getVitalsByEncounter(id: string) { return this.prisma.vitals.findMany({ where: { attendanceId: id }, include: { User: { select: { fullName: true } } }, orderBy: { recordedAt: 'desc' } }); }
+  async getVitalsByEncounter(id: string) { return this.prisma.vitals.findMany({ where: { attendanceId: id }, include: { User: { select: { id: true, fullName: true, username: true } } }, orderBy: { recordedAt: 'desc' } }); }
 
   /**
    * Every vitals reading for many encounters in ONE query. The patient history tab used to
@@ -840,6 +840,7 @@ export class EncounterService extends BaseService {
     if (ids.length === 0) return [];
     return this.prisma.vitals.findMany({
       where: { attendanceId: { in: ids.slice(0, 200) } },
+      include: { User: { select: { id: true, fullName: true, username: true } } },
       orderBy: { recordedAt: 'desc' },
       take: 2000,
     });

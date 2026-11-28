@@ -990,6 +990,7 @@ export interface Vitals {
   muac?: number;
   notes?: string;
   recordedById: string;
+  User?: Pick<User, 'id' | 'fullName' | 'username'> | null;
   recordedAt: string;
   createdAt: string;
   updatedAt: string;

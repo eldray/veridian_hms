@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Trash2, Calendar, User, MoreVertical, Weight, Ruler } from 'lucide-react';
+import { Edit2, Trash2, Weight, Ruler } from 'lucide-react';
 import type { Vitals } from '../../types';
 
 interface VitalsHistoryProps {
@@ -16,11 +16,12 @@ export const VitalsHistory: React.FC<VitalsHistoryProps> = ({
   isLoading = false 
 }) => {
   const getRecordedBy = (vitals: Vitals): string => {
-    const recordedBy = (vitals as any).recordedBy;
-    if (typeof recordedBy === 'string') {
-      return recordedBy;
-    }
-    return recordedBy?.fullName || vitals.recordedById || 'Unknown';
+    const record = vitals as Vitals & { User?: { fullName?: string | null; username?: string | null }; recordedBy?: string | { fullName?: string | null; username?: string | null } };
+    const relation = record.User || (typeof record.recordedBy === 'object' ? record.recordedBy : undefined);
+    if (relation?.fullName?.trim()) return relation.fullName;
+    if (relation?.username?.trim()) return relation.username;
+    if (typeof record.recordedBy === 'string' && record.recordedBy.trim()) return record.recordedBy;
+    return 'Unknown';
   };
 
   const getStatusColor = (type: string, value: any): string => {
