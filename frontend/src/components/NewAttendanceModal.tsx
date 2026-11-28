@@ -46,7 +46,7 @@ export default function NewAttendanceModal({
   const [attendanceType, setAttendanceType] = useState<AttendanceType>(initialAttendanceType || 'emergency_acute');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>(initialPaymentMode || 'cash');
   const [nhisCCC, setNhisCCC] = useState('');
-  const [nhisVerification, setNhisVerification] = useState<{ status: 'verified' | 'ineligible' | 'failed'; message: string } | null>(null);
+  const [nhisVerification, setNhisVerification] = useState<{ memberNumber: string; status: 'verified' | 'ineligible' | 'failed'; message: string } | null>(null);
   const [isVerifyingNhis, setIsVerifyingNhis] = useState(false);
   const [selectedCorporateAccountId, setResolvedCorporateAccountId] = useState(corporateAccountId || '');
   const [complaints, setComplaints] = useState('');
@@ -145,7 +145,7 @@ export default function NewAttendanceModal({
       const result = await verifyNHISEligibility(memberNumber);
       const eligible = result?.success === true && result?.data?.isActive === true && result?.data?.isEligible === true;
       const message = result?.message || (eligible ? 'Membership verified with NHIA.' : 'NHIA did not confirm active eligibility.');
-      setNhisVerification({ status: eligible ? 'verified' : 'ineligible', message });
+      setNhisVerification({ memberNumber, status: eligible ? 'verified' : 'ineligible', message });
       if (eligible) {
         setPatient((current: any) => current ? {
           ...current,
@@ -159,7 +159,7 @@ export default function NewAttendanceModal({
       }
     } catch (err: any) {
       const message = describeApiError(err, 'Could not verify this membership with NHIA.');
-      setNhisVerification({ status: 'failed', message });
+      setNhisVerification({ memberNumber, status: 'failed', message });
       setNhisCCC('');
       error('NHIS verification failed', message);
     } finally {
@@ -372,13 +372,14 @@ export default function NewAttendanceModal({
     ? new Date(`${String(resolvedNhisExpiry).slice(0, 10)}T23:59:59`)
     : null;
   const resolvedNhisDetailsComplete = Boolean(resolvedNhisNumber && resolvedNhisExpiry);
+  const currentNhisVerification = nhisVerification?.memberNumber === String(resolvedNhisNumber || '').trim() ? nhisVerification : null;
   const resolvedNhisExpired = !resolvedNhisExpiryDate ||
     Number.isNaN(resolvedNhisExpiryDate.getTime()) ||
     resolvedNhisExpiryDate.getTime() < Date.now();
   const resolvedNhisEligible = resolvedNhisDetailsComplete &&
     resolvedNhisActive === true &&
     !resolvedNhisExpired &&
-    nhisVerification?.status === 'verified';
+    currentNhisVerification?.status === 'verified';
 
   // A verification result belongs to one exact membership record; never carry it
   // across patients or when the membership number changes.
@@ -605,7 +606,7 @@ export default function NewAttendanceModal({
                 <div className="mb-2 text-xs text-[var(--text-secondary)] flex flex-wrap gap-x-3 gap-y-1">
                   <span>Member No: <strong>{resolvedNhisNumber || 'Not recorded'}</strong></span>
                   <span>Membership record: <strong>{resolvedNhisActive === true ? 'Active' : resolvedNhisActive === false ? 'Inactive' : 'Not recorded'}</strong></span>
-                  <span>NHIA verification: <strong>{nhisVerification?.status === 'verified' ? 'Verified' : nhisVerification?.status === 'ineligible' ? 'Not eligible' : nhisVerification?.status === 'failed' ? 'Failed' : 'Not verified'}</strong></span>
+                  <span>NHIA verification: <strong>{nhisVerification?.status === 'verified' ? 'Verified' : currentNhisVerification?.status === 'ineligible' ? 'Not eligible' : currentNhisVerification?.status === 'failed' ? 'Failed' : 'Not verified'}</strong></span>
                   <span>Expiry: <strong>{resolvedNhisExpiry ? new Date(resolvedNhisExpiry).toLocaleDateString() : 'Not recorded'}</strong></span>
                 </div>
                 {!resolvedNhisDetailsComplete ? (
@@ -633,14 +634,14 @@ export default function NewAttendanceModal({
                           disabled={isVerifyingNhis || isLoading}
                           className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:opacity-90 disabled:opacity-50"
                         >
-                          {isVerifyingNhis ? 'Verifying with NHIA…' : nhisVerification?.status === 'verified' ? 'Verify again with NHIA' : 'Verify with NHIA'}
+                          {isVerifyingNhis ? 'Verifying with NHIA…' : currentNhisVerification?.status === 'verified' ? 'Verify again with NHIA' : 'Verify with NHIA'}
                         </button>
                       ) : (
                         <p className="text-xs text-[var(--text-secondary)]">NHIA verification must be completed by an administrator, accounts, or records user.</p>
                       )}
-                      {nhisVerification && (
+                      {currentNhisVerification && (
                         <span className={`text-xs font-medium ${nhisVerification.status === 'verified' ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}`}>
-                          {nhisVerification.message}
+                          {currentNhisVerification.message}
                         </span>
                       )}
                     </div>
