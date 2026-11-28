@@ -6,31 +6,16 @@ import { CreateInsuranceProviderDTO, UpdateInsuranceProviderDTO } from './Insura
 const isPremierProvider = (name: string) => /\bpremier\s+health\b/i.test(String(name || '').trim());
 
 const validatePremierBenefitPolicy = (policy: any) => {
-  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) {
-    throw new Error('Premier Health Insurance benefit caps must be configured.');
-  }
-  if (policy.version !== 1 || policy.scheme !== 'premier_health') {
-    throw new Error('Unsupported Premier benefit policy version.');
-  }
-  if (Number(policy.opd?.perVisitCap) !== 350 ||
-      Number(policy.opd?.maxVisitsPerCalendarMonth) !== 2 ||
-      policy.opd?.deferFirstVisitExcess !== true) {
-    throw new Error('Premier OPD must be GHS 350 per visit, maximum two visits per calendar month, with first-visit excess deferred.');
-  }
-  if (Number(policy.ipd?.perAdmissionCap) !== 1200) {
-    throw new Error('Premier IPD cap must be GHS 1,200 per admission.');
-  }
-  if (![2000, 2200].includes(Number(policy.surgery?.cap))) {
-    throw new Error('Premier surgery cap must be GHS 2,000 or GHS 2,200.');
-  }
-  return {
-    version: 1,
-    scheme: 'premier_health',
-    opd: { perVisitCap: 350, maxVisitsPerCalendarMonth: 2, deferFirstVisitExcess: true },
-    ipd: { perAdmissionCap: 1200 },
-    surgery: { cap: Number(policy.surgery.cap) },
-    aggregateCategories: ['service', 'procedure', 'medicine', 'investigation'],
-  };
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) throw new Error('Premier Health Insurance benefit caps must be configured.');
+  if (policy.version !== 1 || policy.scheme !== 'premier_health') throw new Error('Unsupported Premier benefit policy version.');
+  const opdCap = Number(policy.opd?.perVisitCap);
+  const maxVisits = Number(policy.opd?.maxVisitsPerCalendarMonth);
+  const ipdCap = Number(policy.ipd?.perAdmissionCap);
+  const surgeryCap = Number(policy.surgery?.cap);
+  if (!Number.isFinite(opdCap) || opdCap <= 0 || !Number.isInteger(maxVisits) || maxVisits < 1 || maxVisits > 2 || policy.opd?.deferFirstVisitExcess !== true) throw new Error('Premier OPD requires a positive per-visit cap, one or two visits per calendar month, and first-visit excess deferral.');
+  if (!Number.isFinite(ipdCap) || ipdCap <= 0) throw new Error('Premier IPD cap must be greater than zero per admission.');
+  if (![2000, 2200].includes(surgeryCap)) throw new Error('Premier surgery cap must be GHS 2,000 or GHS 2,200.');
+  return { version: 1, scheme: 'premier_health', opd: { perVisitCap: opdCap, maxVisitsPerCalendarMonth: maxVisits, deferFirstVisitExcess: true }, ipd: { perAdmissionCap: ipdCap }, surgery: { cap: surgeryCap }, aggregateCategories: ['service', 'procedure', 'medicine', 'investigation'] };
 };
 
 export class InsuranceProviderService extends BaseService {
