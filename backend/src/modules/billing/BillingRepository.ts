@@ -275,6 +275,17 @@ export class BillingRepository extends BaseRepository<any, any, any> {
             return { bill: priorBill, payment: priorPayment, duplicate: true };
           }
         }
+        // Keep manual and provider-backed attempts in one idempotency namespace.
+        // The bill lock above serializes this check with MoMo initiation.
+        if (!paymentData.internalMomoIntentId && idempotencyKey && tx.momoPaymentIntent?.findUnique) {
+          const priorMomoIntent = await tx.momoPaymentIntent.findUnique({
+            where: { idempotencyKey },
+            select: { id: true }
+          });
+          if (priorMomoIntent) {
+            throw Object.assign(new Error('This payment attempt key already belongs to a Mobile Money request. Verify that request before recording another payment.'), { statusCode: 409 });
+          }
+        }
         if (paymentData.internalMomoIntentId) {
           const confirmedIntent = tx.momoPaymentIntent?.findFirst
             ? await tx.momoPaymentIntent.findFirst({

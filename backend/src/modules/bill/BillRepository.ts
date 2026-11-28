@@ -276,6 +276,17 @@ export class BillRepository extends BaseRepository<any, any, any> {
             return { bill: priorBill, payment: priorPayment, duplicate: true };
           }
         }
+        // A manual collection must not reuse the client attempt key of a MoMo request.
+        // Both flows hold the bill row lock, so this cross-channel check is race-safe.
+        if (idempotencyKey && tx.momoPaymentIntent?.findUnique) {
+          const priorMomoIntent = await tx.momoPaymentIntent.findUnique({
+            where: { idempotencyKey },
+            select: { id: true }
+          });
+          if (priorMomoIntent) {
+            throw Object.assign(new Error('This payment attempt key already belongs to a Mobile Money request. Verify that request before recording another payment.'), { statusCode: 409 });
+          }
+        }
         const pendingMomo = tx.momoPaymentIntent?.findFirst
           ? await tx.momoPaymentIntent.findFirst({
               where: { billId: lockedBillId, status: { in: ['initiating', 'pending'] } },

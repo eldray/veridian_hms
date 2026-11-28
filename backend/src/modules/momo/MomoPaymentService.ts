@@ -132,6 +132,17 @@ export class MomoPaymentService {
         const lockedBill = await tx.bill.findUnique({ where: { id: input.billId } });
         if (!lockedBill) throw Object.assign(new Error('Bill not found.'), { statusCode: 404 });
         if (lockedBill.status === 'cancelled') throw Object.assign(new Error('Cannot pay a cancelled bill.'), { statusCode: 409 });
+        // Manual and provider-backed collections share one client attempt key. Check under
+        // the bill lock so switching methods after an ambiguous response cannot double-charge.
+        if (tx.payment?.findUnique) {
+          const priorManualPayment = await tx.payment.findUnique({
+            where: { idempotencyKey: input.idempotencyKey },
+            select: { id: true, billId: true }
+          });
+          if (priorManualPayment) {
+            throw Object.assign(new Error('This payment attempt key already belongs to a recorded payment. Verify that payment before starting Mobile Money.'), { statusCode: 409 });
+          }
+        }
         if (amount > money(lockedBill.balance)) throw Object.assign(new Error('Payment amount exceeds the outstanding balance.'), { statusCode: 409 });
         const pending = tx.momoPaymentIntent.findFirst
           ? await tx.momoPaymentIntent.findFirst({

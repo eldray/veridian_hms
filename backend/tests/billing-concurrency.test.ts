@@ -785,3 +785,48 @@ describe('successful idempotent retries with a pending Mobile Money intent', () 
     await assertRetryReturnsOriginalPayment(true);
   });
 });
+
+
+describe('cross-channel payment idempotency', () => {
+  const assertManualPaymentRejectsMoMoAttemptKey = async (legacy: boolean) => {
+    const billId = legacy ? 'bill-legacy' : 'bill-1';
+    const tx: any = {
+      payment: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn(),
+      },
+      momoPaymentIntent: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'momo-intent-existing' }),
+        findFirst: vi.fn(),
+      },
+      bill: { findUnique: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const paymentData: any = {
+      amount: 25,
+      paymentMethod: 'cash',
+      idempotencyKey: 'shared-attempt-key',
+      userId: 'cashier-1',
+    };
+    const operation = legacy
+      ? new BillingRepository(prisma).addPayment(billId, paymentData)
+      : new BillRepository(prisma).addPayment(billId, paymentData, 'cashier-1');
+
+    await expect(operation).rejects.toMatchObject({ statusCode: 409 });
+    expect(tx.momoPaymentIntent.findUnique).toHaveBeenCalledWith({
+      where: { idempotencyKey: 'shared-attempt-key' },
+      select: { id: true },
+    });
+    expect(tx.payment.create).not.toHaveBeenCalled();
+    expect(tx.bill.updateMany).not.toHaveBeenCalled();
+  };
+
+  it('blocks manual collection using an existing MoMo attempt key in the primary bill repository', async () => {
+    await assertManualPaymentRejectsMoMoAttemptKey(false);
+  });
+
+  it('blocks manual collection using an existing MoMo attempt key in the legacy billing repository', async () => {
+    await assertManualPaymentRejectsMoMoAttemptKey(true);
+  });
+});
