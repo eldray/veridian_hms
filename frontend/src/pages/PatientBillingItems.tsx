@@ -493,7 +493,7 @@ export default function PatientBillingItems() {
     });
 
     // WardChargeRecord remains one source line per charged day for auditability.
-    // Present consecutive days at the same ward/rate as one readable accommodation row.
+    // Present daily charges at the same ward/rate as one readable accommodation row.
     const wardGroups = new Map<string, BillLineItem[]>();
     for (const item of groups['Ward & Accommodation']) {
       const key = `${item.description}::${Number(item.unitPrice).toFixed(2)}`;
@@ -507,7 +507,7 @@ export default function PatientBillingItems() {
       return {
         ...first,
         id: `ward-group:${rows.map((row) => row.id).join(':')}`,
-        sourceItemIds: rows.map((row) => row.id),
+        sourceItemIds: rows.filter((row) => !row.isFullyPaid && Number(row.patientPayableAmount || 0) > 0).map((row) => row.id),
         quantity: rows.reduce((sum, row) => sum + Number(row.quantity || 0), 0),
         lineTotal: rows.reduce((sum, row) => sum + Number(row.lineTotal || 0), 0),
         vatAmount: rows.reduce((sum, row) => sum + Number(row.vatAmount || 0), 0),
