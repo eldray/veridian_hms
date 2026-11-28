@@ -1,6 +1,6 @@
 // src/components/dashboard/DiagnosesAndAttendance.tsx
 import { useEffect, useState } from 'react';
-import { Heart, Calendar, BarChart3, Users, Shield, CreditCard } from 'lucide-react';
+import { Heart, Calendar, BarChart3, Users, Shield, CreditCard, Stethoscope, Hospital, Siren, Baby } from 'lucide-react';
 import { getEncounterReport, getTopDiagnoses as apiGetTopDiagnoses } from '../../api';
 import { useDashboardDate } from '../../context/DashboardDateContext';
 
@@ -83,11 +83,11 @@ export function DiagnosesAndAttendance() {
 
     const maxCount = diagnoses.length ? Math.max(...diagnoses.slice(0, 5).map(getCount)) : 1;
 
-    const typeConfig: Record<string, { label: string; color: string }> = {
-        outpatient: { label: 'Outpatient', color: 'var(--icon-cyan-text)' },
-        inpatient: { label: 'Inpatient', color: 'var(--icon-purple-text)' },
-        emergency: { label: 'Emergency', color: 'var(--icon-red-text)' },
-        maternal: { label: 'Maternal', color: 'var(--icon-pink-text)' },
+    const typeConfig: Record<string, { label: string; color: string; Icon: any }> = {
+        outpatient: { label: 'Outpatient', color: 'var(--icon-cyan-text)', Icon: Stethoscope },
+        inpatient: { label: 'Inpatient', color: 'var(--icon-purple-text)', Icon: Hospital },
+        emergency: { label: 'Emergency', color: 'var(--icon-red-text)', Icon: Siren },
+        maternal: { label: 'Maternal', color: 'var(--icon-pink-text)', Icon: Baby },
     };
 
     const paymentConfig: Record<string, { label: string; Icon: any; color: string }> = {
@@ -202,8 +202,9 @@ export function DiagnosesAndAttendance() {
                                 <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} />
                                 <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Attendance</span>
                             </div>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                            <span className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-medium"
                                 style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}>
+                                <Calendar className="w-3 h-3" aria-hidden="true" />
                                 {attendance.total} total
                             </span>
                         </div>
@@ -222,7 +223,10 @@ export function DiagnosesAndAttendance() {
                                             <div key={key} className="rounded-lg px-2 py-2 border"
                                                 style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
                                                 <p className="text-[9px] mb-1" style={{ color: 'var(--text-secondary)' }}>{cfg.label}</p>
-                                                <p className="text-base font-semibold leading-none" style={{ color: cfg.color }}>{value}</p>
+                                                <p className="inline-flex items-center gap-1.5 text-base font-semibold leading-none" style={{ color: cfg.color }}>
+                                                    <cfg.Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                                                    {value}
+                                                </p>
                                             </div>
                                         );
                                     })}
@@ -248,7 +252,10 @@ export function DiagnosesAndAttendance() {
                                                     <Icon className="w-2.5 h-2.5" style={{ color: cfg.color }} />
                                                     <p className="text-[9px]" style={{ color: 'var(--text-secondary)' }}>{cfg.label}</p>
                                                 </div>
-                                                <p className="text-base font-semibold leading-none" style={{ color: cfg.color }}>{value}</p>
+                                                <p className="inline-flex items-center gap-1.5 text-base font-semibold leading-none" style={{ color: cfg.color }}>
+                                                    <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                                                    {value}
+                                                </p>
                                             </div>
                                         );
                                     })}
