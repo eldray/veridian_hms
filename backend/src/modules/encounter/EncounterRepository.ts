@@ -3717,7 +3717,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       pending: processedItems.filter((i: any) => i.status === 'pending').length,
       inProgress: 0,
       completed: processedItems.filter((i: any) => i.status === 'completed').length,
-      buckets: bucketsOf(processedItems),
+      buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : bucketsOf(processedItems),
       data: processedItems,
     };
   }
@@ -3809,7 +3809,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length,
       completed: processedItems.filter((i: any) => i.status === 'completed').length,
       reviewed: processedItems.filter((i: any) => i.status === 'completed').length,
-      buckets: bucketsOf(processedItems),
+      buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : bucketsOf(processedItems),
       data: processedItems,
     };
   }
@@ -4145,7 +4145,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       pending: processedItems.filter((i: any) => i.status === 'pending').length,
       inProgress: 0,
       completed: processedItems.filter((i: any) => i.status === 'completed').length,
-      buckets: bucketsOf(processedItems), data: processedItems,
+      buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : bucketsOf(processedItems), data: processedItems,
     };
   }
 
