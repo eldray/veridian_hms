@@ -44,6 +44,10 @@ type CollectionRow = {
   voidReason: string | null;
   /** True for a refund row; both reversals and refunds reduce the cashbook. */
   isRefund?: boolean;
+  sourceType?: 'premier_claim_patient_payment';
+  claimNumber?: string;
+  attendanceNumber?: string | null;
+  providerName?: string | null;
   User: { id: string; fullName: string; username: string } | null;
   Bill: {
     id: string;
@@ -91,6 +95,7 @@ const COLLECTION_GROUPS: { key: string; label: string; always: boolean }[] = [
   { key: 'accommodation', label: 'Ward & Accommodation', always: true },
   { key: 'drugs', label: 'Drugs', always: true },
   { key: 'consumables', label: 'Consumables', always: true },
+  { key: 'claims', label: 'Premier Patient Collections', always: false },
   // Only ever a landing place for money that cannot be typed; shown when it has taken any.
   { key: 'other', label: 'Other Services', always: false },
 ];
@@ -130,6 +135,9 @@ function collectionPlacement(
   line: CollectionRow['Bill']['BillLineItem'][number],
 ): { group: string; row: string; label: string } {
   const stock = line.serviceCatalog?.StockItem;
+  if (line.serviceType === 'claim_patient_payment') {
+    return { group: 'claims', row: 'premier_patient_share', label: 'Premier patient share' };
+  }
   if (line.serviceType === 'medication') {
     if (!stock) return { group: 'drugs', row: 'unsorted', label: 'Not on a stock card' };
     const isConsumable = CONSUMABLE_STOCK_CATEGORIES.has((stock.category || '').toLowerCase()) || !stock.isMedication;
@@ -218,6 +226,10 @@ function allocateCollection(payment: CollectionRow) {
 
   return {
     id: payment.id,
+    sourceType: payment.sourceType,
+    claimNumber: payment.claimNumber,
+    attendanceNumber: payment.attendanceNumber,
+    providerName: payment.providerName,
     transactionDate: payment.transactionDate,
     amount: Number(payment.amount),
     paymentMethod: payment.paymentMethod,
@@ -567,9 +579,10 @@ export class BillingService extends BaseService {
    */
   async getCollections(dateFrom: Date, dateTo: Date) {
     this.logInfo('Fetching payment collections', { dateFrom, dateTo });
-    const [rows, refundRows] = await Promise.all([
+    const [rows, refundRows, claimPaymentRows] = await Promise.all([
       this.repository.findCollections(dateFrom, dateTo),
       this.repository.findRefunds(dateFrom, dateTo),
+      this.repository.findPremierClaimPatientCollections(dateFrom, dateTo),
     ]);
     // A refund reverses the collection it came from, so it is fed through the same
     // allocator as a voided payment. Unlike a void, the original payment row stays
@@ -588,7 +601,41 @@ export class BillingService extends BaseService {
       User: refund.processedBy,
       Bill: refund.bill,
     } as unknown as CollectionRow));
-    const allocated = [...rows, ...refundRowsAsReversals].map(allocateCollection);
+    // Premier patient shares are real collections, but deliberately have no Bill or Payment.
+    // Give the cashbook a claim-labelled line so totals reconcile without duplicate bills.
+    const claimRowsAsCollections = claimPaymentRows.map((payment: any) => ({
+      id: payment.id,
+      transactionDate: payment.transactionDate,
+      amount: payment.amount,
+      paymentMethod: payment.paymentMethod,
+      reference: payment.receiptNumber,
+      notes: payment.notes,
+      isVoided: false,
+      voidedAt: null,
+      voidReason: null,
+      sourceType: 'premier_claim_patient_payment' as const,
+      claimNumber: payment.claim.claimNumber,
+      attendanceNumber: payment.claim.Attendance?.attendanceNumber ?? null,
+      providerName: payment.claim.InsuranceProvider?.name ?? null,
+      User: payment.receivedBy,
+      Bill: {
+        id: payment.claim.id,
+        billNumber: payment.claim.claimNumber,
+        Patient: payment.patient,
+        CounterClient: null,
+        BillLineItem: [{
+          id: payment.id,
+          description: 'Premier claim patient share',
+          quantity: 1,
+          lineTotal: payment.amount,
+          patientPayableAmount: payment.amount,
+          serviceType: 'claim_patient_payment',
+          serviceCatalog: { serviceCategory: 'insurance', subType: 'premier_patient_share', StockItem: null },
+          wardChargeRecord: null,
+        }],
+      },
+    } as unknown as CollectionRow));
+    const allocated = [...rows, ...claimRowsAsCollections, ...refundRowsAsReversals].map(allocateCollection);
 
     const payments = allocated.filter((payment) => !payment.isVoided);
     const reversals = allocated.filter((payment) => payment.isVoided);
