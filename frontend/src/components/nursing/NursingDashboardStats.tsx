@@ -25,7 +25,13 @@ export const NursingDashboardStats: React.FC<NursingDashboardStatsProps> = ({ st
     {
       label: 'Total Admitted',
       value: stats.admittedCount,
-      sub: `${stats.ipdCount} IPD · ${stats.detentionCount} Obs · ${stats.daySurgeryCount} Day Surgery`,
+      sub: (
+        <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="inline-flex items-center gap-1"><Hospital className="w-3 h-3" aria-hidden="true" />{stats.ipdCount} IPD</span>
+          <span className="inline-flex items-center gap-1"><Moon className="w-3 h-3" aria-hidden="true" />{stats.detentionCount} Obs</span>
+          <span className="inline-flex items-center gap-1"><Sun className="w-3 h-3" aria-hidden="true" />{stats.daySurgeryCount} Day Surgery</span>
+        </span>
+      ),
       icon: <Users className="w-5 h-5 text-[var(--icon-cyan-text)]" />,
       bg: 'bg-[var(--icon-cyan-bg)]',
       onClick: undefined,

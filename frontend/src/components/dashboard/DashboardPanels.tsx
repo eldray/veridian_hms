@@ -410,7 +410,8 @@ export function TopDiagnoses({ items, loading }: { items: any[]; loading: boolea
                     />
                   </div>
                 )}
-                <span className="text-xs font-semibold" style={{ color: 'var(--icon-cyan-text)' }}>
+                <span className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--icon-cyan-text)' }}>
+                  <Users className="w-3 h-3" aria-hidden="true" />
                   {t.patients}
                 </span>
               </div>
@@ -739,7 +740,10 @@ export function LabSummary() {
               className="px-3 py-2 rounded-lg border text-xs"
               style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
             >
-              Avg turnaround: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{avgTAT} min</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" style={{ color: 'var(--icon-purple-text)' }} aria-hidden="true" />
+                Avg turnaround: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{avgTAT} min</span>
+              </span>
             </div>
           )}
 
@@ -756,7 +760,10 @@ export function LabSummary() {
                     style={{ background: 'var(--bg-main)' }}
                   >
                     <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{t.testName}</span>
-                    <span className="text-xs font-semibold flex-shrink-0 ml-2" style={{ color: 'var(--icon-purple-text)' }}>{t.count}</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold flex-shrink-0 ml-2" style={{ color: 'var(--icon-purple-text)' }}>
+                      <FlaskConical className="w-3 h-3" aria-hidden="true" />
+                      {t.count}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -821,7 +828,10 @@ export function ScanSummary() {
               className="px-3 py-2 rounded-lg border text-xs"
               style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
             >
-              Avg turnaround: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{avgTAT} min</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} aria-hidden="true" />
+                Avg turnaround: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{avgTAT} min</span>
+              </span>
             </div>
           )}
 
@@ -838,7 +848,10 @@ export function ScanSummary() {
                     style={{ background: 'var(--bg-main)' }}
                   >
                     <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{s.scanName}</span>
-                    <span className="text-xs font-semibold flex-shrink-0 ml-2" style={{ color: 'var(--icon-cyan-text)' }}>{s.count}</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold flex-shrink-0 ml-2" style={{ color: 'var(--icon-cyan-text)' }}>
+                      <ScanLine className="w-3 h-3" aria-hidden="true" />
+                      {s.count}
+                    </span>
                   </div>
                 ))}
               </div>
