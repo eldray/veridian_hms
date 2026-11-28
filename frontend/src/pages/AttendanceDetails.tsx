@@ -11,6 +11,7 @@ import SendDocumentModal from '../components/SendDocumentModal';
 import MedicalReportModal from '../components/MedicalReportModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
+import { getWardName, getBedNumber } from '../utils/wardDisplay';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { PageHeader } from '../components/ui';
