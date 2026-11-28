@@ -3697,23 +3697,65 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async getMedicalWorklist(query: WorklistQuery = {}): Promise<any> {
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const view = query.view || 'pending';
+    const dateRange: any = {};
+    if (query.dateFrom) dateRange.gte = query.dateFrom;
+    if (query.dateTo) dateRange.lte = query.dateTo;
+    if (!Object.keys(dateRange).length && view === 'completed') dateRange.gte = today;
+
+    // A consultation is in progress only when a clinician has actually saved clinical
+    // content. Attendance being open/admitted is not evidence that consultation has started.
+    // Finalisation is the completion event; unfinished drafts remain visible after attendance
+    // closure so closing the visit cannot silently complete the consultation task.
+    const hasClinicalDraft = {
+      OR: [
+        { medicalNotes: { not: null } },
+        { assessment: { not: null } },
+        { treatmentPlan: { not: null } },
+        { historyPresentingComplaint: { not: null } },
+        { physicalExamination: { not: null } },
+      ],
+    };
+    const baseWhere: any = {
+      encounterCategory: { in: ['opd', 'ipd', 'daycase'] },
+      attendanceType: { not: 'walk_in' },
+    };
+    if (view === 'completed') {
+      baseWhere.finalizedAt = Object.keys(dateRange).length ? dateRange : { gte: daysAgo(WORKLIST_DONE_HOURS / 24) };
+    } else if (view === 'in_progress') {
+      baseWhere.finalizedAt = null;
+      baseWhere.AND = [hasClinicalDraft];
+      if (Object.keys(dateRange).length) baseWhere.dateTime = dateRange;
+    } else {
+      baseWhere.status = { in: ['pending', 'admitted'] };
+      baseWhere.finalizedAt = null;
+      baseWhere.NOT = hasClinicalDraft;
+      if (Object.keys(dateRange).length) baseWhere.dateTime = dateRange;
+    }
+
     const activeAttendances = await this.findQueueAttendances(
-      this.attendanceQueueWhere(view, query, {
-        // A counter ticket is not a clinical queue: it has no vitals or consultation note to
-        // write, so including it would leave a permanent "pending" row and skew wait times.
-        encounterCategory: { in: ['opd', 'ipd', 'daycase'] }, attendanceType: { not: 'walk_in' },
-      }),
-      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 }, AttendanceDiagnosis: { take: 1 } },
+      baseWhere,
+      {
+        Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
+        CounterClient: { select: { name: true, ageYears: true } },
+        Bed: { include: { Ward: true } },
+        Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 },
+        AttendanceDiagnosis: { take: 1 },
+      },
     );
     activeAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
 
     const processedItems = activeAttendances.map((attendance: any) => {
       const identity = this.displayIdentity(attendance);
       const hasVitalsToday = (attendance.Vitals?.length || 0) > 0;
-      const hasMedicalNotesToday = attendance.medicalNotes !== null && attendance.medicalNotes !== '';
+      const hasMedicalNotesToday = Boolean(
+        attendance.medicalNotes || attendance.assessment || attendance.treatmentPlan ||
+        attendance.historyPresentingComplaint || attendance.physicalExamination
+      );
       const hasDiagnosis = (attendance.AttendanceDiagnosis?.length || 0) > 0;
-      const isPending = hasVitalsToday && !hasMedicalNotesToday && !hasDiagnosis;
-      const waitTime = isPending ? Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000) : 0;
+      const isFinalized = Boolean(attendance.finalizedAt);
+      const waitTime = !hasMedicalNotesToday && !isFinalized
+        ? Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000)
+        : 0;
       let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       const waitHours = waitTime / 60;
       if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent';
@@ -3727,20 +3769,19 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         patient: identity.patient,
         location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined,
         hasMedicalNotesToday, vitals: attendance.Vitals?.[0], hasDiagnosis, waitTime, priority,
-        status: isPending ? 'pending_doctor' : (hasMedicalNotesToday ? 'reviewed' : 'pending_vitals_first'), encounterCategory: attendance.encounterCategory
+        finalizedAt: attendance.finalizedAt,
+        status: isFinalized ? 'completed' : (hasMedicalNotesToday ? 'in_progress' : (hasVitalsToday ? 'pending_doctor' : 'pending_vitals_first')),
+        encounterCategory: attendance.encounterCategory,
       };
     });
     return {
       view,
       total: processedItems.length,
-      pending: processedItems.filter((i: any) => i.status === 'pending_doctor').length,
-      reviewed: processedItems.filter((i: any) => i.hasMedicalNotesToday).length,
-      // "To do" is only the visits still waiting for a consultation; the pending query also
-      // carries reviewed visits so the queue can show them under its Reviewed tab, and counting
-      // those as outstanding work made the tab disagree with the list it opens.
-      buckets: bucketsOf(view === 'pending'
-        ? processedItems.filter((i: any) => i.status === 'pending_doctor')
-        : processedItems),
+      pending: processedItems.filter((i: any) => i.status === 'pending_doctor' || i.status === 'pending_vitals_first').length,
+      inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length,
+      completed: processedItems.filter((i: any) => i.status === 'completed').length,
+      reviewed: processedItems.filter((i: any) => i.status === 'completed').length,
+      buckets: bucketsOf(processedItems),
       data: processedItems,
     };
   }
