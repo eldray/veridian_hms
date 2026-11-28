@@ -274,18 +274,56 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: any) {
     setSelectedMedicine(null); setSearchTerm(''); setQuantity(1); setPrescription({ ...EMPTY_PRESCRIPTION }); onClose();
   };
   if (!isOpen) return null;
-  return <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div className="bg-[var(--bg-card)] rounded-xl max-w-xl w-full border border-[var(--border-color)] max-h-[90vh] flex flex-col">
-      <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between"><h3 className="text-sm font-bold text-[var(--text-primary)]">{editing ? 'Edit Prescription' : 'Add Prescription'}</h3><button type="button" onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><XCircle className="w-5 h-5 text-[var(--text-secondary)]" /></button></div>
-      <div className="p-4 space-y-4 overflow-y-auto">
-        <div className="relative"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" /><input type="text" placeholder="Search medication by name, code or strength…" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedMedicine(null); }} className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></div>
-        {searchTerm.trim() && <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--border-color)]"><PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />{capPickerRows(filtered).map(m => <button type="button" key={m.id} onClick={() => setSelectedMedicine(m)} className={'w-full text-left p-2 border-b border-[var(--border-color)] last:border-0 ' + (selected?.id === m.id ? 'bg-[var(--icon-green-bg)]' : 'hover:bg-[var(--bg-main)]')}><div className="text-sm font-medium text-[var(--text-primary)]">{m.name} {m.strength || ''}</div><div className="text-xs text-[var(--text-secondary)]">Code: {m.drugCode} · {priceLabel(payerUnitPrice(catalogsByStock.get(m.id), 'corporate'))}</div></button>)}{!filtered.length && <p className="p-3 text-xs text-[var(--text-tertiary)]">No matching medication found.</p>}</div>}
-        {selected && <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3"><div className="text-sm font-semibold text-[var(--text-primary)]">{selected.name} {selected.strength || ''}</div><div className="text-xs text-[var(--text-secondary)]">{selected.drugCode || selected.code} · {priceLabel(payerUnitPrice(catalogsByStock.get(selected.id), 'corporate'))}</div></div>}
-        <div className="grid grid-cols-2 gap-3"><label className="text-xs font-medium text-[var(--text-secondary)]">Quantity{selected?.unitOfMeasure ? ` (${selected.unitOfMeasure})` : editing?.quantityUnit ? ` (${editing.quantityUnit})` : ''}<input type="number" min="1" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></label><label className="text-xs font-medium text-[var(--text-secondary)]">Date<input type="date" value={medicineDate} onChange={e => setMedicineDate(e.target.value)} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" /></label></div>
-        <PrescriptionFields value={prescription} onChange={setPrescription} strength={selected?.strength} />
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)] max-h-[90vh] flex flex-col">
+        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{editing ? 'Edit Prescription' : 'Add Prescription'}</h3>
+          <button type="button" onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><XCircle className="w-5 h-5 text-[var(--text-secondary)]" /></button>
+        </div>
+        <div className="p-4 space-y-4 overflow-y-auto">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input type="text" placeholder="Search medication by name, code or strength…" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setSelectedMedicine(null); }} className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity{selected?.unitOfMeasure ? ` (${selected.unitOfMeasure})` : editing?.quantityUnit ? ` (${editing.quantityUnit})` : ''}</label>
+              <input type="number" min="1" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
+              <input type="date" value={medicineDate} onChange={e => setMedicineDate(e.target.value)} className="mt-1 w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
+            </div>
+          </div>
+          <PrescriptionFields value={prescription} onChange={setPrescription} strength={selected?.strength} />
+          <div className="max-h-48 overflow-y-auto space-y-1">
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {!searchTerm.trim() && !selected && <p className="text-xs text-[var(--text-secondary)] py-2">Search for a medicine to add to this claim.</p>}
+            {searchTerm.trim() && filtered.length === 0 && <p className="text-xs text-[var(--text-secondary)] py-2">No matching medicine found.</p>}
+            {searchTerm.trim() && capPickerRows(filtered).map(m => (
+              <button type="button" key={m.id} onClick={() => setSelectedMedicine(m)} className={`w-full text-left p-2 rounded-lg transition-colors ${selected?.id === m.id ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm">{m.name} {m.strength || ''}</span>
+                  <span className="text-xs font-semibold">{priceLabel(payerUnitPrice(catalogsByStock.get(m.id), 'corporate'))}</span>
+                </div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {m.drugCode || m.code || '—'}{m.unitOfMeasure ? ` · Unit: ${m.unitOfMeasure}` : ''}</div>
+              </button>
+            ))}
+          </div>
+          {selected && (
+            <div className="space-y-1">
+              <p className="text-xs text-[var(--text-secondary)]">{selected.name} · {priceLabel(payerUnitPrice(catalogsByStock.get(selected.id), 'corporate'))} per unit. Estimated line: {priceLabel(quantity * (editing?.unitPrice ?? payerUnitPrice(catalogsByStock.get(selected.id), 'corporate')))}.</p>
+            </div>
+          )}
+        </div>
+        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
+          <button type="button" onClick={handleAdd} disabled={!selected} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-medium">{editing ? 'Save Prescription' : 'Add Prescription'}</button>
+          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">Cancel</button>
+        </div>
       </div>
-      <div className="p-4 border-t border-[var(--border-color)] flex gap-2"><button type="button" onClick={handleAdd} disabled={!selected} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg disabled:opacity-50 text-sm font-medium">{editing ? 'Save Prescription' : 'Add Prescription'}</button><button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">Cancel</button></div>
-    </div></div>;
+    </div>
+  );
 }
 function EditLineItemModal({ isOpen, onClose, onSave, item, title }: any) {
   const [formData, setFormData] = useState<any>(null);
@@ -754,7 +792,7 @@ export default function EditCorporateClaim() {
               {medicines.map((med, idx) => (
                 <tr key={idx} className="border-t border-[var(--border-color)]">
                   <td className="px-3 py-3 text-[var(--text-tertiary)]">{idx + 1}.</td>
-                  <td className="px-3 py-3 text-[var(--text-secondary)]">{med.description}{med.prescriptionText && <div className="mt-0.5 text-[10px] italic text-[var(--text-tertiary)]">Rx: {med.prescriptionText}</div>}</td>
+                  <td className="px-3 py-3 text-[var(--text-secondary)]">{med.description}</td>
                   <td className="px-3 py-3 text-[var(--text-secondary)]">{fmtDate(med.date)}</td>
                   <td className="px-3 py-3 text-center text-[var(--text-secondary)]">{med.quantity}{med.quantityUnit ? ` ${med.quantityUnit}` : ''}</td>
                   <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{money(med.unitPrice)}</td>
