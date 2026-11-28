@@ -29,7 +29,10 @@ const ClaimItemSchema = z.object({
   unitPrice: z.number().nonnegative().optional(),
   lineTotal: z.number().nonnegative().optional(),
   serviceDate: z.string().nullable().optional(),
-  prescriptionText: z.string().max(200).nullable().optional(),
+  // Structured prescription details can legitimately exceed 200 characters when dosage,
+  // frequency, duration, route, instructions and quantity unit are combined.
+  // The database column is TEXT, so allow a practical bounded length without truncating clinical data.
+  prescriptionText: z.string().max(2000).nullable().optional(),
   clinician: z.string().max(200).nullable().optional(),
   prescriberNo: z.string().max(100).nullable().optional(),
   billLineItemId: z.string().nullable().optional(),
