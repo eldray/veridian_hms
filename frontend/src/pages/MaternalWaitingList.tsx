@@ -240,6 +240,7 @@ export default function MaternalWaitingList() {
       )}
       tabs={(
         <div className="space-y-3">
+          <WorklistViewControls department="maternal" />
           <Tabs
             tabs={VISIT_TABS.map(tab => ({ ...tab, count: getVisitTabCount(tab.key) }))}
             active={activeVisitType}
