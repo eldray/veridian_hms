@@ -489,6 +489,11 @@ export default function EditPrivateClaim() {
 
   const isPremier = /\bpremier\s+health\b/i.test(String(insuranceProvider?.name || currentClaim?.InsuranceProvider?.name || currentClaim?.insuranceProvider?.name || ''));
   const premierCalculation = (currentClaim?.metadata as any)?.benefitCalculation || null;
+  const premierPolicy = insuranceProvider?.benefitPolicy ?? currentClaim?.InsuranceProvider?.benefitPolicy ?? currentClaim?.insuranceProvider?.benefitPolicy ?? {};
+  const premierOpdCap = Number(premierPolicy?.opd?.perVisitCap ?? 350);
+  const premierMaxVisits = Number(premierPolicy?.opd?.maxVisitsPerCalendarMonth ?? 2);
+  const premierIpdCap = Number(premierPolicy?.ipd?.perAdmissionCap ?? 1200);
+  const premierSurgeryCap = Number(premierPolicy?.surgery?.cap ?? 2200);
 
   useEffect(() => {
     const serviceTotal = services.reduce((s, x) => s + (x.total || x.quantity * x.unitPrice), 0);
@@ -934,7 +939,7 @@ export default function EditPrivateClaim() {
             {isPremier ? (
               <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3">
                 <p className="text-sm font-semibold text-[var(--text-primary)]">Premier benefit cap</p>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">The selected cap applies to the combined value of all entries — consultations, ward charges, procedures, medicines, laboratory tests and scans. OPD is GHS 350 per attendance (two visits monthly); IPD is GHS 1,200 per admission; a surgical admission uses the selected GHS 2,000 or GHS 2,200 total cap.</p>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">{`The selected cap applies to the combined value of all entries — consultations, ward charges, procedures, medicines, laboratory tests and scans. OPD is GHS ${premierOpdCap.toFixed(2)} per attendance (maximum ${premierMaxVisits} visits monthly); IPD is GHS ${premierIpdCap.toFixed(2)} per admission; a surgical admission uses the selected GHS ${premierSurgeryCap.toFixed(2)} total cap.`}</p>
               </div>
             ) : (
               <div>
