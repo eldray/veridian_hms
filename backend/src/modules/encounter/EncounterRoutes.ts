@@ -155,6 +155,11 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
 
   // PRESCRIPTIONS + DISPENSING
   router.post('/:id/prescriptions', requireRole(['admin', 'super_admin', 'doctor']), controller.addPrescription);
+  router.post(
+    '/:encounterId/medications/:medicationId/start-dispensing',
+    requireRole(['admin', 'super_admin', 'pharmacist']),
+    controller.startMedicationDispensing,
+  );
   router.put(
     '/:encounterId/medications/:medicationId/dispense',
     requireRole(['admin', 'super_admin', 'pharmacist']),
