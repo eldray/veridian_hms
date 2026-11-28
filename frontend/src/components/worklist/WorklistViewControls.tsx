@@ -9,9 +9,8 @@ interface WorklistViewControlsProps {
 }
 
 /**
- * The three queues a visit-based worklist answers. A completed visit is no longer work, so it only
- * appears once its own tab is opened; the warning tab exists because a visit can be closed while a
- * lab, scan or procedure requested on it is still unanswered, and that request otherwise vanishes.
+ * Shared task lifecycle controls. Pending, In Progress and Completed are the only status views;
+ * closed-visit investigation follow-up is a separate workflow and is not a substitute for progress.
  */
 export const WorklistViewControls: React.FC<WorklistViewControlsProps> = ({ department }) => {
   const { view, buckets, setView, dateFrom, dateTo, setDateRange } = useWorklistStore();
