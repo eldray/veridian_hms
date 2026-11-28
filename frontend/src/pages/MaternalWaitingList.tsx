@@ -468,6 +468,7 @@ export default function MaternalWaitingList() {
               <tbody>
                 {paginatedPatients.map((patient) => {
                   const isPending = view === 'pending';
+                  const isInProgress = view === 'in_progress';
                   const name = patient.patient?.name || 'Unknown Patient';
                   const accent = getRowAccent(patient);
 
@@ -536,13 +537,15 @@ export default function MaternalWaitingList() {
                           </Badge>
                         ) : (
                           <span className="text-xs text-[var(--text-secondary)]">
-                            {patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                            {isInProgress
+                              ? (patient.maternalStartedAt ? `Started ${new Date(patient.maternalStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'In progress')
+                              : (patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')}
                           </span>
                         )}
                       </td>
 
                       <td className={TD}>
-                        {isPending ? (
+                        {view !== 'completed' ? (
                           <span className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
                             <Clock className="w-3 h-3" />
                             {Math.floor((patient.waitTime || 0) / 60)}h {(patient.waitTime || 0) % 60}m
@@ -563,7 +566,7 @@ export default function MaternalWaitingList() {
                           size="sm"
                           variant="soft"
                           accent={getActionAccent(patient.visitType, isPending)}
-                          icon={isPending ? Eye : FileText}
+                          icon={view === 'completed' ? FileText : Eye}
                           onClick={(e) => { e.stopPropagation(); handleStartVisit(patient); }}
                         >
                           {getActionButtonText(patient.visitType)}
