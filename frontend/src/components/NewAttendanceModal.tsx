@@ -590,27 +590,6 @@ export default function NewAttendanceModal({
                   Auto-populated from patient's default payment method
                 </p>
               )}
-            </div>
-
-            {/* Attendance Type */}
-            <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
-              <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2">Attendance Type</h3>
-              <select
-                value={attendanceType}
-                onChange={(e) => setAttendanceType(e.target.value as AttendanceType)}
-                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
-                disabled={isLoading}
-              >
-                {attendanceTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                Select the appropriate type of attendance
-              </p>
-            </div>
 
             {/* Verify membership details and active status before requesting the attendance CCC. */}
             {paymentMode === 'nhis' && (
@@ -708,6 +687,27 @@ export default function NewAttendanceModal({
                 )}
               </div>
             )}
+            </div>
+
+            {/* Attendance Type */}
+            <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
+              <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2">Attendance Type</h3>
+              <select
+                value={attendanceType}
+                onChange={(e) => setAttendanceType(e.target.value as AttendanceType)}
+                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
+                disabled={isLoading}
+              >
+                {attendanceTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                Select the appropriate type of attendance
+              </p>
+            </div>
 
             {/* Private Insurance Validation Display */}
             {paymentMode === 'private_insurance' && (
