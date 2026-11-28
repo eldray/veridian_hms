@@ -20,6 +20,7 @@ import {
 } from '../../api';
 import { getMarDoses, type MarDose } from '../../api/nursing';
 import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
+import { getWardName, getBedNumber } from '../../utils/wardDisplay';
 import {
   WORKLIST_META, type WorklistKind, type DashboardStats,
   fmtTime, patientFullName, getStatusStyle,
@@ -551,8 +552,8 @@ export function NurseSummary() {
                 {admitted.slice(0, 6).map((a) => {
                   const p = a.patient || a.Patient || {};
             const name = patientFullName(a);
-                  const bed = a.Bed?.bedNumber || a.bed?.bedNumber || '—';
-                  const ward = a.Ward?.wardName || a.ward?.wardName || '';
+                  const bed = getBedNumber(a) || '—';
+                  const ward = getWardName(a) || '';
                   return (
                     <Link
                       key={a.id}
@@ -1697,8 +1698,8 @@ export function RecentAdmissionsPanel() {
         <div className="space-y-1.5">
           {toArray(items).map((a: any) => {
             const name = getPatientName(a);
-            const ward = a.Ward?.wardName || a.ward?.wardName || '—';
-            const bed = a.Bed?.bedNumber || a.bed?.bedNumber || '—';
+            const ward = getWardName(a) || '—';
+            const bed = getBedNumber(a) || '—';
             return (
               <Link
                 key={a.id}

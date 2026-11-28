@@ -1,5 +1,6 @@
 // src/utils/pdfTemplates/labResultsPDF.ts
 // Laboratory report: one block per test, results against reference ranges, abnormal values flagged.
+import { getWardName } from '../wardDisplay';
 import {
   esc, orDash, payerText, multiline, fmtDate, fmtDateTime, clinicianOf,
   resolveHospital, docTitle, patientBanner, section, table, signatures, note, kvGrid, pageShell,
@@ -119,7 +120,7 @@ export const generateLabResultsHTML = (
       [
         ['Visit no.', orDash(visitNo)],
         ['Requested by', orDash(requester)],
-        ['Ward / dept.', orDash(attendance?.Ward?.wardName || attendance?.ward?.wardName || attendance?.department || attendance?.Department?.name)],
+        ['Ward / dept.', orDash(getWardName(attendance) || attendance?.department || attendance?.Department?.name)],
         ['Payer', payerText(attendance?.paymentMode || patient?.paymentMode)],
       ],
       reportedAt,

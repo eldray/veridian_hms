@@ -12,6 +12,7 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { useNursingStore } from '../store/nursingStore';
 import { ShiftHandoverModal } from '../components/nursing/ShiftHandoverModal';
 import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
+import { getWardName, getBedNumber, getWardId } from '../utils/wardDisplay';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { describeApiError } from '../utils/apiError';
 import { getLatestVitals } from '../api';
@@ -316,7 +317,7 @@ export default function Nursing() {
   // ── Filtered ──
   const filteredInpatients = useMemo(() => {
     return inpatients.filter((a) => {
-      if (wardFilter !== 'all' && a.wardId !== wardFilter) return false;
+      if (wardFilter !== 'all' && getWardId(a) !== wardFilter) return false;
 
       if (typeFilter !== 'all') {
         const adm = admissions.find((x) => x.attendanceId === getEntityId(a) && !x.dischargeDate);
@@ -328,15 +329,17 @@ export default function Nursing() {
       const p = findPatient(a);
       const name = p ? getPatientName(p).toLowerCase() : '';
       // Encounters carry bedId, not a nested bed; resolve it from the loaded bed list.
-      const bedNumber = (beds.find((b: any) => b.id === a.bedId)?.bedNumber || '').toLowerCase();
+      const bedNumber = (getBedNumber(a) || beds.find((b: any) => b.id === a.bedId)?.bedNumber || '').toLowerCase();
+      const wardName = (getWardName(a) || wards.find((w: any) => w.id === getWardId(a))?.wardName || '').toLowerCase();
       return (
         name.includes(q) ||
         getAttendanceNumber(a).toLowerCase().includes(q) ||
         getPatientFolderNumber(a).toLowerCase().includes(q) ||
-        bedNumber.includes(q)
+        bedNumber.includes(q) ||
+        wardName.includes(q)
       );
     });
-  }, [inpatients, wardFilter, typeFilter, searchQuery, admissions, findPatient, beds]);
+  }, [inpatients, wardFilter, typeFilter, searchQuery, admissions, findPatient, beds, wards]);
 
   const totalPages = Math.ceil(filteredInpatients.length / itemsPerPage);
   const paginatedInpatients = filteredInpatients.slice(
@@ -625,7 +628,7 @@ export default function Nursing() {
             const admission = admissions.find((a) => a.attendanceId === id && !a.dischargeDate);
             const badges = patientBadges[id] || { alerts: 0, medsDue: 0, tasksPending: 0 };
             const name = getPatientName(attendance);
-            const bedNumber = beds.find((b: any) => b.id === att.bedId)?.bedNumber;
+            const bedNumber = getBedNumber(att) || beds.find((b: any) => b.id === att.bedId)?.bedNumber;
             const age = patient?.dateOfBirth
               ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))
               : null;
@@ -789,8 +792,8 @@ export default function Nursing() {
                   const admission = admissions.find((a) => a.attendanceId === id && !a.dischargeDate);
                   const badges = patientBadges[id] || { alerts: 0, medsDue: 0, tasksPending: 0 };
                   const name = patient ? getPatientName(patient) : 'Unknown Patient';
-                  const bedNumber = beds.find((b: any) => b.id === att.bedId)?.bedNumber;
-                  const ward = wards.find((w: any) => w.id === att.wardId);
+                  const bedNumber = getBedNumber(att) || beds.find((b: any) => b.id === att.bedId)?.bedNumber;
+                  const wardName = getWardName(att) || wards.find((w: any) => w.id === getWardId(att))?.wardName;
                   const age = patient?.dateOfBirth
                     ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))
                     : null;
@@ -841,7 +844,7 @@ export default function Nursing() {
                           <span className="text-[var(--text-tertiary)] italic">No bed</span>
                         )}
                       </td>
-                      <td className={TD}>{ward?.wardName || '—'}</td>
+                      <td className={TD}>{wardName || '—'}</td>
                       <td className={TD}><PatientTypeBadge attendance={att} admission={admission} /></td>
                       <td className={TD}><PaymentBadge mode={att.paymentMode} /></td>
                       <td className={TD}>
@@ -906,7 +909,7 @@ export default function Nursing() {
             patientId: a.patientId,
             patient: p,
             patientName: p ? getPatientName(p) : 'Unknown',
-            bedNumber: beds.find((b: any) => b.id === a.bedId)?.bedNumber,
+            bedNumber: getBedNumber(a) || beds.find((b: any) => b.id === a.bedId)?.bedNumber,
             admissionType: admission?.admissionType,
             encounterCategory: a.encounterCategory,
             tasks: tasks.filter((t) => t.attendanceId === id) as any,

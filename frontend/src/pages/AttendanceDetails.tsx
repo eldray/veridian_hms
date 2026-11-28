@@ -11,6 +11,7 @@ import SendDocumentModal from '../components/SendDocumentModal';
 import MedicalReportModal from '../components/MedicalReportModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
+import { getWardName, getBedNumber } from '../utils/wardDisplay';
 import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { PageHeader } from '../components/ui';
@@ -1512,12 +1513,12 @@ export default function AttendanceDetails() {
                           <span className="text-sm font-semibold text-[var(--text-primary)]">{getPaymentModeLabel(currentAttendance.paymentMode)}</span>
                         </div>
                       </div>
-                      {currentAttendance.bedId && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-[var(--text-secondary)]">Bed/Ward</span>
-                          <span className="text-sm font-semibold text-[var(--text-primary)]">
+                      {(getWardName(currentAttendance) || getBedNumber(currentAttendance)) && (
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-[var(--text-secondary)]">Ward / Bed</span>
+                          <span className="text-sm font-semibold text-[var(--text-primary)] text-right">
                             <Bed className="w-3 h-3 inline mr-1" />
-                            Bed {currentAttendance.bedNumber || currentAttendance.bedId}
+                            {[getWardName(currentAttendance), getBedNumber(currentAttendance) ? `Bed ${getBedNumber(currentAttendance)}` : undefined].filter(Boolean).join(' · ')}
                           </span>
                         </div>
                       )}

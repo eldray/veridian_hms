@@ -5,6 +5,7 @@ import { Badge, humanStatus, statusTone } from './Badge';
 import { accentVar, type Accent } from './accent';
 import { cn } from './cn';
 import { getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../../utils/patient';
+import { getWardName, getBedNumber } from '../../utils/wardDisplay';
 import { PatientAvatar } from '../patients/PatientAvatar';
 
 export interface HeaderField {
@@ -119,7 +120,8 @@ export function PatientVisitHeader({
   fields,
   aside,
 }: PatientVisitHeaderProps) {
-  const ward = attendance?.Bed?.Ward?.wardName || attendance?.Ward?.wardName;
+  const ward = getWardName(attendance);
+  const bedNumber = getBedNumber(attendance);
 
   const base: HeaderField[] = [
     // Split Sex and Age into separate fields
@@ -129,12 +131,12 @@ export function PatientVisitHeader({
     { label: 'Visit No.', value: getAttendanceNumber(attendance) || 'New Visit', mono: true },
     { label: 'Visit Date', value: visitDate(attendance) },
     ...(patient?.contact ? [{ label: 'Phone', value: patient.contact }] : []),
-    ...(ward
+    ...(ward || bedNumber
       ? [{
           label: 'Location',
-          value: attendance?.Bed?.bedNumber
-            ? `${ward} · Bed ${attendance.Bed.bedNumber}`
-            : ward,
+          value: ward
+            ? (bedNumber ? `${ward} · Bed ${bedNumber}` : ward)
+            : `Bed ${bedNumber}`,
         }]
       : []),
   ];

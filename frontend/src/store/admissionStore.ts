@@ -1,6 +1,7 @@
 // stores/admissionStore.ts - COMPLETE UPDATED VERSION
 
 import { create } from 'zustand';
+import { getWardName, getBedNumber } from '../utils/wardDisplay';
 import { 
   getAdmissions as apiGetAdmissions,
   getAdmission as apiGetAdmission,
@@ -260,8 +261,8 @@ const transformDaycasePatient = (data: any): DaycasePatient => ({
   folderNumber: data.Patient?.folderNumber || 'N/A',
   age: data.Patient ? calculateAge(data.Patient.dateOfBirth) : 0,
   gender: data.Patient?.gender || 'Unknown',
-  wardName: data.Ward?.wardName || data.Bed?.Ward?.wardName || '—',
-  bedNumber: data.Bed?.bedNumber || '—',
+  wardName: getWardName(data) || '—',
+  bedNumber: getBedNumber(data) || '—',
   admissionDate: data.dateTime || data.createdAt,
   complaints: data.complaints || '',
   status: data.status
@@ -275,8 +276,8 @@ const transformDetentionPatient = (data: any): DetentionPatientWithDetails => ({
   folderNumber: data.folderNumber || data.Patient?.folderNumber || 'N/A',
   age: data.age || (data.Patient ? calculateAge(data.Patient.dateOfBirth) : 0),
   gender: data.gender || data.Patient?.gender || 'Unknown',
-  wardName: data.wardName || data.Ward?.wardName || data.Bed?.Ward?.wardName || '—',
-  bedNumber: data.bedNumber || data.Bed?.bedNumber || '—',
+  wardName: getWardName(data) || '—',
+  bedNumber: getBedNumber(data) || '—',
   admissionDate: data.admissionDate || data.dateTime || data.createdAt,
   observationHours: data.observationHours || 0,
   vitalsCount: data.vitalsCount || 0,

@@ -1,5 +1,6 @@
 // src/utils/pdfTemplates/dischargeSummaryPDF.ts
 // Inpatient discharge summary: what the next clinician or the patient's own doctor needs.
+import { getWardName, getBedNumber } from '../wardDisplay';
 import {
   esc, orDash, payerText, multiline, fmtDate, fmtDateTime, allergyLine, clinicianOf,
   resolveHospital, docTitle, patientBanner, section, table, signatures, note, kvGrid, pageShell,
@@ -36,8 +37,8 @@ export const generateDischargeSummaryHTML = (
   const refNo = `DS-${admissionNo || attendance?.attendanceNumber || 'NA'}`;
 
   const doctor = clinicianOf(adm, 'doctor', 'admittingDoctor', 'admittedBy');
-  const ward = adm.ward?.wardName || adm.Ward?.wardName || adm.attendance?.Ward?.wardName || adm.wardName || '';
-  const bed = adm.bed?.bedNumber || adm.Bed?.bedNumber || adm.bedNumber || '';
+  const ward = getWardName(adm, attendance) || '';
+  const bed = getBedNumber(adm, attendance) || '';
   const outcome = DISCHARGE_STATUS[String(adm.dischargeStatus || '')] || (adm.status === 'discharged' ? 'Discharged' : String(adm.status || ''));
   const los = adm.lengthOfStay ? String(adm.lengthOfStay) : stayDays(admittedAt, dischargedAt);
   const allergies = allergyLine(patient);

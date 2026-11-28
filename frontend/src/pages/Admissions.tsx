@@ -1,5 +1,6 @@
 // src/pages/Admissions.tsx — Full rewrite, theme-consistent
 import { getPatientName as getPatientName, getPatientFolderNumber, getAttendanceNumber } from '../utils/patient';
+import { getWardName, getBedNumber } from '../utils/wardDisplay';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
@@ -240,10 +241,8 @@ export default function Admissions() {
   const rowPatientName = (a: any) =>
     rowPatient(a) ? getPatientName(rowPatient(a)) : (a?.patientName || 'Unknown Patient');
   const rowFolderNumber = (a: any) => getPatientFolderNumber(a) || '—';
-  const rowWardName = (a: any) =>
-    a?.attendance?.Ward?.wardName || a?.attendance?.ward?.wardName || a?.ward?.wardName || a?.wardName || '—';
-  const rowBedNumber = (a: any) =>
-    a?.attendance?.Bed?.bedNumber || a?.attendance?.bed?.bedNumber || a?.bed?.bedNumber || a?.bedNumber || '—';
+  const rowWardName = (a: any) => getWardName(a) || '—';
+  const rowBedNumber = (a: any) => getBedNumber(a) || '—';
   const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
 

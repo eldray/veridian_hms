@@ -17,6 +17,7 @@ import { openMarPrint } from '../components/nursing/MarPrintModal';
 import { NursingNotesPanel } from '../components/nursing/NursingNotesPanel';
 import { promptDialog } from '../context/PromptDialog';
 import { getPatientName, getPatientFolderNumber } from '../utils/patient';
+import { getWardName, getBedNumber } from '../utils/wardDisplay';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import type { MarDose } from '../api/nursing';
 import {
@@ -397,8 +398,8 @@ export default function NursingPatientWorkspace() {
   const daysOnWard = admittedAt
     ? Math.max(1, Math.floor((Date.now() - new Date(admittedAt).getTime()) / 86400000))
     : null;
-  const wardName = selectedAtt.Ward?.wardName || selectedAtt.Bed?.Ward?.wardName || selectedAtt.ward?.wardName;
-  const bedNumber = selectedAtt.Bed?.bedNumber || selectedAtt.bed?.bedNumber;
+  const wardName = getWardName(selectedAtt, activeAdmission);
+  const bedNumber = getBedNumber(selectedAtt, activeAdmission);
   const hasCritical = alerts.some((a) => a.level === 'critical');
 
   return (

@@ -20,6 +20,7 @@ import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { PageHeader } from '../components/ui';
 import { getPatientName } from '../utils/patient';
+import { getWardName, getBedNumber } from '../utils/wardDisplay';
 import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import { DiagnosisModal } from '../components/medical-entries/modals/DiagnosisModal';
 import { LabTestModal } from '../components/medical-entries/modals/LabTestModal';
@@ -1744,11 +1745,11 @@ aria-label="Active inpatient admission">
 {linkedAdmission?.admissionNumber && <span className="text-[10px] font-mono text-[var(--text-tertiary)]">#{linkedAdmission.admissionNumber}</span>}
 </div>
 <p className="mt-1 text-xs font-medium text-[var(--text-secondary)]">
-{currentAttendance?.Ward?.wardName || currentAttendance?.ward?.wardName || (currentAttendance as any)?.Bed?.Ward?.wardName || linkedAdmission?.attendance?.Ward?.wardName || linkedAdmission?.attendance?.ward?.wardName || linkedAdmission?.ward?.wardName || 'Ward not assigned'}
+{getWardName(currentAttendance, linkedAdmission) || 'Ward not assigned'}
 {' · '}
-{currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber || linkedAdmission?.attendance?.Bed?.bedNumber || linkedAdmission?.attendance?.bed?.bedNumber || linkedAdmission?.bed?.bedNumber
-? `Bed ${currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber || linkedAdmission?.attendance?.Bed?.bedNumber || linkedAdmission?.attendance?.bed?.bedNumber || linkedAdmission?.bed?.bedNumber}`
-: 'Bed not assigned'}
+{getBedNumber(currentAttendance, linkedAdmission)
+  ? `Bed ${getBedNumber(currentAttendance, linkedAdmission)}`
+  : 'Bed not assigned'}
 {linkedAdmission?.admissionDate ? ` · Admitted ${new Date(linkedAdmission.admissionDate).toLocaleDateString()}` : ''}
 </p>
 <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">
