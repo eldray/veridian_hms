@@ -501,7 +501,7 @@ describe('clinical request worklist timestamps', () => {
 
   it('separates started pharmacy dispensing tasks from pending prescriptions', async () => {
     const startedAt = new Date('2026-11-24T10:00:00Z');
-    const medication = { findMany: vi.fn(async () => [
+    const medication = { findMany: vi.fn(async (_args: any) => [
       { id: 'started-rx', attendanceId: 'started-visit', name: 'Amoxicillin', status: 'prescribed', prescribedAt: new Date('2026-11-24T09:00:00Z'), dispensingStartedAt: startedAt, dispensedAt: null, StockItem: null, Attendance: requestAttendance('started') },
     ]) };
     const repository = new EncounterRepository({ medication } as any);
