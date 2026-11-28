@@ -1,6 +1,6 @@
 // components/worklist/WorklistViewControls.tsx
 import React from 'react';
-import { AlertTriangle, CalendarDays, CheckCircle, ListChecks } from 'lucide-react';
+import { CalendarDays, CheckCircle, Clock3, ListChecks } from 'lucide-react';
 import { useWorklistStore, supportsWorklistViews, supportsDateRange } from '../../store/worklistStore';
 import type { DepartmentType, WorklistView } from '../../types/worklist';
 
@@ -18,30 +18,28 @@ export const WorklistViewControls: React.FC<WorklistViewControlsProps> = ({ depa
 
   if (!supportsWorklistViews(department)) return null;
 
-  // Each tab is its own query, so a count is only known for the queue actually loaded; the other
-  // two would have to be fetched on every page load to be honest about their size.
+  // Each tab is a task-level queue. Counts are shown only when the selected query provides a reliable count.
   const tabs: Array<{ key: WorklistView; label: string; count: number | null; icon: React.ReactNode; hint: string }> = [
     {
       key: 'pending',
-      label: 'To do',
+      label: 'Pending',
       count: view === 'pending' ? buckets.today + buckets.inpatients + buckets.overdue : null,
       icon: <ListChecks className="w-3.5 h-3.5" />,
-      hint: `${buckets.today} today · ${buckets.inpatients} admitted · ${buckets.overdue} overdue`,
+      hint: 'Work not yet started',
+    },
+    {
+      key: 'in_progress',
+      label: 'In Progress',
+      count: null,
+      icon: <Clock3 className="w-3.5 h-3.5" />,
+      hint: 'Work currently being handled',
     },
     {
       key: 'completed',
       label: 'Completed',
       count: view === 'completed' ? buckets.closed : null,
       icon: <CheckCircle className="w-3.5 h-3.5" />,
-      hint: 'Visits closed today',
-    },
-    {
-      key: 'outstanding',
-      label: 'Awaiting results',
-      // The warning queue is a separate query, so its size is only known once it is open.
-      count: view === 'outstanding' ? buckets.closed : null,
-      icon: <AlertTriangle className="w-3.5 h-3.5 text-[var(--icon-yellow-text)]" />,
-      hint: 'Closed visits still owing a lab, scan or procedure result',
+      hint: 'Completed work history',
     },
   ];
 
