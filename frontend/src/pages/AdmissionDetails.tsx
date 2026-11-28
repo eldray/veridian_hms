@@ -17,6 +17,7 @@ import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { useHospitalStore } from '../store/hospitalStore';
 import { PageHeader } from '../components/ui';
 import { getPatientName } from '../utils/patient';
+import { getWardName, getBedNumber } from '../utils/wardDisplay';
 
 export default function AdmissionDetails() {
   const goBack = useSmartBack('/dashboard/admissions');
@@ -308,8 +309,8 @@ export default function AdmissionDetails() {
               <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Admitting clinician</p><p className="mt-1 flex items-center gap-1.5 text-sm text-[var(--text-primary)]"><Stethoscope className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />{attendance?.createdBy?.fullName || attendance?.User_Attendance_createdByIdToUser?.fullName || '—'}</p></div>
               <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Payment mode</p><p className="mt-1 flex items-center gap-1.5 text-sm uppercase text-[var(--text-primary)]"><ShieldCheck className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />{attendance?.paymentMode?.replace(/_/g, ' ') || '—'}</p></div>
               {admission?.dischargeDate && <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Discharge date</p><p className="mt-1 text-sm text-[var(--text-primary)]">{formatDate(admission.dischargeDate)}</p></div>}
-              <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Ward</p><p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]"><Building2 className="h-3.5 w-3.5 text-[var(--icon-cyan-text)]" />{attendance?.Ward?.wardName || attendance?.ward?.wardName || '—'}</p></div>
-              <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Bed</p><p className="mt-1 flex items-center gap-1.5 font-mono text-sm font-semibold text-[var(--text-primary)]"><BedDouble className="h-3.5 w-3.5 text-[var(--icon-cyan-text)]" />{attendance?.Bed?.bedNumber || attendance?.bed?.bedNumber || '—'}</p></div>
+              <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Ward</p><p className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]"><Building2 className="h-3.5 w-3.5 text-[var(--icon-cyan-text)]" />{getWardName(attendance, currentAdmission, foundAdmission) || '—'}</p></div>
+              <div><p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Bed</p><p className="mt-1 flex items-center gap-1.5 font-mono text-sm font-semibold text-[var(--text-primary)]"><BedDouble className="h-3.5 w-3.5 text-[var(--icon-cyan-text)]" />{getBedNumber(attendance, currentAdmission, foundAdmission) || '—'}</p></div>
             </div>
           </section>
 
