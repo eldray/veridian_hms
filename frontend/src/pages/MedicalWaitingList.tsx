@@ -33,7 +33,6 @@ import {
   SearchInput,
   StatCard,
   statusTone,
-  Tabs,
   TD,
   TD_MONO,
   TH,
@@ -342,7 +341,7 @@ export default function MedicalWaitingList() {
                       )}
                     </td>
                     <td className={TD}>
-                      {activeTab === 'pending' ? (
+                      {view !== 'completed' ? (
                         <div className="flex items-center gap-1 text-[var(--text-secondary)]">
                           <Clock className="w-3.5 h-3.5" />
                           <span>
