@@ -375,8 +375,9 @@ describe('worklist query parsing', () => {
     expect(parseWorklistQuery({})).toEqual({ view: undefined, dateFrom: null, dateTo: null });
   });
 
-  it('reads a view case-insensitively', () => {
+  it('reads each shared task status case-insensitively', () => {
     expect(parseWorklistQuery({ view: ' OUTSTANDING ' }).view).toBe('outstanding');
+    expect(parseWorklistQuery({ view: ' IN_PROGRESS ' }).view).toBe('in_progress');
   });
 
   it('expands a single day into that whole day', () => {
@@ -411,7 +412,7 @@ describe('worklist query parsing', () => {
   });
 
   it('rejects a view the queue cannot answer rather than silently defaulting', () => {
-    expect(() => parseWorklistQuery({ view: 'admitted' })).toThrow(/pending, completed or outstanding/i);
+    expect(() => parseWorklistQuery({ view: 'admitted' })).toThrow(/pending, in_progress, completed or outstanding/i);
   });
 });
 
