@@ -1257,401 +1257,48 @@ export default function AttendanceDetails() {
         <div className="p-4">
           {/* OVERVIEW TAB */}
           {activeTab === 'overview' && (
-            <div className="space-y-3">
-              {/* Visit Summary: one-screen clinical snapshot; source records remain unchanged. */}
-              <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                      <h2 className="text-base font-bold text-[var(--text-primary)]">Visit Summary</h2>
-                    </div>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1">A quick overview of this attendance, its documented findings and quick links to the full records.</p>
-                  </div>
-                  <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5" /> {visitDateLabel}
-                  </div>
+            <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
+                <div>
+                  <h2 className="text-base font-bold text-[var(--text-primary)]">Attendance overview</h2>
+                  <p className="text-xs text-[var(--text-secondary)] mt-1">A quick count of the records captured for this visit. Open a tab below to view the full details.</p>
                 </div>
-
-                <div className="grid grid-cols-2 xl:grid-cols-6 gap-3">
-                  {[
-                    { label: 'Diagnoses', value: visitDiagnoses.length, icon: Stethoscope, tab: 'clinical' as const },
-                    { label: 'Medicines', value: encounterMedications.length, icon: Pill, tab: 'medications' as const },
-                    { label: 'Lab tests', value: encounterLabTests.length, icon: FlaskConical, tab: 'lab-tests' as const },
-                    { label: 'Scans', value: encounterScans.length, icon: Scan, tab: 'scans' as const },
-                    { label: 'Procedures', value: encounterProcedures.length, icon: Scissors, tab: 'procedures' as const },
-                    { label: 'Vitals recorded', value: vitalsList.length, icon: Heart, tab: 'vitals' as const },
-                  ].map((item) => {
-                    const SummaryIcon = item.icon;
-                    return (
-                      <button key={item.label} type="button" onClick={() => setActiveTab(item.tab)}
-                        className="text-left rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 hover:border-[var(--icon-cyan-text)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs text-[var(--text-secondary)]">{item.label}</span>
-                          <SummaryIcon className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                        </div>
-                        <p className="text-xl font-bold text-[var(--text-primary)] mt-1">{item.value}</p>
-                        <span className="text-[10px] text-[var(--text-secondary)]">View details</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-[var(--border-color)] p-3">
-                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Presenting complaint</p>
-                    <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{currentAttendance?.complaints || 'No complaint recorded for this visit.'}</p>
-                  </div>
-                  <div className="rounded-lg border border-[var(--border-color)] p-3">
-                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Recorded diagnoses</p>
-                    {visitDiagnoses.length ? (
-                      <ul className="space-y-1">
-                        {visitDiagnoses.slice(0, 4).map((diagnosis, index) => (
-                          <li key={diagnosis + index} className="text-sm text-[var(--text-primary)] flex gap-2">
-                            <span className="text-[var(--icon-green-text)]">•</span><span>{diagnosis}</span>
-                          </li>
-                        ))}
-                        {visitDiagnoses.length > 4 && <li className="text-xs text-[var(--text-secondary)]">+{visitDiagnoses.length - 4} more diagnoses</li>}
-                      </ul>
-                    ) : <p className="text-sm text-[var(--text-secondary)]">No diagnosis recorded yet.</p>}
-                  </div>
-                  <div className="rounded-lg border border-[var(--border-color)] p-3">
-                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Clinical notes</p>
-                    {visitClinicalSummary.length ? (
-                      <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap line-clamp-5">{visitClinicalSummary.join('\n\n')}</p>
-                    ) : <p className="text-sm text-[var(--text-secondary)]">No additional clinical notes recorded.</p>}
-                    <button type="button" onClick={() => setActiveTab('clinical')} className="mt-2 text-xs font-semibold text-[var(--icon-cyan-text)] hover:underline">Open clinical record</button>
-                  </div>
-                  <div className="rounded-lg border border-[var(--border-color)] p-3">
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <p className="text-xs font-semibold text-[var(--text-secondary)]">Latest observations</p>
-                      {hasAbnormalVitals && <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--icon-yellow-text)]"><AlertTriangle className="w-3.5 h-3.5" /> Review</span>}
-                    </div>
-                    {latestVitals ? (
-                      <div className="flex flex-wrap gap-2">
-                        {[
-                          ['BP', latestVitals.bloodPressure],
-                          ['Pulse', latestVitals.pulse != null ? `${latestVitals.pulse} bpm` : ''],
-                          ['Temp', latestVitals.temperature != null ? `${latestVitals.temperature} °C` : ''],
-                          ['SpO₂', latestVitals.spo2 != null ? `${latestVitals.spo2}%` : ''],
-                          ['Weight', latestVitals.weight != null ? `${latestVitals.weight} kg` : ''],
-                        ].filter((entry) => entry[1] !== '' && entry[1] != null).map(([label, value]) => (
-                          <span key={label} className="rounded-md bg-[var(--bg-main)] border border-[var(--border-color)] px-2 py-1 text-xs text-[var(--text-primary)]"><span className="text-[var(--text-secondary)]">{label}:</span> {value}</span>
-                        ))}
-                      </div>
-                    ) : <p className="text-sm text-[var(--text-secondary)]">No observations recorded for this attendance.</p>}
-                    <button type="button" onClick={() => setActiveTab('vitals')} className="mt-2 text-xs font-semibold text-[var(--icon-cyan-text)] hover:underline">View vitals history</button>
-                  </div>
-                </div>
-              </section>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Left Column - Patient Info & Medical Details */}
-                <div className="lg:col-span-2 space-y-4">
-                  {/* Patient Information Card */}
-                  {patient && (
-                    <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-                      <div className="flex items-center gap-3 mb-4">
-                        <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="md" className="rounded-lg bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
-                        <div>
-                          <h3 className="text-lg font-bold text-[var(--text-primary)]">Patient Information</h3>
-                          <p className="text-xs text-[var(--text-secondary)]">Demographic and contact details</p>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
-                          <p className="text-xs text-[var(--text-secondary)] font-medium">Full Name</p>
-                          <p className="font-bold text-[var(--text-primary)] text-sm">{getPatientFullName(patient)}</p>
-                        </div>
-                        <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
-                          <p className="text-xs text-[var(--text-secondary)] font-medium">Folder Number</p>
-                          <p className="font-bold text-[var(--text-primary)] text-sm">{getPatientFolderNumber(currentAttendance) || getPatientFolderNumber(patient) || 'N/A'}</p>
-                        </div>
-                        <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
-                          <p className="text-xs text-[var(--text-secondary)] font-medium">Age & Gender</p>
-                          <p className="font-bold text-[var(--text-primary)] text-sm">
-                            {patient.age || 'N/A'} years • {patient.gender || 'N/A'}
-                          </p>
-                        </div>
-                        <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
-                          <p className="text-xs text-[var(--text-secondary)] font-medium">Contact</p>
-                          <p className="font-bold text-[var(--text-primary)] text-sm">{patient.contact || 'N/A'}</p>
-                        </div>
-                        {patient.address && (
-                          <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)] md:col-span-2">
-                            <p className="text-xs text-[var(--text-secondary)] font-medium">Address</p>
-                            <p className="font-bold text-[var(--text-primary)] text-sm">{patient.address}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Medical Information */}
-                  <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
-                        <Heart className="w-5 h-5 text-[var(--icon-green-text)]" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-[var(--text-primary)]">Medical Information</h3>
-                        <p className="text-xs text-[var(--text-secondary)]">Complaints and clinical notes</p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
-                        <p className="text-xs text-[var(--text-secondary)] font-medium mb-2 flex items-center gap-2">
-                          <Clipboard className="w-3 h-3" />
-                          Chief Complaints
-                        </p>
-                        <p className="font-semibold text-[var(--text-primary)] text-sm">
-                          {currentAttendance.complaints || 'No complaints recorded'}
-                        </p>
-                      </div>
-                      {clinicalNotes.historyPresentingComplaint && (
-                        <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
-                          <p className="text-xs text-[var(--text-secondary)] font-medium mb-2 flex items-center gap-2">
-                            <History className="w-3 h-3" />
-                            History of Presenting Complaint
-                          </p>
-                          <p className="font-semibold text-[var(--text-primary)] text-sm">{clinicalNotes.historyPresentingComplaint}</p>
-                        </div>
-                      )}
-                      {currentAttendance.medicalNotes && (
-                        <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
-                          <p className="text-xs text-[var(--text-secondary)] font-medium mb-2 flex items-center gap-2">
-                            <FileText className="w-3 h-3" />
-                            Medical Notes
-                          </p>
-                          <p className="font-semibold text-[var(--text-primary)] text-sm">{currentAttendance.medicalNotes}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Diagnoses */}
-                  {encounterDiagnoses.length > 0 && (
-                    <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center">
-                          <Brain className="w-5 h-5 text-[var(--icon-purple-text)]" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-[var(--text-primary)]">Diagnoses</h3>
-                          <p className="text-xs text-[var(--text-secondary)]">Medical diagnoses and conditions</p>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        {encounterDiagnoses.map((diagnosis: any, index: number) => (
-                          <div key={diagnosis.id || index} className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <p className="font-semibold text-[var(--text-primary)] text-sm">
-                                  {diagnosis.diagnosis?.name || diagnosis.icdCode}
-                                </p>
-                                {diagnosis.icdCode && (
-                                  <p className="text-xs text-[var(--text-secondary)] mt-1">ICD-10: {diagnosis.icdCode}</p>
-                                )}
-                                {diagnosis.notes && (
-                                  <p className="text-xs text-[var(--text-primary)] mt-2">{diagnosis.notes}</p>
-                                )}
-                              </div>
-                              {diagnosis.primary && (
-                                <span className="px-2 py-1 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] text-xs rounded-full font-semibold ml-2 border border-[var(--border-color)]">
-                                  Primary
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Column - Attendance Details & Stats */}
-                <div className="space-y-3">
-                  {/* Attendance Status Card */}
-                  <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                    <div className="flex items-center gap-3 mb-3">
-                      <Activity className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                      <h3 className="text-md font-bold text-[var(--text-primary)]">Attendance Status</h3>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <div className={`inline-flex px-3 py-1.5 rounded-full text-sm font-semibold ${getStatusColor(currentAttendance.status || 'pending')}`}>
-                        {currentAttendance.status 
-                          ? currentAttendance.status.charAt(0).toUpperCase() + currentAttendance.status.slice(1) 
-                          : 'Pending'}
-                      </div>
-                      {getEncounterCategoryBadge()}
-                    </div>
-                  </div>
-
-                  {/* Attendance Details */}
-                  <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                    <div className="flex items-center gap-3 mb-3">
-                      <Calendar className="w-5 h-5 text-[var(--icon-green-text)]" />
-                      <h3 className="text-md font-bold text-[var(--text-primary)]">Visit Details</h3>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-[var(--text-secondary)]">Date & Time</span>
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">{formatDate(currentAttendance.dateTime)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-[var(--text-secondary)]">Attendance Type</span>
-                        <span className="text-sm font-semibold text-[var(--icon-cyan-text)]">{getAttendanceTypeLabel(currentAttendance.attendanceType)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-[var(--text-secondary)]">Payment Mode</span>
-                        <div className="flex items-center gap-1">
-                          {getPaymentModeIcon(currentAttendance.paymentMode)}
-                          <span className="text-sm font-semibold text-[var(--text-primary)]">{getPaymentModeLabel(currentAttendance.paymentMode)}</span>
-                        </div>
-                      </div>
-                      {currentAttendance.bedId && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-[var(--text-secondary)]">Bed/Ward</span>
-                          <span className="text-sm font-semibold text-[var(--text-primary)]">
-                            <Bed className="w-3 h-3 inline mr-1" />
-                            Bed {currentAttendance.bedNumber || currentAttendance.bedId}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Clinician Information */}
-                  <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                    <div className="flex items-center gap-3 mb-3">
-                      <Stethoscope className="w-5 h-5 text-[var(--icon-purple-text)]" />
-                      <h3 className="text-md font-bold text-[var(--text-primary)]">Clinician</h3>
-                    </div>
-                    <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
-                      <p className="font-semibold text-[var(--text-primary)] text-sm">
-                        {getClinicianName(currentAttendance)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Latest Vitals */}
-                  {latestVitals && (
-                    <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Heart className="w-5 h-5 text-[var(--icon-red-text)]" />
-                        <h3 className="text-md font-bold text-[var(--text-primary)]">Latest Vitals</h3>
-                        {hasAbnormalVitals && (
-                          <AlertTriangle className="w-4 h-4 text-[var(--icon-red-text)]" />
-                        )}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {latestVitals.bloodPressure && (
-                          <div className="bg-[var(--bg-card)] rounded-lg p-2 text-center">
-                            <p className="text-xs text-[var(--text-secondary)]">BP</p>
-                            <p className="font-bold text-sm">{latestVitals.bloodPressure} mmHg</p>
-                          </div>
-                        )}
-                        {latestVitals.temperature && (
-                          <div className="bg-[var(--bg-card)] rounded-lg p-2 text-center">
-                            <p className="text-xs text-[var(--text-secondary)]">Temp</p>
-                            <p className="font-bold text-sm">{latestVitals.temperature}°C</p>
-                          </div>
-                        )}
-                        {latestVitals.pulse && (
-                          <div className="bg-[var(--bg-card)] rounded-lg p-2 text-center">
-                            <p className="text-xs text-[var(--text-secondary)]">Pulse</p>
-                            <p className="font-bold text-sm">{latestVitals.pulse} bpm</p>
-                          </div>
-                        )}
-                        {latestVitals.spo2 && (
-                          <div className="bg-[var(--bg-card)] rounded-lg p-2 text-center">
-                            <p className="text-xs text-[var(--text-secondary)]">SpO₂</p>
-                            <p className="font-bold text-sm">{latestVitals.spo2}%</p>
-                          </div>
-                        )}
-                      </div>
-                      {canEnterVitals && (
-                        <div className="mt-2 text-center">
-                          <button onClick={handleGoToVitals} className="text-xs text-[var(--icon-cyan-text)] hover:underline">
-                            View all vitals →
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Financial Summary */}
-                  <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                    <div className="flex items-center gap-3 mb-3">
-                      <DollarSign className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-                      <h3 className="text-md font-bold text-[var(--text-primary)]">Financial Summary</h3>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center bg-[var(--bg-card)] rounded-lg p-2 border border-[var(--border-color)]">
-                        <span className="text-sm text-[var(--text-secondary)]">Total Bill</span>
-                        <span className="font-bold text-lg text-[var(--text-primary)]">
-                          {formatCurrency(currentAttendance.totalBill || 0)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center bg-[var(--bg-card)] rounded-lg p-2 border border-[var(--border-color)]">
-                        <span className="text-sm text-[var(--text-secondary)]">Paid Amount</span>
-                        <span className="font-bold text-lg text-[var(--icon-green-text)]">
-                          {formatCurrency(currentAttendance.paidAmount || 0)}
-                        </span>
-                      </div>
-                      {(currentAttendance.outstandingBalance || 0) > 0 && (
-                        <div className="flex justify-between items-center bg-[var(--bg-main)] rounded-lg p-2 border border-[var(--border-color)]">
-                          <span className="text-sm font-semibold text-[var(--icon-red-text)]">Outstanding</span>
-                          <span className="font-bold text-[var(--icon-red-text)]">
-                            {formatCurrency(currentAttendance.outstandingBalance || 0)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Quick Stats */}
-                  <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                    <h3 className="text-md font-bold text-[var(--text-primary)] mb-3">Clinical Summary</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="text-center bg-[var(--bg-card)] rounded-lg p-2 border border-[var(--border-color)]">
-                        <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)] mx-auto mb-1" />
-                        <div className="font-bold text-[var(--text-primary)]">{encounterDiagnoses.length}</div>
-                        <div className="text-xs text-[var(--text-secondary)]">Diagnoses</div>
-                      </div>
-                      <div className="text-center bg-[var(--bg-card)] rounded-lg p-2 border border-[var(--border-color)]">
-                        <Pill className="w-4 h-4 text-[var(--icon-purple-text)] mx-auto mb-1" />
-                        <div className="font-bold text-[var(--text-primary)]">{encounterMedications.length}</div>
-                        <div className="text-xs text-[var(--text-secondary)]">Medications</div>
-                      </div>
-                      <div className="text-center bg-[var(--bg-card)] rounded-lg p-2 border border-[var(--border-color)]">
-                        <FlaskConical className="w-4 h-4 text-[var(--icon-green-text)] mx-auto mb-1" />
-                        <div className="font-bold text-[var(--text-primary)]">{encounterLabTests.length}</div>
-                        <div className="text-xs text-[var(--text-secondary)]">Lab Tests</div>
-                      </div>
-                      <div className="text-center bg-[var(--bg-card)] rounded-lg p-2 border border-[var(--border-color)]">
-                        <Scan className="w-4 h-4 text-[var(--icon-purple-text)] mx-auto mb-1" />
-                        <div className="font-bold text-[var(--text-primary)]">{encounterScans.length}</div>
-                        <div className="text-xs text-[var(--text-secondary)]">Scans</div>
-                      </div>
-                      <div className="text-center bg-[var(--bg-card)] rounded-lg p-2 border border-[var(--border-color)]">
-                        <Scissors className="w-4 h-4 text-[var(--icon-red-text)] mx-auto mb-1" />
-                        <div className="font-bold text-[var(--text-primary)]">{encounterProcedures.length}</div>
-                        <div className="text-xs text-[var(--text-secondary)]">Procedures</div>
-                      </div>
-                      <div className="text-center bg-[var(--bg-card)] rounded-lg p-2 border border-[var(--border-color)]">
-                        <Heart className="w-4 h-4 text-[var(--icon-red-text)] mx-auto mb-1" />
-                        <div className="font-bold text-[var(--text-primary)]">{vitalsList.length}</div>
-                        <div className="text-xs text-[var(--text-secondary)]">Vitals</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <span className="inline-flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                  <Calendar className="w-3.5 h-3.5" /> {visitDateLabel}
+                </span>
               </div>
-            </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                {[
+                  { label: 'Diagnoses', value: encounterDiagnoses.length, icon: Stethoscope, tab: 'clinical' as const },
+                  { label: 'Medications', value: encounterMedications.length, icon: Pill, tab: 'medications' as const },
+                  { label: 'Lab tests', value: encounterLabTests.length, icon: FlaskConical, tab: 'lab-tests' as const },
+                  { label: 'Scans', value: encounterScans.length, icon: Scan, tab: 'scans' as const },
+                  { label: 'Procedures', value: encounterProcedures.length, icon: Scissors, tab: 'procedures' as const },
+                  { label: 'Vitals', value: vitalsList.length, icon: Heart, tab: 'vitals' as const },
+                  { label: 'Bills', value: attendanceBills.length, icon: Receipt, tab: 'billing' as const },
+                ].filter((item) => item.tab !== 'billing' || canOpenBilling).map((item) => {
+                  const SummaryIcon = item.icon;
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => setActiveTab(item.tab)}
+                      className="flex items-center gap-3 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 text-left transition-colors hover:border-[var(--icon-cyan-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-cyan-text)]"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
+                        <SummaryIcon className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs text-[var(--text-secondary)]">{item.label}</span>
+                        <span className="block text-xl font-bold leading-tight text-[var(--text-primary)]">{item.value}</span>
+                      </span>
+                      <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-[var(--text-tertiary)]" />
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           )}
 
           {/* MEDICATIONS TAB */}
