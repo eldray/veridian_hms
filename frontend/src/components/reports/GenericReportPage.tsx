@@ -70,14 +70,7 @@
   }) => {
     const rows = useMemo(() => pickRows(table.source, data), [table.source, data]);
     const isNcdMorbidity = table.source === 'ncdMorbidityReport';
-    const compactNcdHeader = (header: string) => header
-      .replace(/^Male /, 'M ').replace(/^Female /, 'F ')
-      .replace('<28 days', '<28d').replace('1-11mths', '1–11m')
-      .replace('1-4yrs', '1–4y').replace('5-9yrs', '5–9y')
-      .replace('10-14yrs', '10–14y').replace('15-17yrs', '15–17y')
-      .replace('18-19yrs', '18–19y').replace('20-34yrs', '20–34y')
-      .replace('35-49yrs', '35–49y').replace('50-59yrs', '50–59y')
-      .replace('60-69yrs', '60–69y').replace('70+', '70+y');
+    const ncdAgeGroups = ["<28 days","1–11 months","1–4 years","5–9 years","10–14 years","15–17 years","18–19 years","20–34 years","35–49 years","50–59 years","60–69 years","70+ years"];
 
     // Type and alignment come from the column as a whole, so the metas are built once over every
     // row — a filter must not be able to make a money column print left-aligned as text.
@@ -144,32 +137,29 @@
           </div>
         </div>
 
-        <div className={isNcdMorbidity ? "w-full max-w-full overflow-x-hidden" : "overflow-x-auto"}>
-          <table className={isNcdMorbidity ? "w-full table-fixed text-[10px] border-collapse" : "w-full text-xs"}>
-            <thead>
-              {isNcdMorbidity && <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <th rowSpan={2} style={{ width: "20%" }} className="sticky left-0 z-20 bg-[var(--bg-main)] px-2 py-2 text-left text-[9px] font-bold uppercase tracking-wide text-[var(--text-tertiary)]">Disease / Condition</th>
-                <th colSpan={12} className="px-1 py-1.5 text-center text-[9px] font-bold uppercase tracking-wide text-[var(--text-tertiary)]">Male</th>
-                <th rowSpan={2} style={{ width: "3.2%" }} className="px-0.5 py-1.5 text-center text-[9px] font-bold text-[var(--text-primary)]">Total</th>
-                <th colSpan={12} className="px-1 py-1.5 text-center text-[9px] font-bold uppercase tracking-wide text-[var(--text-tertiary)]">Female</th>
-              </tr>}
-              <tr className="bg-[var(--bg-main)]">
-                {metas.map(meta => {
-                  const active = sortField === meta.field;
-                  return (
-                    <th
-                      key={meta.field}
-                      style={isNcdMorbidity ? { width: meta.numeric ? "3.2%" : "20%" } : meta.width ? { minWidth: `${meta.width}px` } : undefined}
-                      className={`${isNcdMorbidity ? 'px-0.5 py-1.5 text-[8px] leading-tight text-center whitespace-normal break-words' : 'px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap'} text-[var(--text-tertiary)] ${meta.numeric ? 'text-right' : 'text-left'} ${isNcdMorbidity && meta.field === table.columns[0].field ? 'sticky left-0 z-10 bg-[var(--bg-main)]' : ''}`}
-                    >
-                      <button type="button" onClick={() => toggleSort(meta.field)} className="inline-flex items-center hover:text-[var(--text-primary)]">
-                        {isNcdMorbidity ? compactNcdHeader(meta.header) : meta.header}
-                        {active && <SortIcons direction={sortDir} />}
-                      </button>
-                    </th>
-                  );
-                })}
-              </tr>
+        <div className={isNcdMorbidity ? "w-full max-w-full overflow-x-auto" : "overflow-x-auto"}>
+          <table className={isNcdMorbidity ? "w-full min-w-[1500px] table-fixed text-[10px] border-collapse" : "w-full text-xs"}>
+            <thead className={isNcdMorbidity ? "sticky top-0 z-10" : ""}>
+              {isNcdMorbidity ? (
+                <>
+                  <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                    <th rowSpan={2} style={{ width: "220px" }} className="sticky left-0 z-30 bg-[var(--bg-main)] px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wide text-[var(--text-tertiary)]">Disease / Condition</th>
+                    {ncdAgeGroups.map(group => <th key={group} colSpan={2} className="px-1 py-2 text-center text-[10px] font-semibold text-[var(--text-tertiary)] border-x border-[var(--border-color)]">{group}</th>)}
+                    <th rowSpan={2} style={{ width: "64px" }} className="px-2 py-2 text-center text-[10px] font-bold text-[var(--text-primary)] bg-[var(--bg-main)]">Total</th>
+                  </tr>
+                  <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                    {metas.slice(1, -1).map(meta => {
+                      const active = sortField === meta.field;
+                      const sex = meta.header.endsWith("Male") ? "M" : "F";
+                      return <th key={meta.field} style={{ width: "48px" }} className="px-1 py-1.5 text-center text-[9px] font-bold text-[var(--text-tertiary)]"><button type="button" onClick={() => toggleSort(meta.field)} aria-label={meta.header} className="inline-flex items-center hover:text-[var(--text-primary)]">{sex}{active && <SortIcons direction={sortDir} />}</button></th>;
+                    })}
+                  </tr>
+                </>
+              ) : (
+                <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  {metas.map(meta => { const active = sortField === meta.field; return <th key={meta.field} className={`px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap text-[var(--text-tertiary)] ${meta.numeric ? "text-right" : "text-left"}`}><button type="button" onClick={() => toggleSort(meta.field)} className="inline-flex items-center hover:text-[var(--text-primary)]">{meta.header}{active && <SortIcons direction={sortDir} />}</button></th>; })}
+                </tr>
+              )}
             </thead>
             <tbody>
               {visible.length === 0 ? (
@@ -189,7 +179,7 @@
                     return (
                       <td
                         key={column.field}
-                        className={`${isNcdMorbidity ? 'px-0.5 py-1.5 text-[10px] text-center whitespace-nowrap' : 'px-3 py-2.5'} text-[var(--text-secondary)] ${meta.numeric ? 'text-right tabular-nums' : 'text-left'} ${isNcdMorbidity && columnIndex === 0 ? 'sticky left-0 z-[1] bg-[var(--bg-card)] text-left font-medium' : ''}`}
+                        className={`px-2 py-2 text-[10px] text-center tabular-nums text-[var(--text-secondary)] ${meta.numeric ? 'text-center' : 'text-left'} ${isNcdMorbidity && columnIndex === 0 ? 'sticky left-0 z-[1] bg-[var(--bg-card)] font-medium' : ''} ${isNcdMorbidity && columnIndex === table.columns.length - 1 ? 'font-bold bg-[var(--bg-main)] text-[var(--text-primary)]' : ''}`}
                       >
                         {formatCell(readPath(row, column.field), meta.value, currency, column.raw)}
                       </td>
