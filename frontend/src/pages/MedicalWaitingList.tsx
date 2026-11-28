@@ -363,7 +363,7 @@ export default function MedicalWaitingList() {
                         className="mx-auto"
                         onClick={(e) => { e.stopPropagation(); handleStartConsultation(patient); }}
                       >
-                        {view === 'completed' ? 'View Record' : 'Start Consultation'}
+                        {view === 'completed' ? 'View Record' : view === 'in_progress' ? 'Resume Consultation' : 'Start Consultation'}
                       </Button>
                     </td>
                   </tr>
