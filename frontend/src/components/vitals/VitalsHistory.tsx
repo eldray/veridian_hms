@@ -16,12 +16,30 @@ export const VitalsHistory: React.FC<VitalsHistoryProps> = ({
   isLoading = false 
 }) => {
   const getRecordedBy = (vitals: Vitals): string => {
-    const record = vitals as Vitals & { User?: { fullName?: string | null; username?: string | null }; recordedBy?: string | { fullName?: string | null; username?: string | null } };
-    const relation = record.User || (typeof record.recordedBy === 'object' ? record.recordedBy : undefined);
+    // API relation normalization may expose Prisma's User relation as either
+    // "User" or "user", depending on the endpoint/response path.
+    const record = vitals as Vitals & {
+      User?: { fullName?: string | null; username?: string | null } | null;
+      user?: { fullName?: string | null; username?: string | null } | null;
+      recordedBy?: string | { fullName?: string | null; username?: string | null };
+    };
+    const relation = record.User || record.user ||
+      (typeof record.recordedBy === 'object' ? record.recordedBy : undefined);
     if (relation?.fullName?.trim()) return relation.fullName;
     if (relation?.username?.trim()) return relation.username;
-    if (typeof record.recordedBy === 'string' && record.recordedBy.trim()) return record.recordedBy;
-    return 'Unknown';
+    if (typeof record.recordedBy === 'string' && record.recordedBy.trim() &&
+        record.recordedBy !== record.recordedById) return record.recordedBy;
+    return 'Staff record unavailable';
+  };
+
+  const getBMI = (record: Vitals): string | null => {
+    const storedBMI = Number(record.bmi);
+    if (Number.isFinite(storedBMI) && storedBMI > 0) return storedBMI.toFixed(1);
+    const weight = Number(record.weight);
+    const heightCm = Number(record.height);
+    if (!Number.isFinite(weight) || weight <= 0 ||
+        !Number.isFinite(heightCm) || heightCm <= 0) return null;
+    return (weight / Math.pow(heightCm / 100, 2)).toFixed(1);
   };
 
   const getStatusColor = (type: string, value: any): string => {
@@ -190,9 +208,9 @@ export const VitalsHistory: React.FC<VitalsHistoryProps> = ({
 
                 {/* BMI */}
                 <td className="px-3 py-3 whitespace-nowrap">
-                  {vitalsRecord.bmi !== undefined ? (
+                  {getBMI(vitalsRecord) ? (
                     <div className="text-sm font-medium text-[var(--text-primary)]">
-                      {vitalsRecord.bmi}
+                      {getBMI(vitalsRecord)}
                     </div>
                   ) : (
                     <span className="text-sm text-[var(--text-tertiary)]">-</span>
