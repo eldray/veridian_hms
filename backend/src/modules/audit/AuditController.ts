@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { Buffer } from 'node:buffer';
 import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { AuditService } from './AuditService';
@@ -98,7 +99,7 @@ export class AuditController extends BaseController {
   exportLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const format = (req.query.format as string) || 'json';
     const filters = {
-      format: format as 'json' | 'csv',
+      format: format as 'json' | 'csv' | 'xlsx',
       entityType: req.query.entityType as string | undefined,
       action: req.query.action as string | undefined,
       userId: req.query.userId as string | undefined,
@@ -107,6 +108,18 @@ export class AuditController extends BaseController {
     };
 
     const exportData = await this.auditService.exportLogs(filters);
+
+    if (format === 'xlsx') {
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename=audit-logs-${Date.now()}.xlsx`,
+      );
+      return res.send(exportData as Buffer);
+    }
 
     if (format === 'csv') {
       res.setHeader('Content-Type', 'text/csv');
