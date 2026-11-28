@@ -9,7 +9,6 @@ import {
   getScansWorklist,
   getTheatreWorklist,
   getMaternalWorklist,
-  getOutstandingWorklist,
   getWorklistSummary
 } from '../api';
 import { WorklistState, WorklistItem, DepartmentType, WorklistView, WorklistFetchOptions } from '../types/worklist';
@@ -18,11 +17,9 @@ import { WorklistState, WorklistItem, DepartmentType, WorklistView, WorklistFetc
 const worklistRequestVersions: Partial<Record<DepartmentType, number>> = {};
 
 /**
- * Queues that answer the three worklist views: to do, completed, and awaiting results (the
- * requests on visits that have already been closed). Visit queues derive those views from the
- * attendance status; lab, pharmacy and theatre derive them from the request's own status.
+ * Each service queue uses the shared three-state status selector. Parent attendance status must
+ * not hide unfinished service work.
  */
-export const ATTENDANCE_QUEUE_DEPARTMENTS: DepartmentType[] = ['vitals', 'medical', 'maternal'];
 export const WORKLIST_VIEW_DEPARTMENTS: DepartmentType[] = [
   'vitals', 'medical', 'maternal', 'lab', 'pharmacy', 'scans', 'theatre',
 ];
@@ -95,19 +92,12 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
       view: queueView,
       dateFrom: supportsDateRange(department) && requestedFrom ? requestedFrom : undefined,
       dateTo: supportsDateRange(department) && requestedTo ? requestedTo : undefined,
-      // The warning list is hospital-wide; the maternal desk only owns the three maternal visits.
-      ...(department === 'maternal' && queueView === 'outstanding'
-        ? { attendanceType: 'antenatal,delivery,postnatal' }
-        : {}),
     };
     try {
       let apiCall;
 
       // 1. Select the correct API call based on department
-      if (queueView === 'outstanding' && ATTENDANCE_QUEUE_DEPARTMENTS.includes(department)) {
-        // Visit queues share one warning list; the item queues answer "awaiting results" themselves.
-        apiCall = getOutstandingWorklist(params);
-      } else {
+      {
         switch (department) {
           case 'vitals': apiCall = getVitalsWorklist(params); break;
           case 'medical': apiCall = getMedicalWorklist(params); break;
