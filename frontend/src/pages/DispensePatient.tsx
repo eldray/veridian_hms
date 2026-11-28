@@ -893,7 +893,7 @@ export default function DispensePatient() {
                               {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || 'As directed'}
                             </p>
                           </div>
-                          <StatusBadge status={isDispensed ? 'dispensed' : 'prescribed'} />
+                          <StatusBadge status={isDispensed ? 'dispensed' : med.dispensingStartedAt ? 'in_progress' : 'prescribed'} />
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -954,7 +954,7 @@ export default function DispensePatient() {
                               disabled={!canDispense || !hasStock || dispensingId === med.id}
                               onClick={() => handleDispenseClick(med)}
                             >
-                              Dispense
+                              {med.dispensingStartedAt ? 'Continue' : 'Dispense'}
                             </Button>
                           )}
                           {canDispense && !isDispensed && lowStock && (
