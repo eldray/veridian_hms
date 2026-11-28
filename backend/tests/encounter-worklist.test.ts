@@ -243,7 +243,7 @@ describe('medical and maternal worklist views', () => {
     const result = await repository.getMaternalWorklist({ view: 'completed' });
     const where = firstWhere(findMany);
 
-    expect(where.status).toBeUndefined();
+    expect(where.status).toEqual({ not: 'cancelled' });
     expect(where.OR).toEqual(expect.arrayContaining([
       expect.objectContaining({ attendanceType: 'antenatal', antenatalVisits: { some: { visitDate: { gte: expect.any(Date) } } } }),
     ]));
@@ -259,7 +259,7 @@ describe('medical and maternal worklist views', () => {
 
     const result = await repository.getMaternalWorklist({ view: 'completed' });
 
-    expect(firstWhere(findMany).status).toBeUndefined();
+    expect(firstWhere(findMany).status).toEqual({ not: 'cancelled' });
     expect(firstWhere(findMany).OR).toEqual(expect.arrayContaining([
       expect.objectContaining({ attendanceType: 'postnatal', postnatalRecords: { some: { examinationDate: { gte: expect.any(Date) } } } }),
     ]));
@@ -271,8 +271,51 @@ describe('medical and maternal worklist views', () => {
     const { repository, findMany } = queueRepository();
     const result = await repository.getMaternalWorklist({ view: 'in_progress' });
 
-    expect(firstWhere(findMany).id).toEqual({ in: [] });
+    expect(firstWhere(findMany).OR).toEqual(expect.arrayContaining([
+      expect.objectContaining({ attendanceType: 'antenatal', maternalStartedAt: { not: null }, antenatalVisits: { none: {} } }),
+    ]));
     expect(result.inProgress).toBe(0);
+  });
+
+  it('shows a started maternal task as in progress even after attendance closure', async () => {
+    const startedAt = new Date();
+    const { repository, findMany } = queueRepository([
+      attendanceRow({ status: 'completed', attendanceType: 'antenatal', maternalStartedAt: startedAt, antenatalVisits: [] }),
+    ]);
+
+    const result = await repository.getMaternalWorklist({ view: 'in_progress' });
+
+    expect(firstWhere(findMany).status).toEqual({ not: 'cancelled' });
+    expect(result.data[0].status).toBe('in_progress');
+    expect(result.data[0].maternalStartedAt).toEqual(startedAt);
+    expect(result.inProgress).toBe(1);
+  });
+
+  it('records a maternal task start event without completing the clinical record', async () => {
+    const started = { id: 'attendance-1', status: 'completed', attendanceType: 'antenatal', maternalStartedAt: new Date() };
+    const attendance = {
+      findUnique: vi.fn()
+        .mockResolvedValueOnce({ id: 'attendance-1', status: 'completed', attendanceType: 'antenatal', maternalStartedAt: null })
+        .mockResolvedValueOnce(started),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+    };
+    const tx = {
+      attendance,
+      aNCVisit: { findFirst: vi.fn().mockResolvedValue(null) },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    const result = await repository.startMaternalTask('attendance-1', 'midwife-1');
+
+    expect(attendance.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'attendance-1', status: { not: 'cancelled' }, maternalStartedAt: null },
+      data: expect.objectContaining({ maternalStartedById: 'midwife-1' }),
+    }));
+    expect(result.maternalStartedAt).toBeInstanceOf(Date);
   });
 
   it('keeps the maternity queue on maternity visit types', async () => {
@@ -288,7 +331,10 @@ describe('medical and maternal worklist views', () => {
     const where = firstWhere(findMany);
 
     expect(where.attendanceType).toEqual({ in: ['antenatal', 'delivery', 'postnatal'] });
-    expect(where.status).toEqual({ in: ['pending', 'admitted'] });
+    expect(where.status).toEqual({ not: 'cancelled' });
+    expect(where.OR).toEqual(expect.arrayContaining([
+      expect.objectContaining({ attendanceType: 'antenatal', maternalStartedAt: null, antenatalVisits: { none: {} } }),
+    ]));
     expect(result.data[0].attendanceNumber).toBe('ANC-0000003');
     expect(result.data[0].riskLevel).toBe('high');
     expect(result.buckets).toEqual({ today: 0, inpatients: 1, overdue: 0, closed: 0 });
