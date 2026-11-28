@@ -3920,8 +3920,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const where: any = view === 'completed'
       ? { status: 'dispensed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) }, ...itemDateFilter }
       : view === 'in_progress'
-        ? { id: '__no_pharmacy_task_in_progress__' }
-        : { status: 'prescribed', prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) }, ...itemDateFilter };
+        ? { status: 'prescribed', dispensingStartedAt: { not: null }, prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) }, ...itemDateFilter }
+        : { status: 'prescribed', dispensingStartedAt: null, prescribedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) }, ...itemDateFilter };
     const allMedications = await this.prisma.medication.findMany({
       where,
       select: {
@@ -3933,6 +3933,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         duration: true,
         status: true,
         prescribedAt: true,
+        dispensingStartedAt: true,
+        dispensingStartedById: true,
         dispensedAt: true,
         StockItem: { select: { name: true } },
         Attendance: {
@@ -3953,10 +3955,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     for (const med of allMedications) {
       const attendanceId = med.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId: med.attendanceId, ...this.displayIdentity(med.Attendance), location: med.Attendance.Bed ? { ward: med.Attendance.Bed.Ward?.wardName, bed: med.Attendance.Bed.bedNumber } : undefined, medications: [], prescribedCount: 0, dispensedCount: 0, oldestPrescribedAt: med.prescribedAt, newestPrescribedAt: med.prescribedAt });
+        groupedByAttendance.set(attendanceId, { attendanceId: med.attendanceId, ...this.displayIdentity(med.Attendance), location: med.Attendance.Bed ? { ward: med.Attendance.Bed.Ward?.wardName, bed: med.Attendance.Bed.bedNumber } : undefined, medications: [], prescribedCount: 0, inProgressCount: 0, dispensedCount: 0, oldestPrescribedAt: med.prescribedAt, newestPrescribedAt: med.prescribedAt });
       }
       const group = groupedByAttendance.get(attendanceId)!; group.medications.push(med);
-      if (med.status === 'prescribed') group.prescribedCount++; else if (med.status === 'dispensed') group.dispensedCount++;
+      if (med.status === 'prescribed' && med.dispensingStartedAt) group.inProgressCount++; else if (med.status === 'prescribed') group.prescribedCount++; else if (med.status === 'dispensed') group.dispensedCount++;
       if (new Date(med.prescribedAt) < new Date(group.oldestPrescribedAt)) group.oldestPrescribedAt = med.prescribedAt;
       if (new Date(med.prescribedAt) > new Date(group.newestPrescribedAt)) group.newestPrescribedAt = med.prescribedAt;
     }
@@ -3964,10 +3966,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     for (const group of groupedByAttendance.values()) {
       group.medications.sort((a: any, b: any) => queueTimeKey(b.prescribedAt) - queueTimeKey(a.prescribedAt));
       const hasPendingPrescriptions = group.prescribedCount > 0;
-      const allDispensed = group.prescribedCount === 0 && group.dispensedCount > 0;
+      const hasInProgressPrescriptions = group.inProgressCount > 0;
+      const allDispensed = group.prescribedCount === 0 && group.inProgressCount === 0 && group.dispensedCount > 0;
       let waitTime = 0; let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       if (hasPendingPrescriptions) { waitTime = Math.floor((Date.now() - new Date(group.oldestPrescribedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
-      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, prescriptionCount: group.prescribedCount + group.dispensedCount, prescribedCount: group.prescribedCount, dispensedCount: group.dispensedCount, hasPendingPrescriptions, hasBeenDispensed: allDispensed, oldestPrescribedAt: group.oldestPrescribedAt, newestPrescribedAt: group.newestPrescribedAt, medications: group.medications.map((m: any) => ({ id: m.id, name: m.StockItem?.name || m.name, dosage: m.dosage, frequency: m.frequency, duration: m.duration, status: m.status, prescribedAt: m.prescribedAt, dispensedAt: m.dispensedAt })), waitTime, priority, status: hasPendingPrescriptions ? 'pending' : (allDispensed ? 'dispensed' : 'partial'), encounterCategory: 'ipd' });
+      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, attendanceNumber: group.attendanceNumber, attendanceDateTime: group.attendanceDateTime, attendanceStatus: group.attendanceStatus, prescriptionCount: group.prescribedCount + group.inProgressCount + group.dispensedCount, prescribedCount: group.prescribedCount, inProgressCount: group.inProgressCount, dispensedCount: group.dispensedCount, hasPendingPrescriptions, hasBeenDispensed: allDispensed, oldestPrescribedAt: group.oldestPrescribedAt, newestPrescribedAt: group.newestPrescribedAt, medications: group.medications.map((m: any) => ({ id: m.id, name: m.StockItem?.name || m.name, dosage: m.dosage, frequency: m.frequency, duration: m.duration, status: m.status, prescribedAt: m.prescribedAt, dispensingStartedAt: m.dispensingStartedAt, dispensedAt: m.dispensedAt })), waitTime, priority, status: hasPendingPrescriptions ? 'pending' : (hasInProgressPrescriptions ? 'in_progress' : (allDispensed ? 'dispensed' : 'partial')), encounterCategory: 'ipd' });
     }
     processedItems.sort((a: any, b: any) => queueTimeKey(b.newestPrescribedAt) - queueTimeKey(a.newestPrescribedAt));
     const buckets = {
@@ -3976,7 +3979,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       overdue: 0,
       closed: view === 'pending' ? 0 : processedItems.length,
     };
-    return { view, total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingPrescriptions).length, dispensed: processedItems.filter((i: any) => i.hasBeenDispensed).length, buckets, data: processedItems };
+    return { view, total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingPrescriptions).length, inProgress: processedItems.filter((i: any) => i.inProgressCount > 0).length, dispensed: processedItems.filter((i: any) => i.hasBeenDispensed).length, buckets, data: processedItems };
   }
 
   async getRadiologyWorklist(query: WorklistQuery = {}): Promise<any> {
