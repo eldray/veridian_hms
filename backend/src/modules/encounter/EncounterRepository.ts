@@ -4152,6 +4152,51 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return { view, total: processedItems.length, scheduled: processedItems.filter((i: any) => i.status === 'scheduled').length, inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length, completed: processedItems.filter((i: any) => i.status === 'completed').length, buckets, data: processedItems };
   }
 
+  async startMaternalTask(attendanceId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, status: true, attendanceType: true, maternalStartedAt: true },
+      });
+      if (!attendance) throw new NotFoundError('Encounter', attendanceId);
+      if (!['antenatal', 'delivery', 'postnatal'].includes(attendance.attendanceType)) {
+        throw new ValidationError('This attendance is not a maternal visit');
+      }
+      if (attendance.status === 'cancelled') throw new ConflictError('A maternal task cannot be started for a cancelled attendance');
+
+      const existingRecord = attendance.attendanceType === 'antenatal'
+        ? await tx.aNCVisit.findFirst({ where: { attendanceId }, select: { id: true } })
+        : attendance.attendanceType === 'delivery'
+          ? await tx.deliveryRecord.findFirst({ where: { attendanceId }, select: { id: true } })
+          : await tx.postnatalRecord.findFirst({ where: { attendanceId }, select: { id: true } });
+      if (existingRecord) throw new ConflictError('This maternal task already has a clinical record');
+      if (attendance.maternalStartedAt) return attendance;
+
+      const startedAt = new Date();
+      const claimed = await tx.attendance.updateMany({
+        where: { id: attendanceId, status: { not: 'cancelled' }, maternalStartedAt: null },
+        data: { maternalStartedAt: startedAt, maternalStartedById: actorId },
+      });
+      if (claimed.count !== 1) {
+        const latest = await tx.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, status: true, attendanceType: true, maternalStartedAt: true } });
+        if (latest?.maternalStartedAt) return latest;
+        throw new ConflictError('The maternal task changed in another session; refresh the waiting list');
+      }
+
+      const updated = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        select: { id: true, status: true, attendanceType: true, maternalStartedAt: true },
+      });
+      if (!updated) throw new NotFoundError('Encounter', attendanceId);
+      await appendClinicalRecordAudit(tx, actorId, 'Attendance', attendanceId, 'update',
+        { maternalStartedAt: null },
+        { maternalStartedAt: startedAt, maternalStartedById: actorId },
+        { workflow: 'maternal_task_started', visitType: attendance.attendanceType });
+      return updated;
+    });
+  }
+
   async getMaternalWorklist(query: WorklistQuery = {}): Promise<any> {
     const view = query.view || 'pending';
     const range: any = {};
@@ -4159,28 +4204,31 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (query.dateTo) range.lte = query.dateTo;
     if (view === 'completed' && !Object.keys(range).length) range.gte = startOfCurrentDay();
 
-    // A maternal visit is complete only when its own clinical record exists:
-    // ANCVisit, DeliveryRecord or PostnatalRecord. Closing an attendance is not
-    // evidence that maternal care was delivered. These workflows save records
-    // as a single completed clinical form, so no draft/in-progress state exists.
+    // Each maternal attendance has one task-start event and one matching clinical record.
+    // Unfinished work remains visible after attendance closure; cancelled visits are excluded.
     const maternalTypes = ['antenatal', 'delivery', 'postnatal'];
-    const where: any = { attendanceType: { in: maternalTypes } };
+    const where: any = { attendanceType: { in: maternalTypes }, status: { not: 'cancelled' } };
     const taskRelations: Record<string, any> = {
       antenatal: { antenatalVisits: { some: Object.keys(range).length ? { visitDate: range } : {} } },
       delivery: { deliveryRecords: { some: Object.keys(range).length ? { deliveryDate: range } : {} } },
       postnatal: { postnatalRecords: { some: Object.keys(range).length ? { examinationDate: range } : {} } },
     };
     const pendingRelations: Record<string, any> = {
-      antenatal: { antenatalVisits: { none: {} } },
-      delivery: { deliveryRecords: { none: {} } },
-      postnatal: { postnatalRecords: { none: {} } },
+      antenatal: { antenatalVisits: { none: {} }, maternalStartedAt: null },
+      delivery: { deliveryRecords: { none: {} }, maternalStartedAt: null },
+      postnatal: { postnatalRecords: { none: {} }, maternalStartedAt: null },
+    };
+    const inProgressRelations: Record<string, any> = {
+      antenatal: { antenatalVisits: { none: {} }, maternalStartedAt: { not: null } },
+      delivery: { deliveryRecords: { none: {} }, maternalStartedAt: { not: null } },
+      postnatal: { postnatalRecords: { none: {} }, maternalStartedAt: { not: null } },
     };
     if (view === 'in_progress') {
-      where.id = { in: [] };
+      where.OR = maternalTypes.map(type => ({ attendanceType: type, ...inProgressRelations[type] }));
+      if (Object.keys(range).length) where.maternalStartedAt = range;
     } else if (view === 'completed') {
       where.OR = maternalTypes.map(type => ({ attendanceType: type, ...taskRelations[type] }));
     } else {
-      where.status = { in: ['pending', 'admitted'] };
       where.OR = maternalTypes.map(type => ({ attendanceType: type, ...pendingRelations[type] }));
       if (Object.keys(range).length) where.dateTime = range;
     }
@@ -4207,7 +4255,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       const postnatal = attendance.postnatalRecords[0];
       const lastVitals = attendance.Vitals?.[0];
       const completed = Boolean(attendance.antenatalVisits?.length || attendance.deliveryRecords?.length || attendance.postnatalRecords?.length);
-      const waitTime = completed ? 0 : Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000);
+      const inProgress = !completed && Boolean(attendance.maternalStartedAt);
+      const waitAnchor = inProgress ? attendance.maternalStartedAt : attendance.dateTime;
+      const waitTime = completed ? 0 : Math.floor((Date.now() - new Date(waitAnchor).getTime()) / 60000);
       let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       const riskLevel = antenatal?.riskLevel || 'low';
       if (!completed) { const waitHours = waitTime / 60; if (riskLevel === 'high' || waitHours > 48) priority = 'stat'; else if (riskLevel === 'medium' || waitHours > 24) priority = 'urgent'; }
@@ -4217,7 +4267,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         queueRank: attendanceQueueRank(attendance), patient: identity.patient,
         location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined,
         visitType: attendance.attendanceType as any, attendanceStatus: identity.attendanceStatus,
-        status: completed ? 'completed' : 'pending', hasBeenAttended: completed,
+        status: completed ? 'completed' : (inProgress ? 'in_progress' : 'pending'), hasBeenAttended: completed,
         completedAt: attendance.antenatalVisits?.[0]?.visitDate || delivery?.deliveryDate || postnatal?.examinationDate,
         waitTime, priority, riskLevel, encounterCategory: attendance.encounterCategory,
         gestationalAge: antenatal?.gestationalAgeWeeks, edd: antenatal?.edd,
@@ -4229,7 +4279,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return {
       view, total: processedItems.length,
       pending: processedItems.filter((i: any) => i.status === 'pending').length,
-      inProgress: 0,
+      inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length,
       completed: processedItems.filter((i: any) => i.status === 'completed').length,
       buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : bucketsOf(processedItems), data: processedItems,
     };
