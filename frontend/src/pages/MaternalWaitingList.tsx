@@ -272,10 +272,10 @@ export default function MaternalWaitingList() {
 
       {/* ── Stats ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Waiting" value={stats.total} icon={Users} accent="cyan" />
+        <StatCard label={view === 'pending' ? "Pending" : view === 'in_progress' ? "In Progress" : "Completed"} value={stats.total} icon={Users} accent="cyan" />
         <StatCard label="High Risk" value={stats.highRisk} icon={AlertTriangle} accent="red" />
         <StatCard label="Urgent" value={stats.urgent} icon={AlertCircle} accent="orange" />
-        <StatCard label="Completed Today" value={stats.recentCompleted} icon={CheckCircle} accent="purple" />
+        <StatCard label="Completed" value={stats.recentCompleted} icon={CheckCircle} accent="purple" />
       </div>
 
       {/* ── Search + view toggle ── */}
