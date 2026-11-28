@@ -666,8 +666,9 @@ export default function DispensePatient() {
       </div>
 
       {!selectedAttendanceId && (
-        <WorklistViewControls department="pharmacy" />
-        <QueuedVisits
+        <>
+          <WorklistViewControls department="pharmacy" />
+          <QueuedVisits
           title="Dispensing queue"
           description="Prescriptions waiting to be filled — pick a visit to dispense"
           icon={Pill}
@@ -677,8 +678,9 @@ export default function DispensePatient() {
           emptyMessage="No prescriptions are waiting. Open the dispensing list to review dispensed history."
           onOpen={openQueuedVisit}
           onRefresh={loadData}
-          onViewAll={() => navigate('/dashboard/pharmacy')}
-        />
+            onViewAll={() => navigate('/dashboard/pharmacy')}
+          />
+        </>
       )}
 
       {selectedAttendanceId && attendance && (
