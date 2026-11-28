@@ -3724,7 +3724,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     } else if (view === 'in_progress') {
       baseWhere.finalizedAt = null;
       baseWhere.AND = [hasClinicalDraft];
-      if (Object.keys(dateRange).length) baseWhere.dateTime = dateRange;
+      if (Object.keys(dateRange).length) baseWhere.updatedAt = dateRange;
     } else {
       baseWhere.status = { in: ['pending', 'admitted'] };
       baseWhere.finalizedAt = null;
