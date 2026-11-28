@@ -4067,11 +4067,50 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async getMaternalWorklist(query: WorklistQuery = {}): Promise<any> {
-    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const view = query.view || 'pending';
+    const range: any = {};
+    if (query.dateFrom) range.gte = query.dateFrom;
+    if (query.dateTo) range.lte = query.dateTo;
+
+    // A maternal visit is complete only when its own clinical record exists:
+    // ANCVisit, DeliveryRecord or PostnatalRecord. Closing an attendance is not
+    // evidence that maternal care was delivered. These workflows save records
+    // as a single completed clinical form, so no draft/in-progress state exists.
+    const maternalTypes = ['antenatal', 'delivery', 'postnatal'];
+    const where: any = { attendanceType: { in: maternalTypes } };
+    const taskRelations: Record<string, any> = {
+      antenatal: { antenatalVisits: { some: Object.keys(range).length ? { visitDate: range } : {} } },
+      delivery: { deliveryRecords: { some: Object.keys(range).length ? { deliveryDate: range } : {} } },
+      postnatal: { postnatalRecords: { some: Object.keys(range).length ? { examinationDate: range } : {} } },
+    };
+    const pendingRelations: Record<string, any> = {
+      antenatal: { antenatalVisits: { none: {} } },
+      delivery: { deliveryRecords: { none: {} } },
+      postnatal: { postnatalRecords: { none: {} } },
+    };
+    if (view === 'in_progress') {
+      where.id = { in: [] };
+    } else if (view === 'completed') {
+      where.OR = maternalTypes.map(type => ({ attendanceType: type, ...taskRelations[type] }));
+    } else {
+      where.status = { in: ['pending', 'admitted'] };
+      where.OR = maternalTypes.map(type => ({ attendanceType: type, ...pendingRelations[type] }));
+      if (Object.keys(range).length) where.dateTime = range;
+    }
+
     const maternalAttendances = await this.findQueueAttendances(
-      this.attendanceQueueWhere(view, query, { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] } }),
-      { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } }, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 }, antenatalBookings: true, currentAntenatalBookings: true, antenatalVisits: { orderBy: { visitDate: 'desc' }, take: 1 }, deliveryRecords: { orderBy: { deliveryDate: 'desc' }, take: 1 }, postnatalRecords: { orderBy: { examinationDate: 'desc' }, take: 1 } },
+      where,
+      {
+        Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true, imageUrl: true } },
+        CounterClient: { select: { name: true, ageYears: true } },
+        Bed: { include: { Ward: true } },
+        Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+        antenatalBookings: true,
+        currentAntenatalBookings: true,
+        antenatalVisits: { where: Object.keys(range).length ? { visitDate: range } : {}, orderBy: { visitDate: 'desc' }, take: 1 },
+        deliveryRecords: { where: Object.keys(range).length ? { deliveryDate: range } : {}, orderBy: { deliveryDate: 'desc' }, take: 1 },
+        postnatalRecords: { where: Object.keys(range).length ? { examinationDate: range } : {}, orderBy: { examinationDate: 'desc' }, take: 1 },
+      },
     );
     maternalAttendances.sort((a: any, b: any) => compareAttendanceQueueRows(a, b));
     const processedItems = maternalAttendances.map((attendance: any) => {
@@ -4080,15 +4119,33 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       const delivery = attendance.deliveryRecords[0];
       const postnatal = attendance.postnatalRecords[0];
       const lastVitals = attendance.Vitals?.[0];
-      const hasBeenAttended = attendance.status === 'completed' || attendance.status === 'discharged';
-      const completedToday = hasBeenAttended && new Date(attendance.updatedAt).toDateString() === today.toDateString();
-      const waitTime = !hasBeenAttended ? Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000) : 0;
+      const completed = Boolean(attendance.antenatalVisits?.length || attendance.deliveryRecords?.length || attendance.postnatalRecords?.length);
+      const waitTime = completed ? 0 : Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000);
       let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       const riskLevel = antenatal?.riskLevel || 'low';
-      if (!hasBeenAttended) { const waitHours = waitTime / 60; if (riskLevel === 'high' || waitHours > 48) priority = 'stat'; else if (riskLevel === 'medium' || waitHours > 24) priority = 'urgent'; }
-      return { id: attendance.id, patientId: identity.patientId, attendanceId: attendance.id, attendanceNumber: identity.attendanceNumber, attendanceDateTime: identity.attendanceDateTime, queueRank: attendanceQueueRank(attendance), patient: identity.patient, location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined, visitType: attendance.attendanceType as any, status: identity.attendanceStatus, hasBeenAttended: completedToday, completedAt: completedToday ? attendance.updatedAt : undefined, waitTime, priority, riskLevel, encounterCategory: attendance.encounterCategory, gestationalAge: antenatal?.gestationalAgeWeeks, edd: antenatal?.edd, deliveryDate: delivery?.deliveryDate, deliveryType: delivery?.deliveryType, postnatalDay: postnatal?.dayNumber, complaints: attendance.medicalNotes, latestVitals: lastVitals ? { bloodPressure: lastVitals.bloodPressure, temperature: lastVitals.temperature, pulse: lastVitals.pulse } : undefined };
+      if (!completed) { const waitHours = waitTime / 60; if (riskLevel === 'high' || waitHours > 48) priority = 'stat'; else if (riskLevel === 'medium' || waitHours > 24) priority = 'urgent'; }
+      return {
+        id: attendance.id, patientId: identity.patientId, attendanceId: attendance.id,
+        attendanceNumber: identity.attendanceNumber, attendanceDateTime: identity.attendanceDateTime,
+        queueRank: attendanceQueueRank(attendance), patient: identity.patient,
+        location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined,
+        visitType: attendance.attendanceType as any, attendanceStatus: identity.attendanceStatus,
+        status: completed ? 'completed' : 'pending', hasBeenAttended: completed,
+        completedAt: attendance.antenatalVisits?.[0]?.visitDate || delivery?.deliveryDate || postnatal?.examinationDate,
+        waitTime, priority, riskLevel, encounterCategory: attendance.encounterCategory,
+        gestationalAge: antenatal?.gestationalAgeWeeks, edd: antenatal?.edd,
+        deliveryDate: delivery?.deliveryDate, deliveryType: delivery?.deliveryType,
+        postnatalDay: postnatal?.dayNumber, complaints: attendance.medicalNotes,
+        latestVitals: lastVitals ? { bloodPressure: lastVitals.bloodPressure, temperature: lastVitals.temperature, pulse: lastVitals.pulse } : undefined,
+      };
     });
-    return { view, total: processedItems.length, pending: processedItems.filter((i: any) => !i.hasBeenAttended).length, recent: processedItems.filter((i: any) => i.hasBeenAttended).length, buckets: bucketsOf(processedItems), data: processedItems };
+    return {
+      view, total: processedItems.length,
+      pending: processedItems.filter((i: any) => i.status === 'pending').length,
+      inProgress: 0,
+      completed: processedItems.filter((i: any) => i.status === 'completed').length,
+      buckets: bucketsOf(processedItems), data: processedItems,
+    };
   }
 
   /**
