@@ -158,28 +158,6 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
 
           {/* Compact Grid Layout */}
           <div className="grid grid-cols-2 gap-4">
-            {/* Temperature */}
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-[var(--text-primary)] flex items-center gap-2">
-                <Thermometer className="w-4 h-4 text-[var(--icon-orange-text)]" />
-                Temperature
-              </label>
-              <div className="relative">
-                <input                  type="number"
-                  step="0.1"
-                  placeholder="36.6"
-                  value={formData.temperature || ''}
-                  onChange={(e) => setFormData((prev: VitalsEntry) => ({ 
-                    ...prev, 
-                    temperature: e.target.value ? parseFloat(e.target.value) : undefined 
-                  }))}
-                  disabled={isLoading}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] placeholder-[var(--text-tertiary)] disabled:opacity-50 disabled:cursor-not-allowed pr-10"
-                />
-                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-[var(--text-secondary)]">°C</span>
-              </div>
-            </div>
-
             {/* Pulse */}
             <div className="space-y-2">
               <label className="block text-sm font-medium text-[var(--text-primary)] flex items-center gap-2">
@@ -199,6 +177,28 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] placeholder-[var(--text-tertiary)] disabled:opacity-50 disabled:cursor-not-allowed pr-16"
                 />
                 <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-[var(--text-secondary)]">bpm</span>
+              </div>
+            </div>
+
+            {/* Temperature */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] flex items-center gap-2">
+                <Thermometer className="w-4 h-4 text-[var(--icon-orange-text)]" />
+                Temperature
+              </label>
+              <div className="relative">
+                <input                  type="number"
+                  step="0.1"
+                  placeholder="36.6"
+                  value={formData.temperature || ''}
+                  onChange={(e) => setFormData((prev: VitalsEntry) => ({ 
+                    ...prev, 
+                    temperature: e.target.value ? parseFloat(e.target.value) : undefined 
+                  }))}
+                  disabled={isLoading}
+                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-transparent text-[var(--text-primary)] placeholder-[var(--text-tertiary)] disabled:opacity-50 disabled:cursor-not-allowed pr-10"
+                />
+                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-[var(--text-secondary)]">°C</span>
               </div>
             </div>
 
