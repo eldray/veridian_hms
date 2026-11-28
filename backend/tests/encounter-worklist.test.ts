@@ -493,6 +493,7 @@ describe('clinical request worklist timestamps', () => {
     const args = medication.findMany.mock.calls[0][0];
 
     expect(args.where.prescribedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
+    expect(args.where.dispensingStartedAt).toBeNull();
     expect(args.where.Attendance?.is?.dateTime).toBeUndefined();
     expect(args.orderBy).toEqual({ prescribedAt: 'desc' });
     expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
