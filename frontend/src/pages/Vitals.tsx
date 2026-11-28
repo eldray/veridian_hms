@@ -356,7 +356,7 @@ export default function VitalsWaitingList() {
       <div className={TABLE_SHELL}>
         <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
           <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            {isPendingQueue ? (
+            {view === 'pending' ? (isPendingQueue ? (
               <>
                 <Heart className="w-4 h-4 text-[var(--icon-red-text)]" />
                 Vitals Waiting List ({filteredPatients.length} patients)
@@ -366,13 +366,23 @@ export default function VitalsWaitingList() {
                 <History className="w-4 h-4 text-[var(--icon-green-text)]" />
                 Recent Vitals Recorded Today ({filteredPatients.length} patients)
               </>
+            )) : view === 'in_progress' ? (
+              <>
+                <Clock className="w-4 h-4 text-[var(--icon-orange-text)]" />
+                Vitals In Progress ({filteredPatients.length} patients)
+              </>
+            ) : (
+              <>
+                <History className="w-4 h-4 text-[var(--icon-green-text)]" />
+                Completed Vitals ({filteredPatients.length} patients)
+              </>
             )}
           </h2>
         </div>
 
         {filteredPatients.length === 0 ? (
           <div className="p-6 text-center">
-            {isPendingQueue ? (
+            {view === 'pending' ? (isPendingQueue ? (
               <>
                 <CheckCircle className="w-8 h-8 text-[var(--icon-green-text)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No patients waiting for vitals</p>
@@ -383,6 +393,18 @@ export default function VitalsWaitingList() {
                 <History className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No vitals recorded today</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">Record vitals to see them here</p>
+              </>
+            )) : view === 'in_progress' ? (
+              <>
+                <Clock className="w-8 h-8 text-[var(--icon-orange-text)] mx-auto mb-2 opacity-50" />
+                <p className="text-[var(--text-secondary)]">No vitals tasks in progress</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Start a vitals task by opening a pending visit</p>
+              </>
+            ) : (
+              <>
+                <History className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-50" />
+                <p className="text-[var(--text-secondary)]">No completed vitals for this date range</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Recorded readings will appear here</p>
               </>
             )}
           </div>
