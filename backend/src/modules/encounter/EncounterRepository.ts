@@ -4283,7 +4283,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       pending: processedItems.filter((i: any) => i.status === 'pending').length,
       inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length,
       completed: processedItems.filter((i: any) => i.status === 'completed').length,
-      buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : bucketsOf(processedItems), data: processedItems,
+      buckets: view === 'completed' ? { today: 0, inpatients: 0, overdue: 0, closed: processedItems.length } : view === 'pending' ? { today: processedItems.length, inpatients: 0, overdue: 0, closed: 0 } : { today: 0, inpatients: 0, overdue: 0, closed: 0 }, data: processedItems,
     };
   }
 
