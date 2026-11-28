@@ -475,7 +475,7 @@ describe('clinical request worklist timestamps', () => {
     const args = labTest.findMany.mock.calls[0][0];
 
     expect(args.where.requestedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
-    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.where.Attendance?.is?.dateTime).toBeUndefined();
     expect(args.orderBy).toEqual({ requestedAt: 'desc' });
     expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
     expect(result.data[0].tests[0].id).toBe('new-request');
@@ -493,7 +493,7 @@ describe('clinical request worklist timestamps', () => {
     const args = medication.findMany.mock.calls[0][0];
 
     expect(args.where.prescribedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
-    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.where.Attendance?.is?.dateTime).toBeUndefined();
     expect(args.orderBy).toEqual({ prescribedAt: 'desc' });
     expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
     expect(result.data[0].medications[0].id).toBe('new-rx');
@@ -511,7 +511,7 @@ describe('clinical request worklist timestamps', () => {
     const args = scan.findMany.mock.calls[0][0];
 
     expect(args.where.requestedAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
-    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.where.Attendance?.is?.dateTime).toBeUndefined();
     expect(args.orderBy).toEqual({ requestedAt: 'desc' });
     expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
     expect(result.data[0].scans[0].id).toBe('new-scan');
@@ -529,7 +529,7 @@ describe('clinical request worklist timestamps', () => {
     const args = procedure.findMany.mock.calls[0][0];
 
     expect(args.where.createdAt).toEqual({ gte: new Date('2026-11-24T00:00:00Z'), lte: new Date('2026-11-24T23:59:59Z') });
-    expect(args.where.Attendance.is.dateTime).toBeUndefined();
+    expect(args.where.Attendance?.is?.dateTime).toBeUndefined();
     expect(args.orderBy).toEqual({ createdAt: 'desc' });
     expect(result.data.map((row: any) => row.attendanceId)).toEqual(['new-visit', 'old-visit']);
     expect(result.data[0].procedureNames).toBe('Minor suturing');
