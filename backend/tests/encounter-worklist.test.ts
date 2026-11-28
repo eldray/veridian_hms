@@ -499,6 +499,24 @@ describe('clinical request worklist timestamps', () => {
     expect(result.data[0].medications[0].id).toBe('new-rx');
   });
 
+  it('separates started pharmacy dispensing tasks from pending prescriptions', async () => {
+    const startedAt = new Date('2026-11-24T10:00:00Z');
+    const medication = { findMany: vi.fn(async () => [
+      { id: 'started-rx', attendanceId: 'started-visit', name: 'Amoxicillin', status: 'prescribed', prescribedAt: new Date('2026-11-24T09:00:00Z'), dispensingStartedAt: startedAt, dispensedAt: null, StockItem: null, Attendance: requestAttendance('started') },
+    ]) };
+    const repository = new EncounterRepository({ medication } as any);
+    const result = await repository.getPharmacyWorklist({ view: 'in_progress' });
+    const args = medication.findMany.mock.calls[0][0];
+
+    expect(args.where.status).toBe('prescribed');
+    expect(args.where.dispensingStartedAt).toEqual({ not: null });
+    expect(result.view).toBe('in_progress');
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].status).toBe('in_progress');
+    expect(result.data[0].inProgressCount).toBe(1);
+    expect(result.data[0].medications[0].dispensingStartedAt).toEqual(startedAt);
+  });
+
   it('filters scan requests by requestedAt and sorts newest request groups first', async () => {
     const older = new Date('2026-11-24T08:15:00Z');
     const newest = new Date('2026-11-24T10:45:00Z');
