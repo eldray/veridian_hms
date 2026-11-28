@@ -780,6 +780,8 @@ export class EncounterService extends BaseService {
   // ============================================
   // PHARMACY (FIXED RACE CONDITION)
   // ============================================
+  async startMedicationDispensing(encounterId: string, medicationId: string, userId: string) { return this.repository.startMedicationDispensing(encounterId, medicationId, userId); }
+
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Dispensed quantity must be a positive whole number');
