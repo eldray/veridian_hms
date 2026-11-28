@@ -26,7 +26,14 @@ export class ServiceCatalogService extends BaseService {
     return service;
   }
 
-  async getAll(filters: any) { return this.repo.findWithFilters(filters); }
+  async getAll(filters: any) {
+    const result = await this.repo.findWithFilters(filters);
+    // ServicePricing is a one-to-many relation for historical pricing, but the
+    // catalogue UI consumes the currently active price as a single object.
+    // Keep the list response consistent with getById/getNHISServices so the
+    // Settings page does not render valid prices as GHS 0.00.
+    return { ...result, data: result.data.map((service: any) => this.flattenPricing(service)) };
+  }
 
   async getById(id: string) {
     const service = await this.repo.findByIdWithDetails(id);
