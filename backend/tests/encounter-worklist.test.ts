@@ -99,7 +99,7 @@ describe('vitals worklist view', () => {
     expect(result.view).toBe('pending');
     expect(where.status).toEqual({ not: 'cancelled' });
     expect(where.vitalsStartedAt).toBeNull();
-    expect(where.NOT).toEqual({ Vitals: { some: { recordedAt: { gte: expect.any(Date) } } } });
+    expect(where.NOT).toEqual({ Vitals: { some: {} } });
   });
 
   it('shows completed vitals by the actual recorded task, regardless of attendance closure', async () => {
@@ -125,8 +125,8 @@ describe('vitals worklist view', () => {
     const result = await repository.getVitalsWorklist({ view: 'in_progress' });
     const where = firstWhere(findMany);
 
-    expect(where.vitalsStartedAt.gte).toBeInstanceOf(Date);
-    expect(where.NOT).toEqual({ Vitals: { some: { recordedAt: { gte: expect.any(Date) } } } });
+    expect(where.vitalsStartedAt).toEqual({ not: null });
+    expect(where.NOT).toEqual({ Vitals: { some: {} } });
     expect(result.inProgress).toBe(1);
     expect(result.data[0].status).toBe('in_progress');
     expect(result.data[0].vitalsStartedAt).toEqual(startedAt);
