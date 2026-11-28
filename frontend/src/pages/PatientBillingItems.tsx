@@ -1,5 +1,5 @@
 import { useSmartBack } from '../utils/useSmartBack';
-import { PatientAvatar } from '../components/patients/PatientAvatar';
+import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 // src/pages/PatientBillingItems.tsx — Redesigned (Auto-Expanded)
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -890,23 +890,21 @@ export default function PatientBillingItems() {
       {/* ── Patient / attendance band ───────────────────────────────── */}
       <div className="relative z-30 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
         {patient && (
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] rounded-t-xl">
-            <div className="flex items-start gap-3 min-w-0">
-              <PatientAvatar patient={patient} size="sm" />
-              <div className="min-w-0">
-                <p className="font-semibold text-[var(--text-primary)] truncate">{getPatientName(patient)}</p>
-                <p className="text-[11px] text-[var(--text-secondary)] truncate">
-                  Folder {patient.folderNumber}
-                  {patient.contact ? ` · ${patient.contact}` : ''}
-                </p>
-              </div>
-            </div>
-            {canViewPatientProfile && (
+          <PatientVisitHeader
+            patient={patient}
+            attendance={selectedAttendance}
+            icon={Receipt}
+            accent="cyan"
+            fields={[
+              { label: 'Visit Type', value: selectedAttendance?.attendanceType || '—' },
+              { label: 'Payment Mode', value: getPaymentModeLabel(patientBills[0]?.paymentMode || 'cash') },
+            ]}
+            aside={canViewPatientProfile ? (
               <LinkButton to={`/dashboard/patients/${patient.id}`} variant="secondary" icon={Eye}>
                 View profile
               </LinkButton>
-            )}
-          </div>
+            ) : undefined}
+          />
         )}
 
         <div className="p-4">
