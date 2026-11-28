@@ -130,13 +130,13 @@ export class NotificationService extends BaseService {
   async sendAdmissionNotifications(admissionId: string) {
     const admission = await this.prisma.admission.findUnique({
       where: { id: admissionId },
-      include: { attendance: { include: { Patient: true, Ward: true, Bed: true } } }
+      include: { attendance: { include: { Patient: true, Ward: true, Bed: { include: { Ward: true } } } } }
     });
     if (!admission) return;
 
     const p = admission.attendance?.Patient;
     const patientFullName = p ? `${p.surname} ${p.otherNames}`.trim() : 'Unknown Patient';
-    const wardName = admission.attendance?.Ward?.wardName || 'Unknown Ward';
+    const wardName = admission.attendance?.Ward?.wardName || admission.attendance?.Bed?.Ward?.wardName || 'Unknown Ward';
     const bedNumber = admission.attendance?.Bed?.bedNumber || 'Unknown';
     const createdById = admission.attendance?.createdById;
 
