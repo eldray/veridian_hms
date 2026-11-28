@@ -119,11 +119,12 @@ const PanelShell = ({
   </div>
 );
 
-const CountBadge = ({ n }: { n: number }) => (
+const CountBadge = ({ n, Icon }: { n: number; Icon: React.ComponentType<any> }) => (
   <div
-    className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-semibold"
+    className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-semibold"
     style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}
   >
+    <Icon className="w-3 h-3" aria-hidden="true" />
     {n}
   </div>
 );
@@ -223,7 +224,7 @@ export function WorklistPanel({ kind }: { kind: WorklistKind }) {
         <>
           <div className="flex items-center justify-between mb-2 px-1">
             <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Waiting</span>
-            <CountBadge n={pending} />
+            <CountBadge n={pending} Icon={Clock} />
           </div>
           <div className="space-y-2">
             {toArray(items).slice(0, 25).map((it) => {
@@ -295,7 +296,7 @@ const paymentModeLabel = (mode: PaymentMode) =>
 
 export function RecentActivity({ items, loading }: { items: any[]; loading: boolean }) {
   return (
-    <PanelShell title="Recent Activity" subtitle="Latest patient visits" badge={<CountBadge n={toArray(items).length} />}>
+    <PanelShell title="Recent Activity" subtitle="Latest patient visits" badge={<CountBadge n={toArray(items).length} Icon={CalendarCheck} />}>
       {loading ? <ListSkeleton /> : toArray(items).length === 0 ? (
         <EmptyState Icon={Stethoscope} text="No visits recorded" />
       ) : (
@@ -541,7 +542,7 @@ export function NurseSummary() {
       subtitle="Admitted patients today"
       Icon={BedDouble}
       iconColor="var(--icon-green-text)"
-      badge={<CountBadge n={admitted.length} />}
+      badge={<CountBadge n={admitted.length} Icon={BedDouble} />}
     >
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
@@ -725,7 +726,7 @@ export function LabSummary() {
       subtitle="Today's test activity"
       Icon={FlaskConical}
       iconColor="var(--icon-purple-text)"
-      badge={<CountBadge n={total} />}
+      badge={<CountBadge n={total} Icon={FlaskConical} />}
     >
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
@@ -813,7 +814,7 @@ export function ScanSummary() {
       subtitle="Today's radiology activity"
       Icon={ScanLine}
       iconColor="var(--icon-cyan-text)"
-      badge={<CountBadge n={total} />}
+      badge={<CountBadge n={total} Icon={ScanLine} />}
     >
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
@@ -1007,7 +1008,7 @@ export function MedsDuePanel() {
       subtitle="Doses to administer now"
       Icon={Pill}
       iconColor="var(--icon-orange-text)"
-      badge={<CountBadge n={due + late + missed} />}
+      badge={<CountBadge n={due + late + missed} Icon={Pill} />}
     >
       {loading ? <ListSkeleton rows={3} h="h-12" /> : (
         <div className="space-y-3">
@@ -1095,7 +1096,7 @@ export function ExpiringStockPanel() {
       subtitle="Next 30 days"
       Icon={Package}
       iconColor="var(--icon-red-text)"
-      badge={<CountBadge n={toArray(items).length} />}
+      badge={<CountBadge n={toArray(items).length} Icon={Package} />}
     >
       {loading ? <ListSkeleton rows={4} h="h-12" /> : toArray(items).length === 0 ? (
         <EmptyState Icon={Package} text="No items expiring soon" />
@@ -1177,7 +1178,7 @@ export function CriticalResultsPanel() {
       subtitle="Immediate notification needed"
       Icon={AlertTriangle}
       iconColor="var(--icon-red-text)"
-      badge={<CountBadge n={toArray(items).length} />}
+      badge={<CountBadge n={toArray(items).length} Icon={AlertTriangle} />}
     >
       {loading ? <ListSkeleton rows={3} h="h-12" /> : toArray(items).length === 0 ? (
         <EmptyState Icon={CheckCircle} text="No critical results pending" />
@@ -1501,7 +1502,7 @@ export function HRSummaryPanel() {
       subtitle="Active employees"
       Icon={Users}
       iconColor="var(--icon-cyan-text)"
-      badge={<CountBadge n={stats.totalStaff} />}
+      badge={<CountBadge n={stats.totalStaff} Icon={Users} />}
     >
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
@@ -1589,7 +1590,7 @@ export function PaymentModePanel() {
       subtitle="Today's visits"
       Icon={CreditCard}
       iconColor="var(--icon-green-text)"
-      badge={<CountBadge n={data.total} />}
+      badge={<CountBadge n={data.total} Icon={CreditCard} />}
     >
       {loading ? <ListSkeleton rows={3} h="h-14" /> : (
         <div className="space-y-3">
@@ -1656,7 +1657,7 @@ export function WardOccupancyPanel() {
       subtitle="Beds currently in use"
       Icon={BedDouble}
       iconColor="var(--icon-purple-text)"
-      badge={<CountBadge n={data.total} />}
+      badge={<CountBadge n={data.total} Icon={BedDouble} />}
     >
       {loading ? <ListSkeleton rows={2} h="h-16" /> : (
         <div className="space-y-4">
