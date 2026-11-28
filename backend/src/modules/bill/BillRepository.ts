@@ -67,7 +67,13 @@ export class BillRepository extends BaseRepository<any, any, any> {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true } },
         CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, dateTime: true } },
-        BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } },
+        BillLineItem: {
+          where: { isVoided: false },
+          include: {
+            serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } },
+            wardChargeRecord: { select: { ward: { select: { wardName: true } } } },
+          },
+        },
         Payment: true
       }
     }).then(res => ({ bills: res.data, total: res.total, page: res.page, limit: res.limit }));
@@ -80,7 +86,13 @@ export class BillRepository extends BaseRepository<any, any, any> {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, imageUrl: true, contact: true } },
         CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, dateTime: true } },
-        BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } },
+        BillLineItem: {
+          where: { isVoided: false },
+          include: {
+            serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } },
+            wardChargeRecord: { select: { ward: { select: { wardName: true } } } },
+          },
+        },
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
         // A payment carries its own refunds so the bill screen can show what is still refundable.
         Payment: {
