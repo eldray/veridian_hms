@@ -268,6 +268,7 @@ export default function AuditLogs() {
     setPage,
     setLimit,
     exportCsv,
+    exportXlsx,
     clearError,
     error,
   } = useAuditStore();
@@ -329,6 +330,23 @@ export default function AuditLogs() {
     }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      const blob = await exportXlsx();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit-logs-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      success('Exported', 'Audit logs Excel workbook downloaded');
+    } catch {
+      toastError('Export failed', 'Could not export audit logs to Excel');
+    }
+  };
+
   // ── Server pagination, with fallbacks so the bar NEVER silently disappears ──
   // If the store/API omits totalPages (or reports 0), derive it from total ÷ limit.
   // If total is missing too, fall back to the loaded row count — a visible bar
@@ -369,7 +387,10 @@ export default function AuditLogs() {
             )}
           </button>
           <Button icon={Download} loading={isExporting} onClick={handleExport}>
-            {isExporting ? 'Exporting…' : 'Export CSV'}
+            Export CSV
+          </Button>
+          <Button icon={Download} loading={isExporting} onClick={handleExportExcel}>
+            Export Excel
           </Button>
           <Button icon={RefreshCw} loading={isLoading} onClick={() => void fetchLogs()}>
             {isLoading ? 'Refreshing...' : 'Refresh'}
