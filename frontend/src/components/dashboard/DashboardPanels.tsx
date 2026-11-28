@@ -538,7 +538,7 @@ export function NurseSummary() {
     <PanelShell
       title="Ward Summary"
       subtitle="Admitted patients today"
-      Icon={Bed}
+      Icon={BedDouble}
       iconColor="var(--icon-green-text)"
       badge={<CountBadge n={admitted.length} />}
     >
@@ -559,29 +559,50 @@ export function NurseSummary() {
             ) : (
               <div className="space-y-1.5">
                 {admitted.slice(0, 6).map((a) => {
-                  const p = a.patient || a.Patient || {};
-            const name = patientFullName(a);
+                  const name = patientFullName(a);
+                  const admissionNumber = a.admissionNumber || a.admission?.admissionNumber
+                    || a.Admission?.admissionNumber || a.admission?.Admission?.admissionNumber;
+                  const folderNumber = getPatientFolderNumber(a) || '—';
+                  const attendanceNumber = getAttendanceNumber(a);
                   const bed = getBedNumber(a) || '—';
-                  const ward = getWardName(a) || '';
+                  const ward = getWardName(a) || '—';
                   return (
                     <Link
                       key={a.id}
                       to="/dashboard/nursing"
-                      className="flex items-center justify-between px-3 py-2 rounded-lg border"
+                      className="block px-3 py-2 rounded-lg border"
                       style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
                     >
-                      <div className="min-w-0">
+                      <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
-                        <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                          {getPatientFolderNumber(p) || '—'}{ward ? ` · ${ward}` : ''}
-                        </p>
+                        {admissionNumber && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0"
+                            style={{ background: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' }} title="Admission number">
+                            <BedDouble className="w-3 h-3" aria-hidden="true" />
+                            {admissionNumber}
+                          </span>
+                        )}
                       </div>
-                      <span
-                        className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0 ml-2"
-                        style={{ background: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' }}
-                      >
-                        Bed {bed}
-                      </span>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                        <span className="inline-flex items-center gap-1" title="Patient folder number">
+                          <UserRound className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                          {folderNumber}
+                        </span>
+                        {attendanceNumber && (
+                          <span className="inline-flex items-center gap-1" title="Attendance number">
+                            <CalendarCheck className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                            {attendanceNumber}
+                          </span>
+                        )}
+                        <span className="inline-flex items-center gap-1 min-w-0">
+                          <MapPin className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                          <span className="truncate">{ward}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          <Bed className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+                          {bed}
+                        </span>
+                      </div>
                     </Link>
                   );
                 })}
@@ -1628,7 +1649,10 @@ export function WardOccupancyPanel() {
         <div className="space-y-4">
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{pct}%</span>
+              <span className="inline-flex items-center gap-2 text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                <BedDouble className="w-5 h-5" style={{ color: 'var(--icon-purple-text)' }} aria-hidden="true" />
+                {pct}%
+              </span>
               <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 {data.occupied} of {data.total} beds
               </span>
