@@ -62,6 +62,10 @@ const transform = (value: any, depth: number = 0): any => {
   if (depth > 30) return value; // bail out — pathological nesting
   if (value === null || value === undefined) return value;
 
+  // JSON.stringify cannot serialize bigint values. Preserve their exact integer
+  // representation as strings rather than converting to Number and risking precision loss.
+  if (typeof value === 'bigint') return value.toString();
+
   // Prisma Decimal
   if (value instanceof Prisma.Decimal) {
     // Decimal(15,2) max is 9_999_999_999_999.99 — comfortably inside Number.MAX_SAFE_INTEGER
