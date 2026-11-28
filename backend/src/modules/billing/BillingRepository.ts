@@ -622,6 +622,26 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     });
   }
 
+  /** Direct patient-side receipts for finalized Premier claims; these are not Bill/Payment rows. */
+  async findPremierClaimPatientCollections(dateFrom: Date, dateTo: Date) {
+    return this.prisma.insuranceClaimPatientPayment.findMany({
+      where: { transactionDate: { gte: dateFrom, lte: dateTo } },
+      orderBy: { transactionDate: 'desc' },
+      include: {
+        receivedBy: { select: { id: true, fullName: true, username: true } },
+        patient: { select: { surname: true, otherNames: true, folderNumber: true } },
+        claim: {
+          select: {
+            id: true,
+            claimNumber: true,
+            Attendance: { select: { attendanceNumber: true } },
+            InsuranceProvider: { select: { name: true } },
+          },
+        },
+      },
+    });
+  }
+
   async updateStatus(id: string, status: BillStatus, userId: string) {
     return this.prisma.$transaction(async (tx) => {
       if (typeof tx.$queryRaw === 'function') {

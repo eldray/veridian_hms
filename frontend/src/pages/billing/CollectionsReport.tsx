@@ -37,12 +37,15 @@ const narrationOf = (payment: BillingCollectionPayment) => {
   const items = payment.items.map((item) => item.description).filter(Boolean);
   const head = items.slice(0, 2).join(', ');
   const rest = items.length > 2 ? ` +${items.length - 2} more` : '';
-  return [`${payment.bill.billNumber}${head ? ` · ${head}${rest}` : ''}`, payment.notes].filter(Boolean).join(' — ');
+  const reference = payment.sourceType === 'premier_claim_patient_payment'
+    ? `Claim ${payment.claimNumber || payment.bill.billNumber}${payment.attendanceNumber ? ` · Attendance ${payment.attendanceNumber}` : ''}${payment.providerName ? ` · ${payment.providerName}` : ''}`
+    : payment.bill.billNumber;
+  return [`${reference}${head ? ` · ${head}${rest}` : ''}`, payment.notes].filter(Boolean).join(' — ');
 };
 
 type DetailRow = {
   payment: BillingCollectionPayment;
-  kind: 'collection' | 'reversal' | 'refund';
+  kind: 'collection' | 'claim_collection' | 'reversal' | 'refund';
   text: string;
 };
 
@@ -75,7 +78,7 @@ export default function CollectionsReport({
 
   const details = useMemo<DetailRow[]>(() => {
     const rows: DetailRow[] = [
-      ...report.payments.map((payment) => ({ payment, kind: 'collection' as const, text: '' })),
+      ...report.payments.map((payment) => ({ payment, kind: (payment.sourceType === 'premier_claim_patient_payment' ? 'claim_collection' : 'collection') as DetailRow['kind'], text: '' })),
       ...report.reversals.map((payment) => ({
         payment,
         kind: (payment.isRefund ? 'refund' : 'reversal') as DetailRow['kind'],
@@ -85,7 +88,7 @@ export default function CollectionsReport({
     for (const row of rows) {
       const { payment } = row;
       row.text = [
-        payment.reference, payment.bill.billNumber, payment.bill.customer.name, payment.bill.customer.reference,
+        payment.reference, payment.bill.billNumber, payment.claimNumber, payment.attendanceNumber, payment.providerName, payment.bill.customer.name, payment.bill.customer.reference,
         // Walk-in payers have no folder, so "walk-in" has to be searchable or the only way to
         // find them is to read the Folder # column row by row.
         payment.bill.customer.kind === 'walk_in' ? 'walk-in walk in' : 'patient folder',
@@ -104,9 +107,9 @@ export default function CollectionsReport({
 
   const exportCsv = () => {
     try {
-      const header = ['Receipt #', 'Date', 'Time', 'Type', 'Folder #', 'Paid by', 'Bill #', 'Method', 'Collected by', 'Breakdown group', 'Breakdown line', 'Line', 'Qty', 'Amount'];
+      const header = ['Receipt #', 'Date', 'Time', 'Type', 'Folder #', 'Paid by', 'Bill / Claim #', 'Method', 'Collected by', 'Breakdown group', 'Breakdown line', 'Line', 'Qty', 'Amount'];
       const lines: string[][] = [];
-      for (const payment of [...report.payments.map((p) => ({ p, kind: 'Collection' })), ...report.reversals.map((p) => ({ p, kind: p.isRefund ? 'Refund' : 'Reversal' }))]) {
+      for (const payment of [...report.payments.map((p) => ({ p, kind: p.sourceType === 'premier_claim_patient_payment' ? 'Premier claim collection' : 'Collection' })), ...report.reversals.map((p) => ({ p, kind: p.isRefund ? 'Refund' : 'Reversal' }))]) {
         for (const item of payment.p.items) {
           const group = report.groups.find((g) => g.lines.some((l) => l.key === item.breakdownRow));
           lines.push([
@@ -116,7 +119,7 @@ export default function CollectionsReport({
             payment.kind,
             payment.p.bill.customer.reference || 'walk-in',
             payment.p.bill.customer.name,
-            payment.p.bill.billNumber,
+            payment.p.sourceType === 'premier_claim_patient_payment' ? `Claim ${payment.p.claimNumber || payment.p.bill.billNumber}` : payment.p.bill.billNumber,
             humanMethod(payment.p.paymentMethod),
             payment.p.collector?.fullName || payment.p.collector?.username || '',
             group?.label || '',
@@ -159,7 +162,7 @@ export default function CollectionsReport({
     <section className="space-y-4">
       <Card
         title="Collections report"
-        description={`Receipts, reversals, refunds and what the money bought · ${periodLabel}`}
+        description={`Receipts, reversals, refunds and direct Premier claim collections · ${periodLabel}`}
         icon={Banknote}
         accent="green"
         actions={(
@@ -195,7 +198,7 @@ export default function CollectionsReport({
             className="w-full sm:max-w-sm flex-1"
             value={search}
             onChange={(value) => { setSearch(value); setPage(1); }}
-            placeholder="Search receipt, patient, folder, bill or collector..."
+            placeholder="Search receipt, patient, folder, bill, claim or collector..."
           />
         </div>
       </Card>
@@ -324,6 +327,8 @@ export default function CollectionsReport({
                               <Badge tone="yellow" size="sm" dot>refunded</Badge>
                             ) : row.kind === 'reversal' ? (
                               <Badge tone="red" size="sm" dot>reversed</Badge>
+                            ) : row.kind === 'claim_collection' ? (
+                              <Badge tone="green" size="sm" dot>claim receipt</Badge>
                             ) : (
                               <Badge tone="green" size="sm" dot>paid</Badge>
                             )}
