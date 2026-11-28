@@ -26,6 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { useToast } from '../store/toastStore';
+import { startVitalsTask } from '../api';
 import {
   HeartPulse,
   Activity,
@@ -199,7 +200,15 @@ export default function VitalsWaitingList() {
     recentVitals: recentPatients.length
   };
 
-  const handlePatientClick = (patient: any) => {
+  const handlePatientClick = async (patient: any) => {
+    try {
+      if (!patient.hasVitalsToday && view !== 'completed') {
+        await startVitalsTask(patient.attendanceId);
+      }
+    } catch (err: any) {
+      toastError('Could not start vitals', err.response?.data?.message || err.message || 'Refresh the waiting list and try again.');
+      return;
+    }
     navigate(`/dashboard/vitals/${patient.patientId}`, {
       state: {
         patient: {
