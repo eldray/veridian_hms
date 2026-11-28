@@ -1085,7 +1085,6 @@ export default function PatientBillingItems() {
             {paginatedBills.map((bill) => {
               const billDetails = billDetailsById[bill.id]
                 ?? (Array.isArray((bill as any).BillLineItem) ? bill as ProcessedBill : null);
-              const isThisBillLoaded = Boolean(billDetails);
               const isLoadingThis = loadingBillIds.has(bill.id);
               const groupedItems = billDetails ? getGroupedBillItems(billDetails) : {};
               const billItems = billDetails?.BillLineItem?.filter((item) => !item.isVoided) || [];
@@ -1179,7 +1178,7 @@ export default function PatientBillingItems() {
                       <div className="flex justify-center py-8">
                         <div className="w-8 h-8 border-2 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin" />
                       </div>
-                    ) : isThisBillLoaded ? (
+                    ) : billDetails ? (
                       <div className="p-4 sm:p-5">
                         {/* Toolbar */}
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
