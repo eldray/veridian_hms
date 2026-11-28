@@ -4071,6 +4071,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const range: any = {};
     if (query.dateFrom) range.gte = query.dateFrom;
     if (query.dateTo) range.lte = query.dateTo;
+    if (view === 'completed' && !Object.keys(range).length) range.gte = startOfCurrentDay();
 
     // A maternal visit is complete only when its own clinical record exists:
     // ANCVisit, DeliveryRecord or PostnatalRecord. Closing an attendance is not
