@@ -131,12 +131,12 @@ export function PatientVisitHeader({
     { label: 'Visit No.', value: getAttendanceNumber(attendance) || 'New Visit', mono: true },
     { label: 'Visit Date', value: visitDate(attendance) },
     ...(patient?.contact ? [{ label: 'Phone', value: patient.contact }] : []),
-    ...(ward
+    ...(ward || bedNumber
       ? [{
           label: 'Location',
-          value: bedNumber
-            ? `${ward} · Bed ${bedNumber}`
-            : ward,
+          value: ward
+            ? (bedNumber ? `${ward} · Bed ${bedNumber}` : ward)
+            : `Bed ${bedNumber}`,
         }]
       : []),
   ];
