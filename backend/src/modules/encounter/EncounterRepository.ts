@@ -1569,6 +1569,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (prescriptionFields.some((field) => data[field] !== undefined) || data.notes !== undefined) {
         await this.requireUnfinalizedClinicalEncounter(encounterId, tx);
       }
+      if (med.dispensingStartedAt && prescriptionFields.some((field) => data[field] !== undefined)) {
+        throw new ConflictError('A prescription cannot be edited after pharmacy dispensing has started; ask pharmacy to resolve the in-progress task first');
+      }
       if (med.status !== 'prescribed' && prescriptionFields.some((field) => data[field] !== undefined)) {
         throw new ConflictError('Only an undispensed prescription can be edited; dispensed or administered medication requires a documented clinical correction workflow');
       }
@@ -1931,9 +1934,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.findFirst({
         where: { id: medicationId, attendanceId: encounterId },
-        select: { id: true, status: true, quantity: true, prescribedAt: true, prescribedById: true },
+        select: { id: true, status: true, quantity: true, prescribedAt: true, prescribedById: true, dispensingStartedAt: true },
       });
       if (!medication) throw new NotFoundError('Medication', medicationId);
+      if (medication.dispensingStartedAt) {
+        throw new ConflictError('A prescription with pharmacy dispensing in progress cannot be deleted; resolve the pharmacy task first');
+      }
       if (medication.status === 'dispensed' || medication.status === 'administered') {
         throw new ConflictError('A dispensed or administered medication cannot be removed as an ordinary deletion; document a dispensing return or clinical correction');
       }
